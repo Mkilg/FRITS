@@ -218,3 +218,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# FRITS: real customer data, AI keys and name mappings must never be committed
+workspace/
+.env
+*.mappings.json
