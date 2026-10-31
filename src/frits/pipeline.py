@@ -67,7 +67,7 @@ def process_file(
         # Not recorded as a job: once the problem is fixed, the same file may be dropped again.
         return Outcome("check-me", str(exc))
 
-    job_id = store.add_job(conn, digest, path.name, "drafted")
+    job_id = store.add_job(conn, digest, path.name, "drafted", sent_text=redacted.text)
     store.log_ai_call(conn, job_id, usage, hashlib.sha256(redacted.text.encode()).hexdigest())
     redacted.mapping.save(ws.mappings / f"{job_id}.json")
 

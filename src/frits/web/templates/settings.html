@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Einstellungen · FRITS{% endblock %}
+{% block content %}
+<h1>Einstellungen</h1>
+<form method="post" action="/settings" class="form">
+  <input type="hidden" name="token" value="{{ token }}">
+  <section class="card">
+    <h2>Über dich</h2>
+    <p class="hint">Das steht auf jeder Rechnung.</p>
+    <label class="field">Dein Name <input name="name" value="{{ settings.name }}"></label>
+    <label class="field">Firmenname (optional) <input name="company" value="{{ settings.company }}"></label>
+    <label class="field">Adresse <textarea name="address" rows="3" placeholder="Straße Nr.&#10;PLZ Ort">{{ settings.address.replace(', ', '\n') }}</textarea></label>
+    <label class="field">E-Mail <input name="email" type="email" value="{{ settings.email }}"></label>
+    <label class="field">Telefon <input name="phone" value="{{ settings.phone }}"></label>
+  </section>
+  <section class="card">
+    <h2>Steuern</h2>
+    <label class="choice"><input type="radio" name="tax_mode" value="kleinunternehmer" {{ "checked" if settings.tax_mode == "kleinunternehmer" }}> Kleinunternehmer (§ 19 UStG): keine Umsatzsteuer auf der Rechnung</label>
+    <label class="choice"><input type="radio" name="tax_mode" value="regelbesteuerung" {{ "checked" if settings.tax_mode == "regelbesteuerung" }}> Mit Umsatzsteuer</label>
+    <label class="field">Steuersatz in % <input name="vat_rate" inputmode="decimal" value="{{ settings.vat_rate | qty }}" size="4"></label>
+    <label class="field">Steuernummer <input name="steuernummer" value="{{ settings.steuernummer }}"></label>
+    <label class="field">USt-IdNr. (falls vorhanden) <input name="ust_id" value="{{ settings.ust_id }}"></label>
+    <p class="hint">Unsicher? Frag kurz deine Steuerberatung. Das ist völlig in Ordnung.</p>
+  </section>
+  <section class="card">
+    <h2>Bank</h2>
+    <label class="field">Bank <input name="bank" value="{{ settings.bank }}"></label>
+    <label class="field">IBAN <input name="iban" value="{{ settings.iban }}"></label>
+    <label class="field">BIC <input name="bic" value="{{ settings.bic }}"></label>
+  </section>
+  <section class="card">
+    <h2>Preise</h2>
+    <label class="field">Stundensatz in € <input name="hourly_rate" inputmode="decimal" value="{{ settings.hourly_rate | qty }}"></label>
+    <label class="field">Fahrtkosten pro km in € <input name="km_rate" inputmode="decimal" value="{{ settings.km_rate | qty }}"></label>
+    <label class="field">Zahlungsziel in Tagen <input name="payment_days" inputmode="numeric" value="{{ settings.payment_days }}"></label>
+  </section>
+  <section class="card">
+    <h2>KI</h2>
+    <label class="field">Welche KI liest deine Notizen?
+      <select name="provider">{% for key, label in providers.items() %}<option value="{{ key }}" {{ "selected" if key == settings.provider }}>{{ label }}</option>{% endfor %}</select>
+    </label>
+    <label class="field">API-Schlüssel für die gewählte KI
+      <input name="api_key" type="password" autocomplete="off" placeholder="{{ 'gespeichert ✓ (leer lassen, um ihn zu behalten)' if keys.get(settings.provider) else 'hier einfügen' }}">
+    </label>
+    <p class="hint">Der Schlüssel kommt in den Schlüsselbund dieses Macs, nicht in eine Datei. FRITS zeigt ihn nie wieder an.</p>
+    <label class="choice"><input type="checkbox" name="strict_local" {{ "checked" if settings.strict_local }}> Strikter Modus: nur die lokale KI benutzen, nichts verlässt diesen Computer</label>
+  </section>
+  <section class="card">
+    <h2>Klang</h2>
+    <label class="choice"><input type="checkbox" name="sound" {{ "checked" if settings.sound }}> Kleine Klänge und ruhige Musik zum Konzentrieren</label>
+  </section>
+  <div class="row actions"><button class="primary">Speichern</button></div>
+</form>
+<p class="hint">Deine Daten liegen in {{ folder }}.</p>
+{% endblock %}

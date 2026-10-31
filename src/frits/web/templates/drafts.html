@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Entwürfe · FRITS{% endblock %}
+{% block content %}
+<div class="head-row">
+  <h1>Entwürfe</h1>
+  <form method="post" action="/drafts/new">
+    <input type="hidden" name="token" value="{{ token }}">
+    <button>Neue Rechnung von Hand</button>
+  </form>
+</div>
+{% if drafts %}
+<ul class="list">
+  {% for d in drafts %}
+  <li><a href="/drafts/{{ d.id }}">
+    <span>{{ d.draft.customer_name or "Kunde unklar" }}</span>
+    <span class="muted">{{ "Angebot · " if d.draft.kind == "quote" }}{{ d.draft.source_file }} · {{ d.created | de_date }}</span>
+    <span class="amount">{{ d.sums.gross | eur }}</span>
+    <span class="badge {{ 'ok' if d.ready else 'todo' }}">{{ "bereit" if d.ready else "braucht dich" }}</span>
+  </a></li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">Keine offenen Entwürfe. Neue entstehen, wenn du Dateien in den Eingang legst.</p>
+{% endif %}
+{% endblock %}

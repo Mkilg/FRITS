@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Kunden · FRITS{% endblock %}
+{% block content %}
+<div class="head-row">
+  <h1>Kunden</h1>
+  <div class="row">
+    <form method="post" action="/open/customers"><input type="hidden" name="token" value="{{ token }}"><button class="quiet">Ordner öffnen</button></form>
+    <a class="button primary" href="/customers/new">Neuer Kunde</a>
+  </div>
+</div>
+<p class="hint">Jeder Kunde ist eine Markdown-Notiz im Ordner „customers“. Du kannst sie auch in Obsidian oder einem Texteditor öffnen und eigene Notizen darunter schreiben.</p>
+{% if customers %}
+<ul class="cards">
+  {% for c in customers %}
+  <li class="card"><a href="/customers/{{ c.id }}">
+    <strong>{{ c.display_name }}</strong>
+    {% if c.company %}<span>{{ c.name }}</span>{% endif %}
+    <span class="muted">{{ c.address or "Adresse fehlt" }}</span>
+    {% if c.hourly_rate %}<span class="muted">{{ c.hourly_rate | eur }} pro Stunde</span>{% endif %}
+  </a></li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">Noch keine Kunden.</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Zum Prüfen · FRITS{% endblock %}
+{% block content %}
+<h1>Bitte einmal ansehen</h1>
+<p class="hint">Diese Dateien habe ich nicht verarbeitet. Aus Sicherheit wurde nichts an die KI geschickt.</p>
+{% if files %}
+<ul class="list">
+  {% for f in files %}
+  <li class="split"><span><strong>{{ f.name }}</strong><br><span class="muted">{{ f.reason }}</span></span>
+    <form method="post" action="/check-me/retry"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="name" value="{{ f.name }}"><button class="tiny">Zurück in den Eingang</button></form>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">Alles erledigt.</p>
+{% endif %}
+<form method="post" action="/open/check-me"><input type="hidden" name="token" value="{{ token }}"><button class="quiet">Ordner öffnen</button></form>
+{% endblock %}

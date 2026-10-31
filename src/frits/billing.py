@@ -48,6 +48,7 @@ class Draft:
     questions: list[str]
     warnings: list[str]
     source_file: str
+    kind: str = "invoice"  # invoice | quote: what the review screen's main button makes
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), default=str, ensure_ascii=False)
@@ -254,6 +255,105 @@ def cancel(conn, number: str, settings: Settings, invoices_dir: Path, today: dat
         )
         render_invoice(pdf_path, storno, draft, sums, settings, today, None, cancels=number)
     return storno, pdf_path
+
+
+def parse_amount(text: str | None) -> Decimal | None:
+    """Read a number the way Fritz types it: "40", "40,5", "1.234,50" or "40.50"."""
+    text = (text or "").strip().replace("€", "").replace(" ", "")
+    if not text:
+        return None
+    if "," in text:
+        text = text.replace(".", "").replace(",", ".")
+    try:
+        value = Decimal(text)
+    except ArithmeticError:
+        raise BillingError(f"„{text}“ ist keine Zahl.") from None
+    if not value.is_finite():
+        raise BillingError(f"„{text}“ ist keine Zahl.")
+    return value
+
+
+def set_customer(draft: Draft, customer: Customer | None) -> None:
+    draft.customer_id = customer.id if customer else None
+    draft.customer_name = customer.display_name if customer else draft.customer_name
+    draft.customer_address = customer.address if customer else None
+
+
+def reviewed_line(
+    description: str, when: str | None, quantity: Decimal, unit: str, price: Decimal | None
+) -> Line:
+    """A line Fritz has looked at and saved. His price counts as his OK, so old flags go."""
+    if not description.strip():
+        raise BillingError("Jede Position braucht eine Beschreibung.")
+    if quantity == 0:
+        raise BillingError(f"Die Menge bei „{description}“ darf nicht 0 sein.")
+    if price is not None and price < 0:
+        raise BillingError(f"Der Preis bei „{description}“ darf nicht negativ sein.")
+    return Line(
+        description=description.strip(),
+        date=(when or "").strip() or None,
+        quantity=quantity,
+        unit=unit,
+        unit_price=price,
+        flags=[] if price is not None else ["needs_price"],
+    )
+
+
+def load_draft(conn, draft_id: int) -> tuple[Draft, dict]:
+    row = conn.execute("SELECT * FROM drafts WHERE id = ?", (draft_id,)).fetchone()
+    if row is None:
+        raise BillingError(f"Entwurf {draft_id} gibt es nicht.")
+    return Draft.from_json(row["data"]), dict(row)
+
+
+def save_draft(conn, draft_id: int, draft: Draft) -> None:
+    cur = conn.execute(
+        "UPDATE drafts SET data = ?, customer_id = ? WHERE id = ? AND status = 'draft'",
+        (draft.to_json(), draft.customer_id, draft_id),
+    )
+    if cur.rowcount == 0:
+        raise BillingError(f"Entwurf {draft_id} kann nicht mehr geändert werden.")
+
+
+def new_draft(conn, draft: Draft, job_id: int | None = None) -> int:
+    cur = conn.execute(
+        "INSERT INTO drafts (job_id, created, customer_id, data) VALUES (?, ?, ?, ?)",
+        (job_id, store.now(), draft.customer_id, draft.to_json()),
+    )
+    return cur.lastrowid
+
+
+def discard_draft(conn, draft_id: int) -> None:
+    """Throw a draft away. Safe: no number was used, so nothing has to be cancelled."""
+    cur = conn.execute(
+        "UPDATE drafts SET status = 'discarded' WHERE id = ? AND status = 'draft'", (draft_id,)
+    )
+    if cur.rowcount == 0:
+        raise BillingError(f"Entwurf {draft_id} kann nicht verworfen werden.")
+
+
+def invoice_status(row, today: date | None = None) -> str:
+    """bezahlt | storniert | storno | offen | überfällig"""
+    today = today or date.today()
+    if row["cancels"]:
+        return "storno"
+    if row["cancelled_by"]:
+        return "storniert"
+    if row["paid_date"]:
+        return "bezahlt"
+    if row["due_date"] and date.fromisoformat(row["due_date"]) < today:
+        return "überfällig"
+    return "offen"
+
+
+def list_invoices(conn, today: date | None = None) -> list[dict]:
+    rows = conn.execute(
+        "SELECT i.*, c.number AS cancelled_by,"
+        " (SELECT COUNT(*) FROM reminders r WHERE r.invoice_number = i.number) AS reminders"
+        " FROM invoices i LEFT JOIN invoices c ON c.cancels = i.number"
+        " ORDER BY i.number DESC"
+    ).fetchall()
+    return [{**dict(row), "status": invoice_status(row, today)} for row in rows]
 
 
 def mark_paid(conn, number: str, paid: date | None = None) -> None:

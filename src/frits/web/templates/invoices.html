@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Rechnungen · FRITS{% endblock %}
+{% block content %}
+<div class="head-row">
+  <h1>Rechnungen</h1>
+  <form method="post" action="/open/invoices"><input type="hidden" name="token" value="{{ token }}"><button class="quiet">Ordner öffnen</button></form>
+</div>
+{% if invoices %}
+<div class="table-wrap"><table class="table">
+  <thead><tr><th>Nummer</th><th>Kunde</th><th>Datum</th><th class="amount">Betrag</th><th>Status</th><th></th></tr></thead>
+  <tbody>
+  {% for i in invoices %}
+  <tr id="r-{{ i.number }}">
+    <td><a href="/invoices/{{ i.number }}/pdf" target="_blank">{{ i.number }}</a></td>
+    <td>{{ i.customer }}</td>
+    <td>{{ i.issue_date | de_date }}</td>
+    <td class="amount">{{ i.gross | eur }}</td>
+    <td>
+      {% if i.status == "bezahlt" %}<span class="badge ok">bezahlt am {{ i.paid_date | de_date }}</span>
+      {% elif i.status == "überfällig" %}<span class="badge late">fällig seit {{ i.due_date | de_date }}</span>
+      {% elif i.status == "storniert" %}<span class="badge muted">storniert ({{ i.cancelled_by }})</span>
+      {% elif i.status == "storno" %}<span class="badge muted">Storno zu {{ i.cancels }}</span>
+      {% else %}<span class="badge todo">offen bis {{ i.due_date | de_date }}</span>{% endif %}
+      {% if i.emailed %}<small class="muted">an Mail übergeben {{ i.emailed | de_date }}</small>{% endif %}
+      {% if i.reminders %}<small class="muted">{{ i.reminders }}× erinnert</small>{% endif %}
+    </td>
+    <td class="actions">
+      {% if i.status in ("offen", "überfällig") %}
+      <form method="post" action="/invoices/{{ i.number }}/email"><input type="hidden" name="token" value="{{ token }}"><button class="tiny">In Mail öffnen</button></form>
+      <form method="post" action="/invoices/{{ i.number }}/paid"><input type="hidden" name="token" value="{{ token }}"><button class="tiny">Bezahlt</button></form>
+      {% if i.status == "überfällig" %}
+      <form method="post" action="/invoices/{{ i.number }}/remind"><input type="hidden" name="token" value="{{ token }}"><button class="tiny">Erinnerung</button></form>
+      {% endif %}
+      {% endif %}
+      {% if i.status in ("offen", "überfällig", "bezahlt") %}
+      <form method="post" action="/invoices/{{ i.number }}/cancel" data-confirm="Rechnung {{ i.number }} stornieren? Es entsteht eine Stornorechnung mit eigener Nummer. Nichts wird gelöscht."><input type="hidden" name="token" value="{{ token }}"><button class="tiny quiet danger">Stornieren</button></form>
+      {% endif %}
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+<p class="hint">Rechnungen werden nie gelöscht. Eine falsche Rechnung bekommt eine Stornorechnung, so bleiben die Nummern lückenlos, wie das Finanzamt es möchte.</p>
+{% else %}
+<p class="muted">Noch keine Rechnungen. Sie entstehen aus Entwürfen, wenn du auf „Rechnung erstellen“ drückst.</p>
+{% endif %}
+{% endblock %}

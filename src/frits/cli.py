@@ -42,6 +42,10 @@ def build_parser() -> argparse.ArgumentParser:
     for name in ("cancel", "paid"):
         cmd[name].add_argument("number")
     cmd["eval"].add_argument("--fixtures", type=Path, default=Path("tests/fixtures"))
+    cmd["ui"].add_argument(
+        "--port", type=int, help="port on 127.0.0.1 (default: first free from 8765)"
+    )
+    cmd["ui"].add_argument("--no-browser", action="store_true", help="don't open the browser")
     return parser
 
 
@@ -213,9 +217,10 @@ def cmd_eval(args) -> int:
     return run_eval(args.fixtures, _provider(settings, args.provider))
 
 
-def cmd_ui(args) -> int:
-    print("Die FRITS-App kommt im nächsten Schritt.", file=sys.stderr)
-    return 2
+def cmd_ui(args) -> None:
+    from frits.web import serve
+
+    serve(port=args.port, open_browser=not args.no_browser)
 
 
 if __name__ == "__main__":

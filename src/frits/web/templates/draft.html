@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}Entwurf {{ row.id }} · FRITS{% endblock %}
+{% block content %}
+{% set editable = row.status == "draft" %}
+{% set is_quote = draft.kind == "quote" %}
+<div class="head-row">
+  <h1>{{ "Angebot" if is_quote else "Rechnung" }}: Entwurf {{ row.id }}</h1>
+  <span class="muted">aus {{ draft.source_file }}</span>
+</div>
+
+{% if not editable %}
+<div class="flash">Dieser Entwurf ist erledigt ({{ "Rechnung " ~ row.invoice_number if row.invoice_number else row.status }}).</div>
+{% endif %}
+
+{% if draft.warnings %}
+<section class="card warn with-fry">
+  <div class="mascot-small">{{ mascot("warning") }}</div>
+  <div>
+    <h2>Achtung, Trick-Versuch</h2>
+    {% for w in draft.warnings %}<p>{{ w }}</p>{% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<div class="review {{ 'single' if not (original or sent_text) }}">
+  {% if original or sent_text %}
+  <section class="card source">
+    <h2>Das Original</h2>
+    <p class="hint">Bleibt auf diesem Computer.</p>
+    <pre>{{ original or "Die Datei ist nicht mehr im Ordner „done“." }}</pre>
+    {% if sent_text %}
+    <details>
+      <summary>Das hat die KI gesehen</summary>
+      <p class="hint">Genau dieser Text ging an die KI. Namen und Adressen sind Platzhalter.</p>
+      <pre class="redacted">{{ sent_text }}</pre>
+    </details>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  <section class="card">
+    <form method="post" action="/drafts/{{ row.id }}" id="draft-form">
+      <input type="hidden" name="token" value="{{ token }}">
+      <label class="field">Kunde
+        <div class="row">
+          <select name="customer" {{ "disabled" if not editable }}>
+            <option value="">{{ draft.customer_name ~ " (noch nicht in der Kundenliste)" if draft.customer_name and not draft.customer_id else "Bitte wählen" }}</option>
+            {% for c in customers %}
+            <option value="{{ c.id }}" {{ "selected" if c.id == draft.customer_id }}>{{ c.display_name }}{{ " (" ~ c.name ~ ")" if c.company }}</option>
+            {% endfor %}
+          </select>
+          <a class="button quiet" href="/customers/new?back=/drafts/{{ row.id }}">Neuer Kunde</a>
+        </div>
+      </label>
+      {% if draft.customer_address %}<p class="muted">{{ draft.customer_address }}</p>{% endif %}
+
+      <div class="table-wrap">
+      <table class="lines">
+        <thead><tr><th>Leistung</th><th>Datum</th><th>Menge</th><th>Einheit</th><th>Preis je Einheit</th><th class="amount">Betrag</th></tr></thead>
+        <tbody>
+        {% for line in draft.lines %}
+          <tr class="{{ 'needs' if line.unit_price is none }}">
+            <td><input name="description" value="{{ line.description }}" {{ "readonly" if not editable }}></td>
+            <td><input name="date" value="{{ line.date or '' }}" size="10" {{ "readonly" if not editable }}></td>
+            <td><input name="quantity" value="{{ line.quantity | qty }}" size="5" inputmode="decimal" {{ "readonly" if not editable }}></td>
+            <td><select name="unit" {{ "disabled" if not editable }}>{% for u in units %}<option {{ "selected" if u == line.unit }}>{{ u }}</option>{% endfor %}</select></td>
+            <td>
+              <input name="price" value="{{ line.unit_price | qty }}" size="7" inputmode="decimal" placeholder="Preis?" {{ "readonly" if not editable }}>
+              {% if line.stated_price is not none and "stated_price_needs_ok" in line.flags and not draft.warnings %}
+              <button type="button" class="tiny" data-fill="{{ line.stated_price | qty }}" title="Diesen Preis übernehmen">Im Text: {{ line.stated_price | eur }} übernehmen</button>
+              {% endif %}
+              {% if line.stated_price is not none and draft.warnings %}<small class="note">Im Text steht {{ line.stated_price | eur }}, aber dieses Dokument versucht die KI zu steuern. Bitte selbst entscheiden.</small>{% endif %}
+              {% if "price_not_in_text" in line.flags %}<small class="note">Die KI nannte einen Preis, der nicht im Text steht. Ignoriert.</small>{% endif %}
+              {% if "quantity_unusual" in line.flags %}<small class="note">Ungewöhnliche Menge, bitte prüfen.</small>{% endif %}
+            </td>
+            <td class="amount">{{ line.net | eur if line.net is not none else "" }}</td>
+          </tr>
+        {% endfor %}
+        {% if editable %}
+          <tr class="blank">
+            <td><input name="description" placeholder="Neue Position"></td>
+            <td><input name="date" size="10"></td>
+            <td><input name="quantity" size="5" inputmode="decimal"></td>
+            <td><select name="unit">{% for u in units %}<option>{{ u }}</option>{% endfor %}</select></td>
+            <td><input name="price" size="7" inputmode="decimal"></td>
+            <td></td>
+          </tr>
+        {% endif %}
+        </tbody>
+        <tfoot>
+          {% if sums.vat_rate is not none %}
+          <tr><td colspan="5" class="amount">Netto</td><td class="amount">{{ sums.net | eur }}</td></tr>
+          <tr><td colspan="5" class="amount">Umsatzsteuer {{ sums.vat_rate | qty }} %</td><td class="amount">{{ sums.vat | eur }}</td></tr>
+          {% endif %}
+          <tr class="total"><td colspan="5" class="amount">Gesamt</td><td class="amount">{{ sums.gross | eur }}</td></tr>
+        </tfoot>
+      </table>
+      </div>
+      {% if sums.vat_rate is none %}<p class="hint">Kleinunternehmer: keine Umsatzsteuer (§ 19 UStG).</p>{% endif %}
+      <p class="hint">Preise kommen aus der Kundennotiz oder deinen Einstellungen, nie von der KI. Du kannst jeden Wert ändern.</p>
+
+      {% if draft.questions %}
+      <div class="questions">
+        <h3>Fragen an dich</h3>
+        <ul>{% for q in draft.questions %}<li>{{ q }}</li>{% endfor %}</ul>
+        {% if editable %}<label><input type="checkbox" name="questions_done"> Geklärt, Fragen ausblenden</label>{% endif %}
+      </div>
+      {% endif %}
+
+      {% if problems %}
+      <div class="problems">
+        <h3>Bevor daraus {{ "ein Angebot" if is_quote else "eine Rechnung" }} wird</h3>
+        <ul>{% for p in problems %}<li>{{ p }}</li>{% endfor %}</ul>
+      </div>
+      {% endif %}
+
+      {% if editable %}
+      <div class="row actions">
+        <button name="action" value="save">Speichern</button>
+        {% if is_quote %}
+        <button class="primary" name="action" value="quote">Angebot erstellen</button>
+        {% else %}
+        <button class="primary" name="action" value="approve" data-confirm="Rechnung jetzt erstellen? Sie bekommt eine feste Nummer. Später ändern geht nur noch per Storno.">Rechnung erstellen</button>
+        <button class="quiet" name="action" value="quote">Lieber als Angebot</button>
+        {% endif %}
+      </div>
+      {% endif %}
+    </form>
+    {% if editable %}
+    <form method="post" action="/drafts/{{ row.id }}/discard" class="discard" data-confirm="Entwurf verwerfen? Es wird keine Nummer verbraucht.">
+      <input type="hidden" name="token" value="{{ token }}">
+      <button class="quiet danger">Entwurf verwerfen</button>
+    </form>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

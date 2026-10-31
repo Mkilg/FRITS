@@ -41,30 +41,131 @@ def render_invoice(
     due: date | None,
     cancels: str | None = None,
 ) -> Path:
+    title = f"Stornorechnung zu {cancels}" if cancels else "Rechnung"
+    facts = [("Rechnungsnummer", number), ("Rechnungsdatum", _de(issued))]
+    closing = []
+    if due and not cancels:
+        closing.append(
+            f"Bitte überweisen Sie den Betrag bis zum {_de(due)} auf das unten genannte Konto "
+            f"und geben Sie die Rechnungsnummer {number} an. Vielen Dank!"
+        )
+    return _document(path, title, facts, draft, sums, settings, closing)
+
+
+def render_quote(
+    path: Path,
+    number: str,
+    draft: Draft,
+    sums: Totals,
+    settings: Settings,
+    issued: date,
+    valid_until: date,
+) -> Path:
+    facts = [("Angebotsnummer", number), ("Datum", _de(issued))]
+    closing = [
+        f"Dieses Angebot gilt bis zum {_de(valid_until)}. Ich freue mich auf Ihren Auftrag.",
+    ]
+    return _document(path, "Angebot", facts, draft, sums, settings, closing)
+
+
+def render_reminder(
+    path: Path,
+    invoice: dict,
+    level: int,
+    settings: Settings,
+    issued: date,
+    new_due: date,
+    customer_address: str | None,
+) -> Path:
+    """A friendly payment reminder. No fees, no threats: Fritz's customers are people he likes."""
+    pdf = _start(settings, invoice["customer"], customer_address)
+    title = "Zahlungserinnerung" if level == 1 else f"{level}. Zahlungserinnerung"
+    pdf.set_font("DejaVu", "B", 16)
+    pdf.cell(0, 9, title, new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("DejaVu", size=10)
+    pdf.cell(45, 6, "Datum")
+    pdf.cell(0, 6, _de(issued), new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(6)
+    issue = date.fromisoformat(invoice["issue_date"])
+    text = [
+        "Guten Tag,",
+        (
+            f"meine Rechnung {invoice['number']} vom {_de(issue)} über "
+            f"{eur(Decimal(invoice['gross']))} ist noch offen. Vielleicht ist sie im Alltag "
+            "untergegangen, das passiert."
+        ),
+        (
+            f"Bitte überweisen Sie den Betrag bis zum {_de(new_due)} auf das unten genannte Konto "
+            f"und geben Sie die Rechnungsnummer {invoice['number']} an. Falls Sie schon bezahlt "
+            "haben, betrachten Sie dieses Schreiben bitte als erledigt."
+        ),
+        "Vielen Dank und freundliche Grüße",
+        settings.name,
+    ]
+    for paragraph in text:
+        pdf.multi_cell(0, 6, paragraph, new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(3)
+    return _finish(pdf, path, settings)
+
+
+def _start(settings: Settings, customer_name: str | None, customer_address: str | None) -> FPDF:
     pdf = FPDF(format="A4")
     pdf.set_margins(20, 20, 20)
     pdf.set_auto_page_break(True, margin=25)
     pdf.add_font("DejaVu", fname=str(FONTS / "DejaVuSans.ttf"))
     pdf.add_font("DejaVu", style="B", fname=str(FONTS / "DejaVuSans-Bold.ttf"))
     pdf.add_page()
-    width = pdf.epw
-
-    # Sender line and recipient block
     sender = settings.company or settings.name
     pdf.set_font("DejaVu", size=8)
     pdf.cell(0, 5, f"{sender} · {settings.address}", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(2)
     pdf.set_font("DejaVu", size=11)
-    for line in [draft.customer_name or "", *(draft.customer_address or "").split(", ")]:
+    for line in [customer_name or "", *(customer_address or "").split(", ")]:
         pdf.cell(0, 6, line, new_x="LMARGIN", new_y="NEXT")
     pdf.ln(12)
+    return pdf
 
-    # Title and key facts
+
+def _finish(pdf: FPDF, path: Path, settings: Settings) -> Path:
+    # Footer: bank and tax details
+    sender = settings.company or settings.name
+    pdf.set_y(-40)
+    pdf.set_font("DejaVu", size=8)
+    tax_id = (
+        f"USt-IdNr. {settings.ust_id}"
+        if settings.ust_id
+        else f"Steuernummer {settings.steuernummer}"
+    )
+    footer = [
+        f"{sender} · {settings.address} · {settings.email} · {settings.phone}".strip(" ·"),
+        f"{settings.bank} · IBAN {settings.iban} · BIC {settings.bic}".strip(" ·"),
+        tax_id,
+    ]
+    for text in footer:
+        pdf.cell(0, 4.5, text, align="C", new_x="LMARGIN", new_y="NEXT")
+
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    pdf.output(str(path))
+    return path
+
+
+def _document(
+    path: Path,
+    title: str,
+    facts: list[tuple[str, str]],
+    draft: Draft,
+    sums: Totals,
+    settings: Settings,
+    closing: list[str],
+) -> Path:
+    pdf = _start(settings, draft.customer_name, draft.customer_address)
+    width = pdf.epw
+
     pdf.set_font("DejaVu", "B", 16)
-    title = f"Stornorechnung zu {cancels}" if cancels else "Rechnung"
     pdf.cell(0, 9, title, new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("DejaVu", size=10)
-    facts = [("Rechnungsnummer", number), ("Rechnungsdatum", _de(issued))]
+    facts = list(facts)
     dates = [line.date for line in draft.lines if line.date]
     if dates:
         period = dates[0] if len(set(dates)) == 1 else f"{dates[0]} bis {dates[-1]}"
@@ -89,7 +190,6 @@ def render_invoice(
         pdf.cell(cols[3], 7, eur(line.net), align="R", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(2)
 
-    # Totals
     def total_row(label: str, value: Decimal, bold: bool = False) -> None:
         pdf.set_font("DejaVu", "B" if bold else "", 10)
         pdf.cell(sum(cols[:3]), 7, label, align="R")
@@ -104,33 +204,6 @@ def render_invoice(
     pdf.set_font("DejaVu", size=10)
     if sums.vat_rate is None:
         pdf.multi_cell(0, 6, KLEINUNTERNEHMER_NOTE, new_x="LMARGIN", new_y="NEXT")
-    if due and not cancels:
-        pdf.multi_cell(
-            0,
-            6,
-            f"Bitte überweise den Betrag bis zum {_de(due)} auf das unten genannte Konto "
-            f"und gib die Rechnungsnummer {number} an. Vielen Dank!",
-            new_x="LMARGIN",
-            new_y="NEXT",
-        )
-
-    # Footer: bank and tax details
-    pdf.set_y(-40)
-    pdf.set_font("DejaVu", size=8)
-    tax_id = (
-        f"USt-IdNr. {settings.ust_id}"
-        if settings.ust_id
-        else f"Steuernummer {settings.steuernummer}"
-    )
-    footer = [
-        f"{sender} · {settings.address} · {settings.email} · {settings.phone}".strip(" ·"),
-        f"{settings.bank} · IBAN {settings.iban} · BIC {settings.bic}".strip(" ·"),
-        tax_id,
-    ]
-    for text in footer:
-        pdf.cell(0, 4.5, text, align="C", new_x="LMARGIN", new_y="NEXT")
-
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    pdf.output(str(path))
-    return path
+    for paragraph in closing:
+        pdf.multi_cell(0, 6, paragraph, new_x="LMARGIN", new_y="NEXT")
+    return _finish(pdf, path, settings)

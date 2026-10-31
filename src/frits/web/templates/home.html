@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="hello">
+  <div class="mascot-big">{{ mascot(mood) }}</div>
+  <p class="speech">{{ moment }}</p>
+</section>
+
+{% if not settings.is_complete %}
+<section class="card accent">
+  <h2>Zuerst: deine Angaben</h2>
+  <p>Name, Adresse, IBAN und Stundensatz brauche ich für jede Rechnung.</p>
+  <a class="button" href="/settings">Angaben eintragen</a>
+</section>
+{% endif %}
+
+<section class="card">
+  <h2>Eingang</h2>
+  {% if waiting %}
+  <p><strong>{{ waiting | length }} {{ "Datei wartet" if waiting | length == 1 else "Dateien warten" }}</strong>: {{ waiting | map(attribute="name") | join(", ") }}</p>
+  <p class="hint">Bevor die KI liest, schwärze ich Namen, Adressen und Kontonummern hier auf deinem Computer. Die KI sieht nur Platzhalter wie [PERSON_1].</p>
+  {% else %}
+  <p>Der Eingang ist leer. Leg eine Notiz, E-Mail oder ein Foto in den Ordner, dann lese ich sie, wenn du es sagst.</p>
+  {% endif %}
+  <div class="row">
+    {% if waiting %}
+    <form method="post" action="/inbox/process" data-busy="Ich lese gerade. Das dauert einen Moment.">
+      <input type="hidden" name="token" value="{{ token }}">
+      <button class="primary">Jetzt lesen lassen</button>
+    </form>
+    {% endif %}
+    <form method="post" action="/open/inbox">
+      <input type="hidden" name="token" value="{{ token }}">
+      <button>Eingangsordner öffnen</button>
+    </form>
+  </div>
+</section>
+
+{% if check_me %}
+<section class="card warn">
+  <h2>Bitte einmal ansehen</h2>
+  <ul class="plain">
+    {% for f in check_me %}<li><strong>{{ f.name }}</strong>: {{ f.reason }}</li>{% endfor %}
+  </ul>
+  <a class="button" href="/check-me">Ansehen</a>
+</section>
+{% endif %}
+
+<section class="card">
+  <h2>Entwürfe</h2>
+  {% if drafts %}
+  <ul class="list">
+    {% for d in drafts[:5] %}
+    <li><a href="/drafts/{{ d.id }}">
+      <span>{{ d.draft.customer_name or "Kunde unklar" }}</span>
+      <span class="muted">{{ d.draft.source_file }}</span>
+      <span class="amount">{{ d.sums.gross | eur }}</span>
+      <span class="badge {{ 'ok' if d.ready else 'todo' }}">{{ "bereit" if d.ready else "braucht dich" }}</span>
+    </a></li>
+    {% endfor %}
+  </ul>
+  {% if drafts | length > 5 %}<a href="/drafts">Alle {{ drafts | length }} Entwürfe</a>{% endif %}
+  {% else %}
+  <p class="muted">Keine offenen Entwürfe.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Rechnungen</h2>
+  {% if overdue %}
+  <p>{{ overdue | length }} {{ "Rechnung ist" if overdue | length == 1 else "Rechnungen sind" }} über dem Zahlungsziel. Soll ich eine freundliche Erinnerung vorbereiten?</p>
+  <ul class="list">
+    {% for i in overdue %}
+    <li><a href="/invoices#r-{{ i.number }}"><span>{{ i.number }}</span><span>{{ i.customer }}</span><span class="amount">{{ i.gross | eur }}</span><span class="badge late">fällig seit {{ i.due_date | de_date }}</span></a></li>
+    {% endfor %}
+  </ul>
+  {% elif open_count %}
+  <p>{{ open_count }} offen, alle noch im Zahlungsziel.</p>
+  {% else %}
+  <p class="muted">Nichts offen.</p>
+  {% endif %}
+</section>
+{% endblock %}
