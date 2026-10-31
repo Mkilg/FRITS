@@ -23,7 +23,7 @@ from fastapi.templating import Jinja2Templates
 from jinja2 import Environment, PackageLoader, select_autoescape
 from markupsafe import Markup
 
-from frits import emails, setup, store, system
+from frits import emails, euer, expenses, setup, store, system
 from frits.billing import (
     BillingError,
     Draft,
@@ -236,6 +236,7 @@ def create_app(
         overdue = [i for i in invoices if i["status"] == "überfällig"]
         waiting = _inbox_files(ws)
         check_me = _check_me_files(ws)
+        receipts = open_receipts(conn)
         if not current.is_complete:
             moment = ("welcome", "Hallo! Bevor wir loslegen: Trag kurz deine Angaben ein.")
         elif drafts or check_me:
@@ -250,6 +251,7 @@ def create_app(
             open_count=sum(1 for i in invoices if i["status"] in ("offen", "überfällig")),
             waiting=waiting,
             check_me=check_me,
+            receipts=receipts,
             mood=moment[0],
             moment=moment[1],
         )
@@ -646,6 +648,121 @@ def create_app(
         except Exception:  # noqa: BLE001  (any keychain failure gets the same plain message)
             return False
         return True
+
+    # ----- Ausgaben und EÜR -----
+
+    def open_receipts(conn) -> list[dict]:
+        """Receipts FRITS recognised that Fritz hasn't entered as an expense yet."""
+        expenses.init_db(ws.db)
+        rows = conn.execute(
+            "SELECT id, filename, received FROM jobs WHERE status = 'receipt'"
+            " AND filename NOT IN (SELECT source_file FROM expenses WHERE source_file IS NOT NULL)"
+            " ORDER BY id"
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    @app.get("/expenses", response_class=HTMLResponse)
+    def expenses_page(request: Request, year: int | None = None, receipt: int | None = None):
+        year = year or today().year
+        conn = db()
+        receipts = open_receipts(conn)
+        chosen = next((r for r in receipts if r["id"] == receipt), None)
+        items = expenses.list_expenses(ws.db, year=year)
+        return page(
+            request,
+            "expenses.html",
+            year=year,
+            expenses=items,
+            total=sum((e.gross for e in items), Decimal(0)),
+            receipts=receipts,
+            chosen=chosen,
+            categories=expenses.CATEGORIES,
+            today=today().isoformat(),
+        )
+
+    @app.get("/receipts/{job_id}")
+    def receipt_file(job_id: int):
+        row = (
+            db()
+            .execute(
+                "SELECT filename FROM jobs WHERE id = ? AND status IN ('receipt', 'receipt-ignored')",
+                (job_id,),
+            )
+            .fetchone()
+        )
+        if row is None:
+            raise HTTPException(404)
+        path = (ws.done / Path(row["filename"]).name).resolve()
+        if not path.is_file() or ws.done.resolve() not in path.parents:
+            raise HTTPException(404)
+        return FileResponse(path, content_disposition_type="inline")
+
+    @app.post("/expenses", dependencies=guarded)
+    async def expense_add(request: Request):
+        form = await request.form()
+        year = today().year
+        try:
+            gross = parse_amount(str(form.get("gross", "")))
+            if gross is None:
+                raise BillingError("Bitte den Betrag eintragen.")
+            paid = date.fromisoformat(str(form.get("date") or today().isoformat()))
+            year = paid.year
+            rate = str(form.get("vat_rate", ""))
+            expense = expenses.Expense(
+                date=paid,
+                vendor=str(form.get("vendor", "")).strip() or "unbekannt",
+                description=str(form.get("description", "")).strip(),
+                gross=gross,
+                vat_rate=Decimal(rate) if rate else None,
+                category=str(form.get("category", "sonstiges")),
+                source_file=str(form.get("source_file", "")).strip() or None,
+            )
+        except (BillingError, ValueError, TypeError, ArithmeticError) as exc:
+            flash(
+                str(exc)
+                if isinstance(exc, BillingError)
+                else "Bitte Datum, Betrag und Kategorie prüfen.",
+                "error",
+            )
+            return back("/expenses")
+        expenses.add_expense(ws.db, expense)
+        flash(f"Ausgabe gespeichert: {eur(expense.gross)} bei {expense.vendor}.", cue="done")
+        return back(f"/expenses?year={year}")
+
+    @app.post("/expenses/{expense_id}/delete", dependencies=guarded)
+    def expense_delete(expense_id: int):
+        if expenses.delete_expense(ws.db, expense_id):
+            flash("Ausgabe gelöscht.")
+        return back("/expenses")
+
+    @app.post("/receipts/{job_id}/ignore", dependencies=guarded)
+    def receipt_ignore(job_id: int):
+        db().execute(
+            "UPDATE jobs SET status = 'receipt-ignored' WHERE id = ? AND status = 'receipt'",
+            (job_id,),
+        )
+        flash("Beleg ausgeblendet. Die Datei liegt weiter im Ordner „done“.")
+        return back("/expenses")
+
+    @app.get("/euer", response_class=HTMLResponse)
+    def euer_page(request: Request, year: int | None = None):
+        year = year or today().year - (1 if today().month <= 3 else 0)
+        expenses.init_db(ws.db)
+        db()  # make sure the invoices table exists
+        summary = euer.summarize(ws.db, year, settings().tax_mode)
+        return page(request, "euer.html", year=year, summary=summary, this_year=today().year)
+
+    @app.get("/euer/{year}.{kind}")
+    def euer_export(year: int, kind: str):
+        if kind not in ("csv", "pdf"):
+            raise HTTPException(404)
+        expenses.init_db(ws.db)
+        db()
+        summary = euer.summarize(ws.db, year, settings().tax_mode)
+        target = ws.root / "euer" / f"EUER_{year}.{kind}"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        (euer.write_csv if kind == "csv" else euer.write_pdf)(summary, target)
+        return FileResponse(target, filename=target.name)
 
     # ----- Einrichtung -----
 

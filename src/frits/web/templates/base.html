@@ -11,7 +11,7 @@
 <header class="top">
   <a class="brand" href="/"><span class="brand-fry">{{ mascot("welcome") }}</span><span>FRITS</span></a>
   <nav>
-    {% for href, label in [("/", "Heute"), ("/drafts", "Entwürfe"), ("/invoices", "Rechnungen"), ("/quotes", "Angebote"), ("/customers", "Kunden"), ("/settings", "Einstellungen")] %}
+    {% for href, label in [("/", "Heute"), ("/drafts", "Entwürfe"), ("/invoices", "Rechnungen"), ("/quotes", "Angebote"), ("/expenses", "Ausgaben"), ("/customers", "Kunden"), ("/settings", "Einstellungen")] %}
     <a href="{{ href }}" {% if nav == href or (href != "/" and nav.startswith(href)) %}aria-current="page"{% endif %}>{{ label }}</a>
     {% endfor %}
   </nav>

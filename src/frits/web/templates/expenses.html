@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Ausgaben · FRITS{% endblock %}
+{% block content %}
+<div class="head-row">
+  <h1>Ausgaben {{ year }}</h1>
+  <div class="row">
+    <a class="button quiet" href="/expenses?year={{ year - 1 }}">← {{ year - 1 }}</a>
+    <a class="button quiet" href="/expenses?year={{ year + 1 }}">{{ year + 1 }} →</a>
+    <a class="button" href="/euer">EÜR ansehen</a>
+  </div>
+</div>
+
+{% if receipts %}
+<section class="card warn">
+  <h2>Belege zum Eintragen</h2>
+  <p class="hint">FRITS hat diese Dateien als Belege erkannt. Die Beträge trägst du selbst ein, so bleibt die Buchhaltung in deiner Hand.</p>
+  <ul class="list">
+    {% for r in receipts %}
+    <li class="split"><span><strong>{{ r.filename }}</strong> <span class="muted">· {{ r.received | de_date }}</span></span>
+      <span class="row">
+        <a class="button tiny" href="/expenses?year={{ year }}&receipt={{ r.id }}#neu">Eintragen</a>
+        <form method="post" action="/receipts/{{ r.id }}/ignore"><input type="hidden" name="token" value="{{ token }}"><button class="tiny quiet">Kein Geschäftsbeleg</button></form>
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<div class="review {{ 'single' if not chosen }}">
+  {% if chosen %}
+  <section class="card source">
+    <h2>{{ chosen.filename }}</h2>
+    {% if chosen.filename.lower().endswith((".png", ".jpg", ".jpeg", ".heic", ".gif", ".webp")) %}
+    <img class="receipt" src="/receipts/{{ chosen.id }}" alt="Beleg {{ chosen.filename }}">
+    {% else %}
+    <iframe class="receipt" src="/receipts/{{ chosen.id }}" title="Beleg"></iframe>
+    {% endif %}
+  </section>
+  {% endif %}
+  <section class="card" id="neu">
+    <h2>{{ "Diesen Beleg eintragen" if chosen else "Neue Ausgabe" }}</h2>
+    <form method="post" action="/expenses" class="form">
+      <input type="hidden" name="token" value="{{ token }}">
+      <input type="hidden" name="source_file" value="{{ chosen.filename if chosen else '' }}">
+      <label class="field">Bezahlt am <input type="date" name="date" value="{{ today }}" required></label>
+      <label class="field">Bei wem? <input name="vendor" placeholder="z. B. Deutsche Bahn, Baumarkt" required></label>
+      <label class="field">Wofür? <input name="description" placeholder="z. B. Fahrt zum Kunden, Schrauben"></label>
+      <label class="field">Betrag in € (so wie bezahlt, mit Steuer) <input name="gross" inputmode="decimal" required></label>
+      <label class="field">Umsatzsteuer auf dem Beleg
+        <select name="vat_rate">
+          <option value="0.19">19 %</option>
+          <option value="0.07">7 % (z. B. Bahnticket im Nahverkehr, Bücher)</option>
+          <option value="0">0 %</option>
+          <option value="">keine angegeben</option>
+        </select>
+      </label>
+      <label class="field">Kategorie
+        <select name="category">{% for key, c in categories.items() %}<option value="{{ key }}" {{ "selected" if key == "sonstiges" }}>{{ c.label }}</option>{% endfor %}</select>
+      </label>
+      <div class="row actions"><button class="primary">Speichern</button></div>
+    </form>
+  </section>
+</div>
+
+<section class="card">
+  <h2>Alle Ausgaben {{ year }}</h2>
+  {% if expenses %}
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Datum</th><th>Bei</th><th>Wofür</th><th>Kategorie</th><th class="amount">Betrag</th><th></th></tr></thead>
+    <tbody>
+    {% for e in expenses %}
+    <tr>
+      <td>{{ e.date | de_date }}</td><td>{{ e.vendor }}</td><td>{{ e.description }}</td>
+      <td>{{ categories[e.category].label }}</td><td class="amount">{{ e.gross | eur }}</td>
+      <td class="actions"><form method="post" action="/expenses/{{ e.id }}/delete" data-confirm="Diese Ausgabe löschen?"><input type="hidden" name="token" value="{{ token }}"><button class="tiny quiet danger">Löschen</button></form></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+    <tfoot><tr class="total"><td colspan="4" class="amount">Summe</td><td class="amount">{{ total | eur }}</td><td></td></tr></tfoot>
+  </table></div>
+  {% else %}
+  <p class="muted">Noch keine Ausgaben in {{ year }}.</p>
+  {% endif %}
+</section>
+{% endblock %}
