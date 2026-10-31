@@ -1,0 +1,25 @@
+FRITS - Fantastisches Rechnungsschreibungs IT-System
+=====================================================
+
+FRITS läuft komplett von diesem Ordner aus (auch vom USB-Stick).
+Es wird nichts auf dem Mac installiert, und es braucht kein Internet.
+Funktioniert auf Macs mit Apple-Chip (M1, M2, ...) und mit Intel-Chip, ab macOS 13.
+
+Starten
+-------
+  * Doppelklick auf FRITS.app
+  * oder Doppelklick auf Start-FRITS.command (öffnet ein Terminal-Fenster)
+
+Beim ersten Start sagt der Mac vielleicht "kann nicht geöffnet werden",
+weil FRITS nicht aus dem App Store kommt. So geht es trotzdem:
+  1. Systemeinstellungen > Datenschutz & Sicherheit öffnen.
+  2. Ganz unten bei "FRITS wurde blockiert" auf "Trotzdem öffnen" klicken.
+  3. Das gleiche ggf. für Start-FRITS.command wiederholen.
+
+Schneller (einmalig, im Terminal, nachdem der Ordner entpackt ist):
+  xattr -dr com.apple.quarantine /Pfad/zum/Ordner/FRITS
+(Tipp: "xattr -dr com.apple.quarantine " tippen und dann den FRITS-Ordner
+ins Terminal-Fenster ziehen, dann Enter.)
+
+Wenn etwas nicht klappt, steht ein Protokoll in:
+  ~/Library/Logs/FRITS.log

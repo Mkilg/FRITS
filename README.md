@@ -32,6 +32,10 @@ uv run frits ui                 # opens the browser; the setup assistant starts
 Your FRITS folder is `~/Documents/FRITS` (set `FRITS_HOME` to use another folder).
 Here the key goes into the Keychain, and Mail opens ready-to-send messages.
 
+## For Fritz: the Mac app
+
+A ready-to-run `FRITS.app` (no installing, works offline, also from a USB stick) is built automatically. See [packaging/macos](packaging/macos/README.md).
+
 ## Development with Docker
 
 You need Docker Desktop on your Mac. Everything else (Python, the OCR engine, the German language model) lives inside the image.
