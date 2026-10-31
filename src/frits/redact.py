@@ -263,6 +263,8 @@ def _customer_spans(text: str, customers: list[Customer]) -> list[Span]:
     spans = []
     for customer in customers:
         for term, (kind, key, canonical) in _customer_terms(customer):
+            if len(term.strip()) < 3:
+                continue
             for m in _word_regex(term).finditer(text):
                 spans.append(Span(m.start(), m.end(), kind, key, canonical, CUSTOMER))
     return spans

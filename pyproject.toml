@@ -6,14 +6,19 @@ readme = "README.md"
 license = "MIT"
 requires-python = ">=3.12"
 dependencies = [
+    "anthropic>=2.3.0",
     "fpdf2>=2.8",
+    "keyring>=25.7.0",
+    "openai>=3.42.0",
     "pillow>=13.0.0",
     "pillow-heif>=1.8.1",
+    "pydantic>=2.14.2",
     "pypdf>=6.21.4",
     "pytesseract>=0.3.13",
     "python-docx>=1.2.0",
     "pyyaml>=6.0.3",
     "spacy>=3.8,<4",
+    "tomli-w>=1.2.0",
 ]
 
 [project.scripts]

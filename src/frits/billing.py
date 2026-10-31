@@ -1,0 +1,271 @@
+"""Prices, tax, totals and invoice numbers. All money is Decimal and computed here, never by the AI."""
+
+from __future__ import annotations
+
+import json
+from dataclasses import asdict, dataclass, field
+from datetime import date, timedelta
+from decimal import ROUND_HALF_UP, Decimal
+from pathlib import Path
+
+from frits import store
+from frits.customers import Customer
+from frits.extract import CheckedExtraction
+from frits.redact import Mapping
+from frits.settings import Settings
+
+CENT = Decimal("0.01")
+KLEINUNTERNEHMER_NOTE = "Gemäß § 19 UStG wird keine Umsatzsteuer berechnet."
+
+
+class BillingError(Exception):
+    """A draft can't be finalized yet. The message tells Fritz what's missing."""
+
+
+@dataclass
+class Line:
+    description: str
+    date: str | None
+    quantity: Decimal
+    unit: str
+    unit_price: Decimal | None
+    stated_price: Decimal | None = None
+    flags: list[str] = field(default_factory=list)
+
+    @property
+    def net(self) -> Decimal | None:
+        if self.unit_price is None:
+            return None
+        return money(self.quantity * self.unit_price)
+
+
+@dataclass
+class Draft:
+    customer_id: str | None
+    customer_name: str | None
+    customer_address: str | None
+    lines: list[Line]
+    questions: list[str]
+    warnings: list[str]
+    source_file: str
+
+    def to_json(self) -> str:
+        return json.dumps(asdict(self), default=str, ensure_ascii=False)
+
+    @classmethod
+    def from_json(cls, raw: str) -> Draft:
+        data = json.loads(raw)
+        lines = []
+        for line in data.pop("lines"):
+            for key in ("quantity", "unit_price", "stated_price"):
+                if line[key] is not None:
+                    line[key] = Decimal(line[key])
+            lines.append(Line(**line))
+        return cls(lines=lines, **data)
+
+
+@dataclass(frozen=True)
+class Totals:
+    net: Decimal
+    vat: Decimal
+    gross: Decimal
+    vat_rate: Decimal | None
+
+
+def money(value: Decimal) -> Decimal:
+    return Decimal(value).quantize(CENT, rounding=ROUND_HALF_UP)
+
+
+def build_draft(
+    checked: CheckedExtraction,
+    mapping: Mapping,
+    customers: list[Customer],
+    settings: Settings,
+    source_file: str,
+) -> Draft:
+    customer = None
+    customer_name = None
+    questions = list(checked.questions)
+    if checked.customer_ref:
+        customer_name = mapping.entries[checked.customer_ref]["value"]
+        customer = next((c for c in customers if customer_name in (c.name, c.company)), None)
+        if customer is None:
+            questions.append(
+                f"{customer_name} ist noch nicht in deiner Kundenliste. Bitte Adresse ergänzen."
+            )
+
+    lines = []
+    for checked_item in checked.items:
+        item = checked_item.item
+        stated = Decimal(str(item.stated_price)) if item.stated_price is not None else None
+        line = Line(
+            description=mapping.reidentify(item.description),
+            date=item.date,
+            quantity=Decimal(str(item.quantity)),
+            unit=item.unit,
+            unit_price=unit_price(item.unit, customer, settings),
+            stated_price=stated,
+            flags=list(checked_item.flags),
+        )
+        if line.unit_price is None:
+            line.flags.append("needs_price")
+        if stated is not None:
+            line.flags.append("stated_price_needs_ok")
+        lines.append(line)
+
+    warnings = []
+    if checked.injection_suspected:
+        warnings.append(
+            "Dieses Dokument enthält Sätze, die der KI Anweisungen geben wollen. FRITS hat sie "
+            "ignoriert: Preise und Summen rechnet immer der Code, nie die KI. Bitte prüfe die "
+            "Positionen trotzdem genau."
+        )
+    return Draft(
+        customer_id=customer.id if customer else None,
+        customer_name=customer.display_name if customer else customer_name,
+        customer_address=customer.address if customer else None,
+        lines=lines,
+        questions=questions,
+        warnings=warnings,
+        source_file=source_file,
+    )
+
+
+def unit_price(unit: str, customer: Customer | None, settings: Settings) -> Decimal | None:
+    """Prices come from the customer note, then settings. Never from the document or the AI."""
+    if unit == "Std":
+        rate = customer.hourly_rate if customer and customer.hourly_rate else settings.hourly_rate
+        return rate if rate and rate > 0 else None
+    if unit == "km":
+        return settings.km_rate if settings.km_rate > 0 else None
+    return None
+
+
+def totals(lines: list[Line], settings: Settings) -> Totals:
+    net = money(sum((line.net for line in lines if line.net is not None), Decimal(0)))
+    if settings.tax_mode == "regelbesteuerung":
+        vat = money(net * settings.vat_rate / 100)
+        return Totals(net, vat, net + vat, settings.vat_rate)
+    return Totals(net, Decimal("0.00"), net, None)
+
+
+def blockers(draft: Draft, settings: Settings) -> list[str]:
+    """What must be fixed before this draft may become a numbered invoice."""
+    problems = []
+    if not settings.is_complete:
+        problems.append("Deine eigenen Angaben (Name, Adresse, IBAN, Stundensatz) fehlen noch.")
+    if not draft.customer_id or not draft.customer_address:
+        problems.append("Kunde mit Adresse fehlt.")
+    if not draft.lines:
+        problems.append("Die Rechnung hat keine Positionen.")
+    for line in draft.lines:
+        if line.unit_price is None:
+            problems.append(f"Preis fehlt für „{line.description}“.")
+    return problems
+
+
+def next_number(conn, year: int) -> str:
+    row = conn.execute(
+        "SELECT number FROM invoices WHERE number LIKE ? ORDER BY number DESC LIMIT 1",
+        (f"{year}-%",),
+    ).fetchone()
+    last = int(row["number"].split("-")[1]) if row else 0
+    return f"{year}-{last + 1:04d}"
+
+
+def approve(conn, draft_id: int, settings: Settings, invoices_dir: Path, today: date | None = None):
+    """Give a draft its number and PDF. Numbers are gapless: assigned only here, in one transaction."""
+    from frits.render import render_invoice
+
+    today = today or date.today()
+    row = conn.execute("SELECT * FROM drafts WHERE id = ?", (draft_id,)).fetchone()
+    if row is None:
+        raise BillingError(f"Entwurf {draft_id} gibt es nicht.")
+    if row["status"] != "draft":
+        raise BillingError(f"Entwurf {draft_id} ist schon erledigt ({row['status']}).")
+    draft = Draft.from_json(row["data"])
+    problems = blockers(draft, settings)
+    if problems:
+        raise BillingError(" ".join(problems))
+
+    sums = totals(draft.lines, settings)
+    due = today + timedelta(days=settings.payment_days)
+    with store.transaction(conn):
+        number = next_number(conn, today.year)
+        pdf_path = Path(invoices_dir) / f"{number}_{_slug(draft.customer_name)}.pdf"
+        conn.execute(
+            "INSERT INTO invoices (number, customer, issue_date, net, vat, gross, draft_id,"
+            " due_date, pdf_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                number,
+                draft.customer_name,
+                today.isoformat(),
+                str(sums.net),
+                str(sums.vat),
+                str(sums.gross),
+                draft_id,
+                due.isoformat(),
+                str(pdf_path),
+            ),
+        )
+        conn.execute(
+            "UPDATE drafts SET status = 'approved', invoice_number = ? WHERE id = ?",
+            (number, draft_id),
+        )
+        # Rendering inside the transaction: if the PDF fails, the number is not used up.
+        render_invoice(pdf_path, number, draft, sums, settings, today, due)
+    return number, pdf_path
+
+
+def cancel(conn, number: str, settings: Settings, invoices_dir: Path, today: date | None = None):
+    """A wrong invoice is never deleted. It gets a cancellation invoice with its own number."""
+    from frits.render import render_invoice
+
+    today = today or date.today()
+    original = conn.execute("SELECT * FROM invoices WHERE number = ?", (number,)).fetchone()
+    if original is None:
+        raise BillingError(f"Rechnung {number} gibt es nicht.")
+    if conn.execute("SELECT 1 FROM invoices WHERE cancels = ?", (number,)).fetchone():
+        raise BillingError(f"Rechnung {number} wurde schon storniert.")
+    draft_row = conn.execute(
+        "SELECT data FROM drafts WHERE id = ?", (original["draft_id"],)
+    ).fetchone()
+    draft = Draft.from_json(draft_row["data"])
+    for line in draft.lines:
+        line.quantity = -line.quantity
+    sums = totals(draft.lines, settings)
+    with store.transaction(conn):
+        storno = next_number(conn, today.year)
+        pdf_path = Path(invoices_dir) / f"{storno}_Storno_{number}.pdf"
+        conn.execute(
+            "INSERT INTO invoices (number, customer, issue_date, net, vat, gross,"
+            " draft_id, pdf_path, cancels) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                storno,
+                original["customer"],
+                today.isoformat(),
+                str(sums.net),
+                str(sums.vat),
+                str(sums.gross),
+                original["draft_id"],
+                str(pdf_path),
+                number,
+            ),
+        )
+        render_invoice(pdf_path, storno, draft, sums, settings, today, None, cancels=number)
+    return storno, pdf_path
+
+
+def mark_paid(conn, number: str, paid: date | None = None) -> None:
+    paid = paid or date.today()
+    cur = conn.execute(
+        "UPDATE invoices SET paid_date = ? WHERE number = ? AND paid_date IS NULL",
+        (paid.isoformat(), number),
+    )
+    if cur.rowcount == 0:
+        raise BillingError(f"Rechnung {number} gibt es nicht oder sie ist schon bezahlt.")
+
+
+def _slug(name: str | None) -> str:
+    last = (name or "Kunde").split()[-1]
+    return "".join(ch for ch in last if ch.isalnum()) or "Kunde"

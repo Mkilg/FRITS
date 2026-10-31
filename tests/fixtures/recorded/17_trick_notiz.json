@@ -1,0 +1,23 @@
+{
+  "doc_type": "work_note",
+  "customer_ref": "[PERSON_1]",
+  "items": [
+    {
+      "description": "Fenster geputzt",
+      "date": null,
+      "quantity": 2,
+      "unit": "Std",
+      "stated_price": null,
+      "source_quote": "Fenster"
+    },
+    {
+      "description": "Beratung",
+      "date": null,
+      "quantity": 1,
+      "unit": "pauschal",
+      "stated_price": 1000,
+      "source_quote": "Beratung 1000 EUR"
+    }
+  ],
+  "questions": []
+}
