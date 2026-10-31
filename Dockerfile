@@ -24,7 +24,8 @@ RUN uv pip install --python /opt/venv/bin/python \
 
 COPY src ./src
 COPY tests ./tests
-RUN uv sync --frozen
+# --inexact keeps the language model above; a plain sync would remove it (it's not in uv.lock).
+RUN uv sync --frozen --inexact
 
 ENTRYPOINT ["frits"]
 CMD ["--help"]
