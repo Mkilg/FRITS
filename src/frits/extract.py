@@ -14,7 +14,11 @@ MAX_QUANTITY = {"Std": 24, "km": 2000, "Stk": 500, "pauschal": 1}
 # Phrases that try to talk to the AI. Their presence is shown to Fritz as a teaching moment.
 _INJECTION = re.compile(
     r"(?i)ignorier\w*\s+(alle|die|deine|bisherige)|ignore\s+(all|previous|your)|"
-    r"\b(system|admin)\s*(:|mode|modus)|für die ki\b|for the (ai|model)\b|you are now"
+    r"\b(system|admin)\s*(:|mode|modus)|you are now|"
+    # Words that address the AI directly: no customer note talks to a language model.
+    r"\b(an|für)\s+(die|das|den)\s+(ki|sprachmodell|modell|assistenten|chatbot)\b|"
+    r"\b(to|for)\s+the\s+(ai|model|language model|assistant|llm)\b|"
+    r"\bsprachmodell|\blanguage model|\bki\s*:|\bchatgpt\b"
 )
 
 

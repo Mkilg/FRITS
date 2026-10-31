@@ -7,7 +7,10 @@ FRITS's buttons for him (that attack is called CSRF).
 
 from __future__ import annotations
 
+import os
 import secrets
+import signal
+import threading
 from collections.abc import Callable
 from contextlib import ExitStack, asynccontextmanager
 from dataclasses import replace
@@ -131,11 +134,17 @@ def _templates() -> Jinja2Templates:
 # ---------- the app ----------
 
 
+def _stop_server() -> None:
+    # Ask uvicorn to shut down the same way Ctrl+C does, a moment after the page is sent.
+    threading.Timer(0.5, os.kill, args=(os.getpid(), signal.SIGINT)).start()
+
+
 def create_app(
     ws: Workspace | None = None,
     provider_factory: Callable[[Settings], object] | None = None,
     nlp_loader: Callable[[], object] | None = None,
     today: Callable[[], date] = date.today,
+    stop: Callable[[], None] = _stop_server,
 ) -> FastAPI:
     ws = (ws or Workspace.default()).ensure()
 
@@ -886,6 +895,15 @@ def create_app(
             mood=mood,
             text=text,
         )
+
+    @app.get("/health")
+    def health():
+        return HTMLResponse("FRITS")
+
+    @app.post("/quit", dependencies=guarded)
+    def quit_frits(request: Request):
+        stop()
+        return page(request, "quit.html")
 
     @app.get("/mailto")
     def mailto_page(request: Request):
