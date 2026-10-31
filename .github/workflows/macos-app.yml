@@ -103,5 +103,5 @@ jobs:
           fi
           # Without a tag push, "gh release create" makes the tag on this commit itself.
           gh release view "$TAG" >/dev/null 2>&1 \
-            || gh release create "$TAG" --target "$GITHUB_SHA" --title "FRITS $TAG" --notes "Mac version: download FRITS-macOS.zip, unzip, read LIESMICH.txt."
+            || gh release create "$TAG" --target "$GITHUB_SHA" --title "FRITS $TAG" --notes-file packaging/macos/release-notes.md
           gh release upload "$TAG" dist/macos/FRITS-macOS.zip --clobber
