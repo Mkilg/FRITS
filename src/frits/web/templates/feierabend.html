@@ -18,6 +18,10 @@
     <li>{{ overdue }} überfällige {{ "Rechnung" if overdue == 1 else "Rechnungen" }}</li>
   </ul>
   <p class="hint">Alles ist gespeichert. Du kannst das Fenster jetzt schließen und den Kopf frei machen.</p>
+  <form method="post" action="/quit">
+    <input type="hidden" name="token" value="{{ token }}">
+    <button>FRITS beenden</button>
+  </form>
 </section>
 <script>window.addEventListener("load", function () { if (window.FritsSound) FritsSound.music.stop(); });</script>
 {% endblock %}

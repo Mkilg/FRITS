@@ -406,3 +406,27 @@ def test_bad_expense_amount_is_a_message(client):
         category="sonstiges",
     )
     assert "keine Zahl" in page.text
+
+
+def test_quit_stops_the_server(ws, provider, nlp):
+    stopped = []
+    app = create_app(
+        ws, provider_factory=provider, nlp_loader=lambda: nlp, stop=lambda: stopped.append(1)
+    )
+    with TestClient(app) as c:
+        assert c.get("/health").text == "FRITS"
+        assert c.post("/quit", data={"token": "wrong"}).status_code == 403
+        assert not stopped
+        page = c.post("/quit", data={"token": app.state.token})
+        assert "FRITS ist aus" in page.text
+        assert stopped == [1]
+
+
+def test_second_start_reopens_the_running_frits(monkeypatch):
+    from frits import web
+
+    opened = []
+    monkeypatch.setattr(web, "running_frits", lambda port=web.DEFAULT_PORT: True)
+    monkeypatch.setattr(web.webbrowser, "open", opened.append)
+    web.serve()
+    assert opened == ["http://127.0.0.1:8765/"]

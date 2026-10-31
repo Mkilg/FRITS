@@ -21,11 +21,28 @@ def free_port(start: int = DEFAULT_PORT) -> int:
     raise RuntimeError("Kein freier Port gefunden.")
 
 
+def running_frits(port: int = DEFAULT_PORT) -> bool:
+    """Is a FRITS already answering on this port? (Then we just open the browser again.)"""
+    from urllib.error import URLError
+    from urllib.request import urlopen
+
+    try:
+        with urlopen(f"http://127.0.0.1:{port}/health", timeout=1) as response:
+            return response.read() == b"FRITS"
+    except (URLError, OSError):
+        return False
+
+
 def serve(port: int | None = None, open_browser: bool = True) -> None:
     import uvicorn
 
     from frits.web.app import create_app
 
+    if port is None and running_frits():
+        print(f"FRITS läuft schon: http://127.0.0.1:{DEFAULT_PORT}/")
+        if open_browser:
+            webbrowser.open(f"http://127.0.0.1:{DEFAULT_PORT}/")
+        return
     port = port or free_port()
     url = f"http://127.0.0.1:{port}/"
     print(f"FRITS läuft: {url}  (Strg+C beendet FRITS)")
