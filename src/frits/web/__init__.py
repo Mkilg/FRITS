@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import socket
 import threading
 import webbrowser
@@ -31,4 +32,6 @@ def serve(port: int | None = None, open_browser: bool = True) -> None:
     if open_browser:
         threading.Timer(1.0, webbrowser.open, args=(url,)).start()
     # 127.0.0.1 only: nobody else in the Wi-Fi can reach FRITS.
-    uvicorn.run(create_app(), host="127.0.0.1", port=port, log_level="warning")
+    # (Docker sets FRITS_HOST=0.0.0.0 inside the container and maps the port to 127.0.0.1.)
+    host = os.environ.get("FRITS_HOST", "127.0.0.1")
+    uvicorn.run(create_app(), host=host, port=port, log_level="warning")

@@ -1,9 +1,36 @@
 # FRITS
-Fantastisches Rechnungsstellungs IT System
+Fantastisches Rechnungsschreibungs IT-System
 
 Drop a note, email or photo into a folder and get an invoice draft back. Names, addresses and bank details are replaced on your own computer before any AI sees the text. Mascot: a French fry.
 
-Status: phase 1 (command-line core pipeline). See the [plan](https://claude.ai/artifact/Y4geXZKysfhSEwjndteRQv) and the [phase 1 build spec](https://claude.ai/artifact/59NcqVbQoNgyqpGdYX7NgJ).
+Status: v1 in progress. The core pipeline, the browser app and the setup assistant are built. See the [plan](https://claude.ai/artifact/Y4geXZKysfhSEwjndteRQv) and the [phase 1 build spec](https://claude.ai/artifact/59NcqVbQoNgyqpGdYX7NgJ).
+
+## Try FRITS
+
+### With Docker (easiest for development)
+
+```sh
+cp .env.example .env            # then put your Claude, OpenAI or OpenRouter key into .env
+docker compose build            # first time takes a few minutes
+docker compose up ui            # then open http://localhost:8765 in your browser
+```
+
+Your FRITS folder is `workspace/` in this repository: drop notes into `workspace/inbox/`.
+Inside Docker, FRITS can't open Mail or Finder on your Mac (a container is a closed box),
+so "In Mail öffnen" falls back to a normal email link. The API key comes from `.env`
+because the container has no access to your Mac's Keychain.
+
+### Directly on your Mac (how Fritz will run it)
+
+```sh
+brew install uv tesseract tesseract-lang
+uv sync
+uv pip install "de_core_news_lg @ https://github.com/explosion/spacy-models/releases/download/de_core_news_lg-3.8.0/de_core_news_lg-3.8.0-py3-none-any.whl"
+uv run frits ui                 # opens the browser; the setup assistant starts
+```
+
+Your FRITS folder is `~/Documents/FRITS` (set `FRITS_HOME` to use another folder).
+Here the key goes into the Keychain, and Mail opens ready-to-send messages.
 
 ## Development with Docker
 

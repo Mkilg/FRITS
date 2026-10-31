@@ -4,6 +4,8 @@
 <h1>Einstellungen</h1>
 <form method="post" action="/settings" class="form">
   <input type="hidden" name="token" value="{{ token }}">
+  <input type="hidden" name="checkboxes" value="strict_local">
+  <input type="hidden" name="checkboxes" value="sound">
   <section class="card">
     <h2>Über dich</h2>
     <p class="hint">Das steht auf jeder Rechnung.</p>
@@ -51,5 +53,5 @@
   </section>
   <div class="row actions"><button class="primary">Speichern</button></div>
 </form>
-<p class="hint">Deine Daten liegen in {{ folder }}.</p>
+<p class="hint">Deine Daten liegen in {{ folder }}. <a href="/setup/welcome">Einrichtung noch einmal ansehen</a></p>
 {% endblock %}

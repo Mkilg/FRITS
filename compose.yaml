@@ -13,7 +13,19 @@ services:
     environment:
       # File-change events don't cross the Mac/container boundary reliably, so poll instead.
       FRITS_WATCH_POLL: "1"
+      FRITS_HOME: /app/workspace
       OLLAMA_BASE_URL: http://ollama:11434/v1
+
+  # The FRITS app in your browser: docker compose up ui, then open http://localhost:8765
+  ui:
+    extends: app
+    command: ["ui", "--no-browser", "--port", "8765"]
+    environment:
+      # Inside the container FRITS must listen on all its network cards so Docker can
+      # forward the port. The "127.0.0.1:" below keeps it reachable only from your Mac.
+      FRITS_HOST: 0.0.0.0
+    ports:
+      - "127.0.0.1:8765:8765"
 
   # Local AI for testing the offline option. Start it with: docker compose --profile local up -d ollama
   ollama:

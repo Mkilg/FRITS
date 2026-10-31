@@ -23,7 +23,7 @@ from fastapi.templating import Jinja2Templates
 from jinja2 import Environment, PackageLoader, select_autoescape
 from markupsafe import Markup
 
-from frits import emails, store, system
+from frits import emails, setup, store, system
 from frits.billing import (
     BillingError,
     Draft,
@@ -229,6 +229,8 @@ def create_app(
     def home(request: Request):
         conn = db()
         current = settings()
+        if not current.setup_done and not current.is_complete:
+            return back("/setup/welcome")
         drafts = _open_drafts(conn, current)
         invoices = list_invoices(conn, today())
         overdue = [i for i in invoices if i["status"] == "überfällig"]
@@ -621,57 +623,115 @@ def create_app(
     @app.post("/settings", dependencies=guarded)
     async def settings_save(request: Request):
         form = await request.form()
-        current = settings()
-        text = {
-            k: str(form.get(k, "")).strip()
-            for k in (
-                "name",
-                "company",
-                "email",
-                "phone",
-                "steuernummer",
-                "ust_id",
-                "bank",
-                "iban",
-                "bic",
-            )
-        }
-        text["iban"] = text["iban"].replace(" ", "").upper()
         try:
-            numbers = {
-                "hourly_rate": parse_amount(str(form.get("hourly_rate"))) or Decimal(0),
-                "km_rate": parse_amount(str(form.get("km_rate"))) or Decimal(0),
-                "vat_rate": parse_amount(str(form.get("vat_rate"))) or Decimal(19),
-            }
-            days = int(str(form.get("payment_days") or 14))
+            updated = settings_from_form(settings(), form)
         except (BillingError, ValueError):
             flash("Bitte nur Zahlen bei Preisen und Zahlungsziel.", "error")
             return back("/settings")
-        provider = str(form.get("provider", current.provider))
-        updated = replace(
-            current,
-            **text,
-            **numbers,
-            address=_one_line(form.get("address")) or "",
-            payment_days=days,
-            tax_mode="regelbesteuerung"
-            if form.get("tax_mode") == "regelbesteuerung"
-            else "kleinunternehmer",
-            provider=provider if provider in PROVIDERS else current.provider,
-            strict_local=form.get("strict_local") == "on",
-            sound=form.get("sound") == "on",
-        )
         updated.save(ws.settings_file)
-        key = str(form.get("api_key", "")).strip()
-        if key and updated.provider in KEY_ENV:
-            try:
-                store_api_key(updated.provider, key)
-                flash("Gespeichert. Dein Schlüssel liegt jetzt im Schlüsselbund dieses Macs.")
-            except Exception:  # noqa: BLE001  (any keychain failure gets the same plain message)
-                flash("Der Schlüssel ließ sich nicht im Schlüsselbund speichern.", "error")
+        if save_key(updated.provider, str(form.get("api_key", ""))):
+            flash("Gespeichert. Dein Schlüssel liegt jetzt im Schlüsselbund dieses Macs.")
+        elif str(form.get("api_key", "")).strip():
+            flash("Der Schlüssel ließ sich nicht im Schlüsselbund speichern.", "error")
         else:
             flash("Gespeichert.")
         return back("/settings")
+
+    def save_key(provider: str, key: str) -> bool:
+        key = key.strip()
+        if not key or provider not in KEY_ENV:
+            return False
+        try:
+            store_api_key(provider, key)
+        except Exception:  # noqa: BLE001  (any keychain failure gets the same plain message)
+            return False
+        return True
+
+    # ----- Einrichtung -----
+
+    @app.get("/setup", response_class=HTMLResponse)
+    def setup_start():
+        return back("/setup/welcome")
+
+    @app.get("/setup/{step}", response_class=HTMLResponse)
+    def setup_route(request: Request, step: str):
+        return setup_page(request, step)
+
+    def setup_page(request: Request, step: str, **extra):
+        if step not in setup.STEPS:
+            raise HTTPException(404)
+        current = settings()
+        previous, following = setup.neighbours(step)
+        context = {
+            "step": step,
+            "info": setup.step_info(step),
+            "number": setup.STEPS.index(step) + 1,
+            "total": len(setup.STEPS),
+            "previous": previous,
+            "following": following,
+            "ai_choices": setup.AI_CHOICES,
+            "key_links": setup.KEY_LINKS,
+            "has_key": bool(get_api_key(current.provider))
+            if current.provider in KEY_ENV
+            else False,
+            "inbox": ws.inbox,
+            "sample": setup.sample_note(current),
+        }
+        context.update(extra)
+        return page(request, "setup.html", **context)
+
+    @app.post("/setup/{step}", dependencies=guarded)
+    async def setup_save(request: Request, step: str):
+        if step not in setup.STEPS:
+            raise HTTPException(404)
+        form = await request.form()
+        action = str(form.get("action", "next"))
+        _, following = setup.neighbours(step)
+        current = settings()
+        try:
+            updated = settings_from_form(current, form)
+        except (BillingError, ValueError):
+            flash("Bitte nur Zahlen bei Preisen.", "error")
+            return back(f"/setup/{step}")
+        if step == "done":
+            updated = replace(updated, setup_done=True)
+        updated.save(ws.settings_file)
+
+        if step == "store_key" and str(form.get("api_key", "")).strip():
+            if save_key(updated.provider, str(form.get("api_key"))):
+                flash("Dein Schlüssel liegt jetzt im Schlüsselbund dieses Macs.")
+            else:
+                flash("Der Schlüssel ließ sich nicht im Schlüsselbund speichern.", "error")
+                return back(f"/setup/{step}")
+        if action == "test":
+            try:
+                sent, result, usage = setup.connection_test(provider_for(updated), updated, nlp())
+            except (ProviderError, RuntimeError) as exc:
+                return setup_page(request, step, test_error=str(exc))
+            return setup_page(request, step, test_sent=sent, test_result=result, test_usage=usage)
+        if action == "redact":
+            text = str(form.get("text", ""))[:5000]
+            try:
+                shown = setup.redaction_test(text, updated, nlp())
+            except RuntimeError as exc:
+                flash(str(exc), "error")
+                return back(f"/setup/{step}")
+            return setup_page(request, step, redaction=shown, sample=text)
+        if action == "trick":
+            try:
+                demo = setup.trick_demo(updated, nlp())
+            except RuntimeError as exc:
+                flash(str(exc), "error")
+                return back(f"/setup/{step}")
+            return setup_page(request, step, demo=demo)
+        if action == "sample":
+            (ws.inbox / "beispiel-notiz.txt").write_text(setup.FIRST_NOTE, encoding="utf-8")
+            flash("Die Beispielnotiz liegt im Eingang. Auf „Heute“ kannst du sie lesen lassen.")
+            return back(f"/setup/{following}")
+        if step == "done":
+            flash("Alles eingerichtet. Schön, dass du da bist.", cue="done")
+            return back("/")
+        return back(f"/setup/{following}")
 
     @app.post("/sound", dependencies=guarded)
     async def sound_toggle(request: Request):
@@ -718,6 +778,37 @@ def create_app(
 
 
 # ---------- helpers ----------
+
+TEXT_FIELDS = ("name", "company", "email", "phone", "steuernummer", "ust_id", "bank", "iban", "bic")
+CHECKBOXES = ("strict_local", "sound")
+
+
+def settings_from_form(current: Settings, form) -> Settings:
+    """Apply the fields this form contains. Checkboxes count only if the form lists them,
+    because an unticked box isn't sent at all."""
+    changes: dict = {}
+    for key in TEXT_FIELDS:
+        if key in form:
+            changes[key] = str(form.get(key, "")).strip()
+    if "iban" in changes:
+        changes["iban"] = changes["iban"].replace(" ", "").upper()
+    if "address" in form:
+        changes["address"] = _one_line(form.get("address")) or ""
+    for key, empty in (("hourly_rate", 0), ("km_rate", 0), ("vat_rate", 19)):
+        if key in form:
+            changes[key] = parse_amount(str(form.get(key))) or Decimal(empty)
+    if "payment_days" in form:
+        changes["payment_days"] = int(str(form.get("payment_days") or 14))
+    if "tax_mode" in form:
+        changes["tax_mode"] = (
+            "regelbesteuerung" if form.get("tax_mode") == "regelbesteuerung" else "kleinunternehmer"
+        )
+    if form.get("provider") in PROVIDERS:
+        changes["provider"] = form.get("provider")
+    for key in form.getlist("checkboxes"):
+        if key in CHECKBOXES:
+            changes[key] = form.get(key) == "on"
+    return replace(current, **changes)
 
 
 def _open_drafts(conn, current: Settings) -> list[dict]:
