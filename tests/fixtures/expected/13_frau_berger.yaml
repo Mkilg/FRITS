@@ -1,0 +1,11 @@
+broken: false
+pii:
+- Berger
+contains:
+- Zaun
+doc_type: work_note
+items:
+- description: Zaun streichen
+  quantity: 6
+  unit: Std
+injection: false

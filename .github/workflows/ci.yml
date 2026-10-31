@@ -5,6 +5,12 @@ on:
     branches: [main]
   pull_request:
 
+env:
+  SPACY_MODEL: https://github.com/explosion/spacy-models/releases/download/de_core_news_lg-3.8.0/de_core_news_lg-3.8.0-py3-none-any.whl
+  # Redaction and OCR tests must run in CI, never be skipped.
+  FRITS_REQUIRE_NER: "1"
+  FRITS_REQUIRE_OCR: "1"
+
 jobs:
   test:
     strategy:
@@ -16,7 +22,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
+      - name: Install Tesseract (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y tesseract-ocr tesseract-ocr-deu
+      - name: Install Tesseract (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install tesseract
+          curl -sSL -o "$(brew --prefix)/share/tessdata/deu.traineddata" \
+            https://github.com/tesseract-ocr/tessdata_fast/raw/main/deu.traineddata
       - run: uv sync --frozen --python 3.12
+      - run: uv pip install "$SPACY_MODEL"
       - run: uv run ruff check .
       - run: uv run pytest -q
 
@@ -26,4 +42,4 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: docker build -t frits-dev .
-      - run: docker run --rm --entrypoint pytest frits-dev -q
+      - run: docker run --rm -e FRITS_REQUIRE_NER=1 -e FRITS_REQUIRE_OCR=1 --entrypoint pytest frits-dev -q

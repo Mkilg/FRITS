@@ -1,0 +1,15 @@
+broken: false
+pii:
+- Jonas Albrecht
+- jonas.albrecht@example.net
+- Lindenallee 7
+- 10115 Berlin
+- 0151 23456789
+contains:
+- Umzugshilfe
+doc_type: work_note
+items:
+- description: Umzugshilfe
+  quantity: 5
+  unit: Std
+injection: false

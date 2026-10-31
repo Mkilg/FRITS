@@ -1,0 +1,17 @@
+broken: false
+pii:
+- Bäckerei Sonnenschein GmbH
+- Karl Sonnenschein
+- 0221 9876543
+contains:
+- Regal
+- Anfahrt
+doc_type: work_note
+items:
+- description: Regal im Lager montiert
+  quantity: 2
+  unit: Std
+- description: Anfahrt
+  quantity: 18
+  unit: km
+injection: false

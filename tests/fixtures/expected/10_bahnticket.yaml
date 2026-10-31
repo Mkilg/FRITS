@@ -1,0 +1,9 @@
+broken: false
+pii:
+- Fritz Beispiel
+contains:
+- Fahrkarte
+- 9,40
+doc_type: expense_receipt
+items: null
+injection: false

@@ -1,0 +1,25 @@
+From: Karl Sonnenschein <karl@sonnenschein-backt.example>
+To: Fritz Beispiel <fritz@example.com>
+Subject: Auftrag =?utf-8?q?Ladent=C3=BCr?=
+Date: Sat, 31 Oct 2026 09:00:00 +0100
+MIME-Version: 1.0
+Content-Type: multipart/alternative;
+ boundary="===============0061307022911560892=="
+
+--===============0061307022911560892==
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+Bitte HTML-Ansicht verwenden.
+
+--===============0061307022911560892==
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+<html><body><p>Lieber Fritz,</p><p>die <b>Ladent=C3=BCr</b> klemmt wieder. Ka=
+nnst du am Montag kommen? Letzte Woche waren es 1,5 Std Reparatur.</p><p>B=C3=
+=A4ckerei Sonnenschein GmbH, Hauptstra=C3=9Fe 12, 54321 Beispielhausen</p></b=
+ody></html>
+
+--===============0061307022911560892==--

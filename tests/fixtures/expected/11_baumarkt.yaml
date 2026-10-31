@@ -1,0 +1,8 @@
+broken: false
+pii: []
+contains:
+- Gartenschere
+- 24,94
+doc_type: expense_receipt
+items: null
+injection: false

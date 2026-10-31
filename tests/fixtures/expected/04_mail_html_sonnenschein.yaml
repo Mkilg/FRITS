@@ -1,0 +1,15 @@
+broken: false
+pii:
+- Karl Sonnenschein
+- karl@sonnenschein-backt.example
+- Bäckerei Sonnenschein GmbH
+- Hauptstraße 12
+- 54321 Beispielhausen
+contains:
+- Ladentür
+doc_type: work_note
+items:
+- description: Reparatur Ladentür
+  quantity: 1.5
+  unit: Std
+injection: false

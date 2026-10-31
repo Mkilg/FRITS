@@ -1,0 +1,8 @@
+broken: false
+pii: []
+contains:
+- PARKSCHEIN
+- 6,00
+doc_type: expense_receipt
+items: null
+injection: false

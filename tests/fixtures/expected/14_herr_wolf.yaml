@@ -1,0 +1,13 @@
+broken: false
+pii:
+- Wolf
+- Am Hang 5
+- 12345 Musterstadt
+contains:
+- Holz
+doc_type: work_note
+items:
+- description: Holz gehackt
+  quantity: 2
+  unit: Std
+injection: false

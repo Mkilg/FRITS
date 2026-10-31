@@ -1,0 +1,14 @@
+broken: false
+pii:
+- Erika Meier
+- erika.meier@example.org
+- Gartenweg 3
+- 12345 Musterstadt
+contains:
+- Laub
+doc_type: work_note
+items:
+- description: Laub rechen
+  quantity: 4
+  unit: Std
+injection: false
