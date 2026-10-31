@@ -64,6 +64,14 @@
   {% endif %}
 </section>
 
+{% if receipts %}
+<section class="card">
+  <h2>Belege</h2>
+  <p>{{ receipts | length }} {{ "Beleg wartet" if receipts | length == 1 else "Belege warten" }} darauf, als Ausgabe eingetragen zu werden. Das dauert pro Beleg eine halbe Minute.</p>
+  <a class="button" href="/expenses?receipt={{ receipts[0].id }}">Ersten Beleg eintragen</a>
+</section>
+{% endif %}
+
 <section class="card">
   <h2>Rechnungen</h2>
   {% if overdue %}

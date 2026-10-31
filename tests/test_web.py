@@ -342,3 +342,67 @@ def test_feierabend_counts_today(client, ws):
     page = post(client, "/feierabend")
     assert "Wartet bis zum nächsten Mal" in page.text
     assert re.search(r"0 Rechnungen erstellt", page.text)
+
+
+def test_receipt_becomes_expense_and_shows_in_euer(client, ws):
+    shutil.copy(FIXTURES / "docs" / "10_bahnticket.png", ws.done / "10_bahnticket.png")
+    conn = store.connect(ws.db)
+    job = store.add_job(conn, "abc", "10_bahnticket.png", "receipt")
+    assert "1 Beleg wartet" in client.get("/").text
+    page = client.get(f"/expenses?receipt={job}")
+    assert f'src="/receipts/{job}"' in page.text
+    assert client.get(f"/receipts/{job}").status_code == 200
+
+    page = post(
+        client,
+        "/expenses",
+        date="2026-10-14",
+        vendor="Deutsche Bahn",
+        description="Fahrt zum Kunden",
+        gross="23,80",
+        vat_rate="0.19",
+        category="reisekosten",
+        source_file="10_bahnticket.png",
+    )
+    assert "23,80 €" in page.text
+    assert "Belege zum Eintragen" not in page.text  # the receipt is done
+
+    # A paid invoice plus the expense: EÜR shows both and the profit.
+    drop_and_read(client, ws, "01_notiz_meier.txt")
+    post(
+        client,
+        f"/drafts/{latest_draft(ws)}",
+        action="approve",
+        customer="erika-meier",
+        description=["Arbeit"],
+        date=[""],
+        quantity=["2"],
+        unit=["Std"],
+        price=["40"],
+    )
+    post(client, "/invoices/2026-0001/paid")
+    euer = client.get("/euer?year=2026").text
+    assert "80,00 €" in euer and "23,80 €" in euer
+    assert "Gewinn" in euer and "56,20 €" in euer  # Kleinunternehmer: gross counts
+    assert client.get("/euer/2026.csv").status_code == 200
+    assert client.get("/euer/2026.pdf").headers["content-type"] == "application/pdf"
+
+
+def test_receipt_can_be_ignored(client, ws):
+    conn = store.connect(ws.db)
+    job = store.add_job(conn, "def", "privat.jpg", "receipt")
+    post(client, f"/receipts/{job}/ignore")
+    assert "Belege zum Eintragen" not in client.get("/expenses").text
+
+
+def test_bad_expense_amount_is_a_message(client):
+    page = post(
+        client,
+        "/expenses",
+        date="2026-10-14",
+        vendor="X",
+        gross="viel",
+        vat_rate="0.19",
+        category="sonstiges",
+    )
+    assert "keine Zahl" in page.text

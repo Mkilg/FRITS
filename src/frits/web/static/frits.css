@@ -67,7 +67,7 @@ button.primary, .button.primary { background: var(--fry); border-color: var(--fr
 button.quiet, .button.quiet { background: transparent; border-color: transparent; color: var(--muted); }
 button.quiet:hover { color: var(--ink); }
 button.danger { color: var(--ketchup); }
-button.tiny { font-size: 0.8rem; padding: 0.2rem 0.6rem; }
+button.tiny, .button.tiny { font-size: 0.8rem; padding: 0.2rem 0.6rem; }
 button.feierabend { background: #2f3b4c; color: #fff; border-color: #2f3b4c; }
 button:disabled { opacity: 0.5; cursor: wait; }
 .row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
@@ -157,3 +157,9 @@ pre.redacted { background: #f3f0ff; }
 .setup-nav { justify-content: flex-end; border-top: 1px solid var(--line); padding-top: 1rem; }
 code { background: var(--bg); padding: 0.1rem 0.3rem; border-radius: 4px; }
 @media (max-width: 800px) { .compare { grid-template-columns: 1fr; } }
+
+/* Expenses and EÜR */
+img.receipt { max-width: 100%; border-radius: 8px; border: 1px solid var(--line); }
+iframe.receipt { width: 100%; height: 32rem; border: 1px solid var(--line); border-radius: 8px; }
+.spaced { margin-top: 1.4rem; }
+.profit { font-size: 1.2rem; margin: 1rem 0; }
