@@ -316,6 +316,7 @@ def test_settings_save_and_key_goes_to_keychain(client, ws, monkeypatch):
         provider="openrouter",
         api_key="sk-or-test",
         sound="on",
+        checkboxes=["strict_local", "sound"],
     )
     assert "Schlüsselbund" in page.text
     assert stored == {"openrouter": "sk-or-test"}

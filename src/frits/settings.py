@@ -100,6 +100,7 @@ class Settings:
     strict_local: bool = False
     # Calm extras
     sound: bool = False  # cues and focus music; off until Fritz turns it on
+    setup_done: bool = False
 
     @property
     def owner(self) -> Customer:

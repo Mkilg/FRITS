@@ -139,3 +139,21 @@ label.field { display: flex; flex-direction: column; gap: 0.2rem; margin-bottom:
   .top { padding: 0.6rem 1rem; }
   main { padding: 1rem; }
 }
+
+/* Setup assistant */
+.steps { display: flex; gap: 0.35rem; align-items: center; margin-bottom: 0.5rem; }
+.steps .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--line); }
+.steps .dot.done { background: var(--fry-dark); }
+.steps .dot.now { background: var(--fry); outline: 2px solid var(--fry-dark); }
+.steps .muted { margin-left: 0.5rem; font-size: 0.85rem; }
+.hello h1 { margin-bottom: 0.5rem; }
+.choice.big { padding: 0.6rem 0.8rem; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 0.5rem; }
+.choice.big:has(input:checked) { border-color: var(--fry-dark); background: var(--warn-bg); }
+.lesson { background: #f3f7fb; border: 1px solid #d6e2ee; border-radius: 10px; padding: 0.8rem 1rem; margin: 1rem 0; }
+.lesson.ok { background: #eef6ef; border-color: #c7dfcb; }
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }
+.compare pre, .setup > pre, .lesson pre { white-space: pre-wrap; background: var(--bg); padding: 0.7rem; border-radius: 8px; font-size: 0.85rem; }
+pre.redacted { background: #f3f0ff; }
+.setup-nav { justify-content: flex-end; border-top: 1px solid var(--line); padding-top: 1rem; }
+code { background: var(--bg); padding: 0.1rem 0.3rem; border-radius: 4px; }
+@media (max-width: 800px) { .compare { grid-template-columns: 1fr; } }
