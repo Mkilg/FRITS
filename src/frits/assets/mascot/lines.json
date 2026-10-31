@@ -1,0 +1,65 @@
+{
+  "_hinweis": "Kurze Sätze für FRITS, die Pommes. Ruhig, freundlich, per du. Keine Ausrufezeichen-Lawinen, kein schlechtes Gewissen.",
+  "steps": {
+    "welcome": {
+      "mood": "welcome",
+      "title": "Hallo, ich bin FRITS!",
+      "text": "Ich kümmere mich um den Papierkram, damit du dich um deine eigentliche Arbeit kümmern kannst. Die Einrichtung dauert etwa zehn Minuten. Wir machen einen Schritt nach dem anderen."
+    },
+    "choose_ai": {
+      "mood": "thinking",
+      "title": "Welche KI soll mir helfen?",
+      "text": "Ich kann mit Claude, OpenAI oder OpenRouter arbeiten, oder ganz ohne Internet mit einer KI auf deinem Rechner. Wenn du unsicher bist: Nimm Claude. Du kannst das später jederzeit ändern."
+    },
+    "store_key": {
+      "mood": "thinking",
+      "title": "Dein Schlüssel bleibt bei dir",
+      "text": "Füge hier deinen API-Schlüssel ein. Ich speichere ihn nur auf diesem Computer. Er landet nie in einer Datei, die du verschickst."
+    },
+    "business_details": {
+      "mood": "welcome",
+      "title": "Wer schreibt die Rechnungen?",
+      "text": "Dein Name, deine Adresse und deine Bankverbindung. Das steht später auf jeder Rechnung, also lieber einmal in Ruhe prüfen."
+    },
+    "tax_status": {
+      "mood": "thinking",
+      "title": "Kleinunternehmer oder mit Umsatzsteuer?",
+      "text": "Als Kleinunternehmer (Paragraf 19 UStG) weise ich keine Umsatzsteuer aus. Sonst rechne ich 19 Prozent drauf. Wenn du es nicht genau weißt, frag kurz deine Steuerberatung, das ist völlig in Ordnung."
+    },
+    "redaction_test": {
+      "mood": "thinking",
+      "title": "Kurzer Datenschutz-Test",
+      "text": "Bevor eine KI etwas liest, schwärze ich Namen, Adressen und Kontonummern hier auf deinem Rechner. Schau dir links das Original und rechts an, was die KI zu sehen bekommt."
+    },
+    "trick_document": {
+      "mood": "warning",
+      "title": "Ein kleiner Trick-Test",
+      "text": "Dieses Dokument versucht, mir heimlich Befehle zu geben. Ich lese so etwas als Text, nicht als Anweisung. Schau mal, wie ich damit umgehe."
+    },
+    "permissions": {
+      "mood": "warning",
+      "title": "Was darf ich, was nicht?",
+      "text": "Ich darf Entwürfe schreiben. Verschicken, Löschen und Rechnungsnummern vergeben passiert nur, wenn du auf den Knopf drückst. Du hast immer das letzte Wort."
+    },
+    "first_invoice": {
+      "mood": "thinking",
+      "title": "Deine erste Rechnung",
+      "text": "Leg eine Notiz, eine E-Mail oder ein Foto in deinen FRITS-Eingangsordner. Ich mache daraus einen Entwurf, den du in Ruhe prüfen kannst."
+    },
+    "done": {
+      "mood": "done",
+      "title": "Erledigt!",
+      "text": "Alles eingerichtet. Ab jetzt reicht ein Blick pro Woche. Ich sage dir Bescheid, wenn etwas auf dich wartet."
+    }
+  },
+  "moments": {
+    "draft_ready": {"mood": "done", "text": "Dein Entwurf ist fertig. Schau ihn dir an, wenn es dir passt."},
+    "invoice_sent": {"mood": "done", "text": "Erledigt! Die Rechnung ist raus. Ein Punkt weniger im Kopf."},
+    "working": {"mood": "thinking", "text": "Ich lese gerade. Das dauert einen Moment."},
+    "needs_you": {"mood": "warning", "text": "Hier brauche ich kurz deine Entscheidung. Keine Eile."},
+    "overdue_calm": {"mood": "warning", "text": "Eine Rechnung ist noch offen. Soll ich eine freundliche Erinnerung vorbereiten?"},
+    "error_calm": {"mood": "warning", "text": "Das hat nicht geklappt. Deine Daten sind sicher, nichts ist verloren. Versuch es gleich noch einmal."},
+    "welcome_back": {"mood": "welcome", "text": "Schön, dass du da bist. Hier ist, was seit letztem Mal passiert ist."},
+    "feierabend": {"mood": "feierabend", "text": "Alles notiert, nichts geht verloren. Feierabend! Bis zum nächsten Büro-Block."}
+  }
+}

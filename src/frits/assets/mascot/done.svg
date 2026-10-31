@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240" role="img" aria-labelledby="t">
+  <title id="t">FRITS ist fertig: Erledigt!</title>
+  <ellipse cx="120" cy="214" rx="44" ry="6" fill="#000" opacity="0.08"/>
+  <g>
+  <rect x="96" y="40" width="48" height="150" rx="16" fill="#F4C24D" stroke="#5B3A0E" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M106 58 V170" stroke="#FBE3A0" stroke-width="7" stroke-linecap="round" fill="none"/>
+  <path d="M100 52 Q110 44 120 50 Q130 56 140 48" fill="none" stroke="#D9962E" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="132" cy="160" r="3" fill="#D9962E"/><circle cx="126" cy="172" r="2" fill="#D9962E"/><path d="M105 100 Q110 93 115 100 M125 100 Q130 93 135 100" fill="none" stroke="#5B3A0E" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><ellipse cx="104" cy="112" rx="5" ry="3" fill="#F2A07B" opacity="0.7"/><ellipse cx="136" cy="112" rx="5" ry="3" fill="#F2A07B" opacity="0.7"/><path d="M109 111 Q120 126 131 111 Z" fill="#5B3A0E"/><g transform="rotate(8 176 132)"><rect x="156" y="104" width="40" height="52" rx="4" fill="#FFFDF7" stroke="#5B3A0E" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path d="M164 116 H188 M164 124 H182" stroke="#5B3A0E" stroke-width="2.5" stroke-linecap="round" opacity="0.45"/><path d="M166 138 L174 146 L188 130" fill="none" stroke="#3E8E5A" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></g><path d="M144 132 Q152 132 158 128" fill="none" stroke="#5B3A0E" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path d="M96 126 Q80 112 78 92" fill="none" stroke="#5B3A0E" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="78" cy="88" r="6" fill="#F4C24D" stroke="#5B3A0E" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M110 190 V208 H102" fill="none" stroke="#5B3A0E" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M130 190 V208 H138" fill="none" stroke="#5B3A0E" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>
