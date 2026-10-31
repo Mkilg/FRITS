@@ -12,6 +12,11 @@ on:
       - "packaging/macos/**"
       - ".github/workflows/macos-app.yml"
   workflow_dispatch:
+    inputs:
+      release:
+        description: "To publish a download page, type a version such as v1.0.0. Leave empty to only build."
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -78,6 +83,20 @@ jobs:
             echo "Rosetta not available on this runner; skipping the Intel check."
           fi
 
+      - name: Check the app itself starts FRITS in the browser
+        run: |
+          # Like a double-click: run the app's own start file, with a fresh data folder.
+          APP="$RUNNER_TEMP/try/FRITS/FRITS.app"
+          export FRITS_HOME="$RUNNER_TEMP/frits-home"
+          "$APP/Contents/MacOS/FRITS" &
+          for i in $(seq 1 60); do
+            curl -fsS http://127.0.0.1:8765/health 2>/dev/null | grep -q FRITS && break
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:8765/health | grep FRITS || { cat "$HOME/Library/Logs/FRITS.log"; exit 1; }
+          curl -fsS -L http://127.0.0.1:8765/ | grep -q "FRITS"
+          kill %1 || true
+
       - name: Upload zip
         uses: actions/upload-artifact@v4
         with:
@@ -88,10 +107,15 @@ jobs:
           retention-days: 3
 
       - name: Attach zip to the release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.release != ''
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.release || github.ref_name }}
         run: |
-          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 \
-            || gh release create "$GITHUB_REF_NAME" --title "FRITS $GITHUB_REF_NAME" --notes "Mac version: download FRITS-macOS.zip, unzip, read LIESMICH.txt."
-          gh release upload "$GITHUB_REF_NAME" dist/macos/FRITS-macOS.zip --clobber
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "The version must look like v1.0.0, got: $TAG"; exit 1
+          fi
+          # Without a tag push, "gh release create" makes the tag on this commit itself.
+          gh release view "$TAG" >/dev/null 2>&1 \
+            || gh release create "$TAG" --target "$GITHUB_SHA" --title "FRITS $TAG" --notes-file packaging/macos/release-notes.md
+          gh release upload "$TAG" dist/macos/FRITS-macOS.zip --clobber
