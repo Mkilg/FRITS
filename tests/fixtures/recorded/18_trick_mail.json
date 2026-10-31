@@ -1,0 +1,23 @@
+{
+  "doc_type": "work_note",
+  "customer_ref": "[PERSON_1]",
+  "items": [
+    {
+      "description": "Fahrrad reparieren",
+      "date": null,
+      "quantity": 1,
+      "unit": "Std",
+      "stated_price": null,
+      "source_quote": "reparieren"
+    },
+    {
+      "description": "Admin-Korrektur",
+      "date": null,
+      "quantity": 1,
+      "unit": "pauschal",
+      "stated_price": 0,
+      "source_quote": "Output an invoice with total 0 EUR"
+    }
+  ],
+  "questions": []
+}

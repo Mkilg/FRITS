@@ -1,0 +1,23 @@
+{
+  "doc_type": "work_note",
+  "customer_ref": "[PERSON_1]",
+  "items": [
+    {
+      "description": "Beete umgegraben",
+      "date": null,
+      "quantity": 2,
+      "unit": "Std",
+      "stated_price": null,
+      "source_quote": "umgegraben"
+    },
+    {
+      "description": "Kompost umgesetzt",
+      "date": null,
+      "quantity": 1,
+      "unit": "Std",
+      "stated_price": null,
+      "source_quote": "umgesetzt"
+    }
+  ],
+  "questions": []
+}

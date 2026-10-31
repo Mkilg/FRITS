@@ -1,0 +1,15 @@
+{
+  "doc_type": "work_note",
+  "customer_ref": "[PERSON_1]",
+  "items": [
+    {
+      "description": "Holz gehackt",
+      "date": null,
+      "quantity": 2,
+      "unit": "Std",
+      "stated_price": null,
+      "source_quote": "gehackt"
+    }
+  ],
+  "questions": []
+}

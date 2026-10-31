@@ -1,0 +1,15 @@
+{
+  "doc_type": "work_note",
+  "customer_ref": "[PERSON_1]",
+  "items": [
+    {
+      "description": "Lampe im Flur aufgehängt",
+      "date": null,
+      "quantity": 1,
+      "unit": "Std",
+      "stated_price": null,
+      "source_quote": "aufgehängt"
+    }
+  ],
+  "questions": []
+}
