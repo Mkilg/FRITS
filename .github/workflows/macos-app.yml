@@ -83,6 +83,20 @@ jobs:
             echo "Rosetta not available on this runner; skipping the Intel check."
           fi
 
+      - name: Check the app itself starts FRITS in the browser
+        run: |
+          # Like a double-click: run the app's own start file, with a fresh data folder.
+          APP="$RUNNER_TEMP/try/FRITS/FRITS.app"
+          export FRITS_HOME="$RUNNER_TEMP/frits-home"
+          "$APP/Contents/MacOS/FRITS" &
+          for i in $(seq 1 60); do
+            curl -fsS http://127.0.0.1:8765/health 2>/dev/null | grep -q FRITS && break
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:8765/health | grep FRITS || { cat "$HOME/Library/Logs/FRITS.log"; exit 1; }
+          curl -fsS -L http://127.0.0.1:8765/ | grep -q "FRITS"
+          kill %1 || true
+
       - name: Upload zip
         uses: actions/upload-artifact@v4
         with:
