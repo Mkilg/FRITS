@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240" role="img" aria-labelledby="t">
+  <title id="t">FRITS winkt zur Begrüßung</title>
+  <ellipse cx="120" cy="214" rx="44" ry="6" fill="#000" opacity="0.08"/>
+  <g>
+  <rect x="96" y="40" width="48" height="150" rx="16" fill="#F4C24D" stroke="#5B3A0E" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M106 58 V170" stroke="#FBE3A0" stroke-width="7" stroke-linecap="round" fill="none"/>
+  <path d="M100 52 Q110 44 120 50 Q130 56 140 48" fill="none" stroke="#D9962E" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="132" cy="160" r="3" fill="#D9962E"/><circle cx="126" cy="172" r="2" fill="#D9962E"/><circle cx="110" cy="98" r="4.5" fill="#5B3A0E"/><circle cx="130" cy="98" r="4.5" fill="#5B3A0E"/><circle cx="111.5" cy="96.5" r="1.4" fill="#fff"/><circle cx="131.5" cy="96.5" r="1.4" fill="#fff"/><ellipse cx="104" cy="112" rx="5" ry="3" fill="#F2A07B" opacity="0.7"/><ellipse cx="136" cy="112" rx="5" ry="3" fill="#F2A07B" opacity="0.7"/><path d="M111 112 Q120 122 129 112" fill="none" stroke="#5B3A0E" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path d="M96 132 Q80 142 76 156" fill="none" stroke="#5B3A0E" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path d="M144 126 Q160 112 164 92" fill="none" stroke="#5B3A0E" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="165" cy="88" r="6" fill="#F4C24D" stroke="#5B3A0E" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path d="M176 80 Q181 86 178 94 M184 74 Q192 86 186 100" fill="none" stroke="#D9962E" stroke-width="3" stroke-linecap="round"/>
+  <path d="M110 190 V208 H102" fill="none" stroke="#5B3A0E" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M130 190 V208 H138" fill="none" stroke="#5B3A0E" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>
