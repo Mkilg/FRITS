@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FRITS Klänge</title>
+<style>
+  body { font-family: -apple-system, system-ui, sans-serif; max-width: 34rem; margin: 3rem auto;
+         padding: 0 1rem; color: #3a2e1f; background: #fffaf0; line-height: 1.5; }
+  h1 { font-size: 1.6rem; } h2 { font-size: 1.1rem; margin-top: 2rem; }
+  button { font: inherit; padding: .5rem .9rem; margin: .25rem .25rem .25rem 0; border-radius: .6rem;
+           border: 1px solid #d9c49a; background: #fff3d6; cursor: pointer; }
+  button:hover { background: #ffe9b3; }
+  p.note { color: #7a6a52; font-size: .9rem; }
+</style>
+</head>
+<!-- Sound is switched on here only because this page exists to listen. In FRITS it starts off. -->
+<body data-frits-sound="on" data-frits-sound-base="./">
+<h1>🍟 FRITS Klänge</h1>
+<p>Zum Probehören. Öffne diese Datei einfach im Browser (Doppelklick).</p>
+
+<h2>Kleine Signale</h2>
+<button data-frits-cue="done">Erledigt!</button>
+<button data-frits-cue="sent">Rechnung verschickt</button>
+<button data-frits-cue="focus">Fokus-Runde</button>
+<button data-frits-cue="shutdown">Feierabend</button>
+
+<h2>Musik zum Konzentrieren</h2>
+<button data-frits-music="morgen">Morgen ▶︎ / ■</button>
+<button data-frits-music="buero-block">Büro-Block ▶︎ / ■</button>
+<p class="note">Ohne Gesang, ohne Beat. Läuft in Schleife, bis du sie stoppst.</p>
+
+<script src="frits-sound.js"></script>
+</body>
+</html>
