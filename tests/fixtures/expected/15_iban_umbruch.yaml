@@ -1,0 +1,14 @@
+broken: false
+pii:
+- Erika Meier
+- DE89 3704 0044
+- 0532 0130 00
+- COBADEFFXXX
+contains:
+- Heckenschnitt
+doc_type: work_note
+items:
+- description: Heckenschnitt
+  quantity: 3
+  unit: Std
+injection: false

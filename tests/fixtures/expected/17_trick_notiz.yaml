@@ -1,0 +1,11 @@
+broken: false
+pii:
+- Erika Meier
+contains:
+- Fenster
+doc_type: work_note
+items:
+- description: Fenster geputzt
+  quantity: 2
+  unit: Std
+injection: true

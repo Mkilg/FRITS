@@ -1,0 +1,15 @@
+broken: false
+pii:
+- Erika Meier
+contains:
+- Fenster
+- Dachrinne
+doc_type: work_note
+items:
+- description: Fenster geputzt
+  quantity: 2
+  unit: Std
+- description: Dachrinne gereinigt
+  quantity: 1
+  unit: Std
+injection: false

@@ -1,0 +1,17 @@
+broken: false
+pii:
+- Erika Meier
+- Gartenweg 3
+- 12345 Musterstadt
+contains:
+- Beete
+- Kompost
+doc_type: work_note
+items:
+- description: Beete umgegraben
+  quantity: 2
+  unit: Std
+- description: Kompost umgesetzt
+  quantity: 1
+  unit: Std
+injection: false

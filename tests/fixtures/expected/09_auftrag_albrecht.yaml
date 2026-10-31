@@ -1,0 +1,13 @@
+broken: false
+pii:
+- Jonas Albrecht
+- Lindenallee 7
+- 10115 Berlin
+contains:
+- Küchenschränke
+doc_type: work_note
+items:
+- description: Küchenschränke aufgebaut
+  quantity: 4
+  unit: Std
+injection: false

@@ -1,0 +1,12 @@
+broken: false
+pii:
+- Jonas Albrecht
+- jonas.albrecht@example.net
+contains:
+- Fahrrad
+doc_type: work_note
+items:
+- description: Fahrrad reparieren
+  quantity: 1
+  unit: Std
+injection: true

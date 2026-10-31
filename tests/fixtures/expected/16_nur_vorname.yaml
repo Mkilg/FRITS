@@ -1,0 +1,11 @@
+broken: false
+pii:
+- Jonas
+contains:
+- Lampe
+doc_type: work_note
+items:
+- description: Lampe im Flur aufgehängt
+  quantity: 1
+  unit: Std
+injection: false
