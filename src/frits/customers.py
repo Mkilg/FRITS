@@ -58,5 +58,37 @@ def load_customers(folder: Path) -> list[Customer]:
     return [c for c in customers if c is not None]
 
 
+def note_id(name: str) -> str:
+    """File name for a new customer note: "Bäckerei Sonnenschein" -> "baeckerei-sonnenschein"."""
+    text = name.lower()
+    for a, b in (("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("ß", "ss")):
+        text = text.replace(a, b)
+    return re.sub(r"[^a-z0-9]+", "-", text).strip("-") or "kunde"
+
+
+def save_note(folder: Path, customer: Customer) -> Path:
+    """Write the customer's frontmatter and keep whatever Fritz wrote below it."""
+    path = Path(folder) / f"{customer.id}.md"
+    body = "\n# Notizen\n"
+    if path.exists():
+        text = path.read_text(encoding="utf-8")
+        match = _FRONTMATTER.match(text)
+        body = text[match.end() :] if match else text
+        if not body.startswith("\n"):
+            body = "\n" + body
+    meta = {"type": "kunde", "name": customer.name}
+    for key in ("company", "address", "email", "phone"):
+        if getattr(customer, key):
+            meta[key] = getattr(customer, key)
+    if customer.hourly_rate is not None:
+        meta["hourly_rate"] = float(customer.hourly_rate)
+    if customer.aliases:
+        meta["aliases"] = list(customer.aliases)
+    front = yaml.safe_dump(meta, allow_unicode=True, sort_keys=False)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(f"---\n{front}---\n{body}", encoding="utf-8")
+    return path
+
+
 def _opt(value: object) -> str | None:
     return str(value).strip() if value not in (None, "") else None

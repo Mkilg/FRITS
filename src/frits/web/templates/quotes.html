@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Angebote · FRITS{% endblock %}
+{% block content %}
+<div class="head-row">
+  <h1>Angebote</h1>
+  <form method="post" action="/drafts/new" class="row">
+    <input type="hidden" name="token" value="{{ token }}">
+    <input type="hidden" name="kind" value="quote">
+    <select name="customer"><option value="">Kunde wählen</option>{% for c in customers %}<option value="{{ c.id }}">{{ c.display_name }}</option>{% endfor %}</select>
+    <button class="primary">Neues Angebot</button>
+  </form>
+</div>
+{% if quotes %}
+<div class="table-wrap"><table class="table">
+  <thead><tr><th>Nummer</th><th>Kunde</th><th>Gültig bis</th><th class="amount">Betrag</th><th>Status</th><th></th></tr></thead>
+  <tbody>
+  {% for q in quotes %}
+  <tr id="a-{{ q.number }}">
+    <td><a href="/quotes/{{ q.number }}/pdf" target="_blank">{{ q.number }}</a></td>
+    <td>{{ q.draft.customer_name }}</td>
+    <td>{{ q.valid_until | de_date }}</td>
+    <td class="amount">{{ q.gross | eur }}</td>
+    <td>
+      {% if q.status == "accepted" %}<span class="badge ok">angenommen</span>
+      {% elif q.status == "declined" %}<span class="badge muted">abgelehnt</span>
+      {% else %}<span class="badge todo">offen</span>{% endif %}
+      {% if q.emailed %}<small class="muted">an Mail übergeben {{ q.emailed | de_date }}</small>{% endif %}
+    </td>
+    <td class="actions">
+      {% if q.status == "open" %}
+      <form method="post" action="/quotes/{{ q.number }}/email"><input type="hidden" name="token" value="{{ token }}"><button class="tiny">In Mail öffnen</button></form>
+      <form method="post" action="/quotes/{{ q.number }}/accept"><input type="hidden" name="token" value="{{ token }}"><button class="tiny">Angenommen, Rechnung vorbereiten</button></form>
+      <form method="post" action="/quotes/{{ q.number }}/decline"><input type="hidden" name="token" value="{{ token }}"><button class="tiny quiet">Abgelehnt</button></form>
+      {% elif q.draft_id %}<a href="/drafts/{{ q.draft_id }}">Rechnungsentwurf</a>{% endif %}
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+{% else %}
+<p class="muted">Noch keine Angebote. Ein Angebot sieht aus wie eine Rechnung, hat aber eine eigene Nummer (AN-…). Sagt der Kunde ja, wird mit einem Klick ein Rechnungsentwurf daraus.</p>
+{% endif %}
+{% endblock %}

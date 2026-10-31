@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}FRITS{% endblock %}</title>
+  <link rel="stylesheet" href="/static/frits.css">
+  <link rel="icon" href="/static/fry.svg">
+</head>
+<body{% if sounds %} data-frits-sound="on" data-frits-sound-base="{{ sounds }}"{% endif %}>
+<header class="top">
+  <a class="brand" href="/"><span class="brand-fry">{{ mascot("welcome") }}</span><span>FRITS</span></a>
+  <nav>
+    {% for href, label in [("/", "Heute"), ("/drafts", "Entwürfe"), ("/invoices", "Rechnungen"), ("/quotes", "Angebote"), ("/customers", "Kunden"), ("/settings", "Einstellungen")] %}
+    <a href="{{ href }}" {% if nav == href or (href != "/" and nav.startswith(href)) %}aria-current="page"{% endif %}>{{ label }}</a>
+    {% endfor %}
+  </nav>
+  <div class="top-actions">
+    {% if sounds %}
+    <button type="button" class="quiet" data-frits-music="buero-block" title="Ruhige Musik zum Konzentrieren">♪ Musik</button>
+    {% endif %}
+    <form method="post" action="/sound">
+      <input type="hidden" name="token" value="{{ token }}">
+      <input type="hidden" name="back" value="{{ nav }}">
+      <button class="quiet" title="Klänge an oder aus">{{ "🔔 Klang an" if settings.sound else "🔕 Klang aus" }}</button>
+    </form>
+    <form method="post" action="/feierabend">
+      <input type="hidden" name="token" value="{{ token }}">
+      <button class="feierabend">Feierabend</button>
+    </form>
+  </div>
+</header>
+<main>
+  {% for f in flashes %}{% if f.text %}
+  <div class="flash {{ f.kind }}" role="status">{{ f.text }}</div>
+  {% endif %}{% endfor %}
+  {% block content %}{% endblock %}
+</main>
+<footer class="bottom">
+  {% if settings.strict_local %}Strikter Modus: Nur die lokale KI wird benutzt.
+  {% else %}KI: {{ providers.get(settings.provider, settings.provider) }}. Namen, Adressen und Kontonummern werden vorher auf diesem Computer geschwärzt.{% endif %}
+</footer>
+{% if sounds %}<script src="{{ sounds }}frits-sound.js"></script>{% endif %}
+<script src="/static/frits.js"></script>
+{% set cues = flashes | selectattr("cue") | map(attribute="cue") | list %}
+{% if cues and sounds %}<script>window.addEventListener("load", function () { if (window.FritsSound) FritsSound.cue({{ cues[-1] | tojson }}); });</script>{% endif %}
+</body>
+</html>

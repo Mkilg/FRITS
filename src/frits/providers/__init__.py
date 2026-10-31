@@ -33,6 +33,7 @@ KEY_ENV = {
     "openrouter": "OPENROUTER_API_KEY",
 }
 KEYCHAIN_SERVICE = "FRITS"
+_LABELS = {"claude": "Claude", "openai": "OpenAI", "openrouter": "OpenRouter"}
 
 
 class ProviderError(Exception):
@@ -98,6 +99,7 @@ def _require_key(name: str) -> str:
     key = get_api_key(name)
     if not key:
         raise ProviderError(
-            f"Für {name} ist noch kein API-Schlüssel hinterlegt. Bitte im Einrichtungsassistenten eintragen."
+            f"Für {_LABELS.get(name, name)} ist noch kein API-Schlüssel hinterlegt. "
+            "Trag ihn in den Einstellungen unter „KI“ ein."
         )
     return key

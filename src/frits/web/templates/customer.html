@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}{{ customer.display_name if customer else "Neuer Kunde" }} · FRITS{% endblock %}
+{% block content %}
+<h1>{{ customer.display_name if customer else "Neuer Kunde" }}</h1>
+<form method="post" action="/customers" class="card form">
+  <input type="hidden" name="token" value="{{ token }}">
+  <input type="hidden" name="id" value="{{ customer.id if customer else '' }}">
+  <input type="hidden" name="back" value="{{ back_to or '' }}">
+  <label class="field">Name der Ansprechperson <input name="name" required value="{{ customer.name if customer else '' }}"></label>
+  <label class="field">Firma (falls es eine gibt) <input name="company" value="{{ customer.company or '' if customer else '' }}"></label>
+  <label class="field">Adresse <textarea name="address" rows="3" placeholder="Straße Nr.&#10;PLZ Ort">{{ (customer.address or '').replace(', ', '\n') if customer else '' }}</textarea></label>
+  <label class="field">E-Mail <input name="email" type="email" value="{{ customer.email or '' if customer else '' }}"></label>
+  <label class="field">Telefon <input name="phone" value="{{ customer.phone or '' if customer else '' }}"></label>
+  <label class="field">Eigener Stundensatz (leer = dein normaler) <input name="hourly_rate" inputmode="decimal" value="{{ customer.hourly_rate | qty if customer and customer.hourly_rate else '' }}"></label>
+  <label class="field">Andere Schreibweisen, mit Komma getrennt <input name="aliases" value="{{ customer.aliases | join(', ') if customer else '' }}" placeholder="z. B. Frau M., Bäckerei S."></label>
+  <p class="hint">Andere Schreibweisen helfen beim Schwärzen: Auch „Frau M.“ wird dann zum Platzhalter.</p>
+  <div class="row actions"><button class="primary">Speichern</button></div>
+</form>
+{% if customer %}
+<form method="post" action="/customers/{{ customer.id }}/open"><input type="hidden" name="token" value="{{ token }}"><button class="quiet">Notiz im Editor öffnen</button></form>
+{% endif %}
+{% endblock %}

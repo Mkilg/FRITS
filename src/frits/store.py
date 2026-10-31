@@ -14,7 +14,8 @@ CREATE TABLE IF NOT EXISTS jobs (
     filename TEXT NOT NULL,
     received TEXT NOT NULL,
     status TEXT NOT NULL,          -- drafted | check-me | receipt
-    message TEXT
+    message TEXT,
+    sent_text TEXT                 -- exactly what the AI saw (already redacted), for the review screen
 );
 CREATE TABLE IF NOT EXISTS drafts (
     id INTEGER PRIMARY KEY,
@@ -37,7 +38,28 @@ CREATE TABLE IF NOT EXISTS invoices (
     draft_id INTEGER REFERENCES drafts(id),
     due_date TEXT,
     pdf_path TEXT,
-    cancels TEXT REFERENCES invoices(number)
+    cancels TEXT REFERENCES invoices(number),
+    emailed TEXT                   -- day Fritz handed it to his mail program
+);
+CREATE TABLE IF NOT EXISTS quotes (
+    number TEXT PRIMARY KEY,       -- AN-2026-0001
+    created TEXT NOT NULL,
+    valid_until TEXT NOT NULL,
+    customer_id TEXT,
+    data TEXT NOT NULL,            -- Draft as JSON, same shape as invoice drafts
+    status TEXT NOT NULL DEFAULT 'open',    -- open | accepted | declined
+    pdf_path TEXT,
+    emailed TEXT,
+    draft_id INTEGER REFERENCES drafts(id)  -- set once it became an invoice draft
+);
+CREATE TABLE IF NOT EXISTS reminders (
+    id INTEGER PRIMARY KEY,
+    invoice_number TEXT NOT NULL REFERENCES invoices(number),
+    created TEXT NOT NULL,
+    level INTEGER NOT NULL,
+    new_due_date TEXT NOT NULL,
+    pdf_path TEXT NOT NULL,
+    emailed TEXT
 );
 CREATE TABLE IF NOT EXISTS audit (
     id INTEGER PRIMARY KEY,
@@ -82,10 +104,18 @@ def job_seen(conn: sqlite3.Connection, sha256: str) -> bool:
     return conn.execute("SELECT 1 FROM jobs WHERE sha256 = ?", (sha256,)).fetchone() is not None
 
 
-def add_job(conn, sha256: str, filename: str, status: str, message: str | None = None) -> int:
+def add_job(
+    conn,
+    sha256: str,
+    filename: str,
+    status: str,
+    message: str | None = None,
+    sent_text: str | None = None,
+) -> int:
     cur = conn.execute(
-        "INSERT INTO jobs (sha256, filename, received, status, message) VALUES (?, ?, ?, ?, ?)",
-        (sha256, filename, now(), status, message),
+        "INSERT INTO jobs (sha256, filename, received, status, message, sent_text)"
+        " VALUES (?, ?, ?, ?, ?, ?)",
+        (sha256, filename, now(), status, message, sent_text),
     )
     return cur.lastrowid
 

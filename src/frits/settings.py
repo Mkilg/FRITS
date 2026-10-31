@@ -12,7 +12,16 @@ import tomli_w
 
 from frits.customers import Customer
 
-FOLDERS = ("inbox", "privat", "check-me", "done", "invoices", "customers", ".mappings")
+FOLDERS = (
+    "inbox",
+    "privat",
+    "check-me",
+    "done",
+    "invoices",
+    "quotes",
+    "customers",
+    ".mappings",
+)
 
 
 @dataclass(frozen=True)
@@ -39,6 +48,10 @@ class Workspace:
     @property
     def invoices(self) -> Path:
         return self.root / "invoices"
+
+    @property
+    def quotes(self) -> Path:
+        return self.root / "quotes"
 
     @property
     def customers(self) -> Path:
@@ -85,6 +98,8 @@ class Settings:
     provider: str = "claude"  # claude | openai | openrouter | ollama
     models: dict[str, str] = field(default_factory=dict)
     strict_local: bool = False
+    # Calm extras
+    sound: bool = False  # cues and focus music; off until Fritz turns it on
 
     @property
     def owner(self) -> Customer:
