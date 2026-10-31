@@ -1,0 +1,11 @@
+#!/bin/bash
+# What runs when FRITS.app is double-clicked.
+# If FRITS has its window ("frits ui"), start it. Until then, open a Terminal window.
+RES="$(cd "$(dirname "$0")/../Resources" && pwd)"
+LOG="$HOME/Library/Logs/FRITS.log"
+mkdir -p "$(dirname "$LOG")"
+
+if "$RES/frits-launch.sh" ui --help >/dev/null 2>&1; then
+  exec "$RES/frits-launch.sh" ui >>"$LOG" 2>&1
+fi
+exec open -a Terminal "$RES/frits-terminal.command"
