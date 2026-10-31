@@ -40,7 +40,7 @@ GitHub builds it for you (workflow `Mac app` in `.github/workflows/macos-app.yml
 
 - On the repository page, open **Actions**, click **Mac app**, open the newest run and download **FRITS-macOS** at the bottom.
   GitHub wraps the zip in another zip, so you unzip twice. Downloads are kept for 3 days.
-- For a lasting download, create a version tag such as `v1.0.0`. The zip is then attached to a GitHub Release.
+- For a lasting download, create a version tag such as `v1.0.0`, or open Actions → "Mac app" → "Run workflow" and type the version into the box. The zip is then attached to a GitHub Release.
 
 To build it yourself on a Mac (needs [uv](https://docs.astral.sh/uv/) and `brew install micromamba`):
 
