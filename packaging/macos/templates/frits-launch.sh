@@ -19,8 +19,11 @@ export PYTHONPATH="$RES/shared"
 export PYTHONNOUSERSITE=1
 export PYTHONDONTWRITEBYTECODE=1
 unset PYTHONHOME VIRTUAL_ENV
-# The folder that holds FRITS.app (for example the USB stick), for keeping data next to it.
-export FRITS_PORTABLE_DIR="${FRITS_PORTABLE_DIR:-$(cd "$RES/../../.." && pwd)}"
+# Bundled Tesseract (reads photos of receipts) and its German language data.
+if [ -x "$RES/tesseract/$ARCH/bin/tesseract" ]; then
+  export FRITS_TESSERACT="$RES/tesseract/$ARCH/bin/tesseract"
+  export TESSDATA_PREFIX="$RES/tessdata"
+fi
 
 if [ "$(uname -m)" != "$ARCH" ] && [ "$ARCH" = "arm64" ]; then
   exec arch -arm64 "$PY" -m frits.cli "$@"

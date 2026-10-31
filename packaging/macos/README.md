@@ -23,8 +23,14 @@ It works on Apple Silicon (M1 and newer) and Intel Macs with macOS 13 or newer.
   ([python-build-standalone](https://github.com/astral-sh/python-build-standalone), fetched by uv),
   one per chip type, each with FRITS and the exact library versions from `uv.lock`.
 - `shared`: the German language model `de_core_news_lg` (about 570 MB). It is plain data, so both Pythons share one copy.
+- `tesseract/arm64` and `tesseract/x86_64`: Tesseract, the program that reads text from photos of receipts
+  (from conda-forge, fetched with micromamba), with only the libraries it needs.
+  `tessdata` holds its German and English language data.
 - `frits-launch.sh`: picks the Python that fits the Mac and runs `python -m frits.cli`.
-  It also sets `FRITS_PORTABLE_DIR` to the folder that holds `FRITS.app` (for example the USB stick).
+  It sets `FRITS_TESSERACT` (the Tesseract program) and `TESSDATA_PREFIX` (its language data).
+
+Fritz's own data (customers, invoices) is not stored in the app or on the stick but on his Mac,
+in `~/Documents/FRITS` (or wherever `FRITS_HOME` points).
 
 USB sticks usually cannot store "shortcuts" (symbolic links), so the build replaces every one with a real file.
 
@@ -36,7 +42,7 @@ GitHub builds it for you (workflow `Mac app` in `.github/workflows/macos-app.yml
   GitHub wraps the zip in another zip, so you unzip twice. Downloads are kept for 3 days.
 - For a lasting download, create a version tag such as `v1.0.0`. The zip is then attached to a GitHub Release.
 
-To build it yourself on a Mac (needs [uv](https://docs.astral.sh/uv/)):
+To build it yourself on a Mac (needs [uv](https://docs.astral.sh/uv/) and `brew install micromamba`):
 
 ```sh
 packaging/macos/build.sh        # result: dist/macos/FRITS-macOS.zip
@@ -59,5 +65,4 @@ FRITS is not signed with a paid Apple developer certificate, so on another Mac t
 
 ## Not included yet
 
-- Tesseract (reading photos of receipts) is not bundled; that comes when the photo feature lands.
 - No Apple signing/notarization (needs a paid Apple developer account).

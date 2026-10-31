@@ -7,16 +7,21 @@
 #   FRITS/LIESMICH.txt        short guide in German
 #
 # Inside FRITS.app sit two copies of Python (Apple Silicon and Intel), each with
-# FRITS and its libraries, plus one shared copy of the German language model.
+# FRITS and its libraries, two copies of Tesseract (reads photos of receipts),
+# plus one shared copy of the German language model and Tesseract's German data.
 # The launcher picks the right Python for the Mac it is running on.
 #
 # Usage (from the repo root):  packaging/macos/build.sh
-# Needs: uv. Works on macOS and Linux (Linux only for testing the layout).
+# Needs: uv, and on macOS micromamba (brew install micromamba) for Tesseract.
+# Works on Linux too, without Tesseract, for testing the layout.
 set -euo pipefail
 
 PY_VERSION="${PY_VERSION:-3.12}"
 ARCHES="${ARCHES:-arm64 x86_64}"
 MODEL_URL="${MODEL_URL:-https://github.com/explosion/spacy-models/releases/download/de_core_news_lg-3.8.0/de_core_news_lg-3.8.0-py3-none-any.whl}"
+TESSERACT_SPEC="${TESSERACT_SPEC:-tesseract=5.5}"
+TESSDATA_URL="${TESSDATA_URL:-https://github.com/tesseract-ocr/tessdata/raw/4.1.0}"
+TESSDATA_LANGS="${TESSDATA_LANGS:-deu eng osd}"
 # Oldest macOS the bundled libraries must support (Ventura).
 export MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-13.0}"
 
@@ -73,7 +78,44 @@ uv pip install --quiet --no-deps --target "$RES/shared" \
     --python-version "$PY_VERSION" "$WORK/de_core_news_lg-3.8.0-py3-none-any.whl"
 rm -rf "$RES/shared/bin"
 
-# 4. USB sticks (exFAT/FAT32) cannot store symbolic links: replace each with a real copy.
+# 4. Tesseract from conda-forge (built to be moved around), one per chip type.
+#    Only the program and the libraries it really loads are copied.
+if command -v otool >/dev/null && command -v micromamba >/dev/null; then
+  for arch in $ARCHES; do
+    case "$arch" in arm64) plat=osx-arm64 ;; x86_64) plat=osx-64 ;; esac
+    echo "==> Tesseract for $arch"
+    env_dir="$WORK/tess-$arch"
+    micromamba create -y -q -r "$WORK/mamba" -p "$env_dir" --platform "$plat" \
+        -c conda-forge --override-channels "$TESSERACT_SPEC" >/dev/null
+    dest="$RES/tesseract/$arch"
+    mkdir -p "$dest/bin" "$dest/lib"
+    cp -L "$env_dir/bin/tesseract" "$dest/bin/tesseract"
+    queue=("$dest/bin/tesseract")
+    i=0
+    while [ "$i" -lt "${#queue[@]}" ]; do
+      file="${queue[$i]}"; i=$((i + 1))
+      for name in $(otool -L "$file" | awk 'NR>1 {print $1}' | sed -n 's|^@rpath/||p'); do
+        if [ ! -e "$dest/lib/$name" ]; then
+          cp -L "$env_dir/lib/$name" "$dest/lib/$name"
+          queue+=("$dest/lib/$name")
+        fi
+      done
+    done
+    # The program finds its libraries in ../lib, wherever the app lives.
+    otool -l "$dest/bin/tesseract" | grep -q '@loader_path/../lib' \
+      || { install_name_tool -add_rpath @loader_path/../lib "$dest/bin/tesseract" \
+           && codesign --force --sign - "$dest/bin/tesseract"; }
+  done
+  echo "==> Tesseract language data ($TESSDATA_LANGS)"
+  mkdir -p "$RES/tessdata"
+  for lang in $TESSDATA_LANGS; do
+    curl -fsSL --retry 4 -o "$RES/tessdata/$lang.traineddata" "$TESSDATA_URL/$lang.traineddata"
+  done
+else
+  echo "==> Skipping Tesseract (needs macOS with otool and micromamba)"
+fi
+
+# 5. USB sticks (exFAT/FAT32) cannot store symbolic links: replace each with a real copy.
 echo "==> Replacing symbolic links with real files"
 while IFS= read -r link; do
   target="$(cd "$(dirname "$link")" && cd "$(dirname "$(readlink "$link")")" && pwd)/$(basename "$(readlink "$link")")"
@@ -81,7 +123,7 @@ while IFS= read -r link; do
   cp -RL "$target" "$link"
 done < <(find "$APP" -type l)
 
-# 5. Launchers, app description and guide.
+# 6. Launchers, app description and guide.
 echo "==> Launchers"
 cp "$HERE/templates/frits-launch.sh"      "$RES/frits-launch.sh"
 cp "$HERE/templates/frits-terminal.command" "$RES/frits-terminal.command"
@@ -107,7 +149,7 @@ elif [ -f "$HERE/icon.png" ] && command -v iconutil >/dev/null; then
   iconutil -c icns "$set_dir" -o "$RES/FRITS.icns"
 fi
 
-# 6. Pre-compile Python files so a read-only or slow USB stick starts quickly.
+# 7. Pre-compile Python files so a read-only or slow USB stick starts quickly.
 #    The compiled files work for both chip types.
 echo "==> Pre-compiling"
 compiler="$(uv python find "$PY_VERSION")"
@@ -115,7 +157,7 @@ compiler="$(uv python find "$PY_VERSION")"
     "$RES/shared" $(for a in $ARCHES; do echo "$RES/runtime/$a/lib/python${PY_VERSION}"; done) \
     >/dev/null || true
 
-# 7. Zip it. ditto keeps the "may run" flags that Finder needs.
+# 8. Zip it. ditto keeps the "may run" flags that Finder needs.
 echo "==> Zipping"
 if command -v ditto >/dev/null; then
   ditto -c -k --keepParent "$STAGE" "$OUT/FRITS-macOS.zip"
