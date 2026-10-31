@@ -1,0 +1,28 @@
+services:
+  app:
+    build: .
+    volumes:
+      # Live code: edits on your Mac show up in the container without a rebuild.
+      - ./src:/app/src
+      - ./tests:/app/tests
+      # Inbox, drafts, invoices and customer notes. Git-ignored, stays on your Mac.
+      - ./workspace:/app/workspace
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # File-change events don't cross the Mac/container boundary reliably, so poll instead.
+      FRITS_WATCH_POLL: "1"
+      OLLAMA_BASE_URL: http://ollama:11434/v1
+
+  # Local AI for testing the offline option. Start it with: docker compose --profile local up -d ollama
+  ollama:
+    image: ollama/ollama:0.12.6
+    profiles: ["local"]
+    volumes:
+      - ollama-models:/root/.ollama
+    ports:
+      - "11434:11434"
+
+volumes:
+  ollama-models:
