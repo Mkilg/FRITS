@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Steuer-Quest {{ jahr }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/steuer.css">{% endblock %}
+{% block content %}
+<div class="sq">
+{% include "_steuer_kopf.html" %}
+<div class="sq-spalten">
+  <section class="sq-karte" aria-label="Deine Provinzen">
+    {% for p in provinzen %}
+    <a class="sq-provinz stufe-{{ p.stand.stufe }}{% if p.stand.siegel %} siegel{% endif %}" href="/steuer/{{ jahr }}/gebiet/{{ p.gebiet.id }}">
+      <div class="bild" style="background-image: url(/static/steuer/{{ p.gebiet.provinz.key }}-{{ p.stand.stufe }}.png)"><span>{{ p.gebiet.titel }}</span></div>
+      <strong>{{ p.gebiet.titel }}</strong>
+      <span class="muted">{{ p.gebiet.bereich }}</span>
+      <span class="sq-balken"><span style="width: {{ p.stand.prozent }}%"></span></span>
+      <span>{% if p.stand.siegel %}Gold-Siegel!{% else %}{{ p.stand.erledigt }} / {{ p.stand.gesamt }} · {{ p.stufe_name }}{% endif %}</span>
+    </a>
+    {% endfor %}
+    <a class="sq-provinz sq-hort" href="/steuer/{{ jahr }}/drache">
+      <div class="bild" style="background-image: url(/static/steuer/drache-{{ drache.stimmung }}.png)"><span>Papierdrache</span></div>
+      <strong>Drachenhort</strong>
+      {% if drache.besiegt %}<span>Besiegt! Die Beute wartet.</span>
+      {% else %}<span>{{ drache.lp }} Karten übrig</span>{% endif %}
+    </a>
+  </section>
+
+  <aside class="sq-seite">
+    <section class="sq-rahmen">
+      <h2>Lagerhaus</h2>
+      {% if lager %}
+      <p>{{ lager | length }} {{ "Fundstück wartet" if lager | length == 1 else "Fundstücke warten" }} auf dein Urteil:</p>
+      <ul class="sq-lager">
+        {% for f in lager[:6] %}
+        <li>
+          <form method="post" action="/steuer/{{ jahr }}/lager/zuordnen">
+            <input type="hidden" name="token" value="{{ token }}">
+            <input type="hidden" name="name" value="{{ f.name }}">
+            <label><strong>{{ f.name }}</strong>
+            <select name="stueck_id">
+              <option value="">Wohin gehört das?</option>
+              {% for p in provinzen %}<optgroup label="{{ p.gebiet.titel }}">
+                {% for s in p.stuecke %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}
+              </optgroup>{% endfor %}
+            </select></label>
+            <button class="tiny">Einlagern</button>
+          </form>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p>Leg Fotos, PDFs und Mails in dein Lager. Hier ordnest du sie dann einer Provinz zu.</p>
+      {% endif %}
+      <form method="post" action="/steuer/{{ jahr }}/lager/oeffnen"><input type="hidden" name="token" value="{{ token }}"><button>Lager öffnen</button></form>
+    </section>
+
+    {% if vergleich %}
+    {% set fehlt = vergleich | rejectattr("jetzt", "in", ["gesammelt", "gibts_nicht", "fragen"]) | list %}
+    <section class="sq-rahmen">
+      <h2>Chronik {{ jahr - 1 }}</h2>
+      {% if fehlt %}
+      <p>Letztes Jahr hattest du {{ vergleich | length }} Sachen. Es fehlen noch {{ fehlt | length }}:</p>
+      <ul class="plain">{% for v in fehlt[:5] %}<li>{{ v.name }}</li>{% endfor %}</ul>
+      {% else %}<p>Alles, was letztes Jahr da war, ist wieder da.</p>{% endif %}
+    </section>
+    {% endif %}
+
+    <section class="sq-rahmen">
+      <h2>Botschaft empfangen?</h2>
+      <a class="button" href="/steuer/{{ jahr }}/beraterin">Mail deiner Beraterin einfügen</a>
+    </section>
+
+    {% if chronik %}
+    <section class="sq-rahmen sq-pergament">
+      <h2>Chronik</h2>
+      <ul class="plain">{% for e in chronik %}<li>{{ e.text }}</li>{% endfor %}</ul>
+    </section>
+    {% endif %}
+
+    <section class="sq-rahmen">
+      <h2>Erfolge</h2>
+      <ul class="sq-erfolge">
+        {% for e in erfolge %}<li class="{{ 'an' if e.erreicht else 'aus' }}" title="{{ e.beschreibung }}">{{ e.name }}</li>{% endfor %}
+      </ul>
+    </section>
+    <p><a href="/steuer/{{ jahr }}/fragebogen">Fragebogen ändern</a> · <a href="/steuer/{{ jahr - 1 }}">Jahr {{ jahr - 1 }}</a> · <a href="/steuer/{{ jahr + 1 }}">Jahr {{ jahr + 1 }}</a></p>
+  </aside>
+</div>
+</div>
+{% endblock %}

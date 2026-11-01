@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Sieg · Steuer-Quest{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/steuer.css">{% endblock %}
+{% block content %}
+<div class="sq">
+{% include "_steuer_kopf.html" %}
+<h1 class="sq-sieg">{% if drache.besiegt %}Goldenes Zeitalter erreicht!{% else %}Bereit zum Senden{% endif %}</h1>
+<div class="sq-spalten">
+  <aside class="sq-seite">
+    <div class="bild bild-gross" style="background-image: url(/static/steuer/truhe.png)"><span>Schatztruhe</span></div>
+    <section class="sq-rahmen">
+      <h2>Statistik</h2>
+      <dl class="sq-statistik">
+        <dt>Dokumente gesichert</dt><dd>{{ ressourcen.belege }}</dd>
+        <dt>Gold-Siegel</dt><dd>{{ ressourcen.siegel }} / {{ provinzen | length }}</dd>
+        <dt>Aufträge der Beraterin</dt><dd>{{ ressourcen.briefe }}</dd>
+        <dt>Fragen an sie</dt><dd>{{ ressourcen.fragen }}</dd>
+      </dl>
+      <ul class="sq-erfolge">{% for e in erfolge if e.erreicht %}<li class="an">{{ e.name }}</li>{% endfor %}</ul>
+    </section>
+  </aside>
+  <section class="sq-rahmen">
+    <h2>1. Truhe packen</h2>
+    {% if zip_pfad %}
+    <p>Gepackt: <strong>{{ zip_pfad.name }}</strong></p>
+    {% if passwort %}
+    <p class="sq-passwort">Passwort: <strong>{{ passwort }}</strong></p>
+    <p class="muted">Schick es deiner Beraterin getrennt, z. B. per SMS. Nicht in dieselbe Mail. Ich zeige es nur jetzt; neu packen macht ein neues Passwort.</p>
+    {% endif %}
+    {% endif %}
+    <form method="post" action="/steuer/{{ jahr }}/truhe"><input type="hidden" name="token" value="{{ token }}"><button class="{{ 'quiet' if zip_pfad else 'primary sq-gold' }}">{{ "Neu packen" if zip_pfad else "Truhe packen und verschließen" }}</button></form>
+
+    <h2>2. Mail an deine Beraterin</h2>
+    <form method="post" action="/steuer/{{ jahr }}/mail">
+      <input type="hidden" name="token" value="{{ token }}">
+      <label class="field">Betreff <input name="betreff" value="{{ betreff }}"></label>
+      <label class="field">Text (alles änderbar) <textarea name="text" rows="16">{{ mailtext }}</textarea></label>
+      <button class="primary" {% if not zip_pfad %}disabled{% endif %}>In Mail öffnen</button>
+      <p class="muted">Gesendet wird erst, wenn du in deinem Mail-Programm auf Senden drückst.</p>
+    </form>
+  </section>
+</div>
+</div>
+{% endblock %}

@@ -1,0 +1,110 @@
+# Die Provinzen der Steuer-Quest und was dort typischerweise gesammelt wird.
+#
+# Jede [[provinz]] gehört zu einer Frage im Fragebogen (`frage`). Eine Provinz mit
+# `pro_einheit = true` gibt es mehrmals, z. B. einmal pro Wohnung.
+# `woerter` hilft später beim automatischen Zuordnen von Dokumenten und Beraterin-Wünschen.
+#
+# Das ist eine Sammelhilfe, keine Steuerberatung. Ergänzen ist ausdrücklich erwünscht.
+
+[[provinz]]
+key = "werkstatt"
+name = "Werkstatt"
+bereich = "Selbstständig"
+frage = "selbststaendig"
+woerter = ["rechnung", "beleg", "geschäftskonto", "fahrt", "arbeitszimmer", "einnahmen", "ausgaben", "eür"]
+stuecke = [
+  { key = "ausgangsrechnungen", name = "Ausgangsrechnungen", hinweis = "Wenn du mit FRITS schreibst: Die PDFs liegen im Ordner invoices." },
+  { key = "belege", name = "Belege und Quittungen", hinweis = "Alles, was du fürs Geschäft bezahlt hast." },
+  { key = "kontoauszuege", name = "Kontoauszüge Geschäftskonto", hinweis = "Am einfachsten als Jahres-Export aus dem Online-Banking." },
+  { key = "fahrten", name = "Fahrten und Kilometer", hinweis = "Fahrtenbuch oder eine einfache Liste." },
+  { key = "arbeitszimmer", name = "Arbeitszimmer", hinweis = "Größe und Kosten, falls du zu Hause arbeitest." },
+]
+
+[[provinz]]
+key = "gilde"
+name = "Gilde"
+bereich = "GbR / Gesellschaft"
+frage = "gesellschaft"
+woerter = ["gbr", "gesellschaft", "gesellschafter", "gesellschaftsvertrag", "gemeinsam", "partner"]
+stuecke = [
+  { key = "rechnungen", name = "Rechnungen der GbR", hinweis = "Alles, was die GbR geschrieben hat." },
+  { key = "belege", name = "Belege der GbR", hinweis = "Ausgaben, die die GbR bezahlt hat." },
+  { key = "konto", name = "Kontoauszüge GbR-Konto", hinweis = "Jahres-Export des gemeinsamen Kontos." },
+  { key = "vertrag", name = "Änderungen am Gesellschaftsvertrag", hinweis = "Nur wenn sich etwas geändert hat." },
+]
+
+[[provinz]]
+key = "kaserne"
+name = "Kaserne"
+bereich = "Angestellt"
+frage = "angestellt"
+woerter = ["lohnsteuer", "gehalt", "arbeitgeber", "lohn"]
+stuecke = [
+  { key = "lohnsteuerbescheinigung", name = "Lohnsteuerbescheinigung", hinweis = "Schickt dein Arbeitgeber meist im Februar." },
+  { key = "werbungskosten", name = "Arbeitsmittel und Fahrten zur Arbeit", hinweis = "Laptop, Fachbücher, Pendeln." },
+]
+
+[[provinz]]
+key = "gehoeft"
+name = "Gehöft"
+bereich = "Vermietung"
+frage = "vermietung"
+pro_einheit = true
+woerter = ["miete", "mieter", "wohnung", "nebenkosten", "hausgeld", "grundsteuer", "darlehen", "zins", "handwerker", "gebäude", "hausverwaltung"]
+stuecke = [
+  { key = "mieteinnahmen", name = "Mieteinnahmen", hinweis = "Kontoauszug oder Liste der Mietzahlungen." },
+  { key = "nebenkosten", name = "Nebenkosten- oder Hausgeldabrechnung", hinweis = "Kommt von der Hausverwaltung." },
+  { key = "grundsteuer", name = "Grundsteuerbescheid", hinweis = "Kommt meist zum Jahresanfang per Post." },
+  { key = "zinsen", name = "Zinsbescheinigung Kredit", hinweis = "Von der Bank, falls die Wohnung finanziert ist." },
+  { key = "handwerker", name = "Handwerkerrechnungen", hinweis = "Reparaturen und Wartung." },
+  { key = "versicherung", name = "Versicherungen", hinweis = "Gebäude, Haftpflicht für die Wohnung." },
+]
+
+[[provinz]]
+key = "schatzkammer"
+name = "Schatzkammer"
+bereich = "Depot in Deutschland"
+frage = "depot_inland"
+woerter = ["depot", "steuerbescheinigung", "kapitalerträge", "dividende", "zinsen"]
+stuecke = [
+  { key = "steuerbescheinigung", name = "Jahressteuerbescheinigung", hinweis = "Stellt deine Bank im Frühjahr ins Postfach." },
+]
+
+[[provinz]]
+key = "hafen"
+name = "Überseehafen"
+bereich = "Depot im Ausland"
+frage = "depot_ausland"
+woerter = ["depot", "dividende", "quellensteuer", "broker", "1099", "aktien", "verkauf", "ausland", "us"]
+stuecke = [
+  { key = "jahresuebersicht", name = "Jahresübersicht des Depots", hinweis = "Eine deutsche Steuerbescheinigung gibt es hier nicht." },
+  { key = "dividenden", name = "Dividenden-Liste", hinweis = "Alle Ausschüttungen des Jahres." },
+  { key = "quellensteuer", name = "Einbehaltene Quellensteuer", hinweis = "Steht oft in der Jahresübersicht." },
+  { key = "verkaeufe", name = "Verkäufe mit Gewinn oder Verlust", hinweis = "Nur wenn du etwas verkauft hast." },
+]
+
+[[provinz]]
+key = "dorf"
+name = "Dorf"
+bereich = "Familie"
+frage = "familie"
+woerter = ["kind", "kita", "betreuung", "unterhalt", "rente"]
+stuecke = [
+  { key = "betreuung", name = "Kinderbetreuung", hinweis = "Kita, Tagesmutter, Hort." },
+  { key = "unterhalt", name = "Unterhalt", hinweis = "Gezahlt oder bekommen." },
+  { key = "rente", name = "Rentenbescheid", hinweis = "Falls du eine Rente bekommst." },
+]
+
+[[provinz]]
+key = "burg"
+name = "Burg"
+bereich = "Privates"
+frage = "immer"
+woerter = ["krankenversicherung", "rentenversicherung", "spende", "haushalt", "versicherung", "altersvorsorge"]
+stuecke = [
+  { key = "krankenversicherung", name = "Kranken- und Pflegeversicherung", hinweis = "Jahresbescheinigung der Kasse." },
+  { key = "altersvorsorge", name = "Altersvorsorge", hinweis = "Rürup, Riester oder Rentenversicherung." },
+  { key = "spenden", name = "Spendenquittungen", hinweis = "Bis 300 € reicht oft der Kontoauszug." },
+  { key = "haushalt", name = "Handwerker und Hilfe im Haushalt", hinweis = "Rechnung muss überwiesen worden sein." },
+  { key = "versicherungen", name = "Weitere Versicherungen", hinweis = "Haftpflicht, Berufsunfähigkeit." },
+]

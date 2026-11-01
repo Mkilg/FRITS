@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Botschaft der Beraterin · Steuer-Quest{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/steuer.css">{% endblock %}
+{% block content %}
+<div class="sq">
+{% include "_steuer_kopf.html" %}
+<p><a href="/steuer/{{ jahr }}">Zur Karte</a></p>
+<div class="sq-spalten">
+  <form method="post" action="/steuer/{{ jahr }}/beraterin" class="sq-rahmen">
+    <input type="hidden" name="token" value="{{ token }}">
+    <h1>Ein Bote ist eingetroffen!</h1>
+    <label class="field">Mail deiner Beraterin hier einfügen
+      <textarea name="text" rows="12">{{ text }}</textarea></label>
+    <p class="muted">Die Mail wird nur hier auf deinem Computer gelesen. Keine KI, kein Internet.</p>
+    <button class="primary sq-gold">Botschaft entschlüsseln</button>
+  </form>
+  <aside class="sq-seite">
+    <div class="bild" style="background-image: url(/static/steuer/bote.png)"><span>Bote mit Schriftrolle</span></div>
+    {% if ergebnis %}
+    <section class="sq-rahmen">
+      <h2>{{ ergebnis | length }} Aufträge</h2>
+      <ul class="plain">
+        {% for e in ergebnis %}<li><strong>{{ e.text }}</strong><br><span class="muted">{{ e.wo }} · {{ "neues Sammelstück" if e.neu else "markiert" }}</span></li>{% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+  </aside>
+</div>
+</div>
+{% endblock %}

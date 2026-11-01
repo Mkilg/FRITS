@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Reich gründen · Steuer-Quest{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/steuer.css">{% endblock %}
+{% block content %}
+<div class="sq">
+<section class="sq-buehne">
+  <div class="bild bild-gross" style="background-image: url(/static/steuer/fritte-ruhig.png)"><span>Fritte, die Kartografin</span></div>
+  <div>
+    <h1>Gründe dein Reich für {{ jahr }}</h1>
+    <p class="sq-sprechblase">„Wähle die Provinzen deines Reiches. Jede bringt eigene Schätze, die wir einsammeln. Falsche Antworten gibt es nicht, alles lässt sich später ändern.“</p>
+  </div>
+</section>
+<form method="post" action="/steuer/{{ jahr }}/fragebogen" class="sq-rahmen">
+  <input type="hidden" name="token" value="{{ token }}">
+  <fieldset class="sq-kacheln">
+    <legend>Was gehört zu deinem Jahr {{ jahr }}?</legend>
+    {% for key, name, text, an in [
+      ("selbststaendig", "Werkstatt", "Selbstständig oder freiberuflich", profil.selbststaendig),
+      ("gesellschaft", "Gilde", "GbR oder andere Gesellschaft", profil.gesellschaft),
+      ("angestellt", "Kaserne", "Angestellt", profil.angestellt),
+      ("vermietung", "Gehöfte", "Vermietung", profil.wohnungen > 0),
+      ("depot_inland", "Schatzkammer", "Depot bei einer deutschen Bank", profil.depot_inland),
+      ("depot_ausland", "Überseehafen", "Depot im Ausland (z. B. US-Broker)", profil.depot_ausland),
+      ("familie", "Dorf", "Kinder, Rente oder Unterhalt", profil.familie),
+    ] %}
+    <label class="sq-kachel"><input type="checkbox" name="ja" value="{{ key }}" {% if an %}checked{% endif %}>
+      <strong>{{ name }}</strong><span>{{ text }}</span></label>
+    {% endfor %}
+    <p class="muted">Die Burg (Privates wie Versicherungen und Spenden) ist immer dabei.</p>
+  </fieldset>
+  <div class="sq-felder">
+    <label class="field">Wie viele Wohnungen vermietest du?
+      <input type="number" name="wohnungen" min="0" max="20" value="{{ profil.wohnungen }}"></label>
+    <label class="field">Schickst du auch unterm Jahr Unterlagen (Umsatzsteuer)?
+      <select name="umsatzsteuer">
+        {% for v, t in [("keine", "Nein"), ("monatlich", "Ja, jeden Monat"), ("quartal", "Ja, jedes Quartal")] %}
+        <option value="{{ v }}" {% if profil.umsatzsteuer == v %}selected{% endif %}>{{ t }}</option>
+        {% endfor %}
+      </select></label>
+    <label class="field">Dein Name (für die Mail)
+      <input name="name" value="{{ profil.name }}"></label>
+    <label class="field">E-Mail deiner Beraterin
+      <input type="email" name="beraterin_email" value="{{ profil.beraterin_email }}"></label>
+  </div>
+  <button class="primary sq-gold">Reich gründen</button>
+</form>
+</div>
+{% endblock %}

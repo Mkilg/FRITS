@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}{{ g.titel }} · Steuer-Quest{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/steuer.css">{% endblock %}
+{% block content %}
+<div class="sq">
+{% include "_steuer_kopf.html" %}
+<p><a href="/steuer/{{ jahr }}">Zur Karte</a></p>
+<section class="sq-buehne">
+  <div class="bild bild-gross" style="background-image: url(/static/steuer/{{ g.provinz.key }}-{{ provinzstand.stand.stufe }}.png)"><span>{{ g.titel }}</span></div>
+  <div>
+    <h1>{{ g.titel }} <span class="muted">· {{ g.bereich }}</span></h1>
+    <p><span class="sq-balken"><span style="width: {{ provinzstand.stand.prozent }}%"></span></span>
+      {{ provinzstand.stand.erledigt }} von {{ provinzstand.stand.gesamt }} · {{ provinzstand.stufe_name }}</p>
+    {% if vorjahr %}
+    {% set fehlt = vorjahr | rejectattr("jetzt", "in", ["gesammelt", "gibts_nicht", "fragen"]) | list %}
+    <p class="sq-sprechblase">{% if fehlt %}Letztes Jahr lagen hier {{ vorjahr | length }} Schriftstücke. Es fehlen noch {{ fehlt | length }} bis zum Stand vom Vorjahr.{% else %}Alles vom letzten Jahr ist wieder da. Stark!{% endif %}</p>
+    {% endif %}
+    <p class="muted">Was fehlt, ist nicht schlimm: Du kannst es einfach als Frage mitschicken.</p>
+  </div>
+</section>
+
+<ul class="sq-stuecke">
+  {% for s in eigene %}
+  <li class="sq-stueck status-{{ s.status }}">
+    <div class="sq-stueck-kopf">
+      <span class="sq-status">{{ {"offen": "Im Nebel", "gesammelt": "Gesichert", "gibts_nicht": "Gibt's nicht", "fragen": "Frage"}[s.status] }}</span>
+      {% if s.wunsch %}<span class="badge">Wunsch deiner Beraterin</span>{% endif %}
+      {% if s.herkunft == "vorjahr" %}<span class="badge">vom Vorjahr</span>{% endif %}
+    </div>
+    <strong>{{ s.name }}</strong>
+    {% if s.hinweis %}<span class="muted">{{ s.hinweis }}</span>{% endif %}
+    {% if s.frage %}<span>Frage: {{ s.frage }}</span>{% endif %}
+    {% for d in s.datei_liste %}
+    <form method="post" action="/steuer/{{ jahr }}/datei/{{ d.id }}/entfernen" class="sq-datei">
+      <input type="hidden" name="token" value="{{ token }}">
+      <input type="hidden" name="back" value="/steuer/{{ jahr }}/gebiet/{{ g.id }}">
+      <span>{{ d.original }}</span><button class="tiny quiet" title="Zurück ins Lager">zurück ins Lager</button>
+    </form>
+    {% endfor %}
+    <form method="post" action="/steuer/{{ jahr }}/stueck/{{ s.id }}/datei" enctype="multipart/form-data" class="sq-ablegen">
+      <input type="hidden" name="token" value="{{ token }}">
+      <label>Datei ablegen <input type="file" name="datei" multiple></label>
+      <button class="tiny">Sichern</button>
+    </form>
+    {% if s.status != "gesammelt" %}
+    <div class="row">
+      <form method="post" action="/steuer/{{ jahr }}/stueck/{{ s.id }}/status">
+        <input type="hidden" name="token" value="{{ token }}">
+        <button class="tiny" name="status" value="{{ 'offen' if s.status == 'gibts_nicht' else 'gibts_nicht' }}">{{ "Doch nicht" if s.status == "gibts_nicht" else "Gibt's nicht" }}</button>
+      </form>
+      <form method="post" action="/steuer/{{ jahr }}/stueck/{{ s.id }}/status" class="sq-frage">
+        <input type="hidden" name="token" value="{{ token }}">
+        <input name="frage" placeholder="Deine Frage (optional)" value="{{ s.frage }}" aria-label="Frage an die Beraterin">
+        <button class="tiny" name="status" value="fragen">Lieber fragen</button>
+      </form>
+    </div>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+</div>
+{% endblock %}
