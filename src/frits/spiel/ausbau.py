@@ -33,7 +33,7 @@ class Stufe:
 STUFEN: tuple[Stufe, ...] = (
     Stufe(1, "Zimmer", "🛏️", 0, "Ein Fenster, ein Teppich, ein Anfang.",
           0, ("gewöhnlich",), 1.0),
-    Stufe(2, "Stube", "🛋️", 80, "Holzvertäfelung, Vorhänge und eine Lampe. "
+    Stufe(2, "Stube", "🛋️", 150, "Holzvertäfelung, Vorhänge und eine Lampe. "
           "+1 Regalplatz, seltene Gewürze auf dem Markt.", 1, ("gewöhnlich", "selten"), 1.0),
     Stufe(3, "Werkstatt", "🔨", 200, "Eine Werkbank für große Vorhaben. "
           "+1 Regalplatz, legendäre Gewürze auf dem Markt.",
@@ -80,6 +80,12 @@ def ruf(conn) -> int:
 
 def preis(conn, ziel: Stufe) -> int:
     return round(ziel.preis * (1 + RUF_PREIS * ruf(conn)))
+
+
+def preisstufe(conn) -> int:
+    """How far Fritte has come in all: the stage here plus four for every finished Bude.
+    Prices follow it, so they don't drop when she starts again in a new place."""
+    return stufe(conn).nummer + 4 * ruf(conn)
 
 
 def grundwuerze(conn) -> float:

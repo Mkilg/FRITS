@@ -20,10 +20,13 @@ def add_job(conn, filename, received):
     ).lastrowid
 
 
-def add_invoice(conn, number, issue, paid=None, due=None, came=None, cancels=None, work=None):
+def add_invoice(
+    conn, number, issue, paid=None, due=None, came=None, cancels=None, work=None, draft=None,
+    gross="100", customer="Erika Meier",
+):  # fmt: skip
     """came: the day the note about the work arrived in the inbox. work: the date Fritz
     typed on the line (the game must not care about it)."""
-    draft_id = None
+    draft_id = draft
     if came or work:
         lines = [{"description": "Arbeit", "date": (work or issue).strftime("%d.%m.%Y")}]
         job = add_job(conn, f"notiz-{number}.txt", came) if came else None
@@ -33,12 +36,15 @@ def add_invoice(conn, number, issue, paid=None, due=None, came=None, cancels=Non
         ).lastrowid
     conn.execute(
         "INSERT INTO invoices (number, customer, issue_date, paid_date, due_date, net, vat, gross,"
-        " draft_id, cancels) VALUES (?, 'Erika Meier', ?, ?, ?, '100', '0', '100', ?, ?)",
+        " draft_id, cancels) VALUES (?, ?, ?, ?, ?, ?, '0', ?, ?, ?)",
         (
             number,
+            customer,
             issue.isoformat(),
             paid.isoformat() if paid else None,
             due.isoformat() if due else None,
+            gross,
+            gross,
             draft_id,
             cancels,
         ),
@@ -108,6 +114,8 @@ def test_new_fritte_is_curious_and_brings_a_present(conn):
 )  # fmt: skip
 def test_mood_follows_the_rhythm_and_never_gets_sad(conn, days_ago, laune, bild):
     add_invoice(conn, "2026-0001", TODAY - timedelta(days=days_ago))
+    stand.vorbereiten(conn)  # not the first meeting (then she is always awake and curious)
+    conn.execute("INSERT INTO spiel_kassenstuerze (tag, summe, ergebnis) VALUES ('', 0, '{}')")
     f = haustier.ansehen(conn, TODAY)
     assert (f.laune, f.bild) == (laune, bild)
     assert not any(w in f.satz.lower() for w in ("traurig", "vermisst", "endlich", "schon lange"))
@@ -118,11 +126,11 @@ def test_older_work_is_the_first_kassensturz(conn):
     add_invoice(conn, "2026-0002", date(2026, 2, 5))
     f = haustier.ansehen(conn, TODAY)
     assert f.guthaben == 0 and f.wartend == 2 + 1 + 1  # two invoices, a payment, the move-in
-    assert f.laune == "doest"  # old work doesn't make today a care day
+    assert f.laune == "neu"  # awake and curious at the first meeting, however old the work
     k = kassensturz.laden(conn, kassensturz.durchfuehren(conn, TODAY, aufgeraeumt=False))
-    # Rechnungen count double in autumn. Moving in brings +1 Würze, and with three kinds
-    # of cards the pepper adds +1 more.
-    assert (k["koerner"], k["wuerze"]) == (6 + 6 + 2 + 3, 3.0) and k["summe"] == 51
+    # Old invoices don't get the autumn bonus. Moving in brings +1 Würze, and with three
+    # kinds of cards the pepper adds +1 more.
+    assert (k["koerner"], k["wuerze"]) == (3 + 3 + 2 + 3, 3.0) and k["summe"] == 33
     assert not any(c.get("zeitnah") or c.get("frisch") for c in k["karten"])
 
 
@@ -132,9 +140,9 @@ def test_a_long_history_is_a_mixed_table_and_a_gift(conn):
     f = haustier.ansehen(conn, TODAY)
     assert f.wartend == stand.WILLKOMMEN_KARTEN + 1  # plus Fritte moving in
     arten = [k.art for k in kassensturz.offene_karten(conn)]
-    assert arten.count("rechnung") == arten.count("bezahlt") == 12  # a mix of kinds
-    assert f.guthaben == 18 * 3 + 18 * 2
-    assert stand.kassenbuch(conn)[0]["text"] == "Willkommensgeschenk für 36 ältere Vorgänge"
+    assert arten.count("rechnung") == arten.count("bezahlt") == stand.WILLKOMMEN_KARTEN // 2
+    assert f.guthaben == stand.WILLKOMMEN_GESCHENK  # 24 × 3 + 24 × 2, capped
+    assert stand.kassenbuch(conn)[0]["text"] == "Willkommensgeschenk für 48 ältere Vorgänge"
 
 
 def test_the_first_version_moves_in(conn, tmp_path):
@@ -216,7 +224,7 @@ def test_spice_facts_follow_bookkeeping_rules(conn):
     stand.abgleichen(conn, TODAY)
     facts = {k.schluessel: k.fakten for k in kassensturz.offene_karten(conn)}
     assert facts["rechnung:2026-0001"]["frisch"] and not facts["rechnung:2026-0002"]["frisch"]
-    assert not facts["bezahlt:2026-0003"]["puenktlich"]
+    assert "puenktlich" not in facts["bezahlt:2026-0003"]  # a typed date, so no mark
     zeitnah = {
         k.detail.split(" · ")[0]: k.fakten["zeitnah"]
         for k in kassensturz.offene_karten(conn)
@@ -350,14 +358,15 @@ def test_pages_and_a_whole_round(client, ws):  # noqa: F811
     add_invoice(conn, "2026-0001", TODAY - timedelta(days=30))
     home = client.get("/").text
     assert "Fritte zuhause" in home and "2 Karten warten" in home  # old work + moving in
-    assert "etwa <strong>+18 Salzkörner</strong>" in home  # what they'd bring, right away
+    assert "etwa <strong>+12 Salzkörner</strong>" in home  # what they'd bring, right away
+    assert "Kassensturz machen" not in home  # "Heute" is for work: no game button there
     fritte = client.get("/fritte").text
     assert "Willkommen bei Fritte" in fritte and "Ersten Kassensturz machen" in fritte
     assert "Vorschau:" in fritte and "Herbst 2026" in fritte
     page = post(client, "/fritte/kassensturz")
     assert "Kassensturz Nr. 1" in page.text and 'id="ks-daten"' in page.text
-    # An autumn invoice counts double, plus moving in, and moving in brings +1 Würze.
-    assert stand.guthaben(conn) == (6 + 3) * 2
+    # An old invoice plus moving in, and moving in brings +1 Würze.
+    assert stand.guthaben(conn) == (3 + 3) * 2
     assert "Willkommen bei Fritte" not in client.get("/fritte").text
 
     # New work: a quiet note says Fritte got a card for it.
@@ -370,7 +379,7 @@ def test_pages_and_a_whole_round(client, ws):  # noqa: F811
     assert '<button class="primary">FRITS beenden</button>' in feierabend
     assert "Kassensturz machen" not in feierabend  # the shutdown starts nothing new
     post(client, "/fritte/kassensturz")
-    assert stand.guthaben(conn) == 18 + 6 + 1
+    assert stand.guthaben(conn) == 12 + 6 + 1
 
     laden = client.get("/fritte/laden").text
     assert "Gewürzregal" in laden and "Markttag" in laden and "Frittes Kassenbuch" in laden
@@ -379,7 +388,7 @@ def test_pages_and_a_whole_round(client, ws):  # noqa: F811
     assert g.id != "pfeffer"  # what is on the shelf is not offered again
     page = post(client, "/fritte/gewuerz/kaufen", gewuerz=g.id)
     assert f"{g.name} steht jetzt im Gewürzregal" in page.text
-    assert stand.guthaben(conn) == 25 - g.preis
+    assert stand.guthaben(conn) == 19 - g.preis
     page = post(client, "/fritte/gewuerz/kaufen", gewuerz="safran")
     assert "gibt es diese Woche nicht" in page.text  # legendary: not at this stage's market
     page = post(client, "/fritte/gewuerz/verkaufen", gewuerz=g.id)
@@ -423,9 +432,9 @@ def test_building_out_the_house(conn):
 
     started(conn)
     assert ausbau.stufe(conn).name == "Zimmer" and kassensturz.plaetze(conn) == 3
-    with pytest.raises(stand.SpielFehler, match="fehlen noch 80"):
+    with pytest.raises(stand.SpielFehler, match="fehlen noch 150"):
         ausbau.ausbauen(conn, TODAY)
-    give(conn, 100)
+    give(conn, 170)
     assert ausbau.ausbauen(conn, TODAY).name == "Stube"
     with pytest.raises(stand.SpielFehler, match="schon gebaut"):
         ausbau.ausbauen(conn, TODAY)
@@ -521,22 +530,27 @@ def test_a_season_goal_brings_a_cup(conn):
     from frits.spiel import saison
 
     started(conn)
-    s = saison.jetzt(conn, TODAY)
-    assert (s.name, s.ziel, s.thema) == ("Herbst 2026", 120, "rechnung")
-    stand.setze(conn, "ausbau", "3")  # building out mid-season keeps the goal
-    assert saison.jetzt(conn, TODAY).ziel == 120
-    for n in range(20):
-        add_invoice(conn, f"2026-{n:04}", TODAY)
-    stand.abgleichen(conn, TODAY)
-    k = kassensturz.laden(conn, kassensturz.durchfuehren(conn, TODAY, aufgeraeumt=False))
-    assert k["summe"] == 20 * 6 and k["saison"]["name"] == "Herbst 2026"
-    assert stand.guthaben(conn) == 120 + 30 and saison.pokale(conn) == ["Herbst 2026"]
-    assert haustier.ansehen(conn, TODAY).pokale == ["Herbst 2026"]
-    stand.feierabend(conn, TODAY)
-    k = kassensturz.laden(conn, kassensturz.durchfuehren(conn, TODAY, aufgeraeumt=False))
+    s = saison.jetzt(conn, TODAY)  # Fritte moved in on 2 November: 9 weeks are left
+    assert (s.name, s.wochen, s.ziel, s.bonus, s.thema) == ("Herbst 2026", 9, 7, 30, "rechnung")
+    stand.setze(conn, "ausbau", "3")  # building out mid-season keeps goal and bonus
+    assert (saison.jetzt(conn, TODAY).ziel, saison.jetzt(conn, TODAY).bonus) == (7, 30)
+    for woche in range(7):  # one invoice in each of seven weeks
+        tag = TODAY + timedelta(weeks=woche)
+        add_invoice(conn, f"2026-{woche:04}", tag)
+        stand.abgleichen(conn, tag)
+        if woche == 5:
+            assert saison.jetzt(conn, tag).erreicht == 6
+    tag = TODAY + timedelta(weeks=6)
+    k = kassensturz.laden(conn, kassensturz.durchfuehren(conn, tag, aufgeraeumt=False))
+    assert k["saison"]["name"] == "Herbst 2026" and k["saison"]["bonus"] == 30
+    assert stand.guthaben(conn) == k["summe"] + 30 and saison.pokale(conn) == ["Herbst 2026"]
+    assert haustier.ansehen(conn, tag).pokale == ["Herbst 2026"]
+    stand.feierabend(conn, tag)
+    k = kassensturz.laden(conn, kassensturz.durchfuehren(conn, tag, aufgeraeumt=False))
     assert "saison" not in k  # only once
     winter = saison.jetzt(conn, date(2027, 1, 4))
     assert winter.name == "Winter 2027" and winter.erreicht == 0 and winter.thema == "ausgabe"
+    assert (winter.wochen, winter.ziel) == (13, 10)  # a whole season
 
 
 def test_the_steuer_quest_brings_cards(conn):
@@ -577,7 +591,7 @@ def test_a_new_place_after_the_frittenbude(conn):
     assert ausbau.grundwuerze(conn) == 2.7  # each stage in the new place adds +0.1
     stand.setze(conn, "ausbau", "1")
     assert "legendär" in ausbau.seltenheiten(conn)
-    assert ausbau.preis(conn, ausbau.naechste(conn)) == 120
+    assert ausbau.preis(conn, ausbau.naechste(conn)) == 225  # 150 × 1.5 with Ruf 1
     assert ausbau.umzug_preis(conn) == 2400
     assert {e.id for e in album.neue(conn, TODAY)} >= {"umzug", "bude"}
 
@@ -634,7 +648,7 @@ def test_a_corrected_expense_or_the_same_receipt_twice_is_one_card(conn):
     assert stand.abgleichen(conn, TODAY) == 1
 
 
-def test_only_accepted_quotes_are_cards(conn):
+def test_a_quote_counts_once_it_became_an_invoice(conn):
     started(conn)
     conn.execute(
         "INSERT INTO quotes (number, created, valid_until, data, status) VALUES"
@@ -642,8 +656,23 @@ def test_only_accepted_quotes_are_cards(conn):
         (TODAY.isoformat(), TODAY.isoformat()) * 2,
     )
     assert stand.abgleichen(conn, TODAY) == 0
-    conn.execute("UPDATE quotes SET status = 'accepted' WHERE number = 'AN-1'")
-    assert stand.abgleichen(conn, TODAY) == 1
+    # "Angenommen" clicked, the invoice draft thrown away: no card.
+    draft = conn.execute(
+        "INSERT INTO drafts (created, data, status) VALUES (?, '{}', 'discarded')",
+        (TODAY.isoformat(),),
+    ).lastrowid
+    conn.execute(
+        "UPDATE quotes SET status = 'accepted', draft_id = ? WHERE number = 'AN-1'", (draft,)
+    )
+    assert stand.abgleichen(conn, TODAY) == 0
+    # It became a real invoice: now it is a card (plus the invoice's own).
+    conn.execute("UPDATE drafts SET status = 'approved' WHERE id = ?", (draft,))
+    add_invoice(conn, "2026-0001", TODAY, draft=draft)
+    assert stand.abgleichen(conn, TODAY) == 2
+    # The invoice cancelled before the Kassensturz: the quote's card leaves the table.
+    add_invoice(conn, "2026-0002", TODAY, cancels="2026-0001")
+    stand.abgleichen(conn, TODAY)
+    assert "angebot" not in {k.art for k in kassensturz.offene_karten(conn)}
 
 
 def test_reminders_count_only_when_really_overdue(conn):
@@ -681,20 +710,37 @@ def test_cards_keep_the_theme_of_the_season_they_came_in(conn):
     assert k["koerner"] == 6
 
 
-def test_the_season_goal_follows_fritz_own_pace(conn):
+def test_the_season_goal_counts_weeks_not_grains(conn):
+    """Fair for a freelancer: a month off is fine, saving cards up or spices change
+    nothing, and only days FRITS noticed itself count, never a typed date."""
     from frits.spiel import saison
 
     started(conn)
-    for week in range(1, 9):  # eight weeks before winter, 100 a week
-        day = date(2027, 1, 1) - timedelta(weeks=week)
-        conn.execute(
-            "INSERT INTO spiel_kassenstuerze (tag, summe, ergebnis) VALUES (?, 100, '{}')",
-            (day.isoformat(),),
-        )
-    winter = saison.jetzt(conn, date(2027, 2, 1))
-    assert winter.ziel == round(100 * 90 / 7 * 0.9 / 10) * 10  # 90 days ≈ 12.9 weeks
-    stand.setze(conn, "ort", "3")  # moving house later changes nothing
-    assert saison.jetzt(conn, date(2027, 3, 1)).ziel == winter.ziel
+    winter = saison.jetzt(conn, date(2027, 1, 4))
+    assert winter.ziel == 10
+    montage = [date(2027, 1, 4) + timedelta(weeks=w) for w in range(13)]
+    for n, tag in enumerate(montage[4:]):  # January off, then paperwork every week
+        add_invoice(conn, f"2027-{n:04}", date(2026, 6, 1))  # an old date typed in
+        stand.abgleichen(conn, tag)
+    assert saison.jetzt(conn, montage[-1]).erreicht == 9  # one short of 10, no grains needed
+    add_expense(conn, date(2027, 1, 20))
+    stand.abgleichen(conn, montage[-1])  # a second card in the same week adds no week
+    assert saison.jetzt(conn, montage[-1]).erreicht == 9
+    assert stand.feierabend(conn, montage[1])  # a shutdown alone in January: no week
+    assert saison.jetzt(conn, montage[-1]).erreicht == 9
+
+
+def test_a_season_reached_in_its_last_days_counts_after_new_year(conn):
+    from frits.spiel import saison
+
+    started(conn)
+    saison.jetzt(conn, TODAY)
+    for woche in range(7):
+        tag = TODAY + timedelta(weeks=woche)
+        add_invoice(conn, f"2026-{woche:04}", tag)
+        stand.abgleichen(conn, tag)
+    k = kassensturz_jetzt(conn, date(2027, 1, 5))  # scored only after New Year
+    assert k["saison"]["name"] == "Herbst 2026"
 
 
 def test_the_welcome_round_always_shows_the_wuerze(conn):
@@ -702,7 +748,19 @@ def test_the_welcome_round_always_shows_the_wuerze(conn):
     assert (k["koerner"], k["wuerze"], k["summe"]) == (3, 2.0, 6)
     from frits.spiel import saison
 
-    assert saison.jetzt(conn, TODAY).erreicht == 0  # a present, not season progress
+    assert saison.jetzt(conn, TODAY).erreicht == 0  # moving in is no paperwork week
+
+
+def test_no_card_note_inside_the_steuer_quest(client, ws):  # noqa: F811
+    """Nearly every step there is a card; the note would cover the basket."""
+    conn = store.connect(ws.db)
+    client.get("/")  # Fritte moves in
+    post(client, "/fritte/kassensturz")
+    add_invoice(conn, "2026-0003", TODAY)
+    steuer = client.get("/steuer", follow_redirects=True)
+    assert steuer.status_code == 200 and "Fritte hat" not in steuer.text
+    assert "Fritte hat" not in client.get("/invoices").text  # counted, not shown later
+    assert stand.wartende(conn) == 1  # still a card, just no note
 
 
 # ---------- Gutschriften ----------
@@ -737,7 +795,7 @@ def test_a_gutschrift_counts_like_an_invoice_and_its_payment(conn):
     assert gs.titel == "Gutschrift GS-2026-114" and gs.koerner == 3
     assert not gs.fakten["frisch"]  # no note arrived for it
     assert karten["bezahlt:gs:sender|gs-2026-114"].fakten == {
-        "puenktlich": False, "nach_erinnerung": False,
+        "nach_erinnerung": False,
     }  # fmt: skip
 
 
@@ -773,3 +831,148 @@ def test_a_gutschrift_struck_before_scoring_waits_again_once_fixed(conn):
     assert stand.abgleichen(conn, TODAY) == 1
     [karte] = kassensturz.offene_karten(conn)
     assert karte.art == "rechnung" and "110,00" in karte.detail
+
+
+# ---------- round 4: playtest 3 ----------
+
+
+def test_a_correction_does_not_depend_on_the_order(conn):
+    """Write the right invoice first and cancel the wrong one afterwards: still a
+    correction. And it may go to another customer (the wrong address was the mistake)."""
+    started(conn)
+    add_invoice(conn, "2026-0008", TODAY - timedelta(days=2), gross="450", customer="BR")
+    kassensturz_jetzt(conn, TODAY - timedelta(days=2))
+    add_invoice(conn, "2026-0009", TODAY, gross="450", customer="DLF")  # the right one
+    assert stand.abgleichen(conn, TODAY) == 1
+    add_invoice(conn, "2026-0010", TODAY, cancels="2026-0008", gross="-450", customer="BR")
+    assert stand.abgleichen(conn, TODAY) == 0  # a correction alone needs no Kassensturz
+    [karte] = kassensturz.offene_karten(conn)
+    assert karte.art == "korrektur" and karte.detail.startswith("ersetzt eine stornierte")
+    with pytest.raises(stand.SpielFehler):
+        kassensturz.durchfuehren(conn, TODAY, aufgeraeumt=False)
+
+
+def test_new_work_for_the_same_customer_is_no_correction(conn):
+    started(conn)
+    add_invoice(conn, "2026-0005", TODAY - timedelta(days=3), gross="450", customer="BR")
+    kassensturz_jetzt(conn, TODAY - timedelta(days=3))
+    add_invoice(conn, "2026-0006", TODAY, cancels="2026-0005", gross="-450", customer="BR")
+    add_invoice(conn, "2026-0007", TODAY, gross="1200", customer="BR")  # other work
+    stand.abgleichen(conn, TODAY)
+    assert [k.art for k in kassensturz.offene_karten(conn)] == ["rechnung"]
+
+
+def test_a_cancelled_invoice_already_replaced_and_scored_waits_for_the_next(conn):
+    """Right one written and scored, only then the wrong one cancelled: the next similar
+    invoice within 30 days evens it out."""
+    started(conn)
+    add_invoice(conn, "2026-0001", TODAY - timedelta(days=4), gross="300")
+    kassensturz_jetzt(conn, TODAY - timedelta(days=4))
+    add_invoice(conn, "2026-0002", TODAY - timedelta(days=2), gross="310")
+    kassensturz_jetzt(conn, TODAY - timedelta(days=2))
+    add_invoice(conn, "2026-0003", TODAY, cancels="2026-0001", gross="-300")
+    stand.abgleichen(conn, TODAY)
+    add_invoice(conn, "2026-0004", TODAY + timedelta(days=5), gross="290")
+    stand.abgleichen(conn, TODAY + timedelta(days=5))
+    assert [k.art for k in kassensturz.offene_karten(conn)] == ["korrektur"]
+    add_invoice(conn, "2026-0005", TODAY + timedelta(days=6), gross="300")
+    stand.abgleichen(conn, TODAY + timedelta(days=6))
+    assert sorted(k.art for k in kassensturz.offene_karten(conn)) == ["korrektur", "rechnung"]
+
+
+def test_a_struck_expense_typed_again_differently_is_a_correction(conn):
+    started(conn)
+    eid = add_expense(conn, TODAY, "Baumarkt Schluz", "12.34")
+    kassensturz_jetzt(conn)
+    conn.execute("UPDATE expenses SET struck = '2026-11-02T10:00:00' WHERE id = ?", (eid,))
+    add_expense(conn, TODAY, "Baumarkt Schulz", "12.34")  # the shop's name fixed
+    assert stand.abgleichen(conn, TODAY) == 0
+    [karte] = kassensturz.offene_karten(conn)
+    assert karte.art == "korrektur" and "gestrichene Ausgabe" in karte.detail
+    add_expense(conn, TODAY, "Bahn", "23.80")  # the next real one is a card again
+    assert stand.abgleichen(conn, TODAY) == 1
+
+
+def test_garlic_needs_a_reminder_before_fritz_saw_the_payment(conn):
+    """Only FRITS' own days count: reminding and then clicking "Bezahlt" right away (with
+    whatever date) gives nothing, a real reminder days before does."""
+    started(conn)
+    for n in ("2026-0001", "2026-0002"):
+        add_invoice(conn, n, TODAY - timedelta(days=40), paid=TODAY - timedelta(days=9),
+                    due=TODAY - timedelta(days=20))  # fmt: skip
+    add_reminder(conn, "2026-0001", TODAY - timedelta(days=5))
+    add_reminder(conn, "2026-0002", TODAY - timedelta(days=1))  # payment was already there
+    stand.abgleichen(conn, TODAY)
+    fakten = {k.detail[:9]: k.fakten for k in kassensturz.offene_karten(conn) if k.art == "bezahlt"}
+    assert fakten["2026-0001"]["nach_erinnerung"] and not fakten["2026-0002"]["nach_erinnerung"]
+
+
+def test_saving_cards_up_brings_no_more_wuerze():
+    chili, curry = NACH_ID["chili"], NACH_ID["curry"]
+    woche = [card("rechnung"), card("bezahlt"), card("bezahlt")] + [card("ausgabe")] * 7
+    quartal = woche * 13
+    w1 = kassensturz.berechnen(woche, [chili, curry], {})["wuerze"]
+    w13 = kassensturz.berechnen(quartal, [chili, curry], {})["wuerze"]
+    assert w1 == 1 + 2 + 1 and w13 == 1 + 2 + 2  # capped at +2 each
+
+
+def test_safran_counts_a_draft_thrown_away_this_week(conn):
+    started(conn)
+    conn.execute("INSERT INTO drafts (created, data, status) VALUES (?, '{}', 'draft')",
+                 (TODAY.isoformat(),))  # fmt: skip
+    stand.abgleichen(conn, TODAY)
+    assert not stand.kuerzlich_verworfen(conn, TODAY)
+    conn.execute("UPDATE drafts SET status = 'discarded'")
+    stand.abgleichen(conn, TODAY)
+    assert stand.kuerzlich_verworfen(conn, TODAY + timedelta(days=6))
+    assert not stand.kuerzlich_verworfen(conn, TODAY + timedelta(days=7))
+
+
+def test_five_shutdown_cards_a_week_at_most(conn):
+    started(conn)
+    neu = [stand.feierabend(conn, TODAY + timedelta(days=n)) for n in range(7)]
+    assert neu == [True] * 5 + [False, False]
+    assert stand.feierabend(conn, TODAY + timedelta(days=7))  # a new week
+
+
+def test_prices_do_not_drop_after_moving(conn):
+    from frits.spiel import ausbau
+    from frits.web.haustier import preis
+
+    started(conn)
+    stand.setze(conn, "ausbau", "5")
+    vorher = preis(conn, NACH_ID["chili"])
+    stand.setze(conn, "ort", "2")  # moved on: the house starts again as a room
+    stand.setze(conn, "ausbau", "1")
+    assert ausbau.ruf(conn) == 1 and preis(conn, NACH_ID["chili"]) >= vorher
+
+
+def test_a_season_festival_after_the_first_bude(conn):
+    from frits.spiel import saison
+
+    started(conn)
+    with pytest.raises(stand.SpielFehler):
+        saison.feiern(conn, TODAY)  # not yet: only from the first Frittenbude on
+    stand.setze(conn, "ausbau", "5")
+    give(conn, saison.fest_preis(conn))
+    s = saison.feiern(conn, TODAY)
+    assert s.fest == "Am Markt" and stand.guthaben(conn) == 0
+    with pytest.raises(stand.SpielFehler):
+        saison.feiern(conn, TODAY)  # once a season
+    assert saison.feste(conn) == [("Herbst 2026", "Herbstfest", "Am Markt")]
+
+
+def test_festival_and_album_pages(client, ws):  # noqa: F811
+    from frits.spiel import saison
+
+    conn = store.connect(ws.db)
+    client.get("/")  # Fritte moves in
+    assert "/fritte/feiern" not in client.get("/fritte").text  # not before the first Bude
+    stand.setze(conn, "ausbau", "5")
+    give(conn, saison.fest_preis(conn))
+    assert "Fest feiern für 400" in client.get("/fritte").text
+    page = post(client, "/fritte/feiern")
+    assert "Fritte feiert das Herbstfest am Markt" in page.text
+    assert 'class="wimpel"' in client.get("/fritte").text
+    album = client.get("/fritte/album").text
+    assert "Saisons und Feste" in album and "Herbstfest" in album

@@ -195,7 +195,10 @@ def mascot_or_picture(pictures: dict[str, str]):
     def mascot(mood: str) -> Markup:
         name = MOOD_PICTURES.get(mood)
         if name in pictures:
-            return Markup('<img class="fritte" src="{}" alt="">').format(pictures[name])
+            # Fixed size in the HTML, so nothing jumps while the picture loads
+            return Markup('<img class="fritte" src="{}" alt="" width="84" height="112">').format(
+                pictures[name]
+            )
         return mascot_markup(mood)
 
     return mascot
@@ -368,6 +371,7 @@ def create_app(
             music=_music_track(current.music, request.url.path),
             moods=_music_moods(),
             nav=request.url.path,
+            ai_on=ai_ready(current),
         )
         return templates.TemplateResponse(request, name, context)
 
@@ -457,7 +461,17 @@ def create_app(
             moment = ("welcome", "Hallo! Bevor wir loslegen: Trag kurz deine Angaben ein.")
         elif drafts or check_me:
             moment = mascot_line("needs_you" if check_me else "draft_ready")
-            if not check_me and len(drafts) > 1:
+            ready = sum(1 for d in drafts if d["ready"])
+            if not check_me and ready < len(drafts):
+                moment = (
+                    moment[0],
+                    "Da liegen Entwürfe, die noch etwas von dir brauchen. Schau sie dir an, "
+                    "wenn es dir passt."
+                    if ready == 0
+                    else f"{ready} von {len(drafts)} Entwürfen sind fertig, die anderen brauchen "
+                    "noch etwas von dir.",
+                )
+            elif not check_me and len(drafts) > 1:
                 moment = (
                     moment[0],
                     f"Deine {len(drafts)} Entwürfe sind fertig. Schau sie dir an, wenn es dir passt.",
@@ -680,6 +694,9 @@ def create_app(
                 cue="done",
                 stamp="Fertig",
             )
+            late = ustva.late_notice(ws.db, current, number, today())
+            if late:
+                flash(late, "error")
             return back(f"/invoices#r-{number}")
         if action == "quote":
             try:
@@ -1171,6 +1188,7 @@ def create_app(
             "expenses.html",
             year=year,
             expenses=items,
+            struck=expenses.list_expenses(ws.db, year=year, struck=True),
             total=sum((e.gross for e in items), Decimal(0)),
             receipts=receipts,
             chosen=chosen,
@@ -1301,6 +1319,25 @@ def create_app(
             )
         return back(f"/expenses?year={gone.date.year}" if gone else "/expenses")
 
+    @app.post("/expenses/{expense_id}/restore", dependencies=guarded)
+    def expense_restore(expense_id: int):
+        back_to = next(
+            (e for e in expenses.list_expenses(ws.db, struck=True) if e.id == expense_id), None
+        )
+        if back_to and expenses.restore_expense(ws.db, expense_id):
+            flash(f"Wieder da: {eur(back_to.gross)} bei {back_to.vendor}.")
+        return back(f"/expenses?year={back_to.date.year}" if back_to else "/expenses")
+
+    @app.get("/expenses/{expense_id}/beleg")
+    def expense_receipt(expense_id: int):
+        found = next((e for e in expenses.list_expenses(ws.db) if e.id == expense_id), None)
+        if found is None or not found.source_file:
+            raise HTTPException(404)
+        path = ws.done / Path(found.source_file).name  # only the name: never leave "done"
+        if not path.is_file():
+            raise HTTPException(404)
+        return FileResponse(path, filename=path.name, content_disposition_type="inline")
+
     @app.post("/rueckgaengig", dependencies=guarded)
     def undo_last():
         """Take the last step back (a deleted expense, a discarded draft)."""
@@ -1361,11 +1398,11 @@ def create_app(
         period = current.vat_period if current.vat_period in ustva.PERIODS else "quartal"
         basis = current.vat_basis if current.vat_basis in ustva.BASES else "ist"
         if year is None or nr is None:
-            year, nr = ustva.current(today(), period)
+            year, nr = ustva.next_due(today(), period)
         try:
             ustva.bounds(year, period, nr)
         except ValueError:
-            year, nr = ustva.current(today(), period)
+            year, nr = ustva.next_due(today(), period)
         db()  # tables exist
         meldung = ustva.voranmeldung(ws.db, current, year, nr, period, basis)
         last = 4 if period == "quartal" else 12

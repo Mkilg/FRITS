@@ -21,6 +21,7 @@ from frits.spiel.gewuerze import NACH_ID, Gewuerz
 
 ZEITNAH_TAGE = 10  # GoBD: record bookings promptly; here: receipt entered within 10 days of arrival
 FRISCH_TAGE = 7  # invoice written within a week of the note coming in
+NACHGEHAKT_TAGE = 2  # a reminder this long before FRITS saw the payment
 GRUND_PLAETZE = 3  # spice shelf places before the house is built out
 
 
@@ -97,12 +98,19 @@ def _karte(conn, schluessel: str, art: str, gesehen: str, ausgaben=None) -> Kart
         echt = _karte(conn, schluessel, schluessel.split(":", 1)[0], gesehen, ausgaben)
         if echt is None:
             return None
+        alt = stand.rows(conn, "SELECT alt FROM spiel_korrektur WHERE neu = ?", (schluessel,))
+        alt = alt[0][0] if alt else schluessel
+        if alt.startswith("ausgabe:"):
+            grund = "ersetzt eine gestrichene Ausgabe"
+        elif alt.split(":", 1)[1].startswith(stand.GS):
+            grund = "ersetzt eine gestrichene Gutschrift"
+        elif alt.startswith("bezahlt:"):
+            grund = "ersetzt die Zahlung einer stornierten Rechnung"
+        else:
+            grund = "ersetzt eine stornierte Rechnung"
         return Karte(
-            schluessel, art, f"{echt.titel} (Korrektur)",
-            "ersetzt eine gestrichene Gutschrift, darum ohne Körner"
-            if key.startswith(stand.GS) else "ersetzt eine stornierte Rechnung, darum ohne Körner",
-            0, {},
-        )  # fmt: skip
+            schluessel, art, f"{echt.titel} (Korrektur)", f"{grund}, darum ohne Körner", 0, {}
+        )
     if art in ("rechnung", "bezahlt") and key.startswith(stand.GS):
         c = stand.gutschriften(conn).get(key)
         if c is None or (art == "bezahlt" and not c.paid_date):
@@ -116,7 +124,7 @@ def _karte(conn, schluessel: str, art: str, gesehen: str, ausgaben=None) -> Kart
         return Karte(
             schluessel, art, "Zahlung eingegangen",
             f"Gutschrift {c.their_number} · {c.customer} · {_euro(c.gross)}", base,
-            {"puenktlich": False, "nach_erinnerung": False},
+            {"nach_erinnerung": False},
         )  # fmt: skip
     if art == "rechnung":
         r = stand.rows(
@@ -137,24 +145,27 @@ def _karte(conn, schluessel: str, art: str, gesehen: str, ausgaben=None) -> Kart
     if art == "bezahlt":
         r = stand.rows(
             conn,
-            "SELECT customer, paid_date, due_date, gross FROM invoices"
+            "SELECT customer, gross FROM invoices"
             " WHERE number = ? AND paid_date IS NOT NULL AND cancels IS NULL",
             (key,),
         )
         if not r or _storniert(conn, key):
             return None
-        customer, paid, due, gross = r[0]
-        paid_day, due_day = _tag(paid), _tag(due)
-        puenktlich = bool(paid_day and due_day and paid_day <= due_day)
-        erinnert = any(
-            paid_day and (_tag(c) or paid_day) <= paid_day
+        customer, gross = r[0]
+        # "Nachgehakt" looks only at days FRITS kept itself: the reminder was written at
+        # least two days before FRITS saw the payment. The typed payment date plays no
+        # part, so a later date never earns more, and reminding someone who just paid
+        # doesn't either.
+        seen = _tag(gesehen)
+        erinnert = bool(seen) and any(
+            (_tag(c) or seen) <= seen - timedelta(days=NACHGEHAKT_TAGE)
             for (c,) in stand.rows(
                 conn, "SELECT created FROM reminders WHERE invoice_number = ?", (key,)
             )
         )
         return Karte(
             schluessel, art, "Zahlung eingegangen", f"{key} · {customer} · {_euro(gross)}", base,
-            {"puenktlich": puenktlich, "nach_erinnerung": erinnert},
+            {"nach_erinnerung": erinnert},
         )  # fmt: skip
     if art == "angebot":
         r = stand.rows(
@@ -335,7 +346,8 @@ def berechnen(karten: list[dict], gewuerze: list[Gewuerz], umfeld: dict) -> dict
 def vorschau(conn, heute: date, aufgeraeumt: bool) -> tuple[list[Karte], dict]:
     karten = offene_karten(conn)
     for k in karten:  # the season's theme (of the day the card came): one kind brings double
-        if k.art == saison.THEMEN[saison.quartal(_tag(gesehen_von(conn, k)) or heute)[0]][0]:
+        tag = heute if k.art == "start" else _tag(gesehen_von(conn, k))
+        if tag and k.art == saison.THEMEN[saison.quartal(tag)[0]][0]:  # not old cards
             k.koerner *= 2
             k.fakten["saison"] = True
     return karten, berechnen(
@@ -364,7 +376,7 @@ def durchfuehren(conn: sqlite3.Connection, heute: date, aufgeraeumt: bool) -> in
     """Score all waiting cards, book the grains, return the Kassensturz id."""
     with store.transaction(conn):
         karten, ergebnis = vorschau(conn, heute, aufgeraeumt)
-        if not karten:
+        if not any(k.art != "korrektur" for k in karten):  # corrections just come along
             raise stand.SpielFehler(
                 "Gerade wartet keine Karte. Erledigter Papierkram wird zur Karte."
             )
@@ -410,7 +422,7 @@ def durchfuehren(conn: sqlite3.Connection, heute: date, aufgeraeumt: bool) -> in
         if geschafft:
             record["saison"] = {
                 "name": geschafft.name, "ziel": geschafft.ziel, "erreicht": geschafft.erreicht,
-                "bonus": geschafft.ziel // saison.BONUS_ANTEIL,
+                "bonus": geschafft.bonus, "wochen": geschafft.wochen,
             }  # fmt: skip
         neu = album.neue(conn, heute)
         if fertig:  # the house banner already says it; the sticker is in the album anyway

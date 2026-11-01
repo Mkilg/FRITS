@@ -20,4 +20,21 @@
     {% endfor %}
   </div>
 </section>
+{% if pokale or feste %}
+<section class="card" id="saisons">
+  <h2>Saisons und Feste</h2>
+  {% if pokale %}
+  <div class="pokal-jahre">
+    {% for jahr, namen in pokale | groupby("1") %}
+    <div class="jahr"><strong>{{ jahr }}</strong>{% for p in namen %}<span title="Saisonziel {{ p[0] }} {{ jahr }} geschafft">🏆 {{ p[0] }}</span>{% endfor %}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% if feste %}
+  <ul class="feste">
+    {% for name, fest, ort in feste %}<li><span aria-hidden="true">🎉</span><strong>{{ fest }}</strong><span class="hint">{{ name }}, {{ ort[0] | lower ~ ort[1:] }}</span></li>{% endfor %}
+  </ul>
+  {% endif %}
+</section>
+{% endif %}
 {% endblock %}

@@ -49,7 +49,7 @@
           <select name="customer" {{ "disabled" if not editable }}>
             <option value="">{{ draft.customer_name ~ " (noch nicht in der Kundenliste)" if draft.customer_name and not draft.customer_id else "Bitte wählen" }}</option>
             {% for c in customers %}
-            <option value="{{ c.id }}" {{ "selected" if c.id == draft.customer_id }}>{{ c.display_name }}{{ " (" ~ c.name ~ ")" if c.company }}</option>
+            <option value="{{ c.id }}" data-name="{{ c.display_name }}"{% if c.address %} data-address{% endif %} {{ "selected" if c.id == draft.customer_id }}>{{ c.display_name }}{{ " (" ~ c.name ~ ")" if c.company }}</option>
             {% endfor %}
           </select>
           <a class="button quiet" href="/customers/new?back=/drafts/{{ row.id }}">Neuer Kunde</a>
@@ -110,7 +110,7 @@
       {% if rate_column and editable %}<details class="hint"{% if sums.groups|length > 1 %} open{% endif %}><summary>Wann 7 %?</summary>USt „normal“ ist dein Satz aus den Einstellungen. 7 % gilt zum Beispiel, wenn du Nutzungsrechte an Texten, Beiträgen oder Fotos einräumst (§ 12 Abs. 2 Nr. 7c UStG). Fahrt- und Recherchekosten zu so einem Artikel bekommen meist denselben Satz wie der Artikel selbst, weil sie dazugehören. Bahntickets rechnest du netto weiter, also ohne die Umsatzsteuer, die auf dem Ticket steht. Im Zweifel frag deine Steuerberatung.</details>{% endif %}
       {% for w in draft_hints or [] %}<p class="hint warn-text">{{ w }}</p>{% endfor %}
       {% for w in limit_warnings or [] %}<p class="hint warn-text">{{ w }}</p>{% endfor %}
-      {% if editable and not is_quote and not period %}<p class="hint">Keine Position hat ein Datum. Dann steht auf der Rechnung „Leistungsdatum entspricht dem Rechnungsdatum“. Hast du früher gearbeitet, trag bitte bei den Positionen das Datum ein (Pflicht nach § 14 UStG).</p>{% endif %}
+      {% if editable and not is_quote and not period %}<p class="hint" data-gone-when="dates">Keine Position hat ein Datum. Dann steht auf der Rechnung „Leistungsdatum entspricht dem Rechnungsdatum“. Hast du früher gearbeitet, trag bitte bei den Positionen das Datum ein (Pflicht nach § 14 UStG).</p>{% endif %}
       <p class="hint">Preise kommen aus der Kundennotiz oder deinen Einstellungen, nie von der KI. Du kannst jeden Wert ändern.</p>
 
       {% if draft.questions %}
@@ -124,7 +124,7 @@
       {% if problems %}
       <div class="problems">
         <h3>Bevor daraus {{ "ein Angebot" if is_quote else "eine Rechnung" }} wird</h3>
-        <ul>{% for p in problems %}<li>{{ p }}</li>{% endfor %}</ul>
+        <ul>{% for p in problems %}<li{% if p.startswith("Die Rechnung hat keine Positionen") %} data-gone-when="lines"{% elif p.startswith("Kunde mit Adresse fehlt") %} data-gone-when="customer"{% endif %}>{{ p }}</li>{% endfor %}</ul>
       </div>
       {% endif %}
 
@@ -134,7 +134,7 @@
         {% if is_quote %}
         <button class="primary" name="action" value="quote">Angebot erstellen</button>
         {% else %}
-        <button class="primary" name="action" value="approve" data-confirm="Rechnung an {{ draft.customer_name or 'den Kunden' }} über {{ sums.gross | eur }} jetzt erstellen? Sie bekommt eine feste Nummer. Später ändern geht nur noch per Storno.">Rechnung erstellen</button>
+        <button class="primary" name="action" value="approve" data-customer="{{ draft.customer_name or 'den Kunden' }}" data-confirm="Rechnung an {{ draft.customer_name or 'den Kunden' }} über {{ sums.gross | eur }} jetzt erstellen? Sie bekommt eine feste Nummer. Später ändern geht nur noch per Storno." data-confirm-live="Rechnung an {customer} über {gross} jetzt erstellen? Sie bekommt eine feste Nummer. Später ändern geht nur noch per Storno.">Rechnung erstellen</button>
         <button class="quiet" name="action" value="quote">Lieber als Angebot</button>
         {% endif %}
       </div>

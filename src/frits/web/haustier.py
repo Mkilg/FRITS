@@ -23,12 +23,12 @@ def fritte_datei(root: Path) -> Path:
 
 
 def wurf_preis(conn, wuerfe: int) -> int:
-    return (2 + wuerfe) * ausbau.stufe(conn).nummer
+    return (2 + wuerfe) * ausbau.preisstufe(conn)
 
 
 def preis(conn, g) -> int:
     """Spices cost more as the house grows, so there is always something to save up for."""
-    return round(g.preis * (1 + PREIS_PRO_STUFE * (ausbau.stufe(conn).nummer - 1)))
+    return round(g.preis * (1 + PREIS_PRO_STUFE * (ausbau.preisstufe(conn) - 1)))
 
 
 def verkaufs_preis(bezahlt: int) -> int:
@@ -99,6 +99,11 @@ def register_haustier(
     aufgeraeumt: Callable[[], bool],
 ) -> None:
     datei = fritte_datei(ws.root)
+    inbox_und_entwuerfe_leer = aufgeraeumt
+
+    def aufgeraeumt() -> bool:
+        # A draft thrown away this week still counts as open: discarding never pays off.
+        return inbox_und_entwuerfe_leer() and not stand.kuerzlich_verworfen(db(), today())
 
     def fritte(conn) -> haustier.Fritte:
         return haustier.ansehen(conn, today(), datei)
@@ -123,10 +128,19 @@ def register_haustier(
         vorher = int(stand.einstellung(conn, "hinweis_wartend", "0") or 0)
         if n != vorher:
             stand.setze(conn, "hinweis_wartend", str(n))
-        if n <= vorher or path == "/" or path.startswith(("/fritte", "/feierabend")):
+        if n < vorher:  # after a Kassensturz
+            stand.setze(conn, "hinweis_bereit", "0")
+        # Not in the Steuer-Quest: there nearly every step is a card, and the note would
+        # cover the basket. Fritte counts them anyway and shows them on her own page.
+        # Not while writing to a customer either.
+        ruhe = ("/fritte", "/feierabend", "/steuer", "/mailto")
+        if n <= vorher or path == "/" or path.startswith(ruhe):
             return []
         neu = n - vorher
         bereit = kassensturz.vorschau(conn, today(), aufgeraeumt=False)[1]["summe"]
+        if bereit <= int(stand.einstellung(conn, "hinweis_bereit", "0") or 0):
+            return []  # nothing more to look forward to (a correction, say)
+        stand.setze(conn, "hinweis_bereit", str(bereit))
         text = (
             f"Fritte hat {'eine neue Karte' if neu == 1 else f'{neu} neue Karten'}"
             f" für den Kassensturz: {n} {'wartet' if n == 1 else 'warten'},"
@@ -180,7 +194,24 @@ def register_haustier(
             grund=stand.GRUND,
             stufen=ausbau.STUFEN,
             naechste=ausbau.naechste(conn),
+            fest_moeglich=saison.fest_moeglich(conn),
+            geschenk=int(stand.einstellung(conn, "willkommen_geschenk", "0") or 0),
+            fest_preis=saison.fest_preis(conn),
+            fest_name=saison.FESTE[saison.quartal(today())[0]],
         )
+
+    @app.post("/fritte/feiern", dependencies=guarded)
+    def fritte_feiern():
+        conn = db()
+        try:
+            with store.transaction(conn):
+                s = saison.feiern(conn, today())
+        except stand.SpielFehler as exc:
+            flash(str(exc), "error")
+            return back("/fritte#saison")
+        fest = saison.FESTE[saison.quartal(today())[0]]
+        flash(f"Fritte feiert das {fest} {s.fest[0].lower()}{s.fest[1:]}. Schön war's!", cue="done")
+        return back("/fritte#saison")
 
     @app.post("/fritte/ausbauen", dependencies=guarded)
     def fritte_ausbauen():
@@ -241,6 +272,11 @@ def register_haustier(
             f=f,
             seiten=seiten,
             geschafft=sum(1 for s in seiten if s["seit"]),
+            pokale=sorted(
+                (tuple(p.rsplit(" ", 1)) for p in saison.pokale(conn)),
+                key=lambda p: (p[1], saison.REIHE.get(p[0], 9)),
+            ),
+            feste=saison.feste(conn),
         )
 
     @app.get("/fritte/laden", response_class=HTMLResponse)
@@ -263,7 +299,7 @@ def register_haustier(
             im_regal={g.id for g in shelf},
             plaetze=kassensturz.plaetze(conn),
             wurf_preis=wurf_preis(conn, wuerfe),
-            verkauf=lambda g: verkaufs_preis(bezahlt.get(g.id) or g.preis),
+            verkauf=lambda g: verkaufs_preis(bezahlt.get(g.id, g.preis)),
             laden=haustier.LADEN,
             kassenbuch=stand.kassenbuch(conn),
             stufe=ausbau.stufe(conn),

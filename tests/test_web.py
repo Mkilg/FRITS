@@ -643,3 +643,12 @@ def test_rare_pages_sit_behind_mehr_and_it_shows_where_you_are(client):
     settings_page = client.get("/settings").text
     assert '<summary aria-current="page">Mehr</summary>' in settings_page
     assert '<summary aria-current="page">' not in page
+
+
+def test_painted_fritte_has_a_fixed_size_and_settings_preview_the_effects(client, ws):
+    from frits.web.app import mascot_or_picture
+
+    html = mascot_or_picture({"fritte-fertig": "/static/bilder/fritte-fertig.webp"})("done")
+    assert 'width="84" height="112"' in html
+    page = client.get("/settings").text
+    assert "So sieht's aus" in page and "data-vorschau" in page

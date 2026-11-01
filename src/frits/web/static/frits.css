@@ -71,27 +71,29 @@ nav a, nav summary { padding: 0.3rem 0.6rem; border-radius: 999px; color: var(--
 /* Painted symbols appear before each label once they are there (see static/bilder). */
 nav a::before { content: ""; display: none; width: 20px; height: 20px; margin-right: 0.3rem;
   vertical-align: -4px; background: center / contain no-repeat; }
-@media (max-width: 1300px) { nav a[href]::before { display: none !important; } }
+@media (max-width: 1500px) { nav a[href]::before { display: none !important; } }
 details.mehr { position: relative; }
 nav details.mehr summary { list-style: none; cursor: pointer; margin: 0; color: var(--ink); display: block; }
 details.mehr summary::-webkit-details-marker { display: none; }
 details.mehr summary::after { content: " ▾"; font-size: 0.75em; }
+nav details.mehr > summary::before { content: none; }
 details.mehr summary:hover { background: var(--creme); }
 nav summary[aria-current="page"] { background: var(--fry); }
 .mehr-liste { position: absolute; right: 0; top: calc(100% + 0.3rem); z-index: 30; display: flex; flex-direction: column;
   gap: 0.1rem; min-width: 12rem; padding: 0.4rem; background: var(--papierkarte); border: 1px solid var(--papier-schatten);
   border-radius: var(--radius); box-shadow: 0 8px 20px rgba(60, 35, 10, .18); }
 .mehr-liste a { border-radius: 6px; }
-@media (max-width: 1150px) { .top-actions .breit { display: none; } }
+.mehr-liste.nach-rechts { right: auto; left: 0; }
+/* Bell without words until the window is wide enough for menu, music and sound in one row */
+@media (max-width: 1500px) { .top-actions .breit { display: none; } }
 nav a:hover { background: var(--creme); }
 nav a[aria-current="page"] { background: var(--fry); }
 .top-actions { display: flex; gap: 0.4rem; align-items: center; flex: 0 0 auto; }
 .top-actions button { white-space: nowrap; }
-@media (max-width: 1100px) {
+@media (max-width: 1220px) {
   .top { flex-wrap: wrap; gap: 0.3rem 1rem; padding: 0.5rem 1rem; }
   .top-actions { margin-left: auto; }
   nav { order: 3; flex-basis: 100%; }
-  .mehr-liste { right: auto; left: 0; }
 }
 
 main { max-width: 1100px; margin: 0 auto; padding: 1.5rem; }
@@ -198,7 +200,7 @@ details summary { cursor: pointer; margin-top: 0.8rem; color: var(--tinte); }
 
 .form .field { display: flex; flex-direction: column; gap: 0.2rem; margin-bottom: 0.8rem; font-size: 0.92rem; color: var(--muted); }
 .field input, .field select, .field textarea { font: inherit; color: var(--ink); padding: 0.5rem 0.6rem;
-  border: 1px solid var(--line); border-radius: 6px; background: #fffdf6; max-width: 32rem; }
+  border: 1px solid var(--line); border-radius: 6px; background: #fffdf6; max-width: min(32rem, 100%); min-width: 0; }
 label.field { display: flex; flex-direction: column; gap: 0.2rem; margin-bottom: 0.6rem; }
 .choice { display: block; margin: 0.3rem 0 0.6rem; }
 
@@ -347,6 +349,59 @@ body[data-effekte="verspielt"] .flash.karte::before { display: inline-block; ani
 /* Rechnungen: payment date next to the button, numbers never break */
 .paid-form { display: inline-flex; gap: 0.3rem; align-items: center; }
 .paid-form input[type="date"] { font-size: 0.8rem; padding: 0.1rem 0.3rem; width: auto; }
-.table td:first-child { white-space: nowrap; }
+/* (only in tables that can scroll sideways; the EÜR rows must wrap on a phone) */
+.table-wrap .table td:first-child { white-space: nowrap; }
+
+/* ---------- Easy to see where you are, easy to hit ---------- */
+/* Keyboard focus: a gold ring around a thin ink line, visible on paper and on the dark quest table */
+:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; box-shadow: 0 0 0 2px var(--tinte); }
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offset: 0; }
+input[type=checkbox], input[type=radio] { width: 1.15rem; height: 1.15rem; vertical-align: -0.2rem; margin: 0 0.3rem 0 0;
+  accent-color: var(--moos-dunkel); }
+/* Fingers instead of a mouse: every button, link in the menu and choice at least 44 px high */
+@media (pointer: coarse) {
+  button, .button, button.tiny, .button.tiny { min-height: 44px; }
+  nav a, nav summary, nav details.mehr summary { min-height: 44px; display: inline-flex; align-items: center; gap: 0.25rem; }
+  .choice, label.choice { min-height: 44px; display: flex; align-items: center; gap: 0.3rem; }
+  input[type=checkbox], input[type=radio] { width: 1.4rem; height: 1.4rem; flex: 0 0 auto; }
+  input:not([type=checkbox]):not([type=radio]), select { min-height: 44px; }
+  .brand { min-height: 44px; }
+  details > summary { padding-top: 0.6rem; padding-bottom: 0.6rem; }
+  .salz a { display: inline-block; padding: 0.7rem 0.2rem; margin: -0.7rem 0; }
+}
+
+/* First setup: the logo left, "Später einrichten" on the right */
+.top > .brand + .top-actions { margin-left: auto; }
+
+/* Phone-sized windows: a compact header and a smaller Fritte */
+@media (max-width: 600px) {
+  .top { padding: 0.35rem 0.75rem; gap: 0.2rem 0.6rem; }
+  .brand { font-size: 1.1rem; }
+  nav { gap: 0; }
+  nav a, nav summary { padding: 0.2rem 0.45rem; font-size: 0.85rem; }
+  .top-actions { gap: 0.15rem; }
+  .top-actions button { padding: 0.3rem 0.55rem; font-size: 0.85rem; }
+  .hello { gap: 0.8rem; margin: 0.2rem 0 1rem; }
+  .mascot-big img.fritte { width: 54px; height: 72px; }
+  .mascot-big svg, .mascot-big .fry-fallback { width: 72px; height: 72px; font-size: 54px; }
+  .speech { font-size: 1.05rem; padding: 0.7rem 0.9rem; }
+  h1 { font-size: 1.45rem; }
+  main { padding: 0.8rem; }
+}
+
+/* Steuer-Quest: the oak table goes all the way down, the footer sits on it */
+body:has(.sq-tisch) { background: #7f512c; }
+main:has(.sq-tisch) { overflow-x: clip; }
+body:has(.sq-tisch) .bottom { max-width: none; margin: 0; border-radius: 0; background: var(--eiche-tief); color: var(--creme); }
+
+/* Settings: preview of "Ruhig" and "Verspielt" */
+.vorschau-zeile { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; margin: 0.2rem 0 0.8rem; }
+.vorschau { display: flex; align-items: center; gap: 0.6rem; flex: 1 1 18rem; min-width: 0; }
+.vorschau .flash { margin: 0; flex: 1; }
+.vorschau[data-effekte="ruhig"] .stempel::after { content: none; }
+.vorschau[data-effekte="ruhig"] .flash.mit-stempel { animation: none; }
+.vorschau[data-effekte="verspielt"] .mascot-small > * { animation: hopsen .5s ease-in-out .3s 2; }
+@media (prefers-reduced-motion: reduce) { .vorschau * { animation: none !important; } }
+
 .notfall-hinweis { margin: 0.4rem 0 1rem; padding: 0.5rem 0.9rem; border-radius: var(--radius);
   background: rgba(252, 246, 230, .75); border: 1px dashed var(--papier-schatten); font-size: 0.92rem; }
