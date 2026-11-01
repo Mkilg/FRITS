@@ -999,8 +999,8 @@ def test_falsche_adressen_sind_freundlich(client, ws):
 def test_eingefuegter_text_heisst_nach_seinen_ersten_woertern():
     from frits.web.steuer import textname
 
-    assert textname("Sehr geehrter Herr Espenlaub, bitte senden Sie …") == (
-        "Sehr geehrter Herr Espenlaub bitte senden.txt"
+    assert textname("Sehr geehrter Herr Bauer, bitte senden Sie …") == (
+        "Sehr geehrter Herr Bauer bitte senden.txt"
     )
     assert textname("  …  ") == "Eingefügter Text.txt"
 

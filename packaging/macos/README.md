@@ -11,7 +11,7 @@ double-click and it runs, with no installing, no Terminal setup and no internet.
 | --- | --- |
 | `FRITS.app` | Double-click to start. Opens the FRITS window once `frits ui` exists; until then it opens a Terminal window. |
 | `Start-FRITS.command` | Opens FRITS in a Terminal window, where you can type `frits ...` commands. |
-| `LIESMICH.txt` | Short German guide for Fritz, including the first-start security prompt. |
+| `LIESMICH.txt` | Short German guide, including the first-start security prompt. |
 | `LIZENZEN.txt` | Licenses of every library and program shipped inside (made by `tools/third_party_licenses.py`; also in `FRITS.app/Contents/Resources`). |
 
 It works on Apple Silicon (M1 and newer) and Intel Macs with macOS 13 or newer.
@@ -30,7 +30,7 @@ It works on Apple Silicon (M1 and newer) and Intel Macs with macOS 13 or newer.
 - `frits-launch.sh`: picks the Python that fits the Mac and runs `python -m frits.cli`.
   It sets `FRITS_TESSERACT` (the Tesseract program) and `TESSDATA_PREFIX` (its language data).
 
-Fritz's own data (customers, invoices) is not stored in the app or on the stick but on his Mac,
+Your own data (customers, invoices) is not stored in the app or on the stick but on your Mac,
 in `~/Documents/FRITS` (or wherever `FRITS_HOME` points).
 
 USB sticks usually cannot store "shortcuts" (symbolic links), so the build replaces every one with a real file.
