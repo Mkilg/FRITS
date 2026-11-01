@@ -1195,8 +1195,8 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
 /* =====================================================================
    Runde 8: Gold-Wirtschaft. Die Serie multipliziert Gold, Gold baut die Insel aus.
    ===================================================================== */
-.sq-marke.gold a { display: flex; align-items: center; gap: inherit; color: inherit; text-decoration: none; border-radius: 6px; padding: 0 0.2rem; margin: 0 -0.2rem; }
-.sq-marke.gold a:hover, .sq-marke.gold a:focus-visible { background: rgba(255, 255, 255, .45); }
+.sq-marke.gold a, .sq-marke.belege a { display: flex; align-items: center; gap: inherit; color: inherit; text-decoration: none; border-radius: 6px; padding: 0 0.2rem; margin: 0 -0.2rem; }
+.sq-marke.gold a:hover, .sq-marke.gold a:focus-visible, .sq-marke.belege a:hover, .sq-marke.belege a:focus-visible { background: rgba(255, 255, 255, .45); }
 .sq-gold-plus { position: absolute; z-index: 30; font: 800 1rem var(--schrift); color: #7a5512; background: #fff3c4; border: 1px solid #c9a24a; border-radius: 999px; padding: 0.05rem 0.45rem; pointer-events: none; animation: sq-gold-steigt 1.6s ease-out forwards; }
 @keyframes sq-gold-steigt { 0% { opacity: 0; transform: translateY(6px) scale(.8); } 15% { opacity: 1; transform: translateY(0) scale(1.1); } 70% { opacity: 1; } 100% { opacity: 0; transform: translateY(-26px); } }
 
@@ -1359,7 +1359,7 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
 /* Auf Touch gibt es keine Leertaste */
 @media (pointer: coarse) { .sq-intro-weiter kbd { display: none; } }
 /* Messingleiste auf Touch: Titel und Gold-Link mit voller Fingerbreite */
-@media (pointer: coarse) { .sq-leiste .sq-titel, .sq-marke.gold a { display: inline-flex; align-items: center; min-height: 44px; } }
+@media (pointer: coarse) { .sq-leiste .sq-titel, .sq-marke.gold a, .sq-marke.belege a { display: inline-flex; align-items: center; min-height: 44px; } }
 .sq-markt-alt { margin: 0.6rem 0 0; padding: 0.5rem 0.7rem; border-left: 3px solid var(--terrakotta-dunkel); background: rgba(196, 98, 58, .08); font-size: 0.92rem; }
 
 /* Runde 10: Kärtchen der Beraterin, Passwort kopieren, mitbenutzte Dateien */
@@ -1406,3 +1406,49 @@ details.sq-zeitalter > summary::-webkit-details-marker { display: none; }
 .sq-wohin ul { list-style: none; padding: 0; margin: 0.5rem 0; display: grid; gap: 0.45rem; }
 .sq-wohin li { display: grid; gap: 0.1rem; line-height: 1.35; }
 .sq-wohin p { margin: 0.4rem 0; }
+
+/* ---------- Belegbuch: alles, was schon da ist ---------- */
+.sq-buch { display: flex; flex-direction: column; gap: 1.2rem; min-width: 0; }
+.sq-buchkopf h1 { margin: 0 0 0.3rem; }
+.sq-buch-summen { list-style: none; padding: 0; margin: 0.8rem 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.6rem; }
+.sq-buch-summen li { background: rgba(120, 80, 30, .08); border-radius: 4px; padding: 0.5rem 0.7rem; font-size: 0.9rem; }
+.sq-buch-summen b { display: block; font: 700 1.6rem/1.1 var(--schrift); font-variant-numeric: tabular-nums; }
+.sq-buch-zahlen { border-top: 1px dashed rgba(90, 60, 20, .35); margin-top: 0.8rem; padding-top: 0.6rem; }
+.sq-buch-zahlen h2 { font-size: 1.05rem; margin: 0 0 0.4rem; }
+.sq-buch-zahlen dl { display: flex; flex-wrap: wrap; gap: 0.4rem 1.6rem; margin: 0; }
+.sq-buch-zahlen dt { font-size: 0.8rem; opacity: .75; }
+.sq-buch-zahlen dd { margin: 0; font: 700 1.15rem/1.2 var(--schrift); font-variant-numeric: tabular-nums; }
+.sq-buch-provinz { transform: rotate(var(--r, 0deg)); }
+.sq-buch-provinz header h2 { margin: 0; font-size: 1.25rem; }
+.sq-buch-provinz header h2 a { color: inherit; }
+.sq-buch-provinz header p { margin: 0.15rem 0 0.6rem; font-size: 0.85rem; }
+.sq-buch-karte { border-top: 1px solid rgba(90, 60, 20, .2); padding: 0.7rem 0 0.5rem; scroll-margin-top: 6rem; }
+.sq-buch-karte:target { background: rgba(255, 220, 120, .25); box-shadow: 0 0 0 0.5rem rgba(255, 220, 120, .25); border-radius: 2px; }
+.sq-buch-karte h3 { margin: 0 0 0.45rem; font-size: 1.02rem; }
+.sq-buch-karte h3 small { font-weight: 400; opacity: .7; font-size: 0.82rem; }
+.sq-buch-dateien { list-style: none; padding: 0; margin: 0 0 0.4rem; display: grid; gap: 0.55rem; }
+.sq-beleg { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 0.7rem; align-items: start; }
+.sq-beleg.art-angabe { grid-template-columns: minmax(0, 1fr) auto; }
+.sq-beleg-vorschau { width: 76px; height: 96px; display: grid; place-items: center; background: #fffdf6; border: 1px solid rgba(90, 60, 20, .25); border-radius: 2px; box-shadow: 0 2px 5px rgba(0, 0, 0, .15); overflow: hidden; color: inherit; text-decoration: none; }
+a.sq-beleg-vorschau:hover, a.sq-beleg-vorschau:focus-visible { transform: rotate(-1.5deg) scale(1.04); box-shadow: 0 5px 12px rgba(0, 0, 0, .25); }
+.sq-beleg-vorschau img { width: 100%; height: 100%; object-fit: cover; }
+.sq-beleg-icon { font: 700 0.9rem/1 var(--schrift); letter-spacing: 0.04em; color: #8a3b22; }
+.sq-beleg.art-angabe .sq-beleg-vorschau { width: auto; height: auto; place-items: start; padding: 0.55rem 0.7rem; background: #fffbe8; transform: rotate(-0.6deg); }
+.sq-beleg-text { white-space: pre-wrap; font: 1rem/1.35 "Bradley Hand", "Segoe Print", var(--schrift); overflow-wrap: anywhere; }
+.sq-beleg-info { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.sq-beleg-info strong { overflow-wrap: anywhere; }
+.sq-beleg-info small { font-size: 0.8rem; opacity: .8; }
+.sq-beleg-info .reihe { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.3rem; }
+.sq-beleg-info .reihe form { margin: 0; }
+.sq-warnung { color: #9b2a17; opacity: 1 !important; }
+.sq-buch-frage > summary { cursor: pointer; font-size: 0.88rem; }
+.sq-buch-frage textarea { width: 100%; margin-top: 0.35rem; font: inherit; }
+.sq-buch-frage .reihe { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin: 0.35rem 0 0; }
+.sq-buch-leer { margin: 0.6rem 0 0; font-size: 0.88rem; border-top: 1px dashed rgba(90, 60, 20, .3); padding-top: 0.5rem; }
+.sq-wer-sieht { font-size: 0.88rem; }
+.sq-wer-sieht h2 { margin: 0 0 0.4rem; font-size: 1.05rem; }
+.sq-wer-sieht p { margin: 0.4rem 0; }
+@media (max-width: 520px) {
+  .sq-beleg { grid-template-columns: 56px minmax(0, 1fr); }
+  .sq-beleg-vorschau { width: 56px; height: 72px; }
+}
