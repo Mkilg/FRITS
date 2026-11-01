@@ -17,6 +17,7 @@
     <li>{{ waiting }} {{ "Datei" if waiting == 1 else "Dateien" }} im Eingang</li>
     <li>{{ overdue }} überfällige {{ "Rechnung" if overdue == 1 else "Rechnungen" }}</li>
   </ul>
+  {% if picture("rueckblick-buendel") %}<img class="buendel" src="{{ picture('rueckblick-buendel') }}" alt="">{% endif %}
   <p class="hint">Alles ist gespeichert. Du kannst das Fenster jetzt schließen und den Kopf frei machen.</p>
   <form method="post" action="/quit">
     <input type="hidden" name="token" value="{{ token }}">

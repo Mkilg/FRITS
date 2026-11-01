@@ -127,6 +127,12 @@ NAV_SYMBOLS = {
     "/settings": "symbol-einstellungen",
 }
 STAMP_PICTURES = {"stempel-rund": ".stempel", "stempel-oval": ".stempel.stempel-fertig"}
+# The painted stamps are a ring and an oval: the word sits in the middle.
+STAMP_SHAPES = {
+    "stempel-rund": "width: 5.4rem; height: 5.4rem; padding: 0; font-size: 0.62rem;"
+    " letter-spacing: 0.05em; display: inline-flex; align-items: center; justify-content: center;",
+    "stempel-oval": "width: 7.2rem; height: 4.4rem; padding: 0; font-size: 0.75rem;",
+}
 
 
 def picture_css(pictures: dict[str, str]) -> Markup:
@@ -150,7 +156,7 @@ def picture_css(pictures: dict[str, str]) -> Markup:
         if name in pictures:
             rules.append(
                 f"body {selector} {{ background: {url(name)} center / 100% 100% no-repeat;"
-                " border-color: transparent; padding: 0.35rem 0.9rem; }"
+                f" border-color: transparent; {STAMP_SHAPES[name]} }}"
             )
     return Markup("\n".join(rules))
 

@@ -6,6 +6,9 @@ schreibtisch-tag (Hintergrund), feierabend-tisch (Hintergrund beim Feierabend)
 stempel-rund (Bezahlt, Gebucht, Angenommen), stempel-oval (Fertig)
 symbol-eingang, symbol-entwuerfe, symbol-rechnungen, symbol-angebote, symbol-ausgaben,
 symbol-kunden, symbol-einstellungen, symbol-steuer
-leer-eingang (wenn nichts im Eingang liegt)
+leer-eingang (wenn nichts im Eingang liegt), rueckblick-buendel (beim Feierabend)
+app-icon (Symbol im Browser-Tab; das Mac-App-Symbol liegt in packaging/macos/icon.png)
+
+Maries Originale (groß, PNG) liegen im Projektordner; hier sind verkleinerte WebP-Kopien.
 
 Die Steuer-Quest hat ihre eigenen Bilder in static/steuer/.
