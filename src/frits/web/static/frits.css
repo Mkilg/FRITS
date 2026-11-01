@@ -71,11 +71,12 @@ nav a, nav summary { padding: 0.3rem 0.6rem; border-radius: 999px; color: var(--
 /* Painted symbols appear before each label once they are there (see static/bilder). */
 nav a::before { content: ""; display: none; width: 20px; height: 20px; margin-right: 0.3rem;
   vertical-align: -4px; background: center / contain no-repeat; }
-@media (max-width: 1300px) { nav a[href]::before { display: none !important; } }
+@media (max-width: 1500px) { nav a[href]::before { display: none !important; } }
 details.mehr { position: relative; }
 nav details.mehr summary { list-style: none; cursor: pointer; margin: 0; color: var(--ink); display: block; }
 details.mehr summary::-webkit-details-marker { display: none; }
 details.mehr summary::after { content: " ▾"; font-size: 0.75em; }
+nav details.mehr > summary::before { content: none; }
 details.mehr summary:hover { background: var(--creme); }
 nav summary[aria-current="page"] { background: var(--fry); }
 .mehr-liste { position: absolute; right: 0; top: calc(100% + 0.3rem); z-index: 30; display: flex; flex-direction: column;
@@ -83,12 +84,13 @@ nav summary[aria-current="page"] { background: var(--fry); }
   border-radius: var(--radius); box-shadow: 0 8px 20px rgba(60, 35, 10, .18); }
 .mehr-liste a { border-radius: 6px; }
 .mehr-liste.nach-rechts { right: auto; left: 0; }
-@media (max-width: 1150px) { .top-actions .breit { display: none; } }
+/* Bell without words until the window is wide enough for menu, music and sound in one row */
+@media (max-width: 1500px) { .top-actions .breit { display: none; } }
 nav a:hover { background: var(--creme); }
 nav a[aria-current="page"] { background: var(--fry); }
 .top-actions { display: flex; gap: 0.4rem; align-items: center; flex: 0 0 auto; }
 .top-actions button { white-space: nowrap; }
-@media (max-width: 1100px) {
+@media (max-width: 1220px) {
   .top { flex-wrap: wrap; gap: 0.3rem 1rem; padding: 0.5rem 1rem; }
   .top-actions { margin-left: auto; }
   nav { order: 3; flex-basis: 100%; }
@@ -347,7 +349,8 @@ body[data-effekte="verspielt"] .flash.karte::before { display: inline-block; ani
 /* Rechnungen: payment date next to the button, numbers never break */
 .paid-form { display: inline-flex; gap: 0.3rem; align-items: center; }
 .paid-form input[type="date"] { font-size: 0.8rem; padding: 0.1rem 0.3rem; width: auto; }
-.table td:first-child { white-space: nowrap; }
+/* (only in tables that can scroll sideways; the EÜR rows must wrap on a phone) */
+.table-wrap .table td:first-child { white-space: nowrap; }
 
 /* ---------- Easy to see where you are, easy to hit ---------- */
 /* Keyboard focus: a gold ring around a thin ink line, visible on paper and on the dark quest table */
@@ -358,9 +361,13 @@ input[type=checkbox], input[type=radio] { width: 1.15rem; height: 1.15rem; verti
 /* Fingers instead of a mouse: every button, link in the menu and choice at least 44 px high */
 @media (pointer: coarse) {
   button, .button, button.tiny, .button.tiny { min-height: 44px; }
-  nav a, nav summary { min-height: 44px; display: inline-flex; align-items: center; }
+  nav a, nav summary, nav details.mehr summary { min-height: 44px; display: inline-flex; align-items: center; gap: 0.25rem; }
   .choice, label.choice { min-height: 44px; display: flex; align-items: center; gap: 0.3rem; }
   input[type=checkbox], input[type=radio] { width: 1.4rem; height: 1.4rem; flex: 0 0 auto; }
+  input:not([type=checkbox]):not([type=radio]), select { min-height: 44px; }
+  .brand { min-height: 44px; }
+  details > summary { padding-top: 0.6rem; padding-bottom: 0.6rem; }
+  .salz a { display: inline-block; padding: 0.7rem 0.2rem; margin: -0.7rem 0; }
 }
 
 /* First setup: the logo left, "Später einrichten" on the right */
