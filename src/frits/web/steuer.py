@@ -307,8 +307,17 @@ def register_steuer(
         c = conn()
         helfer = nachher["helfer"]
         # Gold: jede Karte zahlt einmal aus, im Kampf mal der Serie (Balatro: Chips × Mult)
-        basis, faktor, plus, minus = 0, 1, 0, 0
+        # Gold nur für die letzten Steuerjahre (sonst ließe es sich mit erfundenen Jahren farmen)
+        goldjahr = spiel.gold_jahr(jahr, today())
+        basis, faktor, plus, minus, minus_siegel = 0, 1, 0, 0, 0
+        wuensche = quest.wunsch_funde(c, jahr)
         for v in spiel.verdienste(vorher["stuecke"], nachher["stuecke"], mult, helfer):
+            if not goldjahr:
+                break
+            if ":wunsch:" in v.grund and v.grund.startswith("fund:"):
+                if wuensche >= spiel.WUNSCH_DECKEL:
+                    continue  # Wünsche zahlen nur bis zum Deckel (man kann sie selbst erfinden)
+                wuensche += 1
             if quest.verdiene(c, jahr, v.grund, v.betrag, v.text):
                 basis, faktor, plus = basis + v.basis, v.mult, plus + v.betrag
         # Wieder offen: Das Gold dafür geht zurück (sonst lohnt ein Fehlwurf bei ×8)
@@ -317,13 +326,26 @@ def register_steuer(
         neu_siegel = {p.gebiet.id for p in nachher["provinzen"] if p.stand.siegel}
         for p in vorher["provinzen"]:
             if p.stand.siegel and p.gebiet.id not in neu_siegel:
-                minus += quest.storniere(
+                minus_siegel += quest.storniere(
                     c, jahr, f"siegel:{p.gebiet.id}", f"Siegel {p.gebiet.titel}"
                 )
-        if minus:
-            flash(
-                f"−{minus} Gold zurückgebucht. Wer es neu verdient, bekommt es wieder.", "hinweis"
-            )
+        if minus or minus_siegel:
+            teile = []
+            if minus:
+                teile.append(f"{minus} für die Karte")
+            if minus_siegel:
+                teile.append(f"{minus_siegel} für das Siegel")
+            text = f"−{minus + minus_siegel} Gold zurückgebucht"
+            text += f" ({' und '.join(teile)})." if minus and minus_siegel else "."
+            if minus_siegel and not minus:
+                text = f"−{minus_siegel} Gold zurückgebucht: Das Siegel ist wieder offen."
+            flash(text + " Wer es neu verdient, bekommt es wieder.", "hinweis")
+            for name in quest.decke_schulden(c, jahr):
+                flash(
+                    f"Das Gold war schon ausgegeben, darum ist {name} zurück im Hafen."
+                    " Du kannst es wieder kaufen, sobald du das Gold neu verdient hast.",
+                    "hinweis",
+                )
         alt_siegel = {p.gebiet.id for p in vorher["provinzen"] if p.stand.siegel}
         for p in nachher["provinzen"]:
             if p.stand.siegel and p.gebiet.id not in alt_siegel:
@@ -333,9 +355,14 @@ def register_steuer(
                 ) or quest.hat_notiz(c, jahr, "siegel", f"Silber-Siegel! {titel} ist komplett.")
                 text = f"{'Silber' if p.silber else 'Gold'}-Siegel! {titel} ist komplett."
                 funde = sum(1 for x in p.stuecke if x["status"] == "gesammelt")
-                plus += quest.verdiene(
-                    c, jahr, f"siegel:{p.gebiet.id}", spiel.siegel_gold(funde), f"Siegel: {titel}"
-                )
+                if goldjahr:
+                    plus += quest.verdiene(
+                        c,
+                        jahr,
+                        f"siegel:{p.gebiet.id}",
+                        spiel.siegel_gold(funde),
+                        f"Siegel: {titel}",
+                    )
                 if schon:
                     flash(f"{titel} ist wieder komplett.", "beute")  # kein zweites Fest
                     continue
@@ -372,11 +399,14 @@ def register_steuer(
         if vorher["tagwerk"][0] < ziel <= heute and not sieg and not quest.hat_gold(c, jahr, tag):
             # Einmal am Tag: Wer zurücklegt und neu zuordnet, bekommt kein zweites Fest
             quest.notiere(c, jahr, "tagwerk", "Tagwerk geschafft")
-            lohn = quest.verdiene(c, jahr, tag, spiel.tagwerk_gold(helfer), "Tagwerk")
+            lohn = spiel.tagwerk_gold(helfer) if goldjahr else 0
+            if lohn:
+                lohn = quest.verdiene(c, jahr, tag, lohn, "Tagwerk")
             plus += lohn
             flash(
-                f"Tagwerk geschafft: {ziel} Karten heute, +{lohn} Gold."
-                " Mehr muss nicht sein, aber du darfst.",
+                f"Tagwerk geschafft: {ziel} Karten heute"
+                + (f", +{lohn} Gold." if lohn else ".")
+                + " Mehr muss nicht sein, aber du darfst.",
                 "tagwerk",
             )
         if nachher["zeitalter"][0] > vorher["zeitalter"][0]:
@@ -477,7 +507,7 @@ def register_steuer(
             fritte=stimmung,
             tipp=tipp,
             neu_zier=neu,
-            zier_plaetze=spiel.ZIER_PLAETZE,
+            wiese=spiel.WIESE,
             **daten,
         )
 
@@ -960,6 +990,7 @@ def register_steuer(
             goldbuch=quest.goldbuch(conn(), jahr),
             goldsummen=quest.goldsummen(conn(), jahr),
             regeln=spiel,
+            goldjahr=spiel.gold_jahr(jahr, today()),
             **daten,
         )
 

@@ -480,6 +480,16 @@ GOLD_TAGWERK = 5  # das Tagwerk geschafft
 MAX_MULT = 8
 HELFER_PLAETZE = 2
 TAUSCH_PREIS = 5  # einen Helfer an den Tisch holen, der gerade Pause macht
+WUNSCH_DECKEL = 5  # so viele erfüllte Wünsche der Beraterin zahlen Gold, pro Jahr
+GOLD_JAHRE = 2  # Gold gibt es für dieses Jahr und die zwei davor (Abgabe mit Beraterin)
+
+
+def gold_jahr(jahr: int, heute: date) -> bool:
+    """Bringt eine Quest für dieses Steuerjahr Gold? Nur die letzten Jahre: Mit Beraterin
+    gibt man die Erklärung oft erst im übernächsten Frühjahr ab (2025 also bis Anfang 2027).
+    Ältere Jahre darf man trotzdem nachholen, sie füllen nur nicht mehr den Beutel. Sonst
+    ließe sich mit erfundenen Jahren beliebig Gold für die Insel sammeln."""
+    return heute.year - GOLD_JAHRE <= jahr <= heute.year
 
 
 @dataclass(frozen=True)
@@ -497,7 +507,7 @@ MARKT: tuple[Ware, ...] = (
     Ware(
         "spuernase",
         "Spürnase",
-        20,
+        12,
         "helfer",
         "Schnuppert an jedem Zettel im Korb und sagt, wohin er vielleicht gehört.",
         haken="Sie frisst mit: Funde bringen 2 Gold statt 3.",
@@ -505,7 +515,7 @@ MARKT: tuple[Ware, ...] = (
     Ware(
         "brieftaube",
         "Brieftaube",
-        15,
+        8,
         "helfer",
         "Fragen an die Beraterin bringen 2 Gold statt 1.",
         haken="„Gibt's nicht“ bringt kein Gold mehr.",
@@ -513,7 +523,7 @@ MARKT: tuple[Ware, ...] = (
     Ware(
         "goldwaage",
         "Goldwaage",
-        25,
+        15,
         "helfer",
         "Bonus-Schätze wiegen doppelt: 20 Gold statt 10.",
         haken="Fragen bringen kein Gold mehr.",
@@ -521,7 +531,7 @@ MARKT: tuple[Ware, ...] = (
     Ware(
         "sanduhr",
         "Sanduhr",
-        15,
+        8,
         "helfer",
         "Das Tagwerk bringt 15 Gold statt 5. Wenig am Tag, aber jeden Tag.",
         haken="Im Drachenkampf zählt die Serie höchstens ×3.",
@@ -529,7 +539,7 @@ MARKT: tuple[Ware, ...] = (
     Ware(
         "trommel",
         "Kriegstrommel",
-        30,
+        18,
         "helfer",
         "Im Drachenkampf zählt die Serie eins mehr: aus ×2 wird ×3.",
         haken="„Gibt's nicht“ im Kampf setzt die Serie auf null.",
@@ -540,7 +550,7 @@ MARKT: tuple[Ware, ...] = (
         10,
         "zierde",
         "Ein warmer Lichterweg über die Wiese.",
-        platz=(44.0, 67.0),
+        platz=(44.0, 61.0),
     ),
     Ware(
         "kirschbaum",
@@ -548,7 +558,7 @@ MARKT: tuple[Ware, ...] = (
         15,
         "zierde",
         "Blüht jedes Steuerjahr wieder.",
-        platz=(55.0, 73.0),
+        platz=(52.0, 62.0),
     ),
     Ware(
         "wappenfahne",
@@ -556,7 +566,7 @@ MARKT: tuple[Ware, ...] = (
         20,
         "zierde",
         "Dein Wappen weht über der Insel.",
-        platz=(66.0, 70.0),
+        platz=(60.0, 61.0),
     ),
     Ware(
         "bienen",
@@ -564,34 +574,23 @@ MARKT: tuple[Ware, ...] = (
         25,
         "zierde",
         "Fleißig, aber in ihrem eigenen Tempo.",
-        platz=(77.0, 69.0),
+        platz=(68.0, 62.0),
     ),
-    Ware("windmuehle", "Windmühle", 35, "zierde", "Mahlt langsam und stetig.", platz=(88.0, 66.0)),
+    Ware("windmuehle", "Windmühle", 35, "zierde", "Mahlt langsam und stetig.", platz=(78.0, 61.0)),
     Ware(
         "leuchtturm",
         "Leuchtturm",
         50,
         "zierde",
         "Zeigt dir auch nächstes Jahr den Weg zurück.",
-        platz=(9.0, 47.0),
+        platz=(88.0, 58.0),
     ),
 )
 
-# Ausweichplätze auf der Wiese, falls ein Lieblingsplatz von einer Provinz belegt ist
-ZIER_PLAETZE: tuple[tuple[float, float], ...] = (
-    (50.0, 68.0),
-    (60.0, 71.0),
-    (72.0, 67.0),
-    (82.0, 69.0),
-    (40.0, 66.0),
-    (48.0, 77.0),
-    (62.0, 79.0),
-    (73.0, 77.0),
-    (88.0, 64.0),
-    (30.0, 64.0),
-    (85.0, 75.0),
-    (35.0, 56.0),
-)
+# Die Wiese der gemalten Insel (Prozent: links, oben, rechts, unten) für die Füße der Zierde.
+# Ist der Lieblingsplatz belegt, sucht steuer.js den nächsten freien Fleck auf dieser Wiese.
+# Gekauftes wird nie versteckt: Ist gar nichts frei, steht es dort, wo es am wenigsten stört.
+WIESE: tuple[float, float, float, float] = (37.0, 28.0, 90.0, 62.0)
 
 
 def ware(key: str) -> Ware | None:
@@ -683,7 +682,8 @@ def verdienste(
             continue
         # Finden zahlt extra aus, auch wenn die Karte vorher als Frage erledigt war
         art = "fund" if status == "gesammelt" else "antwort"
-        faktor = mult if status == "gesammelt" else 1  # Fragen füttern keine Gold-Serie
+        # Fragen und Wünsche füttern keine Gold-Serie (Wünsche kann man selbst erfinden)
+        faktor = mult if status == "gesammelt" and not ist_wunsch(s) else 1
         neu.append(Verdienst(karten_grund(s, art), basis, faktor, s["name"]))
     return neu
 

@@ -480,6 +480,13 @@ def storniere(conn: sqlite3.Connection, jahr: int, grund: str, text: str) -> int
     return int(row["betrag"])
 
 
+def wunsch_funde(conn: sqlite3.Connection, jahr: int) -> int:
+    """Wie viele Wünsche der Beraterin in diesem Jahr schon Gold gebracht haben."""
+    ensure_schema(conn)
+    sql = "SELECT COUNT(*) FROM steuer_gold WHERE jahr = ? AND grund LIKE 'fund:%:wunsch:%'"
+    return int(conn.execute(sql, (jahr,)).fetchone()[0])
+
+
 def hat_gold(conn: sqlite3.Connection, jahr: int, grund: str) -> bool:
     ensure_schema(conn)
     sql = "SELECT 1 FROM steuer_gold WHERE jahr = ? AND grund = ?"
@@ -493,12 +500,17 @@ def gold(conn: sqlite3.Connection, jahr: int) -> int:
 
 
 def goldsummen(conn: sqlite3.Connection, jahr: int) -> tuple[int, int]:
-    """(verdient, ausgegeben) in diesem Jahr. Zurückgebuchtes zählt beim Verdienten ab."""
+    """(verdient, ausgegeben) in diesem Jahr. Zurückgebuchtes zählt beim Verdienten ab,
+    was zurück in den Hafen ging, beim Ausgegebenen."""
     ensure_schema(conn)
     rows = conn.execute("SELECT betrag, text FROM steuer_gold WHERE jahr = ?", (jahr,)).fetchall()
-    ausgegeben = -sum(
-        r["betrag"] for r in rows if r["betrag"] < 0 and not r["text"].startswith("Zurück")
-    )
+
+    def ausgabe(r) -> bool:
+        if r["text"].startswith("Zurück in den Hafen"):
+            return True
+        return r["betrag"] < 0 and not r["text"].startswith("Zurück")
+
+    ausgegeben = -sum(r["betrag"] for r in rows if ausgabe(r))
     verdient = sum(r["betrag"] for r in rows) + ausgegeben
     return verdient, ausgegeben
 
@@ -526,18 +538,66 @@ def helfer(conn: sqlite3.Connection, jahr: int) -> frozenset[str]:
     return frozenset(k for k, an in besitz(conn, jahr).items() if an)
 
 
-def _abbuchen(conn: sqlite3.Connection, jahr: int, betrag: int, text: str, was: str) -> None:
+def _abbuchen(
+    conn: sqlite3.Connection, jahr: int, betrag: int, text: str, was: str, grund: str | None = None
+) -> None:
     """Zieht Gold ab, im selben Schreibschloss wie die Prüfung: Zwei schnelle Klicks können
-    das Gold nie unter null drücken."""
+    das Gold nie unter null drücken. Käufe tragen den Grund "kauf:<ware>", damit sie
+    zurück in den Hafen gehen können (siehe decke_schulden)."""
     stand = conn.execute(
         "SELECT COALESCE(SUM(betrag), 0) FROM steuer_gold WHERE jahr = ?", (jahr,)
     ).fetchone()[0]
     if betrag > stand:
         raise QuestError(f"Für {was} fehlen dir noch {betrag - stand} Gold.")
     conn.execute(
-        "INSERT INTO steuer_gold (jahr, zeit, betrag, grund, text) VALUES (?, ?, ?, NULL, ?)",
-        (jahr, _now(), -betrag, text),
+        "INSERT INTO steuer_gold (jahr, zeit, betrag, grund, text) VALUES (?, ?, ?, ?, ?)",
+        (jahr, _now(), -betrag, grund, text),
     )
+
+
+def decke_schulden(conn: sqlite3.Connection, jahr: int) -> list[str]:
+    """Gold geht nie unter null. Fehlt nach einem Zurückbuchen Gold, weil es schon ausgegeben
+    ist, geht der letzte Kauf aus diesem Jahr zurück in den Hafen (mit vollem Preis), bis es
+    reicht. Sonst könnte man Gold bei ×8 verdienen, ausgeben, die Karte zurücklegen und es
+    neu verdienen. Gibt die Namen der zurückgegebenen Waren zurück.
+
+    Nur wenn gar kein Kauf mehr da ist (das Gold steckt in Helfer-Wechseln), wird auf null
+    ausgeglichen: Das sind höchstens ein paar Münzen."""
+    from frits.steuer import spiel
+
+    ensure_schema(conn)
+    zurueck: list[str] = []
+    with transaction(conn):
+        while True:
+            stand = conn.execute(
+                "SELECT COALESCE(SUM(betrag), 0) FROM steuer_gold WHERE jahr = ?", (jahr,)
+            ).fetchone()[0]
+            if stand >= 0:
+                break
+            kauf = conn.execute(
+                "SELECT id, betrag, grund FROM steuer_gold WHERE jahr = ? AND grund LIKE 'kauf:%'"
+                " ORDER BY id DESC LIMIT 1",
+                (jahr,),
+            ).fetchone()
+            if kauf is None:
+                conn.execute(
+                    "INSERT INTO steuer_gold (jahr, zeit, betrag, grund, text)"
+                    " VALUES (?, ?, ?, NULL, ?)",
+                    (jahr, _now(), -stand, "Ausgleich: Gold geht nicht unter null"),
+                )
+                break
+            key = kauf["grund"].removeprefix("kauf:")
+            w = spiel.ware(key)
+            name = w.name if w else key
+            wo = ALLE_JAHRE if w and w.art == "zierde" else jahr
+            conn.execute("DELETE FROM steuer_besitz WHERE jahr = ? AND ware = ?", (wo, key))
+            conn.execute("UPDATE steuer_gold SET grund = NULL WHERE id = ?", (kauf["id"],))
+            conn.execute(
+                "INSERT INTO steuer_gold (jahr, zeit, betrag, grund, text) VALUES (?, ?, ?, NULL, ?)",
+                (jahr, _now(), -kauf["betrag"], f"Zurück in den Hafen: {name}"),
+            )
+            zurueck.append(name)
+    return zurueck
 
 
 def kaufe(conn: sqlite3.Connection, jahr: int, key: str) -> str:
@@ -557,7 +617,7 @@ def kaufe(conn: sqlite3.Connection, jahr: int, key: str) -> str:
             (key, jahr, ALLE_JAHRE),
         ).fetchone():
             raise QuestError(f"{w.name} hast du schon.")
-        _abbuchen(conn, jahr, w.preis, f"Gekauft: {w.name}", w.name)
+        _abbuchen(conn, jahr, w.preis, f"Gekauft: {w.name}", w.name, f"kauf:{key}")
         conn.execute(
             "INSERT INTO steuer_besitz (jahr, ware, angelegt, gekauft) VALUES (?, ?, ?, ?)",
             (ALLE_JAHRE if w.art == "zierde" else jahr, key, int(anlegen), _now()),

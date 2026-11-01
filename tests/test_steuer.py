@@ -1178,7 +1178,8 @@ def test_markt_kaufen_helferplaetze_tauschgebuehr_und_zierde_fuer_alle_jahre(con
     quest.lege_helfer(conn, 2025, "sanduhr", True)
     assert quest.gold(conn, 2025) == vorher - spiel.TAUSCH_PREIS  # Tauschen kostet
     assert quest.helfer(conn, 2025) == {"spuernase", "sanduhr"}
-    assert quest.goldsummen(conn, 2025) == (200, 10 + 20 + 15 + 15 + spiel.TAUSCH_PREIS)
+    preise = sum(spiel.ware(k).preis for k in ("laternen", "spuernase", "brieftaube", "sanduhr"))
+    assert quest.goldsummen(conn, 2025) == (200, preise + spiel.TAUSCH_PREIS)
     with pytest.raises(quest.QuestError):
         quest.kaufe(conn, 2025, "gibtsnicht")
 
@@ -1285,3 +1286,79 @@ def test_letzter_treffer_zeigt_seine_rechnung_im_sieg(client, ws):
         zettel="letzter.pdf",
     )
     assert "Letzter Treffer: 3 ×" in seite.text
+
+
+def test_gold_nur_fuer_die_letzten_steuerjahre_und_wuensche_ohne_serie():
+    """Bericht 2b, P2-B: Erfundene alte Jahre und erfundene Wünsche bringen kein Gold-Feuerwerk."""
+    heute = date(2026, 11, 1)
+    assert spiel.gold_jahr(2026, heute) and spiel.gold_jahr(2025, heute)
+    assert spiel.gold_jahr(2024, heute)  # mit Beraterin oft erst im übernächsten Frühjahr
+    assert not spiel.gold_jahr(2023, heute) and not spiel.gold_jahr(2027, heute)
+    wunsch = _karte(key="wunsch-1", name="Bausparvertrag")
+    v = spiel.verdienste([wunsch], [{**wunsch, "status": "gesammelt"}], mult=6)
+    assert v[0].mult == 1 and v[0].betrag == spiel.GOLD_FUND
+
+
+def test_wuensche_zahlen_nur_bis_zum_deckel(client, ws):
+    fragebogen(client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    for n in range(spiel.WUNSCH_DECKEL + 2):
+        quest.neues_stueck(conn, 2025, "rathaus", f"Wunsch {n}", hinweis="Beraterin")
+    wuensche = [s for s in quest.stuecke(conn, 2025) if s["key"].startswith("wunsch-")]
+    assert len(wuensche) == spiel.WUNSCH_DECKEL + 2
+    for s in wuensche:
+        post(
+            client,
+            f"/steuer/2025/stueck/{s['id']}/datei",
+            files=[("datei", (f"{s['key']}.pdf", f"%PDF {s['key']}".encode()))],
+        )
+    assert quest.wunsch_funde(conn, 2025) == spiel.WUNSCH_DECKEL
+
+
+def test_gold_faellt_nie_unter_null_letzter_kauf_geht_in_den_hafen(conn):
+    """Bericht 2b, P2-A: Erst bei ×8 verdienen, ausgeben, dann zurücklegen darf nichts bringen."""
+    quest.verdiene(conn, 2025, "fund:a:b", 20, "Belege")
+    quest.verdiene(conn, 2025, "test", 30, "Testgold")
+    quest.kaufe(conn, 2025, "windmuehle")  # 35
+    quest.kaufe(conn, 2025, "laternen")  # 10
+    assert quest.gold(conn, 2025) == 5
+    quest.storniere(conn, 2025, "fund:a:b", "Belege")
+    assert quest.gold(conn, 2025) == -15
+    assert quest.decke_schulden(conn, 2025) == ["Laternen", "Windmühle"]
+    assert quest.gold(conn, 2025) == 30
+    assert "windmuehle" not in quest.besitz(conn, 2025)
+    assert "laternen" not in quest.besitz(conn, 2026)
+    assert quest.goldsummen(conn, 2025) == (30, 0)
+    assert quest.decke_schulden(conn, 2025) == []  # nichts mehr zu tun
+    quest.kaufe(conn, 2025, "laternen")  # zurückgegeben heißt: wieder kaufbar
+
+    # Steckt das Gold nur noch in Helfer-Wechseln, wird auf null ausgeglichen
+    quest.verdiene(conn, 2024, "fund:a:b", 20, "Belege")
+    quest.kaufe(conn, 2024, "spuernase")
+    quest.lege_helfer(conn, 2024, "spuernase", False)
+    quest.lege_helfer(conn, 2024, "spuernase", True)
+    quest.storniere(conn, 2024, "fund:a:b", "Belege")
+    assert quest.decke_schulden(conn, 2024) == ["Spürnase"]
+    assert quest.gold(conn, 2024) == 0 and quest.helfer(conn, 2024) == frozenset()
+
+
+def test_zurueckbuchen_mit_ausgegebenem_gold_im_browser(client, ws):
+    fragebogen(client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    karte = next(s for s in quest.stuecke(conn, 2025) if s["status"] == "offen")
+    post(
+        client,
+        f"/steuer/2025/stueck/{karte['id']}/datei",
+        files=[("datei", ("beleg.pdf", b"%PDF beleg"))],
+    )
+    verdient = quest.gold(conn, 2025)
+    assert 0 < verdient < 50
+    quest.verdiene(conn, 2025, "test", 50 - verdient, "Testgold")
+    post(client, "/steuer/2025/markt/kaufen", ware="leuchtturm")
+    assert quest.gold(conn, 2025) == 0
+    datei = quest.dateien(conn, 2025, karte["id"])[0]
+    seite = post(client, f"/steuer/2025/datei/{datei['id']}/entfernen")
+    assert "Leuchtturm zurück im Hafen" in seite.text
+    assert quest.gold(conn, 2025) >= 0 and "leuchtturm" not in quest.besitz(conn, 2025)
+    markt = client.get("/steuer/2025/markt").text
+    assert "Zurück in den Hafen: Leuchtturm" in markt

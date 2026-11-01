@@ -15,6 +15,7 @@
     <p class="sq-kicker">Hafenmarkt</p>
     <h1>Was baust du mit deinem Gold?</h1>
     <p>Gold bekommst du für jede Karte. Hier wird es zu Zierde für deine Insel oder zu Helfern, die mitspielen. Steuern ändert das nicht, es macht nur mehr Spaß.</p>
+    {% if not goldjahr %}<p class="sq-markt-alt"><b>{{ jahr }} liegt schon länger zurück.</b> Nachholen lohnt sich trotzdem, Gold gibt es aber nur für die letzten Steuerjahre. Deine Zierde von dort steht auch hier.</p>{% endif %}
   </div>
   <p class="sq-beutel" aria-label="{{ ressourcen.gold }} Gold"><i></i><b data-zaehler="gold-markt">{{ ressourcen.gold }}</b><span>Gold</span></p>
 </header>
@@ -22,7 +23,7 @@
 {% set angelegt = helfer | list %}
 <section class="sq-markt-teil" id="helfer" aria-labelledby="h-helfer">
   <h2 id="h-helfer">Helfer <small>{{ angelegt | length }} von {{ plaetze }} Plätzen am Tisch</small></h2>
-  <p class="sq-markt-hinweis">Nur {{ plaetze }} Helfer passen an deinen Tisch, und jeder hat einen Haken. Pause machen ist gratis, zurück an den Tisch kostet {{ regeln.TAUSCH_PREIS }} Gold. Helfer gelten für {{ jahr }}.</p>
+  <p class="sq-markt-hinweis">Nur {{ plaetze }} Helfer passen an deinen Tisch, und jeder hat einen Haken. Pause machen ist gratis, zurück an den Tisch kostet {{ regeln.TAUSCH_PREIS }} Gold. Helfer arbeiten ein Steuerjahr lang, darum sind sie günstig.</p>
   <div class="sq-waren">
   {% for w in markt if w.art == "helfer" %}
     {% set hat = w.key in besitz %}{% set an = w.key in helfer %}
@@ -75,9 +76,10 @@
       <li><b>{{ regeln.GOLD_SCHATZ }}</b> für jeden Bonus-Schatz (der kann Steuern sparen)</li>
       <li><b>{{ regeln.GOLD_FRAGE }}</b> für jede Frage an die Beraterin, <b>{{ regeln.GOLD_GIBTS_NICHT }}</b> für „Gibt's nicht“ (bei wichtigen Unterlagen 0). Ohne Serie.</li>
       <li>Ein <b>Siegel</b> bringt 2 und 2 je Fund darin, bis {{ regeln.GOLD_SIEGEL }}. Das <b>Tagwerk</b> bringt {{ regeln.GOLD_TAGWERK }}.</li>
-      <li>Wünsche der Beraterin zahlen, sobald eine Datei dranhängt.</li>
+      <li>Wünsche der Beraterin zahlen {{ regeln.GOLD_FUND }}, sobald eine Datei dranhängt, ohne Serie und für höchstens {{ regeln.WUNSCH_DECKEL }} Wünsche im Jahr.</li>
+      <li>Gold gibt es für die letzten Steuerjahre. Ältere Jahre kannst du nachholen, sie füllen nur nicht den Beutel.</li>
     </ul>
-    <p class="muted">Jede Karte zahlt nur einmal aus. Legst du eine Datei zurück, geht ihr Gold zurück, bis du sie neu verdienst.</p>
+    <p class="muted">Jede Karte zahlt nur einmal aus. Legst du eine Datei zurück, geht ihr Gold zurück, bis du sie neu verdienst. Ist das Gold schon ausgegeben, geht dein letzter Kauf zurück in den Hafen, so fällt der Beutel nie unter null.</p>
   </div>
   <div class="sq-papier sq-schief sq-goldbuch" style="--r: -0.6deg">
     <h2>Goldbuch</h2>

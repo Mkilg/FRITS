@@ -73,7 +73,7 @@
         {% endif %}
       </div>
       {% if zierde %}
-      <div class="sq-zierde" aria-label="Zierde vom Hafenmarkt" data-plaetze="{{ zier_plaetze | map('list') | list | tojson | forceescape }}">
+      <div class="sq-zierde" aria-label="Zierde vom Hafenmarkt" data-wiese="{{ wiese | join(',') }}">
         {% for w in zierde %}<a class="sq-zier {{ w.key }}{% if w.key == neu_zier %} neu{% endif %}" href="/steuer/{{ jahr }}/markt" style="--x: {{ w.platz[0] }}%; --y: {{ w.platz[1] }}%; --i: {{ loop.index0 }}" title="{{ w.name }}">{{ zierde_bild(w.key) }}</a>{% endfor %}
       </div>
       {% endif %}
