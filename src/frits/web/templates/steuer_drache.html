@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Papierdrache · Steuer-Quest{% endblock %}
-{% block head %}<link rel="stylesheet" href="/static/steuer.css"><script src="/static/steuer.js" defer></script>{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/steuer.css"><script>document.documentElement.classList.add("sq-js")</script><script src="/static/steuer.js" defer></script>{% endblock %}
 {% block flashes %}{% endblock %}
 {% block content %}
 <div class="sq sq-tisch nacht{% if frisch %} frisch wackeln-{{ [combo.combo, 3] | min }}{% endif %}{% if finale %} finale{% endif %}" data-klang="{{ 'an' if klang else 'aus' }}" {% if frisch %}data-treffer="{{ frisch }}" data-combo="{{ combo.combo }}"{% endif %}{% include "_steuer_stil.html" %}>
@@ -45,18 +45,41 @@
   <span class="sq-band rot" style="width: 320px"><span style="width: {{ drache.prozent }}%"></span></span>
   {% endif %}
   <span class="sq-lp-zahl"><b data-zaehler="lp">{{ drache.lp }}</b> Lebenspunkte</span>
+  {% if helfer %}
+  <ul class="sq-helferreihe" aria-label="Deine Helfer">{% for key in helfer | sort %}{% set w = ware(key) %}<li title="{{ w.text }} Haken: {{ w.haken }}"><span class="sq-ware-zeichen {{ key }}" aria-hidden="true"></span>{{ w.name }}</li>{% endfor %}</ul>
+  {% endif %}
   </div>
 
   {% if combo.combo %}
-  <div class="sq-combo" aria-live="polite"><span class="mult">×{{ combo.combo }}</span><span class="ruf">{{ combo.ruf }}</span></div>
+  <div class="sq-combo" aria-live="polite"><span class="mult">×{{ combo.combo }}</span><span class="ruf">{{ combo.ruf }}</span>
+  </div>
   {% endif %}
 
   {% if drache.karte %}
   {% set k = drache.karte %}
   <div class="sq-wurf" id="karte">
+    {% if wurf %}
+    {# Erst der Treffer (mit der Gold-Rechnung), dann die nächste Karte: so ist klar, was wohin ging #}
+    <div class="sq-wurf-zurueck" role="status">
+      {% if wurf.id %}
+      <span><b>Treffer:</b> „{{ wurf.name }}“ liegt jetzt bei „{{ wurf.karte }}“.</span>
+      <form method="post" action="/steuer/{{ jahr }}/datei/{{ wurf.id }}/entfernen">
+        <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back" value="/steuer/{{ jahr }}/drache">
+        <button class="quiet">Falsch? Zurücklegen</button>
+      </form>
+      {% else %}
+      <span><b>{{ "Kritischer Treffer" if wurf.wie == "datei" else ("Notiert" if wurf.wie == "gibts_nicht" else "Treffer") }}:</b> {{ {"datei": "„" ~ wurf.karte ~ "“ ist gesichert.", "fragen": "„" ~ wurf.karte ~ "“ kommt als Frage in die Mail.", "gibts_nicht": "„" ~ wurf.karte ~ "“ gibt es nicht."}.get(wurf.wie, "") }}</span>
+      {% endif %}
+      {% if beute %}{% set karte_gold = beute.basis * beute.mult %}
+      <span class="sq-rechnung" aria-label="{{ beute.plus }} Gold verdient"><span class="chips">{{ beute.basis }}</span><span class="mal">×</span><span class="faktor">{{ beute.mult }}</span><span class="gleich">=</span><b>+{{ karte_gold }} Gold</b>{% if beute.plus > karte_gold %}<small>+{{ beute.plus - karte_gold }} Bonus</small>{% endif %}</span>
+      {% endif %}
+    </div>
+    {% endif %}
+    <div class="sq-wurf-stapel">
     {% if drache.lp > 2 %}<span class="stapel zwei"></span>{% endif %}{% if drache.lp > 1 %}<span class="stapel"></span>{% endif %}
     <article class="sq-karte" style="--r: -1.5deg" data-stueck="{{ k.id }}">
       <div class="sq-etiketten">
+        {% if frisch %}<span class="sq-etikett naechste">Nächste Karte</span>{% endif %}
         <span class="sq-etikett">{{ (gebiete | selectattr("id", "equalto", k.gebiet) | first).titel }}</span>
         {% if k.wunsch %}<span class="sq-etikett wunsch">Wunsch der Beraterin</span>{% endif %}
       </div>
@@ -81,13 +104,8 @@
           <button class="sq-stempelknopf" name="aktion" value="fragen">Lieber fragen</button>
         </div>
       </form>
-      {% if wurf %}
-      <form method="post" action="/steuer/{{ jahr }}/datei/{{ wurf.id }}/entfernen" class="sq-wurf-zurueck">
-        <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back" value="/steuer/{{ jahr }}/drache">
-        <span>Gerade geworfen: „{{ wurf.name }}“ als {{ wurf.karte }}.</span> <button class="quiet">Falsch? Zurücklegen</button>
-      </form>
-      {% endif %}
     </article>
+    </div>
   </div>
   {% if lager %}
   {# Balatro-Kern: Der Eingangskorb ist deine Hand. Ein Zettel, der passt, ist ein kritischer Treffer. #}
@@ -98,8 +116,8 @@
       <input type="hidden" name="token" value="{{ token }}">
       <input type="hidden" name="stueck_id" value="{{ k.id }}">
       <input type="hidden" name="aktion" value="zettel">
-      {% for f in hand %}{% set endung = f.suffix.lower().lstrip(".") %}
-      <button class="sq-handkarte" name="zettel" value="{{ f.name }}" data-name="{{ f.name }}" draggable="true" data-rueckfrage="„{{ f.name }}“ als „{{ k.name }}“ abgeben? Er kommt so in die Truhe für deine Beraterin." data-rueckfrage-ja="Ja, passt" style="--i: {{ loop.index0 - (hand | length - 1) / 2 }}" title="„{{ f.name }}“ auf „{{ k.name }}“ werfen"><span class="art{% if endung in ['jpg', 'jpeg', 'png', 'heic'] %} bild{% endif %}">{{ (endung or "?")[:4] | upper }}</span><strong>{{ f.name }}</strong></button>
+      {% for f in hand %}{% set endung = f.suffix.lower().lstrip(".") %}{% set spur = vermute(f.name, stuecke) if "spuernase" in helfer else none %}{% set passt = spur and spur.id == k.id %}
+      <button class="sq-handkarte{% if passt %} passt{% endif %}" name="zettel" value="{{ f.name }}" data-name="{{ f.name }}" draggable="true" data-rueckfrage="„{{ f.name }}“ als „{{ k.name }}“ abgeben? Er kommt so in die Truhe für deine Beraterin." data-rueckfrage-ja="Ja, passt" style="--i: {{ loop.index0 - (hand | length - 1) / 2 }}" title="„{{ f.name }}“ auf „{{ k.name }}“ werfen"><span class="art{% if endung in ['jpg', 'jpeg', 'png', 'heic'] %} bild{% endif %}">{{ (endung or "?")[:4] | upper }}</span><strong>{{ f.name }}</strong>{% if passt %}<em class="sq-spur">Spürnase: passt!</em>{% endif %}</button>
       {% endfor %}
     </form>
     {% if lager | length > 8 %}<p class="sq-hand-titel">… und {{ lager | length - 8 }} weitere im Korb.</p>{% endif %}

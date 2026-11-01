@@ -101,6 +101,17 @@
   function erinnern(name) {
     try { return sessionStorage.getItem("sq-" + jahr + "-" + name); } catch (e) { return null; }
   }
+  // Ein kleines "+6" steigt am Goldbeutel auf, wenn Gold dazukam
+  function goldPlus(el, plus) {
+    var r = el.getBoundingClientRect();
+    var p = document.createElement("span");
+    p.className = "sq-gold-plus";
+    p.textContent = "+" + plus;
+    p.style.left = (r.right + window.scrollX + 4) + "px";
+    p.style.top = (r.top + window.scrollY - 6) + "px";
+    document.body.appendChild(p);
+    setTimeout(p.remove.bind(p), ruhig ? 2500 : 1800);
+  }
   var tonhoehe = 0;
   document.querySelectorAll("[data-zaehler]").forEach(function (el) {
     var name = el.getAttribute("data-zaehler");
@@ -110,6 +121,7 @@
     if (!el.hasAttribute("data-von")) merken(name, ziel);
     if (von === null || parseInt(von, 10) === ziel) return;
     von = parseInt(von, 10);
+    if (name === "gold" && ziel > von) goldPlus(el, ziel - von);
     if (ruhig) { el.classList.add("sq-pop"); return; }
     var schritte = Math.min(Math.abs(ziel - von), 24);
     var dauer = 650;
@@ -529,6 +541,14 @@
     ja.addEventListener("click", function () { schliessen(); abschicken(knopf); });
     if (fragen) reihe.appendChild(ja);
     blase.appendChild(reihe);
+    // Schmale Fenster (Handy, halbes Mac-Fenster): als Blatt unten am Bildschirm, über allem.
+    // Am <body>, weil wackelnde oder gedrehte Eltern sonst Stapel und Position verbiegen.
+    if (window.matchMedia && window.matchMedia("(max-width: 899px)").matches) {
+      blase.classList.add("sheet");
+      document.body.appendChild(blase);
+      (reihe.querySelector(".sq-siegelknopf") || ja).focus();
+      return;
+    }
     var ort = knopf.parentNode;
     ort.classList.add("sq-rueckfrage-ort");
     ort.appendChild(blase);
@@ -672,4 +692,54 @@
     });
     if (form) form.addEventListener("submit", function () { try { speicher.removeItem(schluessel); } catch (e) {} });
   });
+})();
+
+// Zierde vom Hafenmarkt: Jede Figur sucht sich einen Platz, an dem keine Provinz, kein Schild
+// und keine andere Zierde steht. Erst dann wird sie sichtbar (so springt nichts).
+(function () {
+  var zierde = document.querySelector(".sq-zierde");
+  if (!zierde) return;
+  var ziere = Array.prototype.slice.call(zierde.querySelectorAll(".sq-zier"));
+  function fertig() { ziere.forEach(function (z) { z.classList.add("platziert"); }); }
+  function platzieren() {
+    if (getComputedStyle(zierde).position !== "absolute") { fertig(); return; }
+    var plaetze = [];
+    try { plaetze = JSON.parse(zierde.getAttribute("data-plaetze") || "[]"); } catch (e) { plaetze = []; }
+    var hindernisse = Array.prototype.map.call(
+      document.querySelectorAll(".sq-insel .sq-parzelle, .sq-insel .sq-schild, .sq-hafen, .sq-hort-insel"),
+      function (e) { return e.getBoundingClientRect(); }
+    ).filter(function (r) { return r.width > 0; });
+    var feld = zierde.getBoundingClientRect();
+    function kasten(z) {
+      // Ohne Transformationen gemessen: die Figur steht mit ihrem Fuß auf (--x, --y)
+      var w = z.offsetWidth, h = z.offsetHeight;
+      var l = feld.left + z.offsetLeft - w / 2, t = feld.top + z.offsetTop - h;
+      return { left: l, top: t, right: l + w, bottom: t + h };
+    }
+    function frei(r) {
+      return hindernisse.every(function (h) {
+        return r.right < h.left + 4 || r.left > h.right - 4 || r.bottom < h.top + 4 || r.top > h.bottom - 4;
+      });
+    }
+    ziere.forEach(function (z) {
+      var eigen = [parseFloat(z.style.getPropertyValue("--x")), parseFloat(z.style.getPropertyValue("--y"))];
+      var versuche = [eigen].concat(plaetze);
+      for (var i = 0; i < versuche.length; i++) {
+        z.style.setProperty("--x", versuche[i][0] + "%");
+        z.style.setProperty("--y", versuche[i][1] + "%");
+        var r = kasten(z);
+        if (frei(r)) { hindernisse.push(r); z.classList.add("platziert"); return; }
+      }
+      z.hidden = true; // kein freier Platz: lieber nicht als halb verdeckt (im Markt bleibt sie sichtbar)
+    });
+  }
+  function los() {
+    try { platzieren(); } catch (e) { fertig(); }
+    var neu = zierde.querySelector(".sq-zier.neu");
+    if (neu && neu.scrollIntoView) {
+      var ruhig = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      neu.scrollIntoView({ block: "center", behavior: ruhig ? "auto" : "smooth" });
+    }
+  }
+  if (document.readyState === "complete") los(); else window.addEventListener("load", los);
 })();
