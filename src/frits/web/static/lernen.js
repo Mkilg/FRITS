@@ -28,7 +28,10 @@
     if (!button) return;
     var el = document.querySelector(button.getAttribute("data-kopieren"));
     if (!el) return;
-    var text = el.innerText;
+    // A folded text has no innerText: open it, so copying (and the fallback selection) works
+    var falte = el.closest && el.closest("details");
+    if (falte && !falte.open) falte.open = true;
+    var text = el.innerText || el.textContent;
     if (navigator.clipboard && window.isSecureContext) {
       navigator.clipboard.writeText(text).then(
         function () { done(button, true); },

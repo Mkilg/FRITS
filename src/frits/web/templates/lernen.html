@@ -3,7 +3,7 @@
 {% block head %}<link rel="stylesheet" href="/static/lernen.css"><link rel="stylesheet" href="/static/kurs.css">{% endblock %}
 
 {% block content %}
-<div class="kurs" data-kurs>
+<div class="kurs" data-kurs data-token="{{ token }}" data-happen="{{ e.slug }}/{{ h.slug }}"{% if h.uebung %} data-uebung data-salz="{{ 1 if settings.haustier else 0 }}"{% endif %} data-offen="{{ offen | tojson | forceescape }}">
 <div class="kurs-kopf">
   <a class="kurs-heim" href="/lernen">← {{ titel }}</a>
   <span class="kurs-etappe"><span aria-hidden="true">{{ e.symbol }}</span> Etappe {{ etappe_nr }} von {{ etappen | length }} · {{ e.title }}</span>
@@ -30,6 +30,7 @@
 </section>
 
 <section class="card happen" id="happen">
+{% if h.uebung %}<p class="uebung-marke{{ ' geloest' if geloest }}" data-uebung-marke>{% if geloest %}✓ Übung gelöst{% else %}✏️ Übung{% if settings.haustier %} · 1 Salzkorn{% endif %}{% endif %}</p>{% endif %}
 {% if h.bild and picture(h.bild) %}<img class="kurs-bild" src="{{ picture(h.bild) }}" alt="">{% endif %}
 {% include "kurs/" ~ e.slug ~ "-" ~ h.slug ~ ".html" %}
 </section>
@@ -43,7 +44,13 @@
     {% elif geschafft %}
     <a class="button primary" href="/lernen">Zur Kurs-Karte</a>
     {% else %}
-    <form method="post" action="/lernen/{{ e.slug }}/geschafft">
+    {# The stamp waits for the stage's exercises; kurs.js opens it as soon as the last one is solved. #}
+    {% set hier = e.slug ~ "/" ~ h.slug %}
+    <p class="uebung-fehlt" data-uebung-fehlt{% if not offen %} hidden{% endif %}>
+      {% if offen and offen[0] != hier %}<a class="button" href="/lernen/{{ offen[0] }}">Erst die Übung machen →</a>
+      {% else %}<span class="muted">Mach erst die Übung oben, dann gibt's den Stempel.</span>{% endif %}
+    </p>
+    <form method="post" action="/lernen/{{ e.slug }}/geschafft" data-stempel-form{% if offen %} hidden{% endif %}>
       <input type="hidden" name="token" value="{{ token }}">
       <button class="primary">{{ "Kurs abschließen" if not naechste else "Etappe geschafft" }} ✓</button>
     </form>
