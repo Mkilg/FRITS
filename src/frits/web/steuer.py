@@ -26,6 +26,7 @@ from frits.steuer.katalog import (
     HAKEN,
     MACHT_BERATERIN,
     Profil,
+    angabe,
     fehlt_nie,
     fragen,
     gebiet,
@@ -246,9 +247,12 @@ def register_steuer(
             fehlt_nie=fehlt_nie,
             warum=warum,
             macht_beraterin=macht_beraterin,
+            angabe=angabe,
+            steuernummer=settings().steuernummer,
             MACHT_BERATERIN=MACHT_BERATERIN,
             datum=schoenes_datum,
             vermute=spiel.vermute,
+            ahnung=spiel.ahnung,
             ware=spiel.ware,
             **context,
         )
@@ -293,8 +297,13 @@ def register_steuer(
             "besitz": besitz,
             "helfer": frozenset(k for k, an in besitz.items() if an),
             "zierde": [w for w in spiel.MARKT if w.art == "zierde" and w.key in besitz],
-            "zeitalter": spiel.zeitalter(gesamt.anteil, silber=bool(zweifel)),
+            # Das Goldene Zeitalter kommt erst mit dem Sieg über den Drachen
+            "zeitalter": spiel.zeitalter(
+                gesamt.anteil if drache.besiegt else min(gesamt.anteil, 0.99),
+                silber=bool(zweifel),
+            ),
             "naechstes": spiel.naechstes_zeitalter(gesamt.anteil),
+            "weg": spiel.weg_zum_zeitalter(gesamt),
             "drache": drache,
             "drache_wach": wach,
             "auftrag": spiel.auftrag(jahr, staende, drache, zettel, alle, wach),
@@ -752,6 +761,34 @@ def register_steuer(
             return back(f"/steuer/{jahr}/drache")
         return back(str(form.get("back") or f"/steuer/{jahr}/gebiet/{s['gebiet']}"))
 
+    @app.post("/steuer/{jahr}/stueck/{stueck_id}/angabe", dependencies=guarded)
+    async def angabe_eintippen(request: Request, jahr: int, stueck_id: int):
+        """Eintippen statt hochladen: "14 km einfach, 120 Tage". Die Angabe wird eine kleine
+        Textdatei bei der Karte, kommt so ins Zip und ins Inhaltsverzeichnis."""
+        form = await request.form()
+        s = stueck_im_jahr(jahr, stueck_id)
+        zurueck = str(form.get("back") or f"/steuer/{jahr}/gebiet/{s['gebiet']}")
+        text = str(form.get("text") or "").strip()[:2000]
+        if not text:
+            flash("Tipp kurz ein, was du weißt. Ein Stichwort reicht.")
+            return back(zurueck)
+        vorher = lage(jahr)
+        ablage = quest.lager(ws.root)
+        ablage.mkdir(parents=True, exist_ok=True)
+        original = f"Angabe {s['name']}.txt"
+        tmp = ablage / f".angabe-{s['id']}.txt"
+        tmp.write_text(f"{s['name']}\n\n{text}\n", encoding="utf-8")
+        c = conn()
+        fund = quest.sammeln(c, ws.root, s["id"], tmp, original=original, verschieben=True)
+        if fund.neu:
+            quest.notiere(c, jahr, "fund", f"{s['name']}: eingetippt")
+            flash(f"+1 Angabe! {s['name']} ist notiert und kommt so in die Truhe.", "beute", "done")
+        else:
+            flash("Genau diese Angabe liegt schon bei der Karte.")
+        if belohnen(jahr, vorher):
+            return back(f"/steuer/{jahr}/drache")
+        return back(zurueck)
+
     @app.post("/steuer/{jahr}/stueck/{stueck_id}/datei", dependencies=guarded)
     async def datei_hochladen(request: Request, jahr: int, stueck_id: int):
         form = await request.form()
@@ -806,6 +843,39 @@ def register_steuer(
         if belohnen(jahr, vorher):
             return back(f"/steuer/{jahr}/drache")
         return back(str(form.get("back") or f"/steuer/{jahr}"))
+
+    @app.post("/steuer/{jahr}/lager/vorschlaege", dependencies=guarded)
+    async def lager_vorschlaege(request: Request, jahr: int):
+        """Spürnase: alle Zettel mit einem Kartenvorschlag auf einmal abstempeln."""
+        form = await request.form()
+        zurueck = str(form.get("back") or f"/steuer/{jahr}")
+        c = conn()
+        if "spuernase" not in quest.helfer(c, jahr):
+            flash("Das kann nur die Spürnase. Du findest sie im Hafenmarkt.")
+            return back(zurueck)
+        vorher = lage(jahr)
+        alle = quest.stuecke(c, jahr)
+        gestempelt = 0
+        for quelle in quest.lager_dateien(ws.root):
+            karte = spiel.ahnung(quelle.name, alle).stueck
+            if karte is None:
+                continue
+            fund = quest.sammeln(c, ws.root, karte["id"], quelle, verschieben=True)
+            if fund.neu:
+                quest.notiere(c, jahr, "fund", f"{karte['name']}: {quelle.name}")
+                gestempelt += 1
+        if gestempelt:
+            flash(
+                f"Die Spürnase hat {gestempelt} Zettel abgestempelt. "
+                "Falsch gelandet? Bei der Karte „Zurücklegen“, nichts ist verloren.",
+                "beute",
+                "done",
+            )
+        else:
+            flash("Die Spürnase hat keinen Zettel gefunden, bei dem sie sicher ist.")
+        if belohnen(jahr, vorher):
+            return back(f"/steuer/{jahr}/drache")
+        return back(zurueck)
 
     @app.post("/steuer/{jahr}/datei/{datei_id}/entfernen", dependencies=guarded)
     async def datei_entfernen(request: Request, jahr: int, datei_id: int):

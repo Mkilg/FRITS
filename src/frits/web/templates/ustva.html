@@ -58,8 +58,11 @@
 </section>
 {% endif %}
 
-<section class="card">
+<section class="card" id="art">
   <h2>Wie oft und wonach</h2>
+  {% if not basis_chosen %}
+  <p class="lesson"><strong>Bitte einmal wählen: Ist oder Soll?</strong> Bis du wählst, rechne ich nach Soll, denn das gilt, solange das Finanzamt nichts anderes genehmigt hat.</p>
+  {% endif %}
   <form method="post" action="/ustva/art" class="form">
     <input type="hidden" name="token" value="{{ token }}">
     <label class="field">Abgabe

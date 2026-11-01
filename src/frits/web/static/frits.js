@@ -157,7 +157,7 @@
   // ⌘↩ (Strg+↩) in the text box sends it.
   document.addEventListener("keydown", function (e) {
     if (e.key !== "Enter" || !(e.metaKey || e.ctrlKey)) return;
-    var box = e.target.closest && e.target.closest("form[data-einwurf] textarea[name=text]");
+    var box = e.target.closest && e.target.closest("form[data-einwurf] textarea[name=text], form[data-liste] textarea");
     if (!box || !box.value.trim()) return;
     e.preventDefault();
     box.form.requestSubmit ? box.form.requestSubmit() : box.form.submit();
@@ -384,6 +384,48 @@
   // The page was swapped in by hand, so "Zurück" in the browser loads the earlier page fresh.
   var swapped = false;
   window.addEventListener("popstate", function () { if (swapped) location.reload(); });
+
+  // ---------- Small steps without a page change (Deine Liste) ----------
+  // Ticking a point off sends the form in the background and swaps in the new page content,
+  // so the music keeps playing and the page stays where it was. Without JavaScript, or if
+  // anything goes wrong, the form is simply sent the normal way.
+  document.addEventListener("submit", function (e) {
+    var form = e.target;
+    if (!form.hasAttribute("data-leise") || e.defaultPrevented || !window.fetch || !window.DOMParser) return;
+    e.preventDefault();
+    form.querySelectorAll("button").forEach(function (b) { b.disabled = true; });
+    fetch(form.action, { method: "POST", body: new FormData(form), credentials: "same-origin" })
+      .then(function (r) {
+        if (!r.ok) throw new Error(r.status);
+        return r.text();
+      })
+      .then(function (html) {
+        var next = new DOMParser().parseFromString(html, "text/html");
+        var main = next.querySelector("main"), here = document.querySelector("main");
+        if (!main || !here) throw new Error("no main");
+        // The note ("Erledigt: …") goes where the click was, not to the top of the page.
+        var place = form.closest("section[id]");
+        var there = place && main.querySelector("#" + place.id);
+        var notes = main.querySelectorAll(".flash");
+        if (there) {
+          var after = there.firstElementChild;
+          Array.prototype.forEach.call(notes, function (n) {
+            n.classList.add("flash-hier");
+            there.insertBefore(n, after ? after.nextSibling : null);
+          });
+        }
+        var y = window.scrollY;
+        here.replaceWith(document.adoptNode(main));
+        window.scrollTo(0, y);
+        start();
+        var cue = main.getAttribute("data-cue");
+        if (cue) feedback(cue, false);
+      })
+      .catch(function () {
+        form.removeAttribute("data-leise");
+        form.submit();
+      });
+  });
 
   window.Frits = { feedback: feedback, stampSound: stampSound, playful: playful };
 })();

@@ -46,7 +46,7 @@
       {% endif %}
     </form>
     {% endif %}
-    {% with dz_action="/steuer/" ~ jahr ~ "/lager/hochladen", dz_back="/steuer/" ~ jahr ~ "#sq-korb", dz_class="sq-einwurf", dz_id="lager", dz_icon="📦", dz_title="Hier ablegen", dz_hint="Bescheide, Belege, Fotos, Kontoauszüge.", dz_accept="*/*", dz_send="In den Korb", dz_busy="Ich lege es in den Korb.", dz_text_label="Text einfügen, z. B. eine Mail vom Finanzamt" %}{% include "_dropzone.html" %}{% endwith %}
+    {% with dz_action="/steuer/" ~ jahr ~ "/lager/hochladen", dz_back="/steuer/" ~ jahr, dz_class="sq-einwurf", dz_id="lager", dz_icon="📦", dz_title="Hier ablegen", dz_hint="Bescheide, Belege, Fotos, Kontoauszüge.", dz_accept="*/*", dz_send="In den Korb", dz_busy="Ich lege es in den Korb.", dz_text_label="Text einfügen, z. B. eine Mail vom Finanzamt" %}{% include "_dropzone.html" %}{% endwith %}
     <form method="post" action="/steuer/{{ jahr }}/lager/oeffnen">
       <input type="hidden" name="token" value="{{ token }}">
       <button class="sq-ding"><span class="sq-ding-bild kiste"></span><span><strong>Lager-Ordner</strong>öffnen und Dateien hineinlegen</span></button>
@@ -108,6 +108,18 @@
       <p class="sq-sprechblase">{{ tipp }}</p>
       <p class="sq-sprechblase" style="font-size: .9rem">Keine Sorge: Was fehlt, kannst du einfach als Frage mitschicken.</p>
     </div>
+
+    <details class="sq-papier sq-wohin">
+      <summary>Was gehört wohin?</summary>
+      <p class="muted">Zieh ein Dokument auf die Provinz, zu der es gehört. Unsicher? Dann leg es im Rathaus unter „Sonstiges für die Beraterin“ ab.</p>
+      <ul>
+        {% for p in provinzen %}
+        <li><a href="/steuer/{{ jahr }}/gebiet/{{ p.gebiet.id }}"><strong>{{ p.gebiet.titel }}</strong></a>
+          <span>{{ p.gebiet.provinz.wofuer or (p.gebiet.bereich ~ ": " ~ (p.stuecke | rejectattr("art", "equalto", "bonus") | map(attribute="name") | list)[:3] | join(", ") ~ ".") }}</span></li>
+        {% endfor %}
+      </ul>
+      <p class="muted">So wächst eine Provinz: Jede beantwortete Karte baut weiter, sei es eine Datei, eine Angabe, „Gibt's nicht“ oder eine Frage. Sind alle Karten erledigt, bekommt sie ein Siegel.</p>
+    </details>
 
     {% if vergleich %}
     {% set fehlt = vergleich | rejectattr("jetzt", "in", ["gesammelt", "gibts_nicht", "fragen"]) | list %}

@@ -11,11 +11,12 @@ keine verlorenen Punkte und immer einen Notausgang.
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass, field
 from datetime import date
 
-from frits.steuer.katalog import Gebiet, ist_kern
+from frits.steuer.katalog import Gebiet, ist_kern, katalog
 
 ERLEDIGT = ("gesammelt", "gibts_nicht", "fragen")
 
@@ -161,6 +162,22 @@ def naechstes_zeitalter(anteil: float) -> tuple[str, int] | None:
     return None
 
 
+# Was das nächste Zeitalter bringt: steht im Zeitalter-Zettel oben in der Leiste
+ZEITALTER_BRINGT = {
+    "Zeitalter der Ordnung": "Dann wacht der Papierdrache auf, und der Endkampf beginnt.",
+    "Goldenes Zeitalter": "Dann ist alles beisammen, und die Schatztruhe für deine Beraterin ist fertig.",
+}
+
+
+def weg_zum_zeitalter(stand: Stand) -> tuple[str, int, str] | None:
+    """(Name, wie viele Karten noch fehlen, was es bringt) für das nächste Zeitalter."""
+    for ab, name, _satz in ZEITALTER:
+        if stand.anteil < ab:
+            karten = max(1, math.ceil(ab * stand.gesamt - 1e-9) - stand.erledigt)
+            return name, karten, ZEITALTER_BRINGT.get(name, "")
+    return None
+
+
 @dataclass(frozen=True)
 class Ressourcen:
     belege: int  # Dateien
@@ -205,6 +222,9 @@ class Drache:
     lp: int
     max_lp: int
     karten: list[dict] = field(default_factory=list)
+    # Alles mit "Fragen" oder "Gibt's nicht" beantwortet, aber noch kein einziges Dokument:
+    # Dann bleibt ihm ein letzter Lebenspunkt. Ohne Beleg gibt es keinen Sieg.
+    will_beleg: bool = False
 
     @property
     def besiegt(self) -> bool:
@@ -234,7 +254,11 @@ def drache(stuecke: list[dict]) -> Drache:
     karten = [s for s in pflichten if s["status"] == "offen"]
     # Wünsche der Beraterin zuerst, die sind ihr wichtig.
     karten.sort(key=lambda s: (-s["wunsch"], s["id"]))
-    return Drache(lp=len(karten), max_lp=len(pflichten), karten=karten)
+    will_beleg = (
+        bool(pflichten) and not karten and not any(s["status"] == "gesammelt" for s in stuecke)
+    )
+    lp = 1 if will_beleg else len(karten)
+    return Drache(lp=lp, max_lp=max(len(pflichten), lp), karten=karten, will_beleg=will_beleg)
 
 
 def treffer(combo: int, kritisch: bool, zaehlt: bool = True) -> tuple[int, str]:
@@ -369,6 +393,18 @@ def auftrag(
             "Zur Schatztruhe",
             f"{basis}/sieg",
             ("Mail an die Beraterin",),
+        )
+    if drache_.will_beleg and (drache_wach or zettel == 0):
+        return Auftrag(
+            "drache",
+            "Zeig dem Drachen einen echten Beleg",
+            "Alle Karten sind beantwortet, aber noch kein einziges Dokument ist dabei. "
+            "Leg mindestens eine Datei ab, zum Beispiel den letzten Steuerbescheid.",
+            "Zur Insel",
+            basis,
+            ("Sieg", "Schatztruhe"),
+            erledigt=drache_.max_lp - 1,
+            gesamt=drache_.max_lp,
         )
     if drache_wach and drache_.lp and stuecke:
         lp = drache_.lp
@@ -509,7 +545,7 @@ MARKT: tuple[Ware, ...] = (
         "Spürnase",
         12,
         "helfer",
-        "Schnuppert an jedem Zettel im Korb und sagt, wohin er vielleicht gehört.",
+        "Stempelt alle Vorschläge im Korb auf einmal ab, statt Zettel für Zettel.",
         haken="Sie frisst mit: Funde bringen 2 Gold statt 3.",
     ),
     Ware(
@@ -732,12 +768,33 @@ _LEERWOERTER = {
     "das",
     "fuer",
     "von",
+    "vom",
+    "zum",
+    "zur",
+    "des",
+    "dem",
+    "den",
+    "ein",
+    "bei",
+    "aus",
+    "auf",
+    "mit",
+    "per",
+    "bis",
+    "doc",
+    "dsc",
+    "txt",
 }
 
 
 def _woerter(text: str) -> set[str]:
+    """Wörter ab 3 Buchstaben ("GbR", "KSK") und Zahlen wie "1099", aber keine Jahreszahlen."""
     text = text.lower().translate(_UMLAUTE)
-    return {w for w in re.findall(r"[a-z]{4,}", text) if w not in _LEERWOERTER}
+    return {
+        w
+        for w in re.findall(r"[a-z]{3,}|\d{4}", text)
+        if w not in _LEERWOERTER and not re.fullmatch(r"(19|20)\d\d", w)
+    }
 
 
 def _naehe(a: str, b: str) -> int:
@@ -754,21 +811,61 @@ def _naehe(a: str, b: str) -> int:
     return gemeinsam if gemeinsam >= 5 else 0
 
 
-def vermute(dateiname: str, stuecke: list[dict]) -> dict | None:
-    """Die Karte, zu der ein Zettel am ehesten passt, nur nach dem Dateinamen.
+@dataclass(frozen=True)
+class Ahnung:
+    """Wohin ein Zettel vielleicht gehört: eine Karte, oder wenigstens eine Provinz."""
 
-    Keine KI und nichts verlässt den Computer: Es vergleicht Wörter, mehr nicht.
-    Darum heißt es auch "vielleicht". Offene Karten haben Vorrang."""
+    stueck: dict | None = None
+    gebiet: str | None = None
+
+
+def ahnung(dateiname: str, stuecke: list[dict]) -> Ahnung:
+    """Rät nur nach dem Dateinamen, wohin ein Zettel gehört. Keine KI, nichts verlässt den
+    Computer: Es vergleicht Wörter mit den Kartennamen (und ihren Zweitnamen wie "UStVA")
+    und den Stichworten der Provinzen ("GbR", "1099"). Darum heißt es auch "vielleicht".
+    Offene Karten haben Vorrang."""
     woerter = _woerter(dateiname.rsplit(".", 1)[0])
     if not woerter:
-        return None
+        return Ahnung()
+    provinzen = katalog()
+
+    def bestes(wort: str, ziel: set[str]) -> int:
+        return max((_naehe(wort, b) for b in ziel), default=0)
+
+    # Je Gebiet und Wort: wie gut das Wort zu den Stichworten der Provinz passt
+    provinz_wort: dict[str, dict[str, int]] = {}
+    for gid in dict.fromkeys(s["gebiet"] for s in stuecke):
+        p = provinzen.get(gid.split("-")[0])
+        stich = {w for x in (p.woerter if p else ()) for w in _woerter(x)}
+        provinz_wort[gid] = {a: bestes(a, stich) for a in woerter}
     beste, punkte = None, 0
-    for s in stuecke:
-        ziel = _woerter(f"{s['name']} {s['key'].replace('-', ' ')}")
-        wert = max((_naehe(a, b) for a in woerter for b in ziel), default=0)
+    # Bei Gleichstand gewinnt die Provinz, die im Katalog zuerst kommt: "UStVA" ohne "GbR"
+    # gehört zum eigenen Betrieb, nicht zur Gesellschaft
+    reihe = {key: i for i, key in enumerate(provinzen)}
+    for s in sorted(stuecke, key=lambda s: (reihe.get(s["gebiet"].split("-")[0], 99), s["id"])):
+        p = provinzen.get(s["gebiet"].split("-")[0])
+        karte = next((k for k in (p.stuecke if p else ()) if k.key == s["key"]), None)
+        extra = " ".join(karte.woerter) if karte else ""
+        ziel = _woerter(f"{s['name']} {s['key'].replace('-', ' ')} {extra}")
+        treffer = {a: bestes(a, ziel) for a in woerter}
+        wert = max(treffer.values())
         if not wert:
             continue
-        wert = wert * 2 + (1 if s["status"] == "offen" else 0)
+        # Die Provinz zählt nur mit Wörtern, die nicht schon die Karte erklärt haben:
+        # "GbR_Rechnung" gehört zur Gilde, auch wenn "Rechnung" ein Werkstatt-Wort ist
+        rest = [provinz_wort[s["gebiet"]][a] for a, t in treffer.items() if not t]
+        wert = wert * 2 + (1 if s["status"] == "offen" else 0) + max(rest, default=0)
         if wert > punkte:
             beste, punkte = s, wert
-    return beste
+    if beste is not None:
+        return Ahnung(beste, beste["gebiet"])
+    wert = {gid: max(w.values()) for gid, w in provinz_wort.items()}
+    gid = max(wert, key=wert.__getitem__, default=None)
+    if gid is not None and wert[gid]:
+        return Ahnung(None, gid)
+    return Ahnung()
+
+
+def vermute(dateiname: str, stuecke: list[dict]) -> dict | None:
+    """Die Karte, zu der ein Zettel am ehesten passt (siehe ahnung)."""
+    return ahnung(dateiname, stuecke).stueck

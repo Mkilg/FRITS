@@ -11,7 +11,7 @@
   <tbody>
   {% for i in invoices %}
   <tr id="r-{{ i.number }}">
-    <td><a href="/invoices/{{ i.number }}/pdf" target="_blank">{{ i.number }}</a></td>
+    <td>{% if i.pdf_path %}<a href="/invoices/{{ i.number }}/pdf" target="_blank">{{ i.number }}</a>{% else %}{{ i.number }}{% endif %}{% if i.earlier %} <small class="muted" title="Vor FRITS geschrieben und hier nachgetragen">nachgetragen</small>{% endif %}</td>
     <td>{{ i.customer }}</td>
     <td>{{ i.issue_date | de_date }}</td>
     <td class="amount">{{ i.gross | eur }}</td>
@@ -27,7 +27,7 @@
     </td>
     <td class="actions">
       {% if i.status in ("offen", "überfällig") %}
-      <form method="post" action="/invoices/{{ i.number }}/email"><input type="hidden" name="token" value="{{ token }}"><button class="tiny">In Mail öffnen</button></form>
+      {% if i.pdf_path %}<form method="post" action="/invoices/{{ i.number }}/email"><input type="hidden" name="token" value="{{ token }}"><button class="tiny">In Mail öffnen</button></form>{% endif %}
       <form method="post" action="/invoices/{{ i.number }}/paid" class="paid-form"><input type="hidden" name="token" value="{{ token }}"><button class="tiny">Bezahlt am</button> <input type="date" name="paid" value="{{ today_iso }}" max="{{ today_iso }}" aria-label="Zahlungseingang am" title="Der Tag, an dem das Geld auf dem Konto war. Er entscheidet, in welches Jahr die Einnahme gehört."></form>
       {% if i.status == "überfällig" and i.reminded_until and i.reminded_until >= today_iso %}
       <small class="muted">Erinnerung läuft bis {{ i.reminded_until | de_date }}</small>
@@ -38,7 +38,7 @@
       {% if i.status == "storno" and i.original_paid %}
       <form method="post" action="/invoices/{{ i.number }}/paid" class="paid-form"><input type="hidden" name="token" value="{{ token }}"><button class="tiny">Erstattet am</button> <input type="date" name="paid" value="{{ today_iso }}" max="{{ today_iso }}" aria-label="Zurücküberwiesen am"></form>
       {% endif %}
-      {% if not i.cancels %}
+      {% if not i.cancels and not i.earlier %}
       <form method="post" action="/invoices/{{ i.number }}/kopieren"><input type="hidden" name="token" value="{{ token }}"><button class="tiny quiet" title="Neuer Entwurf mit denselben Positionen, z. B. für den nächsten Monat">Kopieren</button></form>
       {% endif %}
       {% if i.status in ("offen", "überfällig", "bezahlt") %}
@@ -69,6 +69,27 @@
   </tbody>
 </table></div>
 {% endif %}
+
+<details class="card spaced" id="frueher">
+  <summary>Rechnung von früher nachtragen</summary>
+  <p class="hint">Für Rechnungen, die du <strong>vor FRITS</strong> geschrieben hast, z. B. mit Word. Trag sie mit Nummer und Datum ein, wie sie auf dem Papier stehen. Dann stimmen EÜR und Umsatzsteuer auch für die Monate davor.</p>
+  <p class="hint">Neue Rechnungen bekommen ihr Datum immer am Tag, an dem du sie erstellst. Zurückdatieren ist nicht erlaubt, weil die Nummern lückenlos und in der richtigen Reihenfolge sein müssen.</p>
+  <form method="post" action="/invoices/frueher" enctype="multipart/form-data" class="form">
+    <input type="hidden" name="token" value="{{ token }}">
+    <label class="field">Rechnungsnummer <input name="number" required maxlength="40" placeholder="z. B. 2026-0007"></label>
+    <label class="field">Kunde <input name="customer" required maxlength="120"></label>
+    <label class="field">Rechnungsdatum <input type="date" name="issue_date" required max="{{ today_iso }}"></label>
+    <label class="field">Leistungsdatum <small class="muted">(falls anders)</small> <input type="date" name="service_date" max="{{ today_iso }}"></label>
+    <label class="field">Wofür? <input name="description" maxlength="200" placeholder="z. B. Moderation Workshop"></label>
+    <label class="field">Betrag ohne Umsatzsteuer (netto) in € <input name="net" required inputmode="decimal" placeholder="z. B. 1.200,00"></label>
+    <label class="field">Umsatzsteuer
+      <select name="tax">{% for key, label in earlier_tax.items() %}<option value="{{ key }}"{% if key == earlier_default %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+    </label>
+    <label class="field">Bezahlt am <small class="muted">(leer lassen, wenn noch offen)</small> <input type="date" name="paid" max="{{ today_iso }}"></label>
+    <label class="field">Original als PDF <small class="muted">(freiwillig, wird bei den Rechnungen abgelegt)</small> <input type="file" name="original" accept="application/pdf,.pdf"></label>
+    <div class="row actions"><button class="primary">Nachtragen</button></div>
+  </form>
+</details>
 {% if not invoices and not credits %}
 <p class="muted">Noch keine Rechnungen. Sie entstehen aus Entwürfen, wenn du auf „Rechnung erstellen“ drückst.</p>
 {% endif %}

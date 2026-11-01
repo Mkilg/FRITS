@@ -101,13 +101,52 @@
           {% endif %}
         </div>
         <div class="reihe">
-          <input name="frage" placeholder="Frage an die Beraterin (darf leer bleiben)" aria-label="Frage an die Beraterin">
+          <input name="frage" placeholder="Frage an die Beraterin, kommt in deine Mail (darf leer bleiben)" aria-label="Frage an die Beraterin, kommt in die Mail an sie">
           <button class="sq-stempelknopf" name="aktion" value="fragen">Lieber fragen</button>
         </div>
       </form>
+      {% set beispiel = angabe(k.gebiet, k.key) %}
+      {% if beispiel %}
+      <form method="post" action="/steuer/{{ jahr }}/stueck/{{ k.id }}/angabe" class="sq-angabe" data-stempel="TREFFER!">
+        <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back" value="/steuer/{{ jahr }}/drache">
+        <label>Oder eintippen, ohne Dokument
+          <textarea name="text" rows="2" maxlength="2000" placeholder="{{ beispiel }}">{% if k.key == "steuer-id" and steuernummer %}Steuernummer: {{ steuernummer }}
+Steuer-ID: {% endif %}</textarea></label>
+        <button class="sq-stempelknopf gruen">Notieren</button>
+      </form>
+      {% endif %}
     </article>
     </div>
   </div>
+  {# Schnellschläge: die nächsten Karten derselben Provinz, ohne Datei direkt beantworten.
+     So wird ein langer Kampf zu wenigen Wellen statt zu 18 Einzelkarten. #}
+  {% set welle = drache.karten[1:] | selectattr("gebiet", "equalto", k.gebiet) | list %}
+  {% if welle %}
+  <section class="sq-schnell sq-papier" aria-label="Schnellschläge">
+    <h2>Schnellschläge in {{ (gebiete | selectattr("id", "equalto", k.gebiet) | first).titel }}</h2>
+    <p class="muted">Diese Karten kannst du gleich hier beantworten. Hast du eine Datei dazu, kommt die Karte gleich groß dran.</p>
+    <ul>
+      {% for s in welle[:4] %}
+      <li>
+        <span class="name">{{ s.name }}{% if s.wunsch %} <em class="sq-etikett wunsch">Wunsch</em>{% endif %}</span>
+        <form method="post" action="/steuer/{{ jahr }}/drache/schlag" class="reihe">
+          <input type="hidden" name="token" value="{{ token }}">
+          <input type="hidden" name="stueck_id" value="{{ s.id }}">
+          <input type="hidden" name="frage" value="">
+          {% if macht_beraterin(s.gebiet, s.key) %}<button class="quiet" name="aktion" value="beraterin">Macht meine Beraterin</button>{% endif %}
+          {% if fehlt_nie(s.gebiet, s.key) %}
+          <button class="quiet" name="aktion" value="fragen">Finde ich nicht</button>
+          {% else %}
+          <button class="quiet" name="aktion" value="gibts_nicht"{% if kern(s.gebiet, s.key) %} data-rueckfrage="{{ warum(s.gebiet, s.key) or ('„' ~ s.name ~ '“ hat fast jede:r in deiner Lage.') }} Gerade nicht zur Hand? Dann frag lieber, das zählt genauso." data-rueckfrage-frage="Ich finde „{{ s.name }}“ nicht. Brauchst du das?"{% endif %}>Gibt's nicht</button>
+          <button class="quiet" name="aktion" value="fragen">Lieber fragen</button>
+          {% endif %}
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+    {% if welle | length > 4 %}<p class="muted">… und {{ welle | length - 4 }} weitere aus dieser Provinz.</p>{% endif %}
+  </section>
+  {% endif %}
   {% if lager %}
   {# Balatro-Kern: Der Eingangskorb ist deine Hand. Ein Zettel, der passt, ist ein kritischer Treffer. #}
   {% set hand = lager[:8] %}
@@ -117,13 +156,22 @@
       <input type="hidden" name="token" value="{{ token }}">
       <input type="hidden" name="stueck_id" value="{{ k.id }}">
       <input type="hidden" name="aktion" value="zettel">
-      {% for f in hand %}{% set endung = f.suffix.lower().lstrip(".") %}{% set spur = vermute(f.name, stuecke) if "spuernase" in helfer else none %}{% set passt = spur and spur.id == k.id %}
-      <button class="sq-handkarte{% if passt %} passt{% endif %}" name="zettel" value="{{ f.name }}" data-name="{{ f.name }}" draggable="true" data-rueckfrage="„{{ f.name }}“ als „{{ k.name }}“ abgeben? Er kommt so in die Truhe für deine Beraterin." data-rueckfrage-ja="Ja, passt" style="--i: {{ loop.index0 - (hand | length - 1) / 2 }}" title="„{{ f.name }}“ auf „{{ k.name }}“ werfen"><span class="art{% if endung in ['jpg', 'jpeg', 'png', 'heic'] %} bild{% endif %}">{{ (endung or "?")[:4] | upper }}</span><strong>{{ f.name }}</strong>{% if passt %}<em class="sq-spur">Spürnase: passt!</em>{% endif %}</button>
+      {% for f in hand %}{% set endung = f.suffix.lower().lstrip(".") %}{% set spur = vermute(f.name, stuecke) %}{% set passt = spur and spur.id == k.id %}
+      <button class="sq-handkarte{% if passt %} passt{% endif %}" name="zettel" value="{{ f.name }}" data-name="{{ f.name }}" draggable="true" data-rueckfrage="„{{ f.name }}“ als „{{ k.name }}“ abgeben? Er kommt so in die Truhe für deine Beraterin." data-rueckfrage-ja="Ja, passt" style="--i: {{ loop.index0 - (hand | length - 1) / 2 }}" title="„{{ f.name }}“ auf „{{ k.name }}“ werfen"><span class="art{% if endung in ['jpg', 'jpeg', 'png', 'heic'] %} bild{% endif %}">{{ (endung or "?")[:4] | upper }}</span><strong>{{ f.name }}</strong>{% if passt %}<em class="sq-spur">passt vielleicht</em>{% endif %}</button>
       {% endfor %}
     </form>
     {% if lager | length > 8 %}<p class="sq-hand-titel">… und {{ lager | length - 8 }} weitere im Korb.</p>{% endif %}
   </div>
   {% endif %}
+  {% elif drache.will_beleg %}
+  <div class="sq-wurf" id="karte">
+    <article class="sq-karte" style="--r: -1deg">
+      <div class="sq-etiketten"><span class="sq-etikett">Letzter Lebenspunkt</span></div>
+      <h3>Zeig ihm einen echten Beleg</h3>
+      <p class="hinweis">Alle Karten hast du beantwortet, mit Fragen oder „Gibt's nicht“. Das ist in Ordnung, aber ohne ein einziges Dokument gibt es für deine Beraterin nichts zu packen. Leg mindestens eine Datei ab, zum Beispiel den letzten Steuerbescheid. Das ist der letzte Treffer.</p>
+      <p><a class="sq-siegelknopf" href="/steuer/{{ jahr }}">Zur Insel, Dokument ablegen →</a></p>
+    </article>
+  </div>
   {% endif %}
 </section>
 {% endif %}

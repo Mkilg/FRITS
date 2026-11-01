@@ -882,3 +882,46 @@ def test_letter_under_check_me_opens_in_the_notfall_chat(client, ws):
     assert "Notfall-Chat" in page.text and "Das sieht" in page.text
     assert "/notfall/" in str(page.url)
     assert (ws.check_me / "brief.txt").exists()  # stays until Fritz puts it away
+
+
+def test_earlier_invoice_is_entered_from_the_invoices_page(client, ws):
+    page = client.get("/invoices").text
+    assert "Rechnung von früher nachtragen" in page and "Zurückdatieren" in page
+    response = client.post(
+        "/invoices/frueher",
+        data={
+            "token": client.token,
+            "number": "2026-0003",
+            "customer": "Radio Süd",
+            "issue_date": "2026-03-01",
+            "description": "Moderation",
+            "net": "1.200,00",
+            "tax": "klein",
+            "paid": "2026-03-20",
+        },
+        files={"original": ("alt.pdf", b"%PDF-1.4 alt", "application/pdf")},
+        follow_redirects=True,
+    )
+    assert "Rechnung 2026-0003 ist nachgetragen" in response.text
+    assert "nachgetragen</small>" in response.text
+    assert client.get("/invoices/2026-0003/pdf").content == b"%PDF-1.4 alt"
+    again = post(
+        client,
+        "/invoices/frueher",
+        number="2026-0003",
+        customer="X",
+        issue_date="2026-03-01",
+        net="5",
+        tax="klein",
+    )
+    assert "gibt es in FRITS schon" in again.text
+    future = post(
+        client,
+        "/invoices/frueher",
+        number="2026-0099",
+        customer="X",
+        issue_date="2027-01-01",
+        net="5",
+        tax="klein",
+    )
+    assert "Zukunft" in future.text

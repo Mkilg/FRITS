@@ -35,6 +35,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from frits import (
     __version__,
     about,
+    aufgaben,
     emails,
     euer,
     expenses,
@@ -51,8 +52,10 @@ from frits.billing import (
     CUSTOMER_TAX,
     DEFAULT_PATTERN,
     DOMESTIC_RATES,
+    EARLIER_TAX,
     BillingError,
     Draft,
+    add_earlier,
     approve,
     blockers,
     cancel,
@@ -522,7 +525,108 @@ def create_app(
             moment=moment[1],
             ai_ready=ai_ready(current),
             f=haustier.ansehen(conn, today(), fritte_datei(ws.root)) if current.haustier else None,
+            liste=aufgaben.liste(conn, today()),
+            liste_rest=_liste_rest(),
+            heute=today().isoformat(),
+            karten_uebrig=aufgaben.karten_uebrig(conn, today()) if current.haustier else 0,
+            pro_tag=aufgaben.PRO_TAG,
         )
+
+    # ----- Deine Liste (on Heute) -----
+
+    app.state.liste_rest = ""  # points that didn't fit, shown again in the field once
+
+    def _liste_rest() -> str:
+        rest, app.state.liste_rest = app.state.liste_rest, ""
+        return rest
+
+    def _punkt_text(text: str) -> str:
+        return text if len(text) <= 60 else text[:59].rstrip() + "…"
+
+    @app.post("/aufgaben", dependencies=guarded)
+    async def aufgaben_neu(request: Request):
+        """Typed text becomes points: split here; one long sentence by the AI, redacted."""
+        from frits.redact import LeakError
+
+        text = str((await request.form()).get("text", "")).strip()
+        punkte = aufgaben.aufteilen(text)
+        if not punkte:
+            flash("Schreib einfach auf, was ansteht. Jede Zeile wird ein Punkt.")
+            return back("/#liste")
+        current = settings()
+        ki = ""
+        if aufgaben.braucht_ki(punkte) and ai_ready(current):
+            try:
+                people = [*customers(), current.owner] if current.name else customers()
+                punkte = aufgaben.ki_aufteilen(text, provider_for(current), people, nlp())
+                ki = " Die KI hat deinen Satz aufgeteilt, die Namen waren vorher geschwärzt."
+            except LeakError:
+                ki = " Aufgeteilt habe ich ihn nicht: Da war etwas, das ich nicht sicher schwärzen konnte."
+            except (ProviderError, RuntimeError, ValueError):
+                ki = " Die KI war gerade nicht erreichbar, also steht er als ein Punkt da."
+        conn = db()
+        neu, rest = aufgaben.hinzufuegen(conn, punkte, today())
+        if rest:
+            app.state.liste_rest = "\n".join(rest)
+            flash(
+                (f"{neu} von {neu + len(rest)} Punkten stehen jetzt auf der Liste. " if neu else "")
+                + f"Mehr als {aufgaben.MAX_OFFEN} offene Punkte auf einmal helfen nicht mehr. "
+                "Hak erst ein paar ab oder streich, was nicht mehr wichtig ist; der Rest "
+                "wartet unten im Feld." + ki
+            )
+        elif neu:
+            flash(
+                ("1 Punkt steht" if neu == 1 else f"{neu} Punkte stehen") + " auf der Liste." + ki
+            )
+        else:
+            flash("Das steht schon auf deiner Liste.")
+        return back("/#liste")
+
+    @app.post("/aufgaben/{pid}/abhaken", dependencies=guarded)
+    def aufgabe_abhaken(pid: int):
+        conn = db()
+        current = settings()
+        text = aufgaben.text_von(conn, pid)
+        ergebnis = aufgaben.abhaken(conn, pid, today(), spiel=current.haustier)
+        if ergebnis is None or text is None:
+            return back("/#liste")
+        if ergebnis == "karte":
+            uebrig = aufgaben.karten_uebrig(conn, today())
+            nachsatz = (
+                " Für Fritte liegt eine Karte bereit."
+                if uebrig
+                else " Für Fritte liegt eine Karte bereit, das war die letzte für heute."
+            )
+        elif ergebnis == "voll":
+            nachsatz = (
+                f" Fürs Spiel zählen {aufgaben.PRO_TAG} am Tag, der Rest ist einfach gut erledigt."
+            )
+        else:
+            nachsatz = ""
+        flash(f"Erledigt: {_punkt_text(text)}.{nachsatz}", cue="done")
+        return back("/#liste")
+
+    @app.post("/aufgaben/{pid}/zurueck", dependencies=guarded)
+    def aufgabe_zurueck(pid: int):
+        conn = db()
+        if aufgaben.zuruecknehmen(conn, pid):
+            flash("Wieder offen. Eine Karte, die noch wartete, ist mit weg.")
+        return back("/#liste")
+
+    @app.post("/aufgaben/{pid}/streichen", dependencies=guarded)
+    def aufgabe_streichen(pid: int):
+        conn = db()
+        aufgaben.vorbereiten(conn)
+        row = conn.execute(
+            "SELECT id, text, erstellt, erledigt FROM aufgaben WHERE id = ? AND erledigt IS NULL",
+            (pid,),
+        ).fetchone()
+        if row:  # only open points: a ticked one is taken back with "noch nicht erledigt"
+            aufgaben.streichen(conn, pid)
+            flash(
+                f"Gestrichen: {_punkt_text(row[1])}.", undo={"kind": "aufgabe", "row": tuple(row)}
+            )
+        return back("/#liste")
 
     @app.post("/inbox/process", dependencies=guarded)
     def process_inbox():
@@ -879,7 +983,54 @@ def create_app(
             invoices=list_invoices(db(), today()),
             credits=gutschriften.listing(db()),
             today_iso=today().isoformat(),
+            earlier_tax=EARLIER_TAX,
+            earlier_default="klein" if settings().tax_mode != "regelbesteuerung" else "19",
         )
+
+    @app.post("/invoices/frueher", dependencies=guarded)
+    async def invoice_earlier(request: Request):
+        """An invoice Fritz wrote before FRITS: entered with its own number and date."""
+        form = await request.form()
+        try:
+            issued = date.fromisoformat(str(form.get("issue_date", "")))
+            served = str(form.get("service_date") or "")
+            paid = str(form.get("paid") or "")
+            upload = form.get("original")
+            original = None
+            if upload is not None and getattr(upload, "filename", ""):
+                original = await upload.read(MAX_UPLOAD) or None
+            number = add_earlier(
+                db(),
+                number=str(form.get("number", "")),
+                customer=str(form.get("customer", "")),
+                issue_date=issued,
+                service_date=date.fromisoformat(served) if served else None,
+                description=str(form.get("description", "")),
+                net=parse_amount(str(form.get("net", ""))),
+                tax=str(form.get("tax", "")),
+                paid_date=date.fromisoformat(paid) if paid else None,
+                original=original,
+                invoices_dir=ws.invoices,
+                settings=settings(),
+                today=today(),
+            )
+        except BillingError as exc:
+            flash(str(exc), "error")
+            return back("/invoices#frueher")
+        except ValueError:
+            flash(
+                "Bitte die Daten prüfen: Rechnungsdatum und Betrag fehlen oder passen nicht.",
+                "error",
+            )
+            return back("/invoices#frueher")
+        row = db().execute("SELECT gross FROM invoices WHERE number = ?", (number,)).fetchone()
+        flash(
+            f"Rechnung {number} ist nachgetragen: {eur(Decimal(row['gross']))} brutto. Bitte kurz mit "
+            "dem Original vergleichen. Sie zählt jetzt in EÜR und Umsatzsteuer mit.",
+            cue="done",
+            stamp="Gebucht",
+        )
+        return back(f"/invoices#r-{number}")
 
     @app.get("/invoices/{number}/pdf")
     def invoice_pdf(number: str):
@@ -938,7 +1089,7 @@ def create_app(
     def invoice_email(number: str):
         conn = db()
         row = conn.execute("SELECT * FROM invoices WHERE number = ?", (number,)).fetchone()
-        if row is None:
+        if row is None or not row["pdf_path"]:  # entered from before FRITS without a PDF
             raise HTTPException(404)
         customer = customer_by(row["customer"])
         subject, body = emails.invoice_email(dict(row), customer, settings())
@@ -1534,6 +1685,15 @@ def create_app(
             gutschriften.restore(db(), last["id"])
             flash("Die Gutschrift ist wieder da.")
             return back(last["back"])
+        if last and last["kind"] == "aufgabe":
+            conn = db()
+            aufgaben.vorbereiten(conn)
+            conn.execute(
+                "INSERT OR IGNORE INTO aufgaben (id, text, erstellt, erledigt) VALUES (?, ?, ?, ?)",
+                last["row"],
+            )
+            flash("Der Punkt ist wieder auf der Liste.")
+            return back("/#liste")
         if last and last["kind"] == "draft":
             db().execute(
                 "UPDATE drafts SET status = 'draft' WHERE id = ? AND status = 'discarded'",
@@ -1595,7 +1755,7 @@ def create_app(
     def ustva_page(request: Request, year: int | None = None, nr: int | None = None):
         current = settings()
         period = current.vat_period if current.vat_period in ustva.PERIODS else "quartal"
-        basis = current.vat_basis if current.vat_basis in ustva.BASES else "ist"
+        basis = ustva.basis_of(current)
         if year is None or nr is None:
             year, nr = ustva.next_due(today(), period)
         try:
@@ -1625,6 +1785,7 @@ def create_app(
             basis=basis,
             periods=ustva.PERIODS,
             bases=ustva.BASES,
+            basis_chosen=current.vat_basis in ustva.BASES,
             booked=booked,
             klein=current.tax_mode != "regelbesteuerung",
             today_iso=today().isoformat(),
@@ -1648,7 +1809,7 @@ def create_app(
         current = settings()
         try:
             meldung = ustva.voranmeldung(
-                ws.db, current, year, nr, current.vat_period, current.vat_basis
+                ws.db, current, year, nr, current.vat_period, ustva.basis_of(current)
             )
             paid = _paid_day(form.get("paid"), today())
         except (ValueError, BillingError) as exc:

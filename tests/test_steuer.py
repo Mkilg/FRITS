@@ -3,6 +3,7 @@
 import sqlite3
 from datetime import date
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 import pyzipper
@@ -735,9 +736,17 @@ def test_auftrag_zeigt_immer_einen_naechsten_schritt(conn, ws):
     a = spiel.auftrag(2025, spiel.provinzen(reich(KIM), alle), spiel.drache(alle), 3, alle)
     assert a.art == "korb" and "3 Zettel" in a.text
 
-    # Alles erledigt: zur Beute
+    # Alles beantwortet, aber kein einziges Dokument: Der Drache will einen echten Beleg
     for s in alle:
         quest.setze_status(conn, s["id"], "gibts_nicht")
+    alle = quest.stuecke(conn, 2025)
+    d = spiel.drache(alle)
+    assert d.will_beleg and not d.besiegt and d.lp == 1
+    a = spiel.auftrag(2025, spiel.provinzen(reich(KIM), alle), d, 0, alle, drache_wach=True)
+    assert a.art == "drache" and "echten Beleg" in a.titel
+
+    # Mit einem Dokument: zur Beute
+    quest.setze_status(conn, alle[0]["id"], "gesammelt")
     alle = quest.stuecke(conn, 2025)
     a = spiel.auftrag(2025, spiel.provinzen(reich(KIM), alle), spiel.drache(alle), 0, alle)
     assert a.art == "sieg" and a.ziel == "/steuer/2025/sieg"
@@ -772,6 +781,8 @@ def test_siegel_kommt_als_belohnung_mit_naechstem_auftrag(client, ws):
     fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
     page = None
     for s in quest.stuecke(quest.ensure_schema(store.connect(ws.db)), 2025, "rathaus"):
+        if s["art"] == "bonus":
+            continue
         page = post(
             client,
             f"/steuer/2025/stueck/{s['id']}/status",
@@ -1007,10 +1018,12 @@ def test_silber_ist_ehrlich_und_feste_gibt_es_nur_einmal(client, ws):
     post(client, f"/steuer/2025/stueck/{letzte['id']}/status", status="offen")
     seite = post(client, f"/steuer/2025/stueck/{letzte['id']}/status", status="fragen")
     assert "ist wieder komplett" in seite.text and "data-belohnung" not in seite.text
-    # Mit "Bitte prüfen" heißt das letzte Zeitalter Silber
-    for s in quest.stuecke(conn, 2025):
-        if s["status"] == "offen" and s["art"] != "bonus":
-            quest.setze_status(conn, s["id"], "fragen")
+    # Mit "Bitte prüfen" heißt das letzte Zeitalter Silber (mit wenigstens einem Dokument)
+    offen = [s for s in quest.stuecke(conn, 2025) if s["status"] == "offen" and s["art"] != "bonus"]
+    for s in offen:
+        quest.setze_status(conn, s["id"], "fragen")
+    assert "Silbernes Zeitalter" not in client.get("/steuer/2025").text  # noch kein Beleg
+    quest.setze_status(conn, offen[0]["id"], "gesammelt")
     assert "Silbernes Zeitalter" in client.get("/steuer/2025").text
 
 
@@ -1079,6 +1092,8 @@ def test_aus_silber_wird_gold_und_zuruecknehmen_ist_nicht_stumm(client, ws):
     conn = quest.ensure_schema(store.connect(ws.db))
     belege = next(s for s in quest.stuecke(conn, 2025) if s["key"] == "belege")
     quest.setze_status(conn, belege["id"], "gibts_nicht")
+    rechnungen = next(s for s in quest.stuecke(conn, 2025) if s["key"] == "ausgangsrechnungen")
+    quest.setze_status(conn, rechnungen["id"], "gesammelt")
     for s in quest.stuecke(conn, 2025):
         if s["status"] == "offen" and s["art"] != "bonus":
             quest.setze_status(conn, s["id"], "fragen")
@@ -1618,3 +1633,147 @@ def test_runde_12_inhaltsverzeichnis_per_sie_und_reisekosten(conn):
         [("werkstatt-1", "arbeitszimmer")],
         [("werkstatt-1", "reisen")],
     ]
+
+
+def test_runde_13_vorschlaege_gratis_und_spuernase_stempelt_alle(client, ws):
+    """Bericht Marie-1, P2-9/10: Vorschläge ab Start, ein Klick, alle Zettel sichtbar."""
+    fragebogen(
+        client,
+        teil1={"name": "Marie"},
+        teil2={"m_freiberuflich_0": "1", "m_gesellschaft_0": "1", "m_depots_ausland_0": "1"},
+    )
+    conn = quest.ensure_schema(store.connect(ws.db))
+    alle = quest.stuecke(conn, 2025)
+    wo = {n: spiel.ahnung(n, alle) for n in ("GbR_Rechnung_03.pdf", "US_Form1099-DIV.pdf")}
+    assert (
+        wo["GbR_Rechnung_03.pdf"].stueck["gebiet"],
+        wo["GbR_Rechnung_03.pdf"].stueck["key"],
+    ) == (
+        "gilde-1",
+        "rechnungen",
+    )
+    assert wo["US_Form1099-DIV.pdf"].stueck["key"] == "jahresuebersicht"
+    assert spiel.ahnung("UStVA_Q1_2025.pdf", alle).stueck["key"] == "umsatzsteuer"
+    assert spiel.ahnung("IMG_2034.jpg", alle).stueck is None
+    lager = quest.lager(ws.root)
+    for i in range(14):
+        (lager / f"notiz-{i:02d}.txt").write_bytes(f"notiz {i}".encode())
+    (lager / "GbR_Rechnung_03.pdf").write_bytes(b"%PDF gbr")
+    (lager / "UStVA_Q1_2025.pdf").write_bytes(b"%PDF ustva")
+    karte = client.get("/steuer/2025").text
+    assert "notiz-13.txt" in karte and "weitere." not in karte  # alle Zettel, nicht nur 12
+    assert "✓ Ja, passt" in karte and "Vielleicht: Rechnungen der Gesellschaft" in karte
+    assert "alle 2 Vorschläge stempeln" not in karte  # das kann nur die Spürnase
+    # Ein Klick legt ab
+    gbr = next(s for s in alle if s["gebiet"] == "gilde-1" and s["key"] == "rechnungen")
+    post(
+        client, "/steuer/2025/lager/zuordnen", name="GbR_Rechnung_03.pdf", stueck_id=str(gbr["id"])
+    )
+    assert quest.stueck(conn, gbr["id"])["status"] == "gesammelt"
+    # Spürnase: alle sicheren Vorschläge auf einmal, Notizen ohne Vorschlag bleiben liegen
+    (lager / "Kontoauszug_Juni.pdf").write_bytes(b"%PDF konto")
+    quest.verdiene(conn, 2025, "test", 50, "Testgold")
+    post(client, "/steuer/2025/markt/kaufen", ware="spuernase")
+    assert "alle 2 Vorschläge stempeln" in client.get("/steuer/2025").text
+    seite = post(client, "/steuer/2025/lager/vorschlaege")
+    assert "Die Spürnase hat 2 Zettel abgestempelt" in seite.text
+    assert sorted(p.name for p in quest.lager_dateien(ws.root)) == [
+        f"notiz-{i:02d}.txt" for i in range(14)
+    ]
+
+
+def test_runde_13_schnellschlaege_und_kein_sieg_ohne_beleg(client, ws):
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    rathaus = [s for s in quest.stuecke(conn, 2025) if s["gebiet"] == "rathaus"]
+    for s in quest.stuecke(conn, 2025):
+        if s["gebiet"] != "rathaus" and s["art"] != "bonus":
+            quest.setze_status(conn, s["id"], "fragen")
+    drache = client.get("/steuer/2025/drache").text
+    assert "Schnellschläge in Rathaus" in drache
+    # Ein Schnellschlag auf die zweite Karte der Welle zählt als Treffer
+    zweite = spiel.drache(quest.stuecke(conn, 2025)).karten[1]
+    post(
+        client, "/steuer/2025/drache/schlag", stueck_id=str(zweite["id"]), aktion="fragen", frage=""
+    )
+    assert quest.stueck(conn, zweite["id"])["status"] == "fragen"
+    # Alles nur gefragt: kein Sieg ohne ein einziges Dokument
+    for s in rathaus:
+        post(
+            client, "/steuer/2025/drache/schlag", stueck_id=str(s["id"]), aktion="fragen", frage=""
+        )
+    drache = client.get("/steuer/2025/drache").text
+    assert "Zeig ihm einen echten Beleg" in drache and "Sieg!" not in drache
+    assert "Goldenes Zeitalter" not in client.get("/steuer/2025").text
+    # Ein Dokument: Sieg
+    seite = post(
+        client,
+        f"/steuer/2025/stueck/{rathaus[0]['id']}/datei",
+        files=[("datei", ("steuer-id.pdf", b"%PDF id"))],
+    )
+    assert spiel.drache(quest.stuecke(conn, 2025)).besiegt
+    assert "Der Drache faltet sich" in seite.text
+
+
+def test_ustva_ohne_gbr_gehoert_zum_eigenen_betrieb(conn):
+    quest.start(conn, Profil(**{**MARIE.__dict__, "umsatzsteuer": "quartal"}))
+    alle = list(reversed(quest.stuecke(conn, 2025)))  # die Reihenfolge der Ids zählt nicht
+    assert spiel.ahnung("UStVA_Q1_2025.pdf", alle).stueck["gebiet"] == "werkstatt-1"
+    assert spiel.ahnung("GbR_UStVA_Q1_2025.pdf", alle).stueck["gebiet"] == "gilde-1"
+
+
+def test_runde_14_eintippen_statt_datei_und_steuernummer_aus_den_einstellungen(client, ws):
+    """Maries Feedback: Pendel-km und Steuernummer direkt eintippen, ohne Dokument."""
+    from frits.settings import Settings
+
+    s = Settings.load(ws.settings_file)
+    s.steuernummer = "12/345/67890"
+    s.save(ws.settings_file)
+    fragebogen(
+        client,
+        teil1={"name": "Marie"},
+        teil2={"m_angestellt_0": "1", "m_freiberuflich_0": "1"},
+        teil3={"haken": ["arbeit"]},
+    )
+    conn = quest.ensure_schema(store.connect(ws.db))
+    rathaus = client.get("/steuer/2025/gebiet/rathaus").text
+    assert "Oder einfach eintippen" in rathaus and "Steuernummer: 12/345/67890" in rathaus
+    fahrten = next(x for x in quest.stuecke(conn, 2025, "kaserne-1") if x["key"] == "fahrten")
+    kaserne = client.get("/steuer/2025/gebiet/kaserne-1").text
+    assert "14 km einfach" in kaserne  # das Beispiel im Feld
+    seite = post(
+        client, f"/steuer/2025/stueck/{fahrten['id']}/angabe", text="18 km einfach, 130 Tage"
+    )
+    assert "+1 Angabe!" in seite.text
+    assert quest.stueck(conn, fahrten["id"])["status"] == "gesammelt"
+    datei = quest.dateien(conn, 2025, fahrten["id"])[0]
+    assert datei["original"] == "Angabe Fahrten zur Arbeit und Homeoffice-Tage.txt"
+    assert "18 km einfach, 130 Tage" in Path(datei["pfad"]).read_text(encoding="utf-8")
+    assert quest.lager_dateien(ws.root) == []  # nichts bleibt im Korb liegen
+    # Dieselbe Angabe noch einmal: nichts doppelt
+    seite = post(
+        client, f"/steuer/2025/stueck/{fahrten['id']}/angabe", text="18 km einfach, 130 Tage"
+    )
+    assert "liegt schon bei der Karte" in seite.text
+    # Leere Angabe: freundlicher Hinweis
+    assert (
+        "Ein Stichwort reicht" in post(client, f"/steuer/2025/stueck/{fahrten['id']}/angabe").text
+    )
+
+
+def test_runde_14_fragen_zeitalter_und_was_gehoert_wohin(client, ws):
+    fragebogen(client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1"})
+    karte = client.get("/steuer/2025").text
+    assert "Was gehört wohin?" in karte and "Sonstiges für die Beraterin" in karte
+    assert "Alles vom Finanzamt" in karte
+    assert "Nächstes: <strong>Zeitalter der Ordnung</strong>" in karte
+    assert "Dann wacht der Papierdrache auf" in karte
+    gebiet = client.get("/steuer/2025/gebiet/werkstatt-1").text
+    assert "kommt in die Mail an deine Beraterin" in gebiet and 'href="/notfall"' in gebiet
+    stand = spiel.Stand(gesamt=10, gesammelt=1, gibts_nicht=1, fragen=0)
+    assert spiel.weg_zum_zeitalter(stand) == (
+        "Zeitalter der Ordnung",
+        2,
+        spiel.ZEITALTER_BRINGT["Zeitalter der Ordnung"],
+    )
+    assert spiel.weg_zum_zeitalter(spiel.Stand(10, 10, 0, 0)) is None

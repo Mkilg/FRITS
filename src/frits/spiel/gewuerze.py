@@ -22,6 +22,8 @@ MALZESSIG_WOCHEN = 10  # Malzessig is fully matured after ten weeks
 # quarter would bring far more than one a week, and the weekly rhythm is the point.
 CHILI_HOECHSTENS = 2.0
 CURRY_HOECHSTENS = 2.0
+# Cards that are no paperwork of their own: they don't make a pile or a mix bigger.
+NUR_KLICKS = frozenset({"korrektur", "aufgabe"})
 
 
 @dataclass(frozen=True)
@@ -49,7 +51,7 @@ def _art(art: str, koerner: int, bedingung: str | None = None):
 
 
 def _kartenarten(karten: list[dict], umfeld: dict) -> float:
-    return 1.0 if len({k["art"] for k in karten} - {"korrektur"}) >= 3 else 0.0
+    return 1.0 if len({k["art"] for k in karten} - NUR_KLICKS) >= 3 else 0.0
 
 
 def _zahlungen(karten: list[dict], umfeld: dict) -> float:
@@ -59,7 +61,7 @@ def _zahlungen(karten: list[dict], umfeld: dict) -> float:
 
 
 def _stapel(karten: list[dict], umfeld: dict) -> float:
-    zaehlen = [k for k in karten if k["art"] != "korrektur"]
+    zaehlen = [k for k in karten if k["art"] not in NUR_KLICKS]
     return min(CHILI_HOECHSTENS, float(len(zaehlen) // 5))
 
 

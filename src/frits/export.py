@@ -11,8 +11,8 @@ Steuer-Quest puts them into its Schatztruhe, see frits.steuer.ernte).
   vom 28.11.2019, Rz. 151 ff.): how receipts come in, where they are kept, why nothing can
   be changed unnoticed, and how long things are kept.
 
-FRITS doesn't pick accounts (SKR03/SKR04): that is the adviser's call, so the column stays
-empty and the EÜR line says what the money is.
+FRITS doesn't pick accounts (SKR03/SKR04): that is the adviser's call, so there is no
+account column; the EÜR line says what the money is.
 """
 
 from __future__ import annotations
@@ -44,7 +44,6 @@ COLUMNS = (
     "USt-Satz (%)",
     "USt/Vorsteuer (EUR)",
     "Zeile Anlage EÜR",
-    "Konto",
     "Belegdatum",
     "Belegdatei",
 )
@@ -144,7 +143,7 @@ def buchungen(ws: Workspace, jahr: int, settings: Settings | None = None) -> lis
                 c.vat,
                 _income_line(regel, c.kind, c.net, c.vat),
                 c.issue_date,
-                "",
+                "fehlt",  # FRITS keeps the amounts of a customer's Gutschrift, not the paper
             )
         )
     for e in expenses_of_year(ws.db, jahr):
@@ -161,7 +160,7 @@ def buchungen(ws: Workspace, jahr: int, settings: Settings | None = None) -> lis
                 e.vat if regel else Decimal(0),
                 cat.euer_line,
                 e.date,
-                Path(e.source_file).name if e.source_file else "",
+                Path(e.source_file).name if e.source_file else "fehlt",
             )
         )
     rows.sort(key=lambda b: (b.day, not b.income, b.beleg))
@@ -188,7 +187,6 @@ def buchungsliste(ws: Workspace, jahr: int, ordner: Path) -> Path:
                     _rate(b.rate),
                     _num(b.vat),
                     b.euer_line,
-                    "",
                     b.beleg_day.strftime("%d.%m.%Y"),
                     b.file,
                 ]
@@ -204,9 +202,10 @@ def _doku_text(settings: Settings, jahr: int, heute: date) -> list[tuple[str, st
         else "Regelbesteuerung: Umsatzsteuer-Voranmeldung "
         + ("monatlich" if settings.vat_period == "monat" else "vierteljährlich")
         + (
-            ", Ist-Versteuerung (nach Zahlungseingang, § 20 UStG)."
+            ", Ist-Versteuerung nach § 20 UStG (laut Einstellung; setzt die Genehmigung des "
+            "Finanzamts voraus)."
             if settings.vat_basis == "ist"
-            else ", Soll-Versteuerung (nach Leistung)."
+            else ", Soll-Versteuerung (nach Leistung, der gesetzliche Normalfall)."
         )
     )
     sicherung = (
@@ -234,7 +233,8 @@ def _doku_text(settings: Settings, jahr: int, heute: date) -> list[tuple[str, st
                 "Notizen, E-Mails, PDFs und Fotos von Belegen werden in FRITS hineingezogen oder "
                 "eingefügt. Das Original wird unverändert im Ordner done abgelegt und bleibt dort. "
                 "Ausgaben werden mit Datum, Empfänger, Betrag, Steuersatz und Kategorie erfasst "
-                "und verweisen auf ihre Belegdatei. Eine KI kann beim Lesen helfen. Sie sieht "
+                "und verweisen auf ihre Belegdatei, wenn eine hereingegeben wurde. In der "
+                "Buchungsliste steht sonst „fehlt“. Eine KI kann beim Lesen helfen. Sie sieht "
                 "nur geschwärzten Text (Namen, Adressen, Bankdaten werden vorher auf dem Computer "
                 "ersetzt), schlägt nur vor und bucht nie selbst. Jede Rechnung und jede Ausgabe "
                 "wird vom Unternehmer geprüft und bestätigt."

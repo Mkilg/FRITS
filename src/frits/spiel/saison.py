@@ -30,7 +30,7 @@ THEMEN = {
 BONI = {1: 30, 2: 75, 3: 175, 4: 300, 5: 500}
 ANTEIL = 0.7  # the goal: paperwork in 7 of every 10 weeks, so a holiday never hurts
 FEST_PREIS = 400  # a season festival (from the first Frittenbude on), before the Ruf
-NICHT_GEZAEHLT = ("start", "feierabend", "pflege", "korrektur")
+NICHT_GEZAEHLT = ("start", "feierabend", "aufgabe", "pflege", "korrektur")
 
 
 @dataclass
