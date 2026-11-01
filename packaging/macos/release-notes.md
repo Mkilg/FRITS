@@ -13,6 +13,14 @@ Sagt der Mac stattdessen, die App sei „beschädigt“: Terminal öffnen, `xatt
 
 Läuft ohne Internet, auf Macs mit Apple-Chip und Intel, ab macOS 13. Deine Daten liegen in `Dokumente/FRITS`, nicht im App-Ordner.
 
+### Neu in 1.5.1
+- **Mehr Schutz beim Schwärzen:** Steuer-ID, Sozialversicherungsnummer und eTIN (von der Lohnsteuerbescheinigung) gehen nie an die KI.
+- „Kenne ich schon“ führt direkt zum Beleg, Entwurf oder zur Rechnung. Keine doppelten „(1)“-Dateien mehr.
+- Erste Sicherung bei gesperrtem Schlüsselbund: FRITS fragt nach einem neuen Passwort. Der gewählte Ort bleibt stehen.
+- Betrag auf gescannten Bahntickets und Laden aus E-Mails werden richtig gelesen.
+- Entwürfe nutzen auf großen Bildschirmen die ganze Breite.
+- Steuer-Quest findet ihre Belege auch nach dem Zurückholen einer Sicherung.
+
 ### Neu in 1.5.0
 - **Freier Chat** im Menü „Mehr“, auch ohne Dokument. Die Einführung lässt sich über Mehr › Einführung wiederholen neu starten.
 - Musik läuft beim Seitenwechsel weiter. Eine fertige Rechnung bekommt Stempel und Klang.
