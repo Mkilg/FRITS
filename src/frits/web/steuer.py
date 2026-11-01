@@ -245,7 +245,7 @@ def beleg_info(d: dict) -> dict:
     text = ""
     if endung == ".txt" and quest.ist_angabe(original) and pfad.is_file():
         art = "angabe"
-        text = angabe_text(d)[:600]
+        text = angabe_text(d)
     elif endung in VORSCHAUBILD:
         art = "bild"
     elif endung == ".pdf":
@@ -1099,7 +1099,12 @@ def register_steuer(
             return back(f"/steuer/{jahr}/belege")
         key, probleme = await run_in_threadpool(mit_datei, pfad, d["original"] or pfad.name)
         for p in probleme:
-            flash(p, "error")
+            # Keine Sackgasse: Den Beleg kann man immer noch selbst ansehen
+            flash(
+                p if key else f"{p} Es wurde nichts verschickt.",
+                "warn",
+                aktion={"link": f"/steuer/{jahr}/datei/{datei_id}", "link_text": "Ohne KI ansehen"},
+            )
         if key:
             return back(f"/notfall/{key}#unterlagen")
         return back(f"/steuer/{jahr}/belege#karte-{d['stueck_id']}")
@@ -1126,6 +1131,20 @@ def register_steuer(
         if belohnen(jahr, vorher):
             return back(f"/steuer/{jahr}/drache")
         return back(zurueck)
+
+    @app.post("/steuer/{jahr}/stueck/{stueck_id}/wunsch-weg", dependencies=guarded)
+    async def wunsch_entfernen(request: Request, jahr: int, stueck_id: int):
+        """Eine Zeile der Mail falsch zugeordnet? Die Markierung (oder die neue Karte) geht weg."""
+        form = await request.form()
+        s = stueck_im_jahr(jahr, stueck_id)
+        vorher = lage(jahr)
+        was = quest.wunsch_weg(conn(), stueck_id)
+        if was == "karte":
+            flash(f"„{s['name']}“ ist wieder weg. Es war nur ein falsch gelesener Wunsch.")
+        else:
+            flash(f"„{s['name']}“ ist nicht mehr als Wunsch der Beraterin markiert.")
+        belohnen(jahr, vorher, ferne=False)
+        return back(str(form.get("back") or f"/steuer/{jahr}/gebiet/{s['gebiet']}"))
 
     @app.post("/steuer/{jahr}/stueck/{stueck_id}/frage", dependencies=guarded)
     async def frage_merken(request: Request, jahr: int, stueck_id: int):

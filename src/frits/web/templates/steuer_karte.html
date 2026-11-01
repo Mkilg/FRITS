@@ -31,7 +31,7 @@
       <ul>
         {% if ernte.rechnungen %}<li><b>{{ ernte.rechnungen | length }}</b> Rechnungen{% if ernte.neu.rechnungen %} <em>+{{ ernte.neu.rechnungen }} neu</em>{% endif %}</li>{% endif %}
         {% if ernte.belege %}<li><b>{{ ernte.belege | length }}</b> Ausgaben-Belege{% if ernte.neu.belege %} <em>+{{ ernte.neu.belege }} neu</em>{% endif %}</li>{% endif %}
-        {% if ernte.euer %}<li>EÜR {{ jahr }}: Gewinn <b>{{ ernte.gewinn }}</b>{% if ernte.neu.euer %} <em>neu</em>{% endif %}</li>{% endif %}
+        {% if ernte.euer %}<li>EÜR {{ jahr }}: {{ ernte.gewinn_wort }} <b>{{ ernte.gewinn }}</b>{% if ernte.neu.euer %} <em>neu</em>{% endif %}</li>{% endif %}
         {% if ernte.fuer_beraterin %}<li>Buchungsliste und Verfahrensdoku für die Beraterin{% if ernte.neu.buchungsliste or ernte.neu.verfahrensdoku %} <em>neu</em>{% endif %}</li>{% endif %}
       </ul>
       {% if not ernte_ziele %}
@@ -47,11 +47,11 @@
     </form>
     {% endif %}
     {% with dz_action="/steuer/" ~ jahr ~ "/lager/hochladen", dz_back="/steuer/" ~ jahr, dz_class="sq-einwurf", dz_id="lager", dz_icon="📦", dz_title="Hier ablegen", dz_hint="Bescheide, Belege, Fotos, Kontoauszüge.", dz_accept="*/*", dz_send="In den Korb", dz_busy="Ich lege es in den Korb.", dz_text_label="Text einfügen, z. B. eine Mail vom Finanzamt" %}{% include "_dropzone.html" %}{% endwith %}
+    <a class="sq-ding" href="/steuer/{{ jahr }}/belege"><span class="sq-ding-bild buch"></span><span><strong>Belegbuch</strong>{{ ressourcen.belege }} Beleg{{ "e" if ressourcen.belege != 1 }} ansehen, Fragen dazu</span></a>
     <form method="post" action="/steuer/{{ jahr }}/lager/oeffnen">
       <input type="hidden" name="token" value="{{ token }}">
       <button class="sq-ding"><span class="sq-ding-bild kiste"></span><span><strong>Lager-Ordner</strong>öffnen und Dateien hineinlegen</span></button>
     </form>
-    <a class="sq-ding" href="/steuer/{{ jahr }}/belege"><span class="sq-ding-bild buch"></span><span><strong>Belegbuch</strong>{{ ressourcen.belege }} Beleg{{ "e" if ressourcen.belege != 1 }} ansehen, Fragen dazu</span></a>
     <a class="sq-ding" href="/steuer/{{ jahr }}/beraterin"><span class="sq-ding-bild brief"></span><span><strong>Post von der Beraterin?</strong>Mail einfügen, ich lese sie</span></a>
     <a class="sq-ding" href="/steuer/{{ jahr }}/fragebogen"><span class="sq-ding-bild buch"></span><span><strong>Fragebogen</strong>Lebenslage ändern</span></a>
     <a class="sq-ding" href="/steuer/{{ jahr }}/markt"><span class="sq-ding-bild markt"></span><span><strong>Hafenmarkt</strong>{{ ressourcen.gold }} Gold ausgeben{% if helfer %} · {{ helfer | length }} Helfer{% endif %}</span></a>

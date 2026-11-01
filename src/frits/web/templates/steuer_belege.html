@@ -63,6 +63,16 @@
               <strong>{{ "Eingetippt" if d.art == "angabe" else d.original }}</strong>
               <small>{% if d.art != "angabe" %}{{ d.groesse_text }} · {% endif %}seit {{ datum(d.hinzugefuegt[:10]) }}</small>
               {% if not d.da %}<small class="sq-warnung">Die Datei ist nicht mehr im Ordner. Leg sie bitte noch einmal auf die Karte.</small>{% endif %}
+              {% if d.art == "angabe" %}
+              <details class="sq-angabe-aendern"><summary>Ändern</summary>
+                <form method="post" action="/steuer/{{ jahr }}/stueck/{{ k.id }}/angabe" class="sq-angabe" data-stempel="NOTIERT">
+                  <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back" value="{{ zurueck }}#karte-{{ k.id }}">
+                  <label class="sr-only" for="angabe-{{ d.id }}">Angabe zu {{ k.name }}</label>
+                  <textarea id="angabe-{{ d.id }}" name="text" rows="2" maxlength="2000">{{ d.text }}</textarea>
+                  <button class="sq-stempelknopf gruen">Neu notieren</button>
+                </form>
+              </details>
+              {% endif %}
               {% if d.da and d.art != "angabe" %}
               <div class="reihe">
                 <a class="button quiet" href="/steuer/{{ jahr }}/datei/{{ d.id }}" target="_blank" rel="noopener">{{ "Ansehen" if d.zeigbar else "Herunterladen" }}</a>

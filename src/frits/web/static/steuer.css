@@ -1464,3 +1464,5 @@ a.sq-beleg-vorschau:hover, a.sq-beleg-vorschau:focus-visible { transform: rotate
 .sq-meldung { overflow-wrap: anywhere; }
 .sq-meldung-aktion { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 0.45rem; }
 .sq-meldung-aktion form { margin: 0; }
+.sq-wunsch-weg { margin: 0 0 0.4rem; }
+.sq-wunsch-weg button { font-size: 0.75rem; padding: 0.1rem 0.3rem; }

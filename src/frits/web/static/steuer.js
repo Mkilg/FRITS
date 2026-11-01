@@ -812,13 +812,23 @@
     knopf.addEventListener("click", function () {
       var text = knopf.getAttribute("data-kopieren");
       function fertig() { knopf.textContent = "✓ kopiert"; setTimeout(function () { knopf.textContent = "Passwort kopieren"; }, 1800); }
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(fertig, function () {});
-      } else {
+      function vonHand() {
         var feld = document.createElement("textarea");
         feld.value = text; document.body.appendChild(feld); feld.select();
-        try { document.execCommand("copy"); fertig(); } catch (e) {}
+        var ok = false;
+        try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
         document.body.removeChild(feld);
+        if (ok) { fertig(); return; }
+        // Kopieren ist hier gesperrt: das Passwort markieren, dann reicht Cmd+C
+        var b = document.querySelector("[data-passwort]");
+        if (b) { var r = document.createRange(); r.selectNodeContents(b); var sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); }
+        knopf.textContent = "Markiert: jetzt Cmd+C drücken";
+        setTimeout(function () { knopf.textContent = "Passwort kopieren"; }, 4000);
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(fertig, vonHand);
+      } else {
+        vonHand();
       }
     });
   });

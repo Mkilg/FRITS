@@ -1999,3 +1999,48 @@ def test_runde_16_verschobener_frits_ordner_findet_seine_belege(tmp_path):
 
     with zipfile.ZipFile(ziel) as zf:
         assert any(n.endswith(".pdf") for n in zf.namelist())
+
+
+def test_runde_17_kopie_neben_dem_original_fasst_das_original_nie_an(tmp_path):
+    """Tester Marie-6 (Runde 16), Datensicherheit: Eine Kopie des FRITS-Ordners zeigte und
+    verschob die Dateien des ORIGINALS, solange das noch da war."""
+    import shutil
+
+    alt = Workspace(tmp_path / "alt")
+    alt.ensure()
+    c = quest.ensure_schema(store.connect(alt.db))
+    quest.start(c, KIM)
+    s = quest.stuecke(c, 2025, "werkstatt-1")[0]
+    quest.sammeln(c, alt.root, s["id"], datei(tmp_path, "beleg.pdf", "inhalt"))
+    original = Path(quest.dateien(c, 2025)[0]["pfad"])
+    c.close()
+    shutil.copytree(alt.root, tmp_path / "kopie")
+    kopie = Workspace(tmp_path / "kopie")
+    c = quest.ensure_schema(store.connect(kopie.db))
+    d = quest.dateien(c, 2025)[0]
+    assert Path(d["pfad"]).is_relative_to(kopie.root) and Path(d["pfad"]).is_file()
+    quest.entferne_datei(c, d["id"])
+    assert original.is_file()  # das Original bleibt, wo es ist
+    assert [p.name for p in quest.lager_dateien(kopie.root)] == ["beleg.pdf"]
+    assert quest.lager_dateien(alt.root) == []
+
+
+def test_runde_17_falscher_wunsch_laesst_sich_entfernen(conn, ws):
+    quest.start(conn, KIM)
+    fahrten = next(s for s in quest.stuecke(conn, 2025, "gehoeft-1") if s["key"] == "fahrten")
+    quest.markiere_wunsch(conn, fahrten["id"])
+    assert quest.wunsch_weg(conn, fahrten["id"]) == "markierung"
+    assert not quest.stueck(conn, fahrten["id"])["wunsch"]
+    neu = quest.neues_stueck(conn, 2025, "gehoeft-1", "Hausordnung", hinweis="Wunsch")
+    assert quest.wunsch_weg(conn, neu) == "karte"
+    with pytest.raises(quest.QuestError):
+        quest.stueck(conn, neu)
+
+
+def test_runde_17_drachenbaendigerin_erst_mit_echtem_beleg():
+    karten = [
+        {**_karte(status="gibts_nicht", id_=1), "wunsch": 0, "frage": ""},
+        {**_karte(key="x", status="fragen", id_=2), "wunsch": 0, "frage": "Brauchst du das?"},
+    ]
+    orden = {e.key: e for e in spiel.erfolge(karten, [])}
+    assert not orden["drachenbaendigerin"].erreicht

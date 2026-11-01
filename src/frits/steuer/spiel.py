@@ -358,7 +358,7 @@ def erfolge(
             "drachenbaendigerin",
             "Drachenbändigerin",
             "Der Papierdrache hat keine Karten mehr.",
-            gesamt.offen == 0 and bool(stuecke),
+            gesamt.offen == 0 and bool(stuecke) and any(echter_beleg(s) for s in stuecke),
         ),
     ]
 
