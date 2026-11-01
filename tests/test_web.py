@@ -652,3 +652,16 @@ def test_painted_fritte_has_a_fixed_size_and_settings_preview_the_effects(client
     assert 'width="84" height="112"' in html
     page = client.get("/settings").text
     assert "So sieht's aus" in page and "data-vorschau" in page
+
+
+def test_painted_pictures_keep_their_space_while_loading(tmp_path):
+    from PIL import Image
+
+    from frits.web.app import picture_tag
+
+    (tmp_path / "bilder").mkdir()
+    Image.new("RGB", (420, 299)).save(tmp_path / "bilder" / "leer-eingang.webp")
+    tag = picture_tag(tmp_path, {"leer-eingang": "/static/bilder/leer-eingang.webp"})
+    html = tag("leer-eingang", "leer-bild")
+    assert 'class="leer-bild"' in html and 'width="420" height="299"' in html
+    assert tag("gibts-nicht", "x") == ""
