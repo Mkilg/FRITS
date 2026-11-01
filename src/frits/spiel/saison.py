@@ -22,7 +22,7 @@ THEMEN = {
     1: ("ausgabe", "Belegzeit: Ausgaben bringen doppelt so viele Körner."),
     2: ("angebot", "Aussaat: Angebote bringen doppelt so viele Körner."),
     3: ("feierabend", "Lange Abende: Feierabende bringen doppelt so viele Körner."),
-    4: ("rechnung", "Erntezeit: Rechnungen bringen doppelt so viele Körner."),
+    4: ("rechnung", "Erntezeit: Rechnungen und Gutschriften bringen doppelt so viele Körner."),
 }
 ZIELE = {1: 120, 2: 300, 3: 700, 4: 1200, 5: 2000}  # when there is no history yet
 BONUS_ANTEIL = 4  # reaching the goal brings a quarter of it on top

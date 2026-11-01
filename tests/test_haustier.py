@@ -703,3 +703,73 @@ def test_the_welcome_round_always_shows_the_wuerze(conn):
     from frits.spiel import saison
 
     assert saison.jetzt(conn, TODAY).erreicht == 0  # a present, not season progress
+
+
+# ---------- Gutschriften ----------
+
+
+def add_credit(conn, number, issue=TODAY, paid=None, customer="sender", gross="595.00"):
+    from decimal import Decimal
+
+    from frits import gutschriften
+
+    gutschriften.prepare(conn)
+    return gutschriften.add(
+        conn, customer_id=customer, customer="Sender GmbH", their_number=number,
+        issue_date=issue, gross=Decimal(gross), vat_rate=Decimal(19), paid_date=paid,
+    )  # fmt: skip
+
+
+def strike_credit(conn, cid):
+    from frits import gutschriften
+
+    assert gutschriften.strike(conn, cid)
+
+
+def test_a_gutschrift_counts_like_an_invoice_and_its_payment(conn):
+    started(conn)
+    add_credit(conn, "GS-2026-114", paid=TODAY)
+    add_credit(conn, "GS-2026-115")
+    stand.abgleichen(conn, TODAY)
+    karten = {k.schluessel: k for k in kassensturz.offene_karten(conn)}
+    assert sorted(k.art for k in karten.values()) == ["bezahlt", "rechnung", "rechnung"]
+    gs = karten["rechnung:gs:sender|gs-2026-114"]
+    assert gs.titel == "Gutschrift GS-2026-114" and gs.koerner == 3
+    assert not gs.fakten["frisch"]  # no note arrived for it
+    assert karten["bezahlt:gs:sender|gs-2026-114"].fakten == {
+        "puenktlich": False, "nach_erinnerung": False,
+    }  # fmt: skip
+
+
+def test_a_struck_gutschrift_never_earns_twice(conn):
+    started(conn)
+    cid = add_credit(conn, "GS-1", paid=TODAY)
+    kassensturz_jetzt(conn)
+    strike_credit(conn, cid)
+    add_credit(conn, "gs-1 ", paid=TODAY, gross="559.00")  # the same one, amount fixed
+    assert stand.abgleichen(conn, TODAY) == 0
+    # Entered again under a new number (a typo fixed): a correction without Körner.
+    strike_credit(conn, conn.execute("SELECT MAX(id) FROM credits").fetchone()[0])
+    add_credit(conn, "GS-2", paid=TODAY)
+    stand.abgleichen(conn, TODAY)
+    karten = kassensturz.offene_karten(conn)
+    assert [k.art for k in karten] == ["korrektur", "korrektur"]
+    assert all(k.koerner == 0 and "Gutschrift" in k.detail for k in karten)
+    # The next real one for the same customer is a normal card again.
+    add_credit(conn, "GS-3")
+    stand.abgleichen(conn, TODAY)
+    assert sorted(k.art for k in kassensturz.offene_karten(conn)) == [
+        "korrektur", "korrektur", "rechnung",
+    ]  # fmt: skip
+
+
+def test_a_gutschrift_struck_before_scoring_waits_again_once_fixed(conn):
+    started(conn)
+    cid = add_credit(conn, "GS-7", gross="100.00")
+    assert stand.abgleichen(conn, TODAY) == 1
+    strike_credit(conn, cid)
+    assert kassensturz.offene_karten(conn) == []  # struck: off the table
+    add_credit(conn, "GS-7", gross="110.00")  # entered again, right this time
+    assert stand.abgleichen(conn, TODAY) == 1
+    [karte] = kassensturz.offene_karten(conn)
+    assert karte.art == "rechnung" and "110,00" in karte.detail
