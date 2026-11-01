@@ -566,10 +566,11 @@ def test_ganze_quest_im_browser(client, ws):
         page = post(
             client, "/steuer/2025/drache/schlag", stueck_id=str(karte["id"]), aktion="gibts_nicht"
         )
-        if "SIEG!" not in page.text:
+        if not str(page.url).endswith("/sieg"):
             assert 'data-treffer="treffer"' in page.text  # die Seite wackelt nach dem Treffer
-    assert "SIEG!" in page.text
-    assert "Goldenes Zeitalter!" in page.text
+    # Wichtige Unterlagen als "Gibt's nicht": Sieg ja, aber Silber und "Bitte prüfen"
+    assert "Silber-Sieg!" in page.text and "Bitte prüfen" in page.text
+    assert 'class="sq-sieg-titel silber"' in page.text
 
     page = post(client, "/steuer/2025/truhe")
     assert "Passwort:" in page.text
@@ -744,8 +745,19 @@ def test_siegel_kommt_als_belohnung_mit_naechstem_auftrag(client, ws):
             status="gibts_nicht",
             back="/steuer/2025/gebiet/rathaus",
         )
-    assert "data-belohnung" in page.text and "Gold-Siegel!" in page.text
+    # Mit dem Rathaus ist das Reich bei 50 %: Der Drache erwacht, das Siegel feiert mit
+    assert "data-belohnung" in page.text and "Der Drache erwacht!" in page.text
+    assert "Rathaus ist komplett." in page.text and "Stell dich dem Drachen" in page.text
     assert "Nächster Auftrag" in page.text and "Versiegle Werkstatt" in page.text
+    # Stempel zurücknehmen und neu stempeln: kein zweites Fest
+    briefe = next(
+        s
+        for s in quest.stuecke(quest.ensure_schema(store.connect(ws.db)), 2025, "rathaus")
+        if s["key"] == "briefe"
+    )
+    post(client, f"/steuer/2025/stueck/{briefe['id']}/status", status="offen")
+    page = post(client, f"/steuer/2025/stueck/{briefe['id']}/status", status="gibts_nicht")
+    assert "Rathaus ist wieder komplett." in page.text and "Gold-Siegel!" not in page.text
 
 
 def test_gibts_nicht_haelt_die_serie_zaehlt_aber_nicht_hoch():
@@ -836,3 +848,36 @@ def test_beraterin_steht_nicht_mehr_im_ersten_teil(client, ws):
     # Kaputtes Datum wird nicht gespeichert
     post(client, "/steuer/2025/beraterin/daten", beraterin_termin="morgen")
     assert Profil.load(quest.profil_datei(ws.root, 2025)).beraterin_termin == ""
+
+
+def test_tagwerk_feiert_drei_karten_am_tag(client, ws):
+    fragebogen(client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1"})
+    conn = store.connect(ws.db)
+    karte = client.get("/steuer/2025").text
+    assert "Tagwerk heute" in karte and "0/3" in karte
+    offen = [s for s in quest.stuecke(conn, 2025) if s["status"] == "offen"]
+    seite = None
+    for s in offen[:3]:
+        seite = post(client, f"/steuer/2025/stueck/{s['id']}/status", status="fragen")
+    assert "Tagwerk geschafft!" in seite.text and "Für heute Schluss" in seite.text
+    assert "Tagwerk geschafft" in client.get("/steuer/2025").text
+    heute, ziel = spiel.tagwerk(quest.stuecke(conn, 2025), date.today())
+    assert heute == 3 and ziel == 3
+
+
+def test_steuer_id_gibt_es_immer_und_kernunterlagen_kommen_zum_pruefen(client, ws):
+    fragebogen(client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    rathaus = client.get("/steuer/2025/gebiet/rathaus").text
+    assert "Finde ich nicht" in rathaus
+    sid = next(s for s in quest.stuecke(conn, 2025, "rathaus") if s["key"] == "steuer-id")
+    post(client, f"/steuer/2025/stueck/{sid['id']}/status", status="gibts_nicht")
+    assert quest.stueck(conn, sid["id"])["status"] == "fragen"  # nie "gibt's nicht"
+    werkstatt = client.get("/steuer/2025/gebiet/werkstatt-1").text
+    assert "hat fast jede:r in deiner Lage" in werkstatt  # echte Rückfrage mit Grund
+    belege = next(s for s in quest.stuecke(conn, 2025) if s["key"] == "belege")
+    quest.setze_status(conn, belege["id"], "gibts_nicht")
+    assert [s["key"] for s in spiel.zweifel(quest.stuecke(conn, 2025))] == ["belege"]
+    p = Profil.load(quest.profil_datei(ws.root, 2025))
+    _betreff, text = truhe.mail(p, reich(p), quest.stuecke(conn, 2025))
+    assert "Bitte prüfen" in text and "Belege und Quittungen" in text.split("Bitte prüfen")[1]

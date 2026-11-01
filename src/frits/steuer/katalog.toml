@@ -21,7 +21,7 @@ frage = "immer"
 anlage = "Hauptvordruck (ESt 1 A)"
 woerter = ["finanzamt", "bescheid", "vorauszahlung", "steuer-id", "identifikationsnummer", "steuernummer"]
 stuecke = [
-  { key = "steuer-id", kern = true, name = "Steuer-ID", hinweis = "Steht auf jedem Steuerbescheid und auf der Lohnsteuerbescheinigung." },
+  { key = "steuer-id", kern = true, fehlt_nie = true, name = "Steuer-ID", hinweis = "Steht auf jedem Steuerbescheid und auf der Lohnsteuerbescheinigung." },
   { key = "bescheid", name = "Letzter Steuerbescheid", hinweis = "Der Bescheid vom Vorjahr hilft der Beraterin beim Vergleich." },
   { key = "vorauszahlungen", name = "Vorauszahlungsbescheide", hinweis = "Nur wenn du Steuern vorab zahlst." },
   { key = "briefe", name = "Weitere Briefe vom Finanzamt", hinweis = "Alles, was das Finanzamt dieses Jahr geschickt hat." },
@@ -56,7 +56,7 @@ anlage = "Anlage S, Anlage EÜR und AVEÜR"
 woerter = ["rechnung", "beleg", "geschäftskonto", "fahrt", "arbeitszimmer", "einnahmen", "ausgaben", "eür", "umsatzsteuer", "freiberuf"]
 stuecke = [
   { key = "ausgangsrechnungen", kern = true, name = "Ausgangsrechnungen", hinweis = "Schreibst du mit FRITS? Dann holt die FRITS-Ernte auf dem Kartentisch sie automatisch." },
-  { key = "euer", name = "EÜR-Übersicht", hinweis = "Einnahmen minus Ausgaben. FRITS rechnet sie aus deinen Rechnungen und Ausgaben aus." },
+  { key = "euer", kern = true, name = "EÜR-Übersicht", hinweis = "Einnahmen minus Ausgaben. FRITS rechnet sie aus deinen Rechnungen und Ausgaben aus." },
   { key = "belege", kern = true, name = "Belege und Quittungen", hinweis = "Alles, was du fürs Geschäft bezahlt hast. Ausgaben aus FRITS kommen mit der FRITS-Ernte." },
   { key = "kontoauszuege", kern = true, name = "Kontoauszüge Geschäftskonto", hinweis = "Am einfachsten als Jahres-Export aus dem Online-Banking." },
   { key = "umsatzsteuer", name = "Umsatzsteuer-Meldungen des Jahres", hinweis = "Voranmeldungen und, falls schon da, die Jahreserklärung. 7 % gilt für Texte und Beiträge mit Nutzungsrechten, 19 % z. B. für Moderation und Beratung.", wenn = "umsatzsteuer" },
@@ -84,7 +84,7 @@ woerter = ["gewerbe", "laden", "shop", "waren", "inventur", "gewerbesteuer", "ha
 stuecke = [
   { key = "ausgangsrechnungen", kern = true, name = "Rechnungen und Kassenberichte", hinweis = "Alle Einnahmen des Betriebs." },
   { key = "belege", kern = true, name = "Einkaufsbelege", hinweis = "Waren, Material, Miete, Werbung." },
-  { key = "euer", name = "EÜR-Übersicht", hinweis = "Einnahmen minus Ausgaben. FRITS rechnet sie aus deinen Rechnungen und Ausgaben aus." },
+  { key = "euer", kern = true, name = "EÜR-Übersicht", hinweis = "Einnahmen minus Ausgaben. FRITS rechnet sie aus deinen Rechnungen und Ausgaben aus." },
   { key = "kontoauszuege", kern = true, name = "Kontoauszüge Geschäftskonto", hinweis = "Jahres-Export aus dem Online-Banking." },
   { key = "warenbestand", name = "Warenbestand zum Jahresende", hinweis = "Eine einfache Liste reicht oft." },
   { key = "umsatzsteuer", name = "Umsatzsteuer-Meldungen des Jahres", hinweis = "Nur wenn du Umsatzsteuer ausweist.", wenn = "umsatzsteuer" },
