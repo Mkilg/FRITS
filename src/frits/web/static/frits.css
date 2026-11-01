@@ -336,3 +336,10 @@ p code, li code { overflow-wrap: anywhere; }
 .flash form.rueckgaengig { display: inline; margin-left: 0.6rem; }
 details.mehr-felder { margin: 0.4rem 0 0.8rem; }
 details.mehr-felder summary { cursor: pointer; color: var(--tinte); font-size: 0.92rem; margin-bottom: 0.4rem; }
+
+/* Fritte got a card for the work just done (only when Fritte is switched on) */
+.flash.karte { border-left: 6px solid var(--ocker); }
+.flash.karte::before { content: "🃏 "; }
+body[data-effekte="verspielt"] .flash.karte::before { display: inline-block; animation: karte-flattert .7s ease-out; }
+@keyframes karte-flattert { from { transform: translateY(-.6rem) rotate(-14deg); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { body[data-effekte="verspielt"] .flash.karte::before { animation: none; } }

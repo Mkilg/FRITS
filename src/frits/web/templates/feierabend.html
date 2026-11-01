@@ -17,21 +17,15 @@
     <li>{{ waiting }} {{ "Datei" if waiting == 1 else "Dateien" }} im Eingang</li>
     <li>{{ overdue }} überfällige {{ "Rechnung" if overdue == 1 else "Rechnungen" }}</li>
   </ul>
-  {% if karten %}
-  <div class="kassensturz-hinweis">
-    <p><strong>{{ karten }} {{ "Karte wartet" if karten == 1 else "Karten warten" }}</strong> auf den Kassensturz. Fritte rechnet sie dir gern vor.</p>
-    <form method="post" action="/fritte/kassensturz">
-      <input type="hidden" name="token" value="{{ token }}">
-      <button class="primary">Kassensturz machen</button>
-    </form>
-  </div>
-  {% endif %}
   {% if picture("rueckblick-buendel") %}<img class="buendel" src="{{ picture('rueckblick-buendel') }}" alt="">{% endif %}
   <p class="hint">Alles ist gespeichert. Du kannst das Fenster jetzt schließen und den Kopf frei machen.</p>
   <form method="post" action="/quit">
     <input type="hidden" name="token" value="{{ token }}">
-    <button>FRITS beenden</button>
+    <button class="primary">FRITS beenden</button>
   </form>
+  {% if karten %}
+  <p class="hint kassensturz-hinweis">{{ karten }} {{ "Karte wartet" if karten == 1 else "Karten warten" }} auf den Kassensturz. Das hat Zeit: Fritte rechnet sie dir gern beim nächsten Mal vor, oder <a href="/fritte#kassensturz">jetzt gleich</a>.</p>
+  {% endif %}
 </section>
 <script>window.addEventListener("load", function () { if (window.FritsSound) FritsSound.music.stop(); });</script>
 {% endblock %}

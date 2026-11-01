@@ -327,9 +327,13 @@ def create_app(
             {"text": text, "kind": kind, "cue": cue, "stamp": stamp, "undo": bool(undo)}
         )
 
+    app.state.hinweise = []  # small notes other parts add to any page, e.g. Fritte's cards
+
     def page(request: Request, name: str, **context) -> HTMLResponse:
         current = settings()
         flashes, app.state.flashes = app.state.flashes, []
+        for hinweis in app.state.hinweise:
+            flashes += hinweis(request.url.path, current)
         context.update(
             request=request,
             token=app.state.token,
@@ -410,6 +414,11 @@ def create_app(
             moment = ("welcome", "Hallo! Bevor wir loslegen: Trag kurz deine Angaben ein.")
         elif drafts or check_me:
             moment = mascot_line("needs_you" if check_me else "draft_ready")
+            if not check_me and len(drafts) > 1:
+                moment = (
+                    moment[0],
+                    f"Deine {len(drafts)} Entwürfe sind fertig. Schau sie dir an, wenn es dir passt.",
+                )
         else:
             moment = mascot_line("welcome_back")
         return page(
