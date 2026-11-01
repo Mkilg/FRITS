@@ -13,6 +13,9 @@ if [ ! -f "$RES/frits-launch.sh" ]; then
   exit 1
 fi
 
+# Lets the "FRITS ist aus" page offer a "FRITS wieder starten" button (frits://start).
+export FRITS_APP=1
+
 if "$RES/frits-launch.sh" ui --help >/dev/null 2>&1; then
   exec "$RES/frits-launch.sh" ui >>"$LOG" 2>&1
 fi

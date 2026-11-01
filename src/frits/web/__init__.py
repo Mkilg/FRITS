@@ -46,9 +46,16 @@ def serve(port: int | None = None, open_browser: bool = True) -> None:
     port = port or free_port()
     url = f"http://127.0.0.1:{port}/"
     print(f"FRITS läuft: {url}  (Strg+C beendet FRITS)")
+    app = create_app()
     if open_browser:
-        threading.Timer(1.0, webbrowser.open, args=(url,)).start()
+        threading.Timer(2.0, _open_unless_waiting, args=(app, url)).start()
     # 127.0.0.1 only: nobody else in the Wi-Fi can reach FRITS.
     # (Docker sets FRITS_HOST=0.0.0.0 inside the container and maps the port to 127.0.0.1.)
     host = os.environ.get("FRITS_HOST", "127.0.0.1")
-    uvicorn.run(create_app(), host=host, port=port, log_level="warning")
+    uvicorn.run(app, host=host, port=port, log_level="warning")
+
+
+def _open_unless_waiting(app, url: str) -> None:
+    """Open FRITS in the browser, unless the "FRITS ist aus" tab already came back by itself."""
+    if not app.state.tab_waiting:
+        webbrowser.open(url)

@@ -2,6 +2,13 @@
 {% block title %}Einstellungen · FRITS{% endblock %}
 {% block content %}
 <h1>Einstellungen</h1>
+<section class="card accent row">
+  <div>
+    <strong>Einrichtung neu starten</strong><br>
+    <span class="muted">Alle zehn Schritte noch einmal, mit KI-Test und Sicherheits-Lektionen. Deine Angaben bleiben erhalten und stehen schon in den Feldern.</span>
+  </div>
+  <a class="button primary" href="/setup/welcome">Einrichtung starten</a>
+</section>
 <form method="post" action="/settings" class="form">
   <input type="hidden" name="token" value="{{ token }}">
   <input type="hidden" name="checkboxes" value="strict_local">
@@ -77,5 +84,5 @@
   </section>
   <div class="row actions"><button class="primary">Speichern</button></div>
 </form>
-<p class="hint">Deine Daten liegen in {{ folder }}. <a href="/setup/welcome">Einrichtung noch einmal ansehen</a></p>
+<p class="hint">Deine Daten liegen in {{ folder }}.</p>
 {% endblock %}
