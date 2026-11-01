@@ -76,6 +76,7 @@ class Stueck:
     fehlt_nie: bool = False  # hat jede:r (Steuer-ID): statt "Gibt's nicht" nur "Finde ich nicht"
     warum: str = ""  # warum es das fast immer gibt: steht in der Rückfrage bei "Gibt's nicht"
     beraterin: bool = False  # kann die Beraterin selbst erstellen (EÜR): "Macht meine Beraterin"
+    woerter: tuple[str, ...] = ()  # weitere Namen in Dateinamen ("UStVA", "1099"): für Vorschläge
 
 
 @dataclass(frozen=True)
@@ -103,7 +104,9 @@ def katalog() -> dict[str, Provinz]:
             name=p["name"],
             bereich=p["bereich"],
             frage=p["frage"],
-            stuecke=tuple(Stueck(**s) for s in p["stuecke"]),
+            stuecke=tuple(
+                Stueck(**{**s, "woerter": tuple(s.get("woerter", ()))}) for s in p["stuecke"]
+            ),
             woerter=tuple(p.get("woerter", ())),
             zaehlbar=p.get("zaehlbar", False),
             person=p.get("person", False),

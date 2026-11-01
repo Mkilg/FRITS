@@ -1,11 +1,23 @@
 {# Zettel aus dem Lager: ziehbar auf eine Provinz oder Karte. Ohne JavaScript: aufklappen und auswählen.
    Erwartet: lager, provinzen, jahr, token, zurueck #}
+{% set alle_karten = provinzen | map(attribute="stuecke") | sum(start=[]) %}
+{% set titel_von = {} %}{% for p in provinzen %}{% set _ = titel_von.update({p.gebiet.id: p.gebiet.titel}) %}{% endfor %}
+{% set ahnungen = {} %}{% for f in lager %}{% set _ = ahnungen.update({f.name: ahnung(f.name, alle_karten)}) %}{% endfor %}
+{% set sichere = ahnungen.values() | selectattr("stueck") | list %}
+{% if "spuernase" in helfer and sichere | length > 1 %}
+<form method="post" action="/steuer/{{ jahr }}/lager/vorschlaege" class="sq-spuernase" data-stempel="GESICHERT">
+  <input type="hidden" name="token" value="{{ token }}">
+  <input type="hidden" name="back" value="{{ zurueck }}">
+  <button class="sq-stempelknopf gruen">Spürnase: alle {{ sichere | length }} Vorschläge stempeln</button>
+</form>
+{% endif %}
 <div class="sq-stapel">
-  {% for f in lager[:12] %}
+  {% for f in lager %}
   {% set endung = f.suffix.lower().lstrip(".") %}
-  {% set spur = vermute(f.name, provinzen | map(attribute="stuecke") | sum(start=[])) if "spuernase" in helfer else none %}
+  {% set a = ahnungen[f.name] %}{% set spur = a.stueck %}
+  <div class="sq-zettel-reihe">
   <details class="sq-zettel" style="--r: {{ [-2.5, 1.5, -1, 2.2, -1.8, 0.8][loop.index0 % 6] }}deg" data-name="{{ f.name }}">
-    <summary draggable="true" title="Auf eine Provinz ziehen"><span class="art{% if endung in ['jpg', 'jpeg', 'png', 'heic'] %} bild{% endif %}">{{ (endung or "?")[:4] | upper }}</span><strong>{{ f.name }}</strong>{% if spur %}<small class="sq-spur" title="Spürnase: geraten nach dem Dateinamen">Spürnase: {{ spur.name }}?</small>{% else %}<small>ziehen oder klicken</small>{% endif %}</summary>
+    <summary draggable="true" title="{{ f.name }}: auf eine Provinz ziehen"><span class="art{% if endung in ['jpg', 'jpeg', 'png', 'heic'] %} bild{% endif %}">{{ (endung or "?")[:4] | upper }}</span><strong>{{ f.name }}</strong>{% if spur %}<small class="sq-spur" title="Geraten nach dem Dateinamen">Vielleicht: {{ spur.name }}{% if titel_von | length > 1 %} · {{ titel_von.get(spur.gebiet, "") }}{% endif %}?</small>{% elif a.gebiet %}<small class="sq-spur" title="Geraten nach dem Dateinamen">Vielleicht: {{ titel_von.get(a.gebiet, "") }}?</small>{% else %}<small>ziehen oder klicken</small>{% endif %}</summary>
     <form method="post" action="/steuer/{{ jahr }}/lager/zuordnen" data-stempel="GESICHERT">
       <input type="hidden" name="token" value="{{ token }}">
       <input type="hidden" name="name" value="{{ f.name }}">
@@ -26,8 +38,16 @@
       <button class="quiet" title="Kommt in den Ordner „beiseite gelegt“. Nichts wird gelöscht.">Gehört nirgends hin</button>
     </form>
   </details>
+  {% if spur %}
+  <form method="post" action="/steuer/{{ jahr }}/lager/zuordnen" class="sq-ahnung" data-stempel="GESICHERT">
+    <input type="hidden" name="token" value="{{ token }}">
+    <input type="hidden" name="name" value="{{ f.name }}">
+    <input type="hidden" name="back" value="{{ zurueck }}">
+    <button name="stueck_id" value="{{ spur.id }}" title="„{{ f.name }}“ zu „{{ spur.name }}“ legen">✓ Ja, passt</button>
+  </form>
+  {% endif %}
+  </div>
   {% endfor %}
-  {% if lager | length > 12 %}<p>… und {{ lager | length - 12 }} weitere.</p>{% endif %}
 </div>
 
 {# Ein gemeinsamer Dialog für das Ziehen mit der Maus #}
