@@ -35,6 +35,10 @@ TAX_MODES: tuple[str, ...] = ("kleinunternehmer", "regelbesteuerung")
 
 LINE_KLEINUNTERNEHMER = "Betriebseinnahmen als umsatzsteuerlicher Kleinunternehmer"
 LINE_NET_INCOME = "Umsatzsteuerpflichtige Betriebseinnahmen"
+LINE_TAX_FREE = (
+    "Umsatzsteuerfreie, nicht umsatzsteuerbare Betriebseinnahmen sowie Betriebseinnahmen, "
+    "für die der Leistungsempfänger die Umsatzsteuer nach § 13b UStG schuldet"
+)
 LINE_VAT_COLLECTED = "Vereinnahmte Umsatzsteuer"
 LINE_VORSTEUER = "Gezahlte Vorsteuerbeträge"
 
@@ -107,7 +111,11 @@ def summarize(db_path: str | Path, year: int, tax_mode: TaxMode) -> EuerSummary:
     income: dict[str, Decimal] = {}
     invoices = _paid_invoices(db_path, year)
     for net, vat, gross in invoices:
-        if regel:
+        if regel and vat == 0 and net != 0:
+            # Reverse Charge in the EU, customers outside the EU, 0 % lines: no German VAT,
+            # so the Anlage EÜR wants them on their own line.
+            income[LINE_TAX_FREE] = income.get(LINE_TAX_FREE, Decimal(0)) + net
+        elif regel:
             income[LINE_NET_INCOME] = income.get(LINE_NET_INCOME, Decimal(0)) + net
             income[LINE_VAT_COLLECTED] = income.get(LINE_VAT_COLLECTED, Decimal(0)) + vat
         else:
