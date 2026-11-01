@@ -75,7 +75,7 @@ GRUND = {
 ARTEN_TEXT = {
     "rechnung": "Rechnung geschrieben oder Gutschrift erfasst",
     "bezahlt": "Zahlung eingetragen",
-    "angebot": "Angebot angenommen",
+    "angebot": "Angebot wurde zur Rechnung",
     "erinnerung": "Zahlungserinnerung",
     "ausgabe": "Ausgabe eingetragen",
     "feierabend": "Feierabend gemacht (einmal am Tag)",
@@ -95,7 +95,7 @@ QUELLEN = {
     "steuer": "SELECT id FROM steuer_stuecke WHERE status = 'gesammelt'",
     "steuerjahr": "SELECT DISTINCT jahr FROM steuer_chronik WHERE art = 'sieg'",
 }
-WILLKOMMEN_KARTEN = 24  # up to this many old cards are played as the first Kassensturz
+WILLKOMMEN_KARTEN = 12  # up to this many old cards are played as the first Kassensturz
 WILLKOMMEN_GESCHENK = 60  # at most this many Salzkörner for the rest: the journey is the fun
 STARTGEWUERZ = "pfeffer"  # Fritte's present when she moves in
 ERINNERUNG_FRIST = 14  # a reminder counts at the earliest two weeks after the invoice

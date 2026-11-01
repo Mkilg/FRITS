@@ -140,9 +140,9 @@ def test_a_long_history_is_a_mixed_table_and_a_gift(conn):
     f = haustier.ansehen(conn, TODAY)
     assert f.wartend == stand.WILLKOMMEN_KARTEN + 1  # plus Fritte moving in
     arten = [k.art for k in kassensturz.offene_karten(conn)]
-    assert arten.count("rechnung") == arten.count("bezahlt") == 12  # a mix of kinds
-    assert f.guthaben == stand.WILLKOMMEN_GESCHENK  # 18 × 3 + 18 × 2, capped
-    assert stand.kassenbuch(conn)[0]["text"] == "Willkommensgeschenk für 36 ältere Vorgänge"
+    assert arten.count("rechnung") == arten.count("bezahlt") == stand.WILLKOMMEN_KARTEN // 2
+    assert f.guthaben == stand.WILLKOMMEN_GESCHENK  # 24 × 3 + 24 × 2, capped
+    assert stand.kassenbuch(conn)[0]["text"] == "Willkommensgeschenk für 48 ältere Vorgänge"
 
 
 def test_the_first_version_moves_in(conn, tmp_path):

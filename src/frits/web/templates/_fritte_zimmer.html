@@ -1,6 +1,6 @@
 {# Fritte's room. Needs f (haustier.Fritte); neu = id of something just bought. #}
 {% set gemalt = picture('zimmer-' ~ f.stufe) %}
-<div class="zimmer laune-{{ f.laune }} stufe-{{ f.stufe }} ort-{{ f.ort }}{{ ' im-bau' if f.bau }}{{ ' gemalt' if gemalt }}{{ ' ' ~ zimmer_klasse if zimmer_klasse }}"{% if gemalt %} style="--zimmer-bild: url({{ gemalt }})"{% endif %} role="img" aria-label="Fritte in ihrem Zimmer. Sie ist {{ f.laune_name }}.">
+<div class="zimmer laune-{{ f.laune }} stufe-{{ f.stufe }} ort-{{ f.ort }}{{ ' im-bau' if f.bau }}{{ ' gemalt' if gemalt }}{{ ' fest' if f.fest }}{{ ' ' ~ zimmer_klasse if zimmer_klasse }}"{% if gemalt %} style="--zimmer-bild: url({{ gemalt }})"{% endif %} role="img" aria-label="Fritte in ihrem Zimmer. Sie ist {{ f.laune_name }}.">
   {% if f.stufe >= 5 %}<span class="markise" aria-hidden="true"></span><span class="girlande" aria-hidden="true"></span>{% endif %}
   <span class="fenster" aria-hidden="true"><span class="aussicht"></span>{% if f.stufe >= 4 %}<span class="garten"></span>{% endif %}</span>
   {% if f.stufe >= 2 %}<span class="vorhang links" aria-hidden="true"></span><span class="vorhang rechts" aria-hidden="true"></span><span class="lampe" aria-hidden="true"></span>{% endif %}

@@ -16,6 +16,7 @@ from datetime import date, timedelta
 from frits.spiel import ausbau, stand
 
 NAMEN = {1: "Winter", 2: "Frühling", 3: "Sommer", 4: "Herbst"}
+REIHE = {name: q for q, name in NAMEN.items()}
 ZEICHEN = {1: "❄️", 2: "🌱", 3: "☀️", 4: "🍂"}
 # The theme follows the year a little: receipts in winter (taxes are near), quotes when
 # things are sown, long evenings in summer, invoices at harvest time.

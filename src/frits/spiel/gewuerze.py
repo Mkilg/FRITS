@@ -86,7 +86,7 @@ GEWUERZE: tuple[Gewuerz, ...] = (
     Gewuerz("muskat", "Muskat", "🌰", "gewöhnlich", 5,
             "+1 Korn für jede Ausgabe.", pro_karte=_art("ausgabe", 1)),
     Gewuerz("schnittlauch", "Schnittlauch", "🌱", "gewöhnlich", 6,
-            "+3 Körner für jedes angenommene Angebot.", pro_karte=_art("angebot", 3)),
+            "+3 Körner für jedes Angebot, aus dem eine Rechnung wurde.", pro_karte=_art("angebot", 3)),
     Gewuerz("paprika", "Paprika", "🫑", "gewöhnlich", 7,
             "+3 Körner für jeden Beleg, den du innerhalb von 10 Tagen nach dem Eingang in"
             " FRITS eingetragen hast.", pro_karte=_art("ausgabe", 3, "zeitnah")),

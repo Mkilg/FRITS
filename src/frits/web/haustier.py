@@ -271,7 +271,10 @@ def register_haustier(
             f=f,
             seiten=seiten,
             geschafft=sum(1 for s in seiten if s["seit"]),
-            pokale=[tuple(p.rsplit(" ", 1)) for p in saison.pokale(conn)],
+            pokale=sorted(
+                (tuple(p.rsplit(" ", 1)) for p in saison.pokale(conn)),
+                key=lambda p: (p[1], saison.REIHE.get(p[0], 9)),
+            ),
             feste=saison.feste(conn),
         )
 
