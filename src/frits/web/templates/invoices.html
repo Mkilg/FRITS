@@ -38,6 +38,9 @@
       {% if i.status == "storno" and i.original_paid %}
       <form method="post" action="/invoices/{{ i.number }}/paid" class="paid-form"><input type="hidden" name="token" value="{{ token }}"><button class="tiny">Erstattet am</button> <input type="date" name="paid" value="{{ today_iso }}" max="{{ today_iso }}" aria-label="Zurücküberwiesen am"></form>
       {% endif %}
+      {% if not i.cancels %}
+      <form method="post" action="/invoices/{{ i.number }}/kopieren"><input type="hidden" name="token" value="{{ token }}"><button class="tiny quiet" title="Neuer Entwurf mit denselben Positionen, z. B. für den nächsten Monat">Kopieren</button></form>
+      {% endif %}
       {% if i.status in ("offen", "überfällig", "bezahlt") %}
       <form method="post" action="/invoices/{{ i.number }}/cancel" data-confirm="Rechnung {{ i.number }} stornieren? Es entsteht eine Stornorechnung mit eigener Nummer. Nichts wird gelöscht."><input type="hidden" name="token" value="{{ token }}"><button class="tiny quiet danger">Stornieren</button></form>
       {% endif %}

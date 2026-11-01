@@ -53,6 +53,7 @@ from frits.billing import (
     approve,
     blockers,
     cancel,
+    copy_invoice,
     discard_draft,
     draft_totals,
     limit_check,
@@ -748,6 +749,18 @@ def create_app(
             flash(str(exc), "error")
         return back("/invoices")
 
+    @app.post("/invoices/{number}/kopieren", dependencies=guarded)
+    def invoice_copy(number: str):
+        conn = db()
+        row = conn.execute("SELECT customer FROM invoices WHERE number = ?", (number,)).fetchone()
+        try:
+            draft_id = copy_invoice(conn, number, customer_by(row["customer"]) if row else None)
+        except BillingError as exc:
+            flash(str(exc), "error")
+            return back("/invoices")
+        flash(f"Neuer Entwurf mit den Positionen von {number}. Trag noch die Daten ein.")
+        return back(f"/drafts/{draft_id}")
+
     @app.post("/invoices/{number}/cancel", dependencies=guarded)
     def invoice_cancel(number: str):
         try:
@@ -1105,7 +1118,9 @@ def create_app(
             updated = settings_from_form(settings(), form)
         except (BillingError, ValueError) as exc:
             flash(
-                "Das Nummern-Schema braucht genau einen Zähler (NNN) und nur Buchstaben, Ziffern, "
+                str(exc)
+                if isinstance(exc, BillingError)
+                else "Das Nummern-Schema braucht genau einen Zähler (NNN) und nur Buchstaben, Ziffern, "
                 "- _ oder Punkt."
                 if "pattern" in str(exc)
                 else "Bitte nur Zahlen bei Preisen und Zahlungsziel.",
@@ -1250,12 +1265,29 @@ def create_app(
                 "error",
             )
             return back("/expenses")
+        twin = next(
+            (
+                e
+                for e in expenses.list_expenses(ws.db, year=expense.date.year)
+                if e.date == expense.date
+                and e.gross == expense.gross
+                and e.vendor.casefold().strip() == expense.vendor.casefold().strip()
+            ),
+            None,
+        )
         expenses.add_expense(ws.db, expense)
         flash(
             f"Ausgabe gespeichert: {eur(expense.gross)} bei {expense.vendor}.",
             cue="done",
             stamp="Gebucht",
         )
+        if twin:
+            flash(
+                "Eine Ausgabe mit demselben Tag, Laden und Betrag gab es schon. Wenn das "
+                "derselbe Beleg war, lösch die neue unten in der Liste. Zwei gleiche Tickets "
+                "dürfen natürlich bleiben.",
+                "error",
+            )
         return back(f"/expenses?year={year}")
 
     @app.post("/expenses/{expense_id}/delete", dependencies=guarded)
@@ -1487,7 +1519,9 @@ def create_app(
             updated = settings_from_form(current, form)
         except (BillingError, ValueError) as exc:
             flash(
-                "Das Nummern-Schema braucht genau einen Zähler (NNN)."
+                str(exc)
+                if isinstance(exc, BillingError)
+                else "Das Nummern-Schema braucht genau einen Zähler (NNN)."
                 if "pattern" in str(exc)
                 else "Bitte nur Zahlen bei Preisen.",
                 "error",
@@ -1561,7 +1595,9 @@ def create_app(
         conn = db()
         day = today().isoformat()
         made = conn.execute(
-            "SELECT COUNT(*) FROM invoices WHERE issue_date = ? AND cancels IS NULL", (day,)
+            "SELECT COUNT(*) FROM invoices WHERE issue_date = ? AND cancels IS NULL"
+            " AND number NOT IN (SELECT cancels FROM invoices WHERE cancels IS NOT NULL)",
+            (day,),
         ).fetchone()[0]
         read = conn.execute(
             "SELECT COUNT(*) FROM jobs WHERE substr(received, 1, 10) = ?", (day,)
@@ -1687,7 +1723,10 @@ def settings_from_form(current: Settings, form) -> Settings:
     if "price_name" in form:
         changes["prices"] = _price_rows(form)
     if "payment_days" in form:
-        changes["payment_days"] = int(str(form.get("payment_days") or 14))
+        days = int(str(form.get("payment_days") or 14))
+        if not 0 <= days <= 120:
+            raise BillingError("Das Zahlungsziel muss zwischen 0 und 120 Tagen liegen.")
+        changes["payment_days"] = days
     if "tax_mode" in form:
         changes["tax_mode"] = (
             "regelbesteuerung" if form.get("tax_mode") == "regelbesteuerung" else "kleinunternehmer"

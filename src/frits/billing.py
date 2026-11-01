@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
@@ -448,7 +448,26 @@ def cancel(conn, number: str, settings: Settings, invoices_dir: Path, today: dat
     draft_row = conn.execute(
         "SELECT data FROM drafts WHERE id = ?", (original["draft_id"],)
     ).fetchone()
-    draft = Draft.from_json(draft_row["data"])
+    if draft_row is not None:
+        draft = Draft.from_json(draft_row["data"])
+    else:  # imported or very old: only the stored totals are known, so cancel those
+        draft = Draft(
+            customer_id=None,
+            customer_name=original["customer"],
+            customer_address=None,
+            lines=[
+                Line(
+                    f"Rechnung {number} vom {date.fromisoformat(original['issue_date']):%d.%m.%Y}",
+                    original["issue_date"],
+                    Decimal(1),
+                    "pauschal",
+                    Decimal(original["net"]),
+                )
+            ],
+            questions=[],
+            warnings=[],
+            source_file="",
+        )
     for line in draft.lines:
         line.quantity = -line.quantity
     tax = draft.tax or _tax_from_invoice(original)
@@ -584,6 +603,39 @@ def new_draft(conn, draft: Draft, job_id: int | None = None) -> int:
         (job_id, store.now(), draft.customer_id, draft.to_json()),
     )
     return cur.lastrowid
+
+
+def copy_invoice(conn, number: str, customer: Customer | None = None) -> int:
+    """A new draft with the lines of an earlier invoice: for the job Fritz does every month.
+
+    Dates are left empty (it's new work), the tax is worked out afresh, and the customer's
+    details come from the current note when there is one."""
+    row = conn.execute(
+        "SELECT d.data, i.cancels FROM invoices i JOIN drafts d ON d.id = i.draft_id"
+        " WHERE i.number = ?",
+        (number,),
+    ).fetchone()
+    if row is None:
+        raise BillingError(f"Zu Rechnung {number} gibt es keine Positionen zum Kopieren.")
+    if row["cancels"]:
+        raise BillingError("Eine Stornorechnung kopiere ich nicht. Nimm die ursprüngliche.")
+    old = Draft.from_json(row["data"])
+    draft = Draft(
+        customer_id=old.customer_id,
+        customer_name=old.customer_name,
+        customer_address=old.customer_address,
+        lines=[replace(line, date=None, flags=[], stated_price=None) for line in old.lines],
+        questions=[],
+        warnings=[],
+        source_file=f"Kopie von Rechnung {number}",
+        customer_tax=old.customer_tax,
+        customer_ust_id=old.customer_ust_id,
+        customer_country=old.customer_country,
+        customer_reference=old.customer_reference,
+    )
+    if customer is not None:
+        set_customer(draft, customer)
+    return new_draft(conn, draft)
 
 
 def discard_draft(conn, draft_id: int) -> None:

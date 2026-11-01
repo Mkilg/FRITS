@@ -157,3 +157,20 @@ def test_approval_stops_at_the_100k_limit(tmp_path):
     draft = _draft(_line("Moderation", "800"))
     with pytest.raises(BillingError, match="100.000"):
         approve(conn, new_draft(conn, draft), _settings(tax_mode="kleinunternehmer"), tmp_path, DAY)
+
+
+def test_copying_an_invoice_makes_a_fresh_draft(tmp_path):
+    from frits.billing import copy_invoice, load_draft
+
+    conn = store.connect(tmp_path / "frits.db")
+    draft = _draft(_line("Moderation", "500"), _line("Artikel", "300", Decimal(7)))
+    number, _ = approve(conn, new_draft(conn, draft), _settings(), tmp_path / "r", DAY)
+    copy, _ = load_draft(conn, copy_invoice(conn, number))
+    assert [(x.description, x.unit_price, x.vat_rate, x.date) for x in copy.lines] == [
+        ("Moderation", Decimal(500), None, None),
+        ("Artikel", Decimal(300), Decimal(7), None),
+    ]
+    assert copy.tax is None and copy.source_file == f"Kopie von Rechnung {number}"
+    storno, _ = cancel(conn, number, _settings(), tmp_path / "r", DAY)
+    with pytest.raises(BillingError, match="Stornorechnung"):
+        copy_invoice(conn, storno)
