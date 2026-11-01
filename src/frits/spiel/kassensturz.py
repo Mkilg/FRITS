@@ -75,17 +75,14 @@ def _storniert(conn, number: str) -> bool:
 
 
 def _eingang(conn, draft_id) -> date | None:
-    """When the work came in: the note or email in the inbox, else the draft itself.
-    Both are set by FRITS, never typed, so there is nothing to gain from a wrong date."""
+    """When the note or email about the work arrived in the inbox. Set by FRITS, never
+    typed. An invoice typed by hand has no such moment, so it is never "frisch"."""
     r = stand.rows(
         conn,
-        "SELECT j.received, d.created FROM drafts d LEFT JOIN jobs j ON j.id = d.job_id"
-        " WHERE d.id = ?",
+        "SELECT j.received FROM drafts d JOIN jobs j ON j.id = d.job_id WHERE d.id = ?",
         (draft_id,),
     )
-    if not r:
-        return None
-    return _tag(r[0][0]) or _tag(r[0][1])
+    return _tag(r[0][0]) if r else None
 
 
 def _karte(conn, schluessel: str, art: str, gesehen: str, ausgaben=None) -> Karte | None:
@@ -96,6 +93,14 @@ def _karte(conn, schluessel: str, art: str, gesehen: str, ausgaben=None) -> Kart
     typing a different date, so the game never makes a wrong date attractive."""
     key = schluessel.split(":", 1)[1]
     base = stand.GRUND.get(art, 0)
+    if art == "korrektur":
+        echt = _karte(conn, schluessel, schluessel.split(":", 1)[0], gesehen, ausgaben)
+        if echt is None:
+            return None
+        return Karte(
+            schluessel, art, f"{echt.titel} (Korrektur)",
+            "ersetzt eine stornierte Rechnung, darum ohne Körner", 0, {},
+        )  # fmt: skip
     if art == "rechnung":
         r = stand.rows(
             conn,
@@ -135,10 +140,15 @@ def _karte(conn, schluessel: str, art: str, gesehen: str, ausgaben=None) -> Kart
             {"puenktlich": puenktlich, "nach_erinnerung": erinnert},
         )  # fmt: skip
     if art == "angebot":
-        r = stand.rows(conn, "SELECT created FROM quotes WHERE number = ?", (key,))
+        r = stand.rows(
+            conn,
+            "SELECT created FROM quotes WHERE number = ?"
+            " AND (status = 'accepted' OR draft_id IS NOT NULL)",
+            (key,),
+        )
         if not r:
             return None
-        return Karte(schluessel, art, f"Angebot {key}", "geschrieben", base, {})
+        return Karte(schluessel, art, f"Angebot {key}", "angenommen", base, {})
     if art == "erinnerung":
         if not key.isdigit():
             return None
@@ -157,7 +167,8 @@ def _karte(conn, schluessel: str, art: str, gesehen: str, ausgaben=None) -> Kart
         r = stand.rows(
             conn,
             "SELECT e.vendor, e.gross, (SELECT MIN(j.received) FROM jobs j"
-            " WHERE j.filename = e.source_file) FROM expenses e WHERE e.id = ?",
+            " WHERE j.filename = e.source_file) FROM expenses e"
+            " WHERE e.id = ? AND e.struck IS NULL",
             (rid,),
         )
         if not r:
@@ -188,7 +199,10 @@ def _karte(conn, schluessel: str, art: str, gesehen: str, ausgaben=None) -> Kart
             return None
         return Karte(schluessel, art, f"Steuerjahr {key}", "Der Drache ist besiegt!", base, {})
     if art == "start":
-        return Karte(schluessel, art, "Fritte zieht ein", "Willkommen!", base, {})
+        return Karte(
+            schluessel, art, "Fritte zieht ein", "Willkommen! Dazu +1 Würze", base,
+            {"plus_wuerze": 1.0},
+        )  # fmt: skip
     return None
 
 
@@ -267,6 +281,13 @@ def berechnen(karten: list[dict], gewuerze: list[Gewuerz], umfeld: dict) -> dict
                     {"typ": "gewuerz", "karte": i, "gewuerz": g.id, "plus": extra,
                      "koerner": koerner, "wuerze": wuerze}
                 )  # fmt: skip
+    for i, karte in enumerate(karten):  # e.g. Fritte's move-in card brings Würze itself
+        if karte.get("plus_wuerze"):
+            wuerze = round(wuerze + karte["plus_wuerze"], 2)
+            schritte.append(
+                {"typ": "plus", "gewuerz": "", "karte": i, "plus": karte["plus_wuerze"],
+                 "koerner": koerner, "wuerze": wuerze}
+            )  # fmt: skip
     for g in gewuerze:
         if g.plus_wuerze:
             plus = g.plus_wuerze(karten, umfeld)
@@ -296,14 +317,20 @@ def berechnen(karten: list[dict], gewuerze: list[Gewuerz], umfeld: dict) -> dict
 
 def vorschau(conn, heute: date, aufgeraeumt: bool) -> tuple[list[Karte], dict]:
     karten = offene_karten(conn)
-    thema = saison.THEMEN[saison.quartal(heute)[0]][0]
-    for k in karten:  # this season's theme: one kind of card brings double
-        if k.art == thema:
+    for k in karten:  # the season's theme (of the day the card came): one kind brings double
+        if k.art == saison.THEMEN[saison.quartal(_tag(gesehen_von(conn, k)) or heute)[0]][0]:
             k.koerner *= 2
             k.fakten["saison"] = True
     return karten, berechnen(
         [k.als_dict() for k in karten], regal(conn), umfeld(conn, heute, aufgeraeumt)
     )
+
+
+def gesehen_von(conn, karte: Karte) -> str:
+    r = conn.execute(
+        "SELECT gesehen FROM spiel_karten WHERE schluessel = ?", (karte.schluessel,)
+    ).fetchone()
+    return r[0] if r else ""
 
 
 def umfeld(conn, heute: date, aufgeraeumt: bool) -> dict:
@@ -344,6 +371,8 @@ def durchfuehren(conn: sqlite3.Connection, heute: date, aufgeraeumt: bool) -> in
             [(nummer, k.schluessel) for k in karten],
         )
         n = len(karten)
+        if any(k.art == "start" for k in karten):  # the welcome round is a present
+            stand.setze(conn, "willkommen_ks", str(nummer))
         stand.buche(
             conn, heute.isoformat(), ergebnis["summe"], "kassensturz",
             f"Kassensturz Nr. {nummer}: {n} {'Karte' if n == 1 else 'Karten'}",
@@ -356,11 +385,14 @@ def durchfuehren(conn: sqlite3.Connection, heute: date, aufgeraeumt: bool) -> in
                 stand.setze(conn, key, str(int(stand.einstellung(conn, key, "0")) + 1))
         fertig = ausbau.fertigstellen(conn)
         if fertig:
-            record["ausbau"] = {"name": fertig.name, "zeichen": fertig.zeichen, "text": fertig.text}
+            record["ausbau"] = {
+                "name": fertig.name, "zeichen": fertig.zeichen,
+                "text": ausbau.stufen_text(conn, fertig),
+            }  # fmt: skip
         geschafft = saison.pruefen(conn, heute)
         if geschafft:
             record["saison"] = {
-                "name": geschafft.name, "ziel": geschafft.ziel,
+                "name": geschafft.name, "ziel": geschafft.ziel, "erreicht": geschafft.erreicht,
                 "bonus": geschafft.ziel // saison.BONUS_ANTEIL,
             }  # fmt: skip
         neu = album.neue(conn, heute)

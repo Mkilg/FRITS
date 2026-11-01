@@ -104,8 +104,12 @@ def register_haustier(
         return haustier.ansehen(conn, today(), datei)
 
     def album_pruefen(conn) -> None:
-        for e in album.neue(conn, today()):
-            flash(f"Neu in Frittes Album: {e.zeichen} {e.name}", cue="done")
+        neu = album.neue(conn, today())
+        if neu:
+            flash(
+                "Neu in Frittes Album: " + ", ".join(f"{e.zeichen} {e.name}" for e in neu),
+                cue="done",
+            )
 
     def karten_hinweis(path: str, current) -> list[dict]:
         """Right after the work: a quiet note that Fritte got a card for it."""
@@ -122,9 +126,12 @@ def register_haustier(
         if n <= vorher or path == "/" or path.startswith(("/fritte", "/feierabend")):
             return []
         neu = n - vorher
+        bereit = kassensturz.vorschau(conn, today(), aufgeraeumt=False)[1]["summe"]
         text = (
             f"Fritte hat {'eine neue Karte' if neu == 1 else f'{neu} neue Karten'}"
-            f" für den Kassensturz ({n} {'wartet' if n == 1 else 'warten'})."
+            f" für den Kassensturz: {n} {'wartet' if n == 1 else 'warten'},"
+            f" das {'ist' if bereit == 1 else 'sind'} etwa +{bereit}"
+            f" {'Salzkorn' if bereit == 1 else 'Salzkörner'}."
         )
         return [
             {"text": text, "kind": "karte", "cue": None, "stamp": None, "undo": False,
@@ -165,6 +172,7 @@ def register_haustier(
             umzug_preis=ausbau.umzug_preis(conn),
             ruf=ausbau.ruf(conn),
             bau_preis=lambda st: ausbau.preis(conn, st),
+            stufen_text=lambda st: ausbau.stufen_text(conn, st),
             regal=kassensturz.regal(conn),
             plaetze=kassensturz.plaetze(conn),
             chronik=kassensturz.chronik(conn),
@@ -255,7 +263,7 @@ def register_haustier(
             im_regal={g.id for g in shelf},
             plaetze=kassensturz.plaetze(conn),
             wurf_preis=wurf_preis(conn, wuerfe),
-            verkauf=lambda g: verkaufs_preis(bezahlt.get(g.id, g.preis)),
+            verkauf=lambda g: verkaufs_preis(bezahlt.get(g.id) or g.preis),
             laden=haustier.LADEN,
             kassenbuch=stand.kassenbuch(conn),
             stufe=ausbau.stufe(conn),

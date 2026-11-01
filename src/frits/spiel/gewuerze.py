@@ -17,6 +17,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 GEWICHT = {"gewöhnlich": 6, "selten": 3, "legendär": 1}
+MALZESSIG_WOCHEN = 10  # Malzessig is fully matured after ten weeks
 
 
 @dataclass(frozen=True)
@@ -44,11 +45,13 @@ def _art(art: str, koerner: int, bedingung: str | None = None):
 
 
 def _kartenarten(karten: list[dict], umfeld: dict) -> float:
-    return 1.0 if len({k["art"] for k in karten}) >= 3 else 0.0
+    return 1.0 if len({k["art"] for k in karten} - {"korrektur"}) >= 3 else 0.0
 
 
-def _puenktlich(karten: list[dict], umfeld: dict) -> float:
-    return 0.5 * sum(1 for k in karten if k["art"] == "bezahlt" and k.get("puenktlich"))
+def _zahlungen(karten: list[dict], umfeld: dict) -> float:
+    # Not "on time": the payment date is the day Fritz clicks "Bezahlt", so rewarding an
+    # early date would reward clicking before the money is there (EÜR: Zuflussprinzip).
+    return 0.5 * sum(1 for k in karten if k["art"] == "bezahlt")
 
 
 def _stapel(karten: list[dict], umfeld: dict) -> float:
@@ -68,8 +71,8 @@ def _aufgeraeumt(karten: list[dict], umfeld: dict) -> float:
 
 
 def _gereift(karten: list[dict], umfeld: dict) -> float:
-    # Grows with every week that had a Kassensturz since it came onto the shelf.
-    return round(0.2 * umfeld.get("reife", {}).get("malzessig", 0), 1)
+    # Grows with every week that had a Kassensturz since it came onto the shelf, up to +2.
+    return round(0.2 * min(MALZESSIG_WOCHEN, umfeld.get("reife", {}).get("malzessig", 0)), 1)
 
 
 GEWUERZE: tuple[Gewuerz, ...] = (
@@ -78,7 +81,7 @@ GEWUERZE: tuple[Gewuerz, ...] = (
     Gewuerz("muskat", "Muskat", "🌰", "gewöhnlich", 5,
             "+1 Korn für jede Ausgabe.", pro_karte=_art("ausgabe", 1)),
     Gewuerz("schnittlauch", "Schnittlauch", "🌱", "gewöhnlich", 6,
-            "+3 Körner für jedes Angebot.", pro_karte=_art("angebot", 3)),
+            "+3 Körner für jedes angenommene Angebot.", pro_karte=_art("angebot", 3)),
     Gewuerz("paprika", "Paprika", "🫑", "gewöhnlich", 7,
             "+3 Körner für jeden Beleg, den du innerhalb von 10 Tagen nach dem Eingang in"
             " FRITS eingetragen hast.", pro_karte=_art("ausgabe", 3, "zeitnah")),
@@ -94,13 +97,13 @@ GEWUERZE: tuple[Gewuerz, ...] = (
     Gewuerz("zimt", "Zimt", "🪵", "selten", 10,
             "+2 Würze, wenn ein Feierabend dabei ist.", plus_wuerze=_feierabend),
     Gewuerz("curry", "Curry", "🍛", "selten", 12,
-            "+0,5 Würze für jede Zahlung, die vor dem Zahlungsziel kam.",
-            plus_wuerze=_puenktlich),
+            "+0,5 Würze für jede eingegangene Zahlung.", plus_wuerze=_zahlungen),
     Gewuerz("chili", "Chili", "🌶️", "selten", 12,
             "+1 Würze für je 5 Karten im Kassensturz. Gut für einen Büro-Block.",
             plus_wuerze=_stapel),
     Gewuerz("malzessig", "Malzessig", "🍶", "legendär", 20,
-            "Reift im Regal: +0,2 Würze für jede Woche mit Kassensturz, seit er da ist.",
+            "Reift im Regal: +0,2 Würze für jede Woche mit Kassensturz, seit er da ist"
+            " (bis +2).",
             plus_wuerze=_gereift),
     Gewuerz("trueffelsalz", "Trüffelsalz", "🍄", "legendär", 22,
             "Würze ×2, wenn du in jeder der letzten drei Wochen Papierkram gemacht hast.",

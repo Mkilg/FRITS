@@ -64,11 +64,12 @@ GRUND = {
     "steuer": 1,  # a piece collected in the Steuer-Quest
     "steuerjahr": 25,  # the whole tax year done: the big one, once a year
     "start": 3,  # Fritte moves in (only once, in the first Kassensturz)
+    "korrektur": 0,  # an invoice or payment that replaces a cancelled one already scored
 }
 ARTEN_TEXT = {
     "rechnung": "Rechnung geschrieben",
     "bezahlt": "Zahlung eingetragen",
-    "angebot": "Angebot geschrieben",
+    "angebot": "Angebot angenommen",
     "erinnerung": "Zahlungserinnerung",
     "ausgabe": "Ausgabe eingetragen",
     "feierabend": "Feierabend gemacht (einmal am Tag)",
@@ -80,13 +81,15 @@ ARTEN_TEXT = {
 QUELLEN = {
     "rechnung": "SELECT number FROM invoices WHERE cancels IS NULL",
     "bezahlt": "SELECT number FROM invoices WHERE paid_date IS NOT NULL AND cancels IS NULL",
-    "angebot": "SELECT number FROM quotes",
+    # A quote counts once the customer said yes: writing quotes alone is no habit to reward.
+    "angebot": "SELECT number FROM quotes WHERE status = 'accepted' OR draft_id IS NOT NULL",
     "steuer": "SELECT id FROM steuer_stuecke WHERE status = 'gesammelt'",
     "steuerjahr": "SELECT DISTINCT jahr FROM steuer_chronik WHERE art = 'sieg'",
 }
-WILLKOMMEN_KARTEN = 25  # up to this many old cards are played as the first Kassensturz
+WILLKOMMEN_KARTEN = 24  # up to this many old cards are played as the first Kassensturz
 STARTGEWUERZ = "pfeffer"  # Fritte's present when she moves in
-ERINNERUNG_ABSTAND = 7  # at most one reminder card per invoice and week
+ERINNERUNG_FRIST = 14  # a reminder counts at the earliest two weeks after the invoice
+KORREKTUR_TAGE = 30  # a new invoice this soon after a Storno is its correction
 
 
 class SpielFehler(Exception):
@@ -139,6 +142,7 @@ def _gefunden(conn) -> list[tuple[str, str]]:
 
 
 def ausgabe_inhalt(day, vendor, gross) -> str:
+    """The content key of version 2 (day, shop, amount); only used to move old cards."""
     try:
         amount = f"{Decimal(str(gross)):.2f}"
     except (InvalidOperation, ValueError):
@@ -146,10 +150,7 @@ def ausgabe_inhalt(day, vendor, gross) -> str:
     return f"{str(day)[:10]}|{' '.join(str(vendor).split()).casefold()}|{amount}"
 
 
-def ausgaben(conn) -> dict[str, int]:
-    """Expense cards by what was paid (day, shop, amount), not by row id: an expense deleted
-    and entered again is the same expense, and never a second card. Two identical receipts
-    (two bus tickets) are still two cards."""
+def _ausgaben_v2(conn) -> dict[str, int]:
     seen: Counter = Counter()
     keys = {}
     for rid, day, vendor, gross in rows(
@@ -161,35 +162,126 @@ def ausgaben(conn) -> dict[str, int]:
     return keys
 
 
-def erinnerungen(conn) -> list[int]:
-    """Reminders that count as cards: one per invoice and week. Clicking four times in a
-    row is no reason for Fritte to be pleased; a friendly nudge now and then is."""
-    letzte: dict[str, date] = {}
-    zaehlt = []
-    for rid, number, created in rows(
-        conn, "SELECT id, invoice_number, created FROM reminders ORDER BY created, id"
+def ausgaben(conn) -> dict[str, int]:
+    """Expense cards, keyed so that fixing a mistake never earns a second card:
+    an expense from a receipt file is that file; one typed by hand is its day and shop.
+    So deleting an expense and entering it again (even with a corrected amount) is the
+    same card. Two purchases at the same shop on the same day are still two cards."""
+    seen: Counter = Counter()
+    keys = {}
+    for rid, day, vendor, source in rows(
+        conn,
+        "SELECT id, date, vendor, source_file FROM expenses WHERE struck IS NULL ORDER BY id",
     ):
-        try:
-            day = date.fromisoformat(str(created)[:10])
-        except ValueError:
+        if source:
+            keys.setdefault(f"ausgabe:datei:{source}", int(rid))
             continue
-        if number in letzte and day - letzte[number] < timedelta(days=ERINNERUNG_ABSTAND):
+        inhalt = f"{str(day)[:10]}|{' '.join(str(vendor).split()).casefold()}"
+        seen[inhalt] += 1
+        keys[f"ausgabe:{inhalt}#{seen[inhalt]}"] = int(rid)
+    return keys
+
+
+def erinnerungen(conn) -> list[int]:
+    """Reminders that count as cards: only for an invoice that is really overdue (at least
+    two weeks after it was written), and the next one only after the new due date the last
+    reminder gave. Clicking four times in a row is no reason for Fritte to be pleased."""
+    frist: dict[str, date] = {}
+    zaehlt = []
+    for rid, number, created, new_due, issue, due in rows(
+        conn,
+        "SELECT r.id, r.invoice_number, r.created, r.new_due_date, i.issue_date, i.due_date"
+        " FROM reminders r JOIN invoices i ON i.number = r.invoice_number"
+        " ORDER BY r.created, r.id",
+    ):
+        day, ab = _tag(created), frist.get(number)
+        if day is None:
             continue
-        letzte[number] = day
+        if ab is None:
+            ab = max(
+                d for d in (_tag(due), (_tag(issue) or day) + timedelta(ERINNERUNG_FRIST)) if d
+            )
+        if day <= ab:
+            continue
+        frist[number] = _tag(new_due) or day + timedelta(days=7)
         zaehlt.append(int(rid))
     return zaehlt
 
 
+def _tag(value) -> date | None:
+    try:
+        return date.fromisoformat(str(value)[:10])
+    except (TypeError, ValueError):
+        return None
+
+
+def korrektur_art(conn, key: str, art: str) -> str:
+    """A new invoice (or its payment) for a customer whose scored invoice was cancelled
+    shortly before is the correction of that mistake: it becomes a "korrektur" card
+    without Körner. A mistake plus its correction never pays more than doing it right."""
+    if art not in ("rechnung", "bezahlt"):
+        return art
+    number = key.split(":", 1)[1]
+    r = rows(conn, "SELECT customer, issue_date FROM invoices WHERE number = ?", (number,))
+    if not r:
+        return art
+    customer, issue = r[0]
+    issued = _tag(issue)
+    storniert = rows(
+        conn,
+        "SELECT k.schluessel FROM spiel_karten k"
+        " JOIN invoices o ON k.schluessel = ? || o.number"
+        " JOIN invoices s ON s.cancels = o.number"
+        " WHERE k.art = ? AND k.kassensturz > 0 AND o.customer = ? AND s.issue_date <= ?"
+        " AND s.issue_date >= ?",
+        (
+            f"{art}:", art, customer, str(issue)[:10],
+            ((issued or date.min) - timedelta(days=KORREKTUR_TAGE)).isoformat(),
+        ),
+    )  # fmt: skip
+    if not storniert:
+        return art
+    schon = rows(
+        conn,
+        "SELECT COUNT(*) FROM spiel_karten k JOIN invoices i ON k.schluessel = ? || i.number"
+        " WHERE k.art = 'korrektur' AND i.customer = ?",
+        (f"{art}:", customer),
+    )[0][0]
+    return "korrektur" if schon < len(storniert) else art
+
+
 def _neue_schluessel(conn) -> None:
-    """Expense cards used to be keyed by row id; move them to the content key once."""
-    if einstellung(conn, "schluessel_v2"):
+    """Expense cards were keyed by row id (v1), then by day, shop and amount (v2).
+    Move them to today's key once, so no expense becomes a card a second time."""
+    if einstellung(conn, "schluessel_v3"):
         return
-    for key, rid in ausgaben(conn).items():
+    neu = {rid: key for key, rid in ausgaben(conn).items()}
+    alt = {rid: key for key, rid in _ausgaben_v2(conn).items()}
+    for rid, key in neu.items():
+        for frueher in (f"ausgabe:{rid}", alt.get(rid)):
+            if frueher and frueher != key:
+                conn.execute(
+                    "UPDATE OR IGNORE spiel_karten SET schluessel = ? WHERE schluessel = ?",
+                    (key, frueher),
+                )
+    setze(conn, "schluessel_v3", "1")
+
+
+def _neue_karten(conn, tag: str) -> None:
+    bekannt = {r[0] for r in conn.execute("SELECT schluessel FROM spiel_karten")}
+    for key, art in _gefunden(conn):
+        if key not in bekannt:
+            conn.execute(
+                "INSERT OR IGNORE INTO spiel_karten (schluessel, art, gesehen) VALUES (?, ?, ?)",
+                (key, korrektur_art(conn, key, art), tag),
+            )
+    # A quote that is not accepted (any more) waits off the table until it is.
+    if rows(conn, "SELECT name FROM sqlite_master WHERE name = 'quotes'"):
         conn.execute(
-            "UPDATE OR IGNORE spiel_karten SET schluessel = ? WHERE schluessel = ?",
-            (key, f"ausgabe:{rid}"),
+            "DELETE FROM spiel_karten WHERE art = 'angebot' AND kassensturz IS NULL"
+            " AND substr(schluessel, 9) NOT IN (SELECT number FROM quotes"
+            " WHERE status = 'accepted' OR draft_id IS NOT NULL)"
         )
-    setze(conn, "schluessel_v2", "1")
 
 
 def abgleichen(conn: sqlite3.Connection, heute: date, alte_datei: Path | None = None) -> int:
@@ -204,10 +296,7 @@ def abgleichen(conn: sqlite3.Connection, heute: date, alte_datei: Path | None = 
             _einrichten(conn, tag, alte_datei)
         else:
             _neue_schluessel(conn)
-            conn.executemany(
-                "INSERT OR IGNORE INTO spiel_karten (schluessel, art, gesehen) VALUES (?, ?, ?)",
-                [(key, art, tag) for key, art in _gefunden(conn)],
-            )
+            _neue_karten(conn, tag)
     return wartende(conn)
 
 
@@ -218,15 +307,35 @@ def _einrichten(conn, tag: str, alte_datei: Path | None) -> None:
     two hundred cards."""
     found = _gefunden(conn)
     alt = _alte_datei(alte_datei)
-    if not alt and len(found) < WILLKOMMEN_KARTEN:
+    if not alt:
+        # A mix of kinds for the table (round robin), the rest becomes a welcome gift.
+        nach_art: dict[str, list[str]] = {}
+        for key, art in found:
+            nach_art.setdefault(art, []).append(key)
+        tisch: list[tuple[str, str]] = []
+        while len(tisch) < WILLKOMMEN_KARTEN and any(nach_art.values()):
+            for art, keys in nach_art.items():
+                if keys and len(tisch) < WILLKOMMEN_KARTEN:
+                    tisch.append((keys.pop(), art))
+        rest = [(key, art) for art, keys in nach_art.items() for key in keys]
         conn.executemany(
             "INSERT OR IGNORE INTO spiel_karten (schluessel, art, gesehen) VALUES (?, ?, ?)",
             # No day for the old cards: they are not today's work, and no "zeitnah" either.
-            [(key, art, "") for key, art in found] + [("start:1", "start", tag)],
+            [(key, art, "") for key, art in tisch] + [("start:1", "start", tag)],
         )
+        conn.executemany(
+            "INSERT OR IGNORE INTO spiel_karten (schluessel, art, gesehen, kassensturz)"
+            " VALUES (?, ?, ?, 0)",
+            [(key, art, tag) for key, art in rest],
+        )
+        geschenk = sum(GRUND[art] for _, art in rest)
+        if geschenk:
+            buche(
+                conn, tag, geschenk, "start", f"Willkommensgeschenk für {len(rest)} ältere Vorgänge"
+            )
         nimm(conn, STARTGEWUERZ, "gewuerz", tag, 0)
         setze(conn, "willkommen", "kassensturz")
-        setze(conn, "schluessel_v2", "1")
+        setze(conn, "schluessel_v3", "1")
         setze(conn, "eingerichtet", tag)
         return
     conn.executemany(
@@ -240,7 +349,7 @@ def _einrichten(conn, tag: str, alte_datei: Path | None) -> None:
     if start:
         buche(conn, tag, start, "start", "Willkommensgeschenk für deinen bisherigen Papierkram")
     setze(conn, "willkommen", "geschenk")
-    setze(conn, "schluessel_v2", "1")
+    setze(conn, "schluessel_v3", "1")
     for ding in alt.get("gekauft", []):
         conn.execute(
             "INSERT OR IGNORE INTO spiel_besitz (id, art, gekauft, preis) VALUES (?, 'ding', ?, 0)",
@@ -298,7 +407,8 @@ def pflegetage(conn, heute: date) -> set[date]:
         "SELECT received FROM jobs",
         (
             "SELECT gesehen FROM spiel_karten"
-            " WHERE (kassensturz IS NULL OR kassensturz != 0) AND art != 'start'"
+            " WHERE (kassensturz IS NULL OR kassensturz != 0)"
+            " AND art NOT IN ('start', 'feierabend')"  # a click alone is no paperwork
         ),
     ):
         for (value,) in rows(conn, sql):
