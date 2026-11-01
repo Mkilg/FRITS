@@ -1,0 +1,18 @@
+{% import "kurs/_teile.html" as t with context %}
+
+<div class="spickzettel-karte" data-spickzettel>
+  <ul class="haken-liste">
+    <li><label><input type="checkbox"> Brauche ich hier überhaupt eine KI?</label></li>
+    <li><label><input type="checkbox"> Ist geschwärzt, und habe ich drübergeschaut?</label></li>
+    {% if werkzeug.agent %}<li><label><input type="checkbox"> Arbeitet {{ werkzeug.name }} in <code>~/KI-Werkstatt</code> und nicht im ganzen Benutzerordner?</label></li>
+    <li><label><input type="checkbox"> Sind die Schlösser an, und ist das Internet aus?</label></li>
+    {% else %}<li><label><input type="checkbox"> Ist das Training aus, und ist es ein vorübergehender Chat?</label></li>
+    <li><label><input type="checkbox"> Steht die Hausordnung am Anfang?</label></li>{% endif %}
+    <li><label><input type="checkbox"> Löschen, Verschicken, Bezahlen mache ich selbst.</label></li>
+  </ul>
+  <div class="spick-fertig" data-spick-fertig hidden>
+    <span class="stempel stempel-gelernt" aria-hidden="true">Gelernt</span>
+    <p><strong>Alles abgehakt!</strong> Drück unten auf „Kurs abschließen“.</p>
+  </div>
+</div>
+<div class="lesson ok"><strong>Drei Sätze, falls dich jemand fragt:</strong> „Die Namen verlassen meinen Computer nicht. Die KI arbeitet nur mit Platzhaltern in einem eigenen Ordner. Und nichts geht raus, ohne dass ich klicke.“</div>

@@ -1,0 +1,10 @@
+{% import "kurs/_teile.html" as t with context %}
+
+{% set stufen = [("0", "Keine KI"), ("1", "Lokal"), ("2", "Schwärzen + Chat"), ("3", "Agent mit Schleuse")] %}
+<div class="quiz" data-quiz>
+  {{ t.frage("🩺 Ein Arztbrief: Du willst wissen, was die Diagnose bedeutet.", [("0 · Keine KI", true, "Gute Wahl. Gesundheitsdaten gehören zu den heikelsten überhaupt."), ("1 · Lokal", true, "Auch gut: Nichts verlässt deinen Computer."), ("2 · Schwärzen + Chat", false, "Lieber nicht. Selbst geschwärzt verrät eine Diagnose viel über dich."), ("3 · Agent", false, "Viel zu viel für einen einzelnen Brief, und zu heikel.")]) }}
+  {{ t.frage("🏠 Die Nebenkostenabrechnung: Ist die Nachzahlung plausibel?", [("0 · Keine KI", false, "Geht natürlich, aber hier hilft die KI gut, und es ist nicht heikel."), ("1 · Lokal", true, "Geht, wenn du eine lokale KI hast."), ("2 · Schwärzen + Chat", true, "Genau richtig. Namen und Adresse weg, Beträge bleiben."), ("3 · Agent", false, "Für einen Brief brauchst du keinen Agenten.")]) }}
+  {{ t.frage("🧾 200 Belege für die Steuer nach Monat sortieren.", [("0 · Keine KI", false, "Kann man machen, aber das ist genau die mühsame Arbeit, bei der ein Agent hilft."), ("1 · Lokal", true, "Geht, wenn deine lokale KI Dateien bearbeiten kann."), ("2 · Schwärzen + Chat", false, "200 Mal kopieren? Das macht keinen Spaß."), ("3 · Agent", true, "Richtig. Geschwärzte Kopien in die Schleuse, und der Agent sortiert.")]) }}
+  {{ t.frage("🏛️ Ein Brief vom Amt: Was wollen die von mir, und bis wann?", [("0 · Keine KI", false, "Geht, aber hier hilft die KI richtig gut."), ("1 · Lokal", true, "Geht auch."), ("2 · Schwärzen + Chat", true, "Perfekt. Aktenzeichen und Namen weg, Fristen und Beträge bleiben."), ("3 · Agent", false, "Für einen Brief zu viel des Guten.")]) }}
+  <p class="quiz-stand" data-quiz-stand aria-live="polite"></p>
+</div>

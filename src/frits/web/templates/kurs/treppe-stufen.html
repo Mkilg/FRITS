@@ -1,0 +1,18 @@
+{% import "kurs/_teile.html" as t with context %}
+
+<div class="treppe-wahl" data-auswahl data-start="s2">
+  <div class="stufen" aria-label="Die Stufen">
+    <button type="button" class="stufe s0" data-zeige="s0"><span>0</span>Keine KI</button>
+    <button type="button" class="stufe s1" data-zeige="s1"><span>1</span>Lokale KI</button>
+    <button type="button" class="stufe s2" data-zeige="s2"><span>2</span>Erst schwärzen, dann Chat</button>
+    <button type="button" class="stufe s3" data-zeige="s3"><span>3</span>Agent mit Schleuse</button>
+    <button type="button" class="stufe s4" data-zeige="s4"><span>4</span>Agent auf Originalen</button>
+    <button type="button" class="stufe snie" data-zeige="snie"><span>✗</span>Alle Rechte</button>
+  </div>
+  <div class="tafel" data-tafel="s0"><h3>Stufe 0: Gar keine KI</h3><p>Bei Gesundheitsdaten, Unterlagen anderer Leute und allem, was dir Bauchweh macht, oft die beste Wahl.</p></div>
+  <div class="tafel" data-tafel="s1"><h3>Stufe 1: Lokale KI</h3><p>Eine KI auf deinem eigenen Computer, zum Beispiel Ollama. Nichts verlässt den Rechner. Etwas langsamer und ungenauer.</p><p class="hint">In FRITS: Einstellungen › „Lokale KI“ und „Strikter Modus“.</p></div>
+  <div class="tafel" data-tafel="s2"><h3>Stufe 2: Erst schwärzen, dann Chat</h3><p>Du schwärzt auf deinem Computer und kopierst nur den geschwärzten Text in den Chat. <strong>So arbeitet FRITS selbst.</strong></p></div>
+  <div class="tafel" data-tafel="s3"><h3>Stufe 3: Agent mit Schleuse</h3><p>Ein Agent arbeitet in einem eigenen Ordner mit geschwärzten Kopien. Die Originale sind abgeschlossen.</p></div>
+  <div class="tafel" data-tafel="s4"><h3>Stufe 4: Agent auf Originalen</h3><p>Nur wenn es nicht anders geht, und dann im vorsichtigsten Modus, in dem er vor jedem Schritt fragt.</p></div>
+  <div class="tafel" data-tafel="snie"><h3 class="schlecht-text">Nie: Agent mit allen Rechten</h3><p>Modi wie „bypass permissions“, „Full Access“ oder „Run Everything“ sind für Wegwerf-Computer gedacht. Nicht für deinen Mac mit deinen Unterlagen.</p></div>
+</div>

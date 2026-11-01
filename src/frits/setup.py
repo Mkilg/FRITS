@@ -32,7 +32,7 @@ STEPS = (
     "done",
 )
 # How FRITS protects data: worth seeing once, but never in the way. "Überspringen" jumps to
-# first_invoice; the same lessons live on in the KI-Werkstatt.
+# first_invoice; the same lessons live on in the course "So funktionieren KI-Agenten" (/lernen).
 LEARNING_STEPS = ("redaction_test", "trick_document", "permissions")
 
 # Used when the mascot module (with its lines.json) isn't installed.

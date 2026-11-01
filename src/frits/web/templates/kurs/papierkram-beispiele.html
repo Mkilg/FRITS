@@ -1,0 +1,32 @@
+{% import "kurs/_teile.html" as t with context %}
+
+{% set papiere = [
+  ("steuer", "🧾", "Steuer", "Steuer-ID, Steuernummer, IBAN, Namen von Mietern und Kunden", "Beträge, Datum, Art der Ausgabe", "2 oder 3", "Sortier diese Belege nach Monat und Art und mach mir eine Tabelle mit Summen."),
+  ("miete", "🏠", "Miete und Nebenkosten", "Namen, Adresse der Wohnung, Zählernummern, Konto", "Kostenarten, Beträge, Zeitraum, Fläche", "2", "Prüf, ob die Nachzahlung plausibel ist, und schreib mir eine kurze Rückfrage."),
+  ("arzt", "🩺", "Arzt und Krankenkasse", "alles mit Gesundheit, Versichertennummer, Namen", "fast nichts", "0 oder 1", ""),
+  ("amt", "🏛️", "Briefe vom Amt", "Aktenzeichen, Kundennummer, Namen, Adresse, Geburtsdatum", "Fristen, Beträge, was verlangt wird", "2", "Was wollen die von mir, und bis wann? Antworte in drei Sätzen."),
+  ("vertrag", "📑", "Versicherungen und Verträge", "Vertrags- und Versicherungsnummer, Namen, Konto", "Leistungen, Kündigungsfristen, Beiträge", "2", "Bis wann kann ich kündigen, und was kostet der Vertrag im Jahr?"),
+  ("konto", "🏦", "Kontoauszüge", "IBAN, Namen der Gegenseite, Verwendungszwecke mit Namen", "Datum, Betrag, Kategorie", "1 oder 3", "Ordne jede Zeile einer Kategorie zu und rechne die Summen pro Kategorie."),
+  ("bewerbung", "💼", "Bewerbungen", "Name, Adresse, Geburtsdatum, Foto, Arbeitgeber", "Fähigkeiten, Stationen ohne Namen", "2", "Mach meinen Lebenslauf kürzer und klarer, ohne etwas zu erfinden."),
+  ("kunden", "✉️", "Kunden-E-Mails", "Namen, Adressen, Telefon, E-Mail", "was gewünscht ist, Termine, Mengen", "2", "Schreib eine freundliche Antwort mit einem Terminvorschlag."),
+] %}
+<div class="papier-wahl" data-auswahl>
+  <div class="papier-knoepfe" aria-label="Arten von Papierkram">
+    {% for key, zeichen, name, weg, bleibt, stufe, aufgabe in papiere %}
+    <button type="button" data-zeige="{{ key }}"><span class="papier-zeichen" aria-hidden="true">{{ zeichen }}</span>{{ name }}</button>
+    {% endfor %}
+  </div>
+  {% for key, zeichen, name, weg, bleibt, stufe, aufgabe in papiere %}
+  <div class="tafel" data-tafel="{{ key }}">
+    <h3>{{ zeichen }} {{ name }}</h3>
+    <div class="nebeneinander drei">
+      <div class="seite schlecht"><p class="seite-kopf">Schwärzen</p><p>{{ weg }}</p></div>
+      <div class="seite gut"><p class="seite-kopf">Darf bleiben</p><p>{{ bleibt }}</p></div>
+      <div class="seite"><p class="seite-kopf">Stufe</p><p class="stufe-gross">{{ stufe }}</p></div>
+    </div>
+    {% if aufgabe %}<p class="row"><span class="muted">Zum Beispiel: „{{ aufgabe }}“</span> <a class="button tiny" href="/lernen/werkbank?aufgabe={{ aufgabe | urlencode }}">In der Werkbank ausprobieren</a></p>
+    {% else %}<p class="lesson warnung">Gesundheitsdaten gehören zu den heikelsten Daten überhaupt. Hier lieber ohne Cloud-KI.</p>{% endif %}
+    {% if key == "steuer" %}<p class="hint">Die <a href="/steuer">Steuer-Quest</a> sortiert deine Steuer-Unterlagen ganz ohne Cloud.</p>{% endif %}
+  </div>
+  {% endfor %}
+</div>

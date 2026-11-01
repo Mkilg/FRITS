@@ -317,7 +317,11 @@ def test_beraterin_ohne_aufzaehlung():
 
 def test_passwort_ist_lang_und_zufaellig():
     a, b = truhe.passwort(), truhe.passwort()
-    assert a != b and len(a.split("-")) == 6
+    teile = a.split("-")
+    assert a != b and len(teile) == 7
+    # zwei Code-Blöcke ohne verwechselbare Zeichen: zusammen über 70 Bit
+    assert all(len(t) == 4 and set(t) <= set(truhe._ZEICHEN) for t in teile[5:])
+    assert not set("01OIL") & set("".join(teile[5:]))
 
 
 def test_truhe_ist_verschluesselt_und_geordnet(conn, ws, tmp_path):
@@ -335,13 +339,21 @@ def test_truhe_ist_verschluesselt_und_geordnet(conn, ws, tmp_path):
         quest.dateien(conn, 2025),
         "Wiese-Anker-42",
     )
+    import io
+    import zipfile
+
     with pyzipper.AESZipFile(ziel) as zf:
-        namen = zf.namelist()
+        # Außen steht nur ein neutraler Name: keine Ordner, keine "Lohnsteuerbescheinigung"
+        assert zf.namelist() == ["Unterlagen-2025.zip"]
         with pytest.raises(RuntimeError):
-            zf.read(namen[0])  # ohne Passwort geht nichts
+            zf.read("Unterlagen-2025.zip")  # ohne Passwort geht nichts
         zf.setpassword(b"Wiese-Anker-42")
+        innen = zf.read("Unterlagen-2025.zip")
+    with zipfile.ZipFile(io.BytesIO(innen)) as zf:
+        namen = zf.namelist()
         inhalt = zf.read("00 Inhaltsverzeichnis.txt").decode()
     assert "06 Depot im Ausland/2025_Depot-im-Ausland-1_Jahresuebersicht-des-Depots.pdf" in namen
+    assert not list(ziel.parent.glob("*.tmp"))  # nichts Unverschlüsseltes bleibt liegen
     assert "Frage: Brauchst du das?" in inhalt
     assert truhe.verschluesselt(ziel)
 
@@ -1777,3 +1789,76 @@ def test_runde_14_fragen_zeitalter_und_was_gehoert_wohin(client, ws):
         spiel.ZEITALTER_BRINGT["Zeitalter der Ordnung"],
     )
     assert spiel.weg_zum_zeitalter(spiel.Stand(10, 10, 0, 0)) is None
+
+
+def test_runde_15_belegbuch_zeigt_alles_und_nimmt_fragen(client, ws):
+    """Maries Wunsch: eine Übersicht aller Belege mit Vorschau, Fragen dazu und Summen."""
+    fragebogen(client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    karten = quest.stuecke(conn, 2025, "werkstatt-1")
+    bild, notiz = karten[0], karten[1]
+    quelle = ws.root / "foto.png"
+    quelle.write_bytes(b"\x89PNG\r\n\x1a\n" + b"x" * 40)
+    quest.sammeln(conn, ws.root, bild["id"], quelle, original="Quittung Kamera.png")
+    post(client, f"/steuer/2025/stueck/{notiz['id']}/angabe", text="Arbeitszimmer 12 qm")
+    buch = client.get("/steuer/2025/belege").text
+    assert "Belegbuch 2025" in buch and "Quittung Kamera.png" in buch
+    assert "Arbeitszimmer 12 qm" in buch  # die Angabe steht direkt da
+    assert "Wer sieht deine Belege?" in buch and "Mit KI besprechen" in buch
+    assert 'href="/steuer/2025/belege"' in buch  # die Belege-Marke oben führt hierher
+    d = quest.dateien(conn, 2025, bild["id"])[0]
+    antwort = client.get(f"/steuer/2025/datei/{d['id']}")
+    assert antwort.status_code == 200 and antwort.headers["content-type"] == "image/png"
+    assert antwort.headers["x-content-type-options"] == "nosniff"
+    assert client.get("/steuer/2025/datei/99999").status_code == 404
+    assert client.get(f"/steuer/2024/datei/{d['id']}").status_code == 404  # anderes Jahr
+    # Eine Frage zu einem Beleg, der schon da ist: der Stempel bleibt, die Frage kommt in die Mail
+    seite = post(client, f"/steuer/2025/stueck/{bild['id']}/frage", frage="Zählt die Kamera ganz?")
+    assert "kommt in die Mail" in seite.text
+    s = quest.stueck(conn, bild["id"])
+    assert s["status"] == "gesammelt" and s["frage"] == "Zählt die Kamera ganz?"
+    _, text = truhe.mail(
+        Profil.load(quest.profil_datei(ws.root, 2025)),
+        reich(Profil.load(quest.profil_datei(ws.root, 2025))),
+        quest.stuecke(conn, 2025),
+    )
+    assert "Zählt die Kamera ganz?" in text
+
+
+def test_runde_15_beleg_als_webseite_wird_nur_heruntergeladen(client, ws):
+    fragebogen(client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    s = quest.stuecke(conn, 2025, "werkstatt-1")[0]
+    quelle = ws.root / "boese.html"
+    quelle.write_text("<script>alert(1)</script>", encoding="utf-8")
+    quest.sammeln(conn, ws.root, s["id"], quelle)
+    d = quest.dateien(conn, 2025, s["id"])[0]
+    antwort = client.get(f"/steuer/2025/datei/{d['id']}")
+    assert antwort.headers["content-type"] == "application/octet-stream"
+    assert antwort.headers["content-disposition"].startswith("attachment")
+
+
+def test_runde_15_beleg_mit_ki_oeffnet_den_freien_chat(client, ws):
+    """Nichts geht raus: der Beleg landet geschwärzt im Chat, gefragt wird erst dort."""
+    fragebogen(client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    s = quest.stuecke(conn, 2025, "werkstatt-1")[0]
+    quelle = ws.root / "rechnung.txt"
+    quelle.write_text("Rechnung über 120 Euro", encoding="utf-8")
+    quest.sammeln(conn, ws.root, s["id"], quelle)
+    d = quest.dateien(conn, 2025, s["id"])[0]
+    gesehen = []
+
+    def mit_datei(pfad, name):
+        gesehen.append((pfad, name))
+        return "abc", []
+
+    client.app.state.notfall_mit_datei = mit_datei
+    antwort = client.post(
+        f"/steuer/2025/datei/{d['id']}/ki",
+        data={"token": client.token},
+        follow_redirects=False,
+    )
+    assert antwort.status_code in (302, 303)
+    assert antwort.headers["location"] == "/notfall/abc#unterlagen"
+    assert gesehen and gesehen[0][1] == "rechnung.txt"

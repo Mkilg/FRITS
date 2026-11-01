@@ -1,0 +1,14 @@
+{% import "kurs/_teile.html" as t with context %}
+
+<div class="wege-wahl" data-auswahl>
+  <div class="auswahl-knoepfe" aria-label="Drei Wege zum Schwärzen">
+    <button type="button" data-zeige="werkbank">🖤 Werkbank in FRITS</button>
+    <button type="button" data-zeige="skript">🛠️ Programm bauen lassen</button>
+    <button type="button" data-zeige="lokal">💻 Lokale KI</button>
+    <button type="button" data-zeige="nachkontrolle">🔍 Nachkontrolle</button>
+  </div>
+  <div class="tafel" data-tafel="werkbank"><p><strong>Am leichtesten.</strong> Text rein, geschwärzt raus, ganz ohne KI. Gleich in der nächsten Etappe probierst du es aus.</p><p><a class="button" href="/lernen/werkbank">Zur Werkbank</a></p></div>
+  <div class="tafel" data-tafel="skript">{% if not werkzeug.agent %}<p class="hint">Das klappt am besten mit einem Agenten. Ein Chat kann das Programm auch schreiben, dann speicherst und startest du es selbst.</p>{% endif %}{{ t.prompt("skript") }}</div>
+  <div class="tafel" data-tafel="lokal">{{ t.prompt("lokal") }}</div>
+  <div class="tafel" data-tafel="nachkontrolle">{{ t.prompt("nachkontrolle") }}</div>
+</div>

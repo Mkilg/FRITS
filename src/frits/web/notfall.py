@@ -141,6 +141,35 @@ def register_notfall(
                 )
         return problems
 
+    def mit_datei(pfad: Path, name: str) -> tuple[str | None, list[str]]:
+        """A new chat that starts with one file from this computer (a Steuer-Quest Beleg).
+        Read and redacted here; nothing leaves until Fritz asks a question.
+        Returns (chat key or None, problems)."""
+        from frits.ingest import extract_text
+
+        try:
+            text = extract_text(pfad).text
+        except IngestError as exc:
+            return None, [f"{name}: {exc}"]
+        if not text.strip():
+            return None, [f"{name}: Darin habe ich keinen Text gefunden."]
+        g = notfall.neues_gespraech()
+        suffix = pfad.suffix.lower().lstrip(".") or "text"
+        ocr = suffix in ("jpg", "jpeg", "png", "heic", "heif")
+        try:
+            doc = notfall.add_document(
+                g, name, "foto" if ocr else suffix, text, people(), nlp(), ocr
+            )
+        except LeakError:
+            return None, [f"{name}: {LEAK_TEXT}"]
+        except RuntimeError as exc:
+            return None, [str(exc)]
+        keep(g)
+        cut = [f"{name} ist sehr lang. Ich nehme nur den Anfang."] if doc.cut else []
+        return g.key, cut
+
+    app.state.notfall_mit_datei = mit_datei
+
     @app.get("/notfall", response_class=HTMLResponse)
     def notfall_start(request: Request):
         return show(request, None)

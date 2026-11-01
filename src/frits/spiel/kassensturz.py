@@ -235,6 +235,13 @@ def _karte(conn, schluessel: str, art: str, gesehen: str, ausgaben=None) -> Kart
         if not r:
             return None
         return Karte(schluessel, art, f"Steuerjahr {key}", "Der Drache ist besiegt!", base, {})
+    if art == "lernen":
+        from frits.lernen import NACH_SLUG
+
+        etappe = NACH_SLUG.get(key)
+        if etappe is None:
+            return None
+        return Karte(schluessel, art, "Etappe gelernt", etappe.title, base, {})
     if art == "start":
         return Karte(
             schluessel, art, "Fritte zieht ein", "Willkommen! Dazu +1 Würze", base,
