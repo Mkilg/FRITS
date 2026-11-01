@@ -51,6 +51,12 @@
     <h2>Klang</h2>
     <label class="choice"><input type="checkbox" name="sound" {{ "checked" if settings.sound }}> Kleine Klänge und ruhige Musik zum Konzentrieren</label>
   </section>
+  <section class="card">
+    <h2>Spiel-Effekte</h2>
+    <p class="hint">Wie viel Freude soll FRITS zeigen, wenn etwas erledigt ist? Die Steuer-Quest ist immer verspielt.</p>
+    <label class="choice big"><input type="radio" name="effects" value="ruhig" {{ "checked" if settings.effects != "verspielt" }}> <strong>Ruhig</strong>: ein Stempel auf die Karte, sonst nichts. Gut für konzentriertes Arbeiten.</label>
+    <label class="choice big"><input type="radio" name="effects" value="verspielt" {{ "checked" if settings.effects == "verspielt" }}> <strong>Verspielt</strong>: Stempel mit Funkeln, Zahlen zählen hoch, die Fritte hüpft vor Freude.</label>
+  </section>
   <div class="row actions"><button class="primary">Speichern</button></div>
 </form>
 <p class="hint">Deine Daten liegen in {{ folder }}. <a href="/setup/welcome">Einrichtung noch einmal ansehen</a></p>

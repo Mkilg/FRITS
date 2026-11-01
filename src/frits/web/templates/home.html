@@ -19,6 +19,7 @@
   <p><strong>{{ waiting | length }} {{ "Datei wartet" if waiting | length == 1 else "Dateien warten" }}</strong>: {{ waiting | map(attribute="name") | join(", ") }}</p>
   <p class="hint">Bevor die KI liest, schwärze ich Namen, Adressen und Kontonummern hier auf deinem Computer. Die KI sieht nur Platzhalter wie [PERSON_1].</p>
   {% else %}
+  {% if picture("leer-eingang") %}<img class="leer-bild" src="{{ picture('leer-eingang') }}" alt="">{% endif %}
   <p>Der Eingang ist leer. Leg eine Notiz, E-Mail oder ein Foto in den Ordner, dann lese ich sie, wenn du es sagst.</p>
   {% endif %}
   <div class="row">

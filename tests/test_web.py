@@ -140,6 +140,7 @@ def test_drop_review_approve_email_paid(client, ws, provider, mails):
         price=["40"],
     )
     assert "Rechnung 2026-0001 ist fertig" in page.text
+    assert 'class="stempel stempel-fertig"' in page.text
     assert client.get("/invoices/2026-0001/pdf").headers["content-type"] == "application/pdf"
 
     post(client, "/invoices/2026-0001/email")
@@ -148,7 +149,8 @@ def test_drop_review_approve_email_paid(client, ws, provider, mails):
     assert "80,00 €" in mails[0]["body"]
     assert "an Mail übergeben" in client.get("/invoices").text
 
-    post(client, "/invoices/2026-0001/paid")
+    page = post(client, "/invoices/2026-0001/paid")
+    assert ">Bezahlt</span>" in page.text  # the ink stamp on the note
     assert "bezahlt am 02.11.2026" in client.get("/invoices").text
 
 
@@ -325,8 +327,45 @@ def test_settings_save_and_key_goes_to_keychain(client, ws, monkeypatch):
     assert saved.iban == "DE89370400440532013000"
     assert saved.tax_mode == "regelbesteuerung"
     assert saved.sound is True
+    assert saved.effects == "ruhig"  # calm unless chosen otherwise
     assert "sk-or-test" not in ws.settings_file.read_text(encoding="utf-8")
     assert "sk-or-test" not in page.text
+
+
+def test_spiel_effekte_ruhig_or_verspielt(client, ws):
+    assert 'data-effekte="ruhig"' in client.get("/").text
+    post(client, "/settings", effects="verspielt")
+    assert Settings.load(ws.settings_file).effects == "verspielt"
+    assert 'data-effekte="verspielt"' in client.get("/").text
+    post(client, "/settings", effects="laut")  # unknown values change nothing
+    assert Settings.load(ws.settings_file).effects == "verspielt"
+
+
+def test_painted_pictures_take_over_when_they_are_there(tmp_path):
+    from frits.web.app import mascot_or_picture, painted_pictures, picture_css
+
+    assert painted_pictures(tmp_path) == set()
+    assert picture_css(set()) == ""
+    assert "<svg" in mascot_or_picture(set())("done")
+
+    folder = tmp_path / "bilder"
+    folder.mkdir()
+    for name in (
+        "fritte-fertig",
+        "schreibtisch-tag",
+        "symbol-rechnungen",
+        "stempel-rund",
+        "Böse Datei",
+    ):
+        (folder / f"{name}.png").write_bytes(b"png")
+    pictures = painted_pictures(tmp_path)
+    assert pictures == {"fritte-fertig", "schreibtisch-tag", "symbol-rechnungen", "stempel-rund"}
+    assert 'src="/static/bilder/fritte-fertig.png"' in mascot_or_picture(pictures)("done")
+    assert "<svg" in mascot_or_picture(pictures)("thinking")  # not painted yet
+    css = picture_css(pictures)
+    assert "--tisch-bild: url(/static/bilder/schreibtisch-tag.png)" in css
+    assert 'nav a[href="/invoices"]::before' in css
+    assert "body .stempel {" in css
 
 
 def test_pdf_route_never_serves_other_files(client, ws):

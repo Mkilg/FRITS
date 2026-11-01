@@ -8,8 +8,8 @@
 <section class="card">
   <h2>Heute</h2>
   <ul class="plain">
-    <li>{{ read }} {{ "Datei" if read == 1 else "Dateien" }} gelesen</li>
-    <li>{{ made }} {{ "Rechnung" if made == 1 else "Rechnungen" }} erstellt</li>
+    <li data-zaehlen>{{ read }} {{ "Datei" if read == 1 else "Dateien" }} gelesen</li>
+    <li data-zaehlen>{{ made }} {{ "Rechnung" if made == 1 else "Rechnungen" }} erstellt</li>
   </ul>
   <h2>Wartet bis zum nächsten Mal</h2>
   <ul class="plain">

@@ -8,6 +8,7 @@ FRITS's buttons for him (that attack is called CSRF).
 from __future__ import annotations
 
 import os
+import re
 import secrets
 import signal
 import threading
@@ -85,6 +86,73 @@ def mascot_markup(mood: str) -> Markup:
         return Markup(mascot_svg(mood))
     except (ImportError, ValueError, FileNotFoundError):
         return Markup('<span class="fry-fallback" aria-hidden="true">🍟</span>')
+
+
+# Painted pictures (static/bilder/<name>.png) replace the drawn ones once they are there.
+MOOD_PICTURES = {
+    "welcome": "fritte-willkommen",
+    "thinking": "fritte-nachdenken",
+    "done": "fritte-fertig",
+    "warning": "fritte-achtung",
+    "feierabend": "fritte-feierabend",
+}
+
+
+def painted_pictures(static: Path) -> set[str]:
+    folder = Path(static) / "bilder"
+    if not folder.is_dir():
+        return set()
+    # Only plain names, so a file name can never break the page.
+    return {p.stem for p in folder.glob("*.png") if re.fullmatch(r"[a-z0-9-]+", p.stem)}
+
+
+NAV_SYMBOLS = {
+    "/": "symbol-eingang",
+    "/drafts": "symbol-entwuerfe",
+    "/invoices": "symbol-rechnungen",
+    "/quotes": "symbol-angebote",
+    "/expenses": "symbol-ausgaben",
+    "/customers": "symbol-kunden",
+    "/steuer": "symbol-steuer",
+    "/settings": "symbol-einstellungen",
+}
+STAMP_PICTURES = {"stempel-rund": ".stempel", "stempel-oval": ".stempel.stempel-fertig"}
+
+
+def picture_css(pictures: set[str]) -> Markup:
+    """CSS that puts the painted pictures in place. Without pictures FRITS looks the same,
+    just with plain colours instead of painted ones."""
+
+    def url(name: str) -> str:
+        return f"url(/static/bilder/{name}.png)"
+
+    rules = []
+    if "schreibtisch-tag" in pictures:
+        rules.append(f":root {{ --tisch-bild: {url('schreibtisch-tag')}; }}")
+    if "feierabend-tisch" in pictures:
+        rules.append(f":root {{ --feierabend-bild: {url('feierabend-tisch')}; }}")
+    for href, name in NAV_SYMBOLS.items():
+        if name in pictures:
+            rules.append(
+                f'nav a[href="{href}"]::before {{ display: inline-block; background-image: {url(name)}; }}'
+            )
+    for name, selector in STAMP_PICTURES.items():
+        if name in pictures:
+            rules.append(
+                f"body {selector} {{ background: {url(name)} center / 100% 100% no-repeat;"
+                " border-color: transparent; padding: 0.35rem 0.9rem; }"
+            )
+    return Markup("\n".join(rules))
+
+
+def mascot_or_picture(pictures: set[str]):
+    def mascot(mood: str) -> Markup:
+        name = MOOD_PICTURES.get(mood)
+        if name in pictures:
+            return Markup('<img class="fritte" src="/static/bilder/{}.png" alt="">').format(name)
+        return mascot_markup(mood)
+
+    return mascot
 
 
 def mascot_line(key: str) -> tuple[str, str]:
@@ -187,8 +255,11 @@ def create_app(
         """Find a customer by note id or by the name printed on an invoice."""
         return next((c for c in customers() if value in (c.id, c.display_name, c.name)), None)
 
-    def flash(text: str, kind: str = "ok", cue: str | None = None) -> None:
-        app.state.flashes.append({"text": text, "kind": kind, "cue": cue})
+    def flash(
+        text: str, kind: str = "ok", cue: str | None = None, stamp: str | None = None
+    ) -> None:
+        """A short note on the next page. `stamp` puts an ink stamp on it, e.g. "Bezahlt"."""
+        app.state.flashes.append({"text": text, "kind": kind, "cue": cue, "stamp": stamp})
 
     def page(request: Request, name: str, **context) -> HTMLResponse:
         current = settings()
@@ -215,6 +286,12 @@ def create_app(
         app.state.sounds_url = "/static/sounds/"
     static = app.state.files.enter_context(as_file(files("frits.web") / "static"))
     app.mount("/static", StaticFiles(directory=static), name="static")
+    pictures = painted_pictures(static)
+    templates.env.globals.update(
+        mascot=mascot_or_picture(pictures),
+        picture=lambda name: f"/static/bilder/{name}.png" if name in pictures else None,
+        picture_css=picture_css(pictures),
+    )
 
     @app.middleware("http")
     async def only_this_computer(request: Request, call_next):
@@ -402,7 +479,11 @@ def create_app(
                 from frits.pipeline import forget_mapping
 
                 forget_mapping(ws, row["job_id"])
-            flash(f"Rechnung {number} ist fertig. Ein Punkt weniger im Kopf.", cue="done")
+            flash(
+                f"Rechnung {number} ist fertig. Ein Punkt weniger im Kopf.",
+                cue="done",
+                stamp="Fertig",
+            )
             return back(f"/invoices#r-{number}")
         if action == "quote":
             try:
@@ -411,7 +492,7 @@ def create_app(
                 flash(str(exc), "error")
                 return back(f"/drafts/{draft_id}")
             discard_draft(conn, draft_id)
-            flash(f"Angebot {number} ist fertig.", cue="done")
+            flash(f"Angebot {number} ist fertig.", cue="done", stamp="Fertig")
             return back(f"/quotes#a-{number}")
         flash("Gespeichert.")
         return back(f"/drafts/{draft_id}")
@@ -440,7 +521,7 @@ def create_app(
     def invoice_paid(number: str):
         try:
             mark_paid(db(), number, today())
-            flash(f"Rechnung {number} ist bezahlt. Schön!", cue="done")
+            flash(f"Rechnung {number} ist bezahlt. Schön!", cue="done", stamp="Bezahlt")
         except BillingError as exc:
             flash(str(exc), "error")
         return back("/invoices")
@@ -534,7 +615,11 @@ def create_app(
         except BillingError as exc:
             flash(str(exc), "error")
             return back("/quotes")
-        flash(f"Angebot {number} angenommen. Hier ist der Rechnungsentwurf dazu.", cue="done")
+        flash(
+            f"Angebot {number} angenommen. Hier ist der Rechnungsentwurf dazu.",
+            cue="done",
+            stamp="Angenommen",
+        )
         return back(f"/drafts/{draft_id}")
 
     @app.post("/quotes/{number}/decline", dependencies=guarded)
@@ -735,7 +820,11 @@ def create_app(
             )
             return back("/expenses")
         expenses.add_expense(ws.db, expense)
-        flash(f"Ausgabe gespeichert: {eur(expense.gross)} bei {expense.vendor}.", cue="done")
+        flash(
+            f"Ausgabe gespeichert: {eur(expense.gross)} bei {expense.vendor}.",
+            cue="done",
+            stamp="Gebucht",
+        )
         return back(f"/expenses?year={year}")
 
     @app.post("/expenses/{expense_id}/delete", dependencies=guarded)
@@ -916,6 +1005,7 @@ def create_app(
 
 TEXT_FIELDS = ("name", "company", "email", "phone", "steuernummer", "ust_id", "bank", "iban", "bic")
 CHECKBOXES = ("strict_local", "sound")
+EFFECTS = ("ruhig", "verspielt")
 
 
 def settings_from_form(current: Settings, form) -> Settings:
@@ -940,6 +1030,8 @@ def settings_from_form(current: Settings, form) -> Settings:
         )
     if form.get("provider") in PROVIDERS:
         changes["provider"] = form.get("provider")
+    if form.get("effects") in EFFECTS:
+        changes["effects"] = form.get("effects")
     for key in form.getlist("checkboxes"):
         if key in CHECKBOXES:
             changes[key] = form.get(key) == "on"
