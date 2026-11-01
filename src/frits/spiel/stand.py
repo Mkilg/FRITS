@@ -154,7 +154,7 @@ def _ausgaben_v2(conn) -> dict[str, int]:
     seen: Counter = Counter()
     keys = {}
     for rid, day, vendor, gross in rows(
-        conn, "SELECT id, date, vendor, gross FROM expenses ORDER BY id"
+        conn, "SELECT id, date, vendor, gross FROM expenses WHERE struck IS NULL ORDER BY id"
     ):
         inhalt = ausgabe_inhalt(day, vendor, gross)
         seen[inhalt] += 1

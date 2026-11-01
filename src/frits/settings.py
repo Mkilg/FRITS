@@ -108,6 +108,8 @@ class Settings:
     # Tax and prices
     tax_mode: str = "kleinunternehmer"  # or "regelbesteuerung"
     vat_rate: Decimal = Decimal(19)
+    vat_period: str = "quartal"  # UStVA every "quartal" or every "monat"
+    vat_basis: str = "ist"  # "ist": VAT due when paid (§ 20 UStG), "soll": when invoiced
     hourly_rate: Decimal = Decimal(0)
     km_rate: Decimal = Decimal("0.30")
     payment_days: int = 14
