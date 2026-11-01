@@ -13,6 +13,7 @@
   <input type="hidden" name="token" value="{{ token }}">
   <input type="hidden" name="checkboxes" value="strict_local">
   <input type="hidden" name="checkboxes" value="sound">
+  <input type="hidden" name="checkboxes" value="haustier">
   <section class="card">
     <h2>Über dich</h2>
     <p class="hint">Das steht auf jeder Rechnung.</p>
@@ -81,6 +82,7 @@
     <p class="hint">Wie viel Freude soll FRITS zeigen, wenn etwas erledigt ist? Die Steuer-Quest ist immer verspielt.</p>
     <label class="choice big"><input type="radio" name="effects" value="ruhig" {{ "checked" if settings.effects != "verspielt" }}> <strong>Ruhig</strong>: ein Stempel auf die Karte, sonst nichts. Gut für konzentriertes Arbeiten.</label>
     <label class="choice big"><input type="radio" name="effects" value="verspielt" {{ "checked" if settings.effects == "verspielt" }}> <strong>Verspielt</strong>: Stempel mit Funkeln, Zahlen zählen hoch, die Fritte hüpft vor Freude.</label>
+    <label class="choice"><input type="checkbox" name="haustier" {{ "checked" if settings.haustier }}> Fritte als Haustier auf der Seite „Heute“: ihr Zimmer, Salzkörner für erledigten Papierkram und ein kleiner Laden</label>
   </section>
   <div class="row actions"><button class="primary">Speichern</button></div>
 </form>

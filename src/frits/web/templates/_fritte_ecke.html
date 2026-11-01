@@ -1,0 +1,11 @@
+{# Fritte's corner on the Heute page. #}
+<section class="card fritte-ecke">
+  <a class="ecke-zimmer" href="/fritte" aria-label="Zu Fritte">{% with zimmer_klasse="klein", neu="" %}{% include "_fritte_zimmer.html" %}{% endwith %}</a>
+  <div class="ecke-text">
+    <h2>Fritte zuhause</h2>
+    <p>{{ f.satz }}</p>
+    <p class="salz"><span aria-hidden="true">🧂</span> <strong data-zaehlen>{{ f.guthaben }}</strong> Salzkörner
+      {%- if f.neu_verdient %} <span class="plus">{{ "Willkommensgeschenk: +" ~ f.neu_verdient if f.erster_besuch else "+" ~ f.neu_verdient ~ " seit letztem Mal" }}</span>{% endif %}</p>
+    <a class="button" href="/fritte">Zu Fritte und in den Laden</a>
+  </div>
+</section>

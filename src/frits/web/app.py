@@ -28,7 +28,7 @@ from fastapi.templating import Jinja2Templates
 from jinja2 import Environment, PackageLoader, select_autoescape
 from markupsafe import Markup
 
-from frits import __version__, about, emails, euer, expenses, setup, store, system
+from frits import __version__, about, emails, euer, expenses, haustier, setup, store, system
 from frits.billing import (
     DEFAULT_PATTERN,
     BillingError,
@@ -57,6 +57,7 @@ from frits.quotes import accept_quote, create_quote, decline_quote, list_quotes
 from frits.reminders import create_reminder
 from frits.render import eur, qty
 from frits.settings import Settings, Workspace
+from frits.web.haustier import fritte_datei, register_haustier
 
 UNITS = ("Std", "km", "Stk", "pauschal")
 PROVIDERS = {
@@ -380,6 +381,7 @@ def create_app(
             receipts=receipts,
             mood=moment[0],
             moment=moment[1],
+            f=haustier.ansehen(conn, fritte_datei(ws.root), today()) if current.haustier else None,
         )
 
     @app.post("/inbox/process", dependencies=guarded)
@@ -1103,6 +1105,7 @@ def create_app(
 
     @app.post("/feierabend", dependencies=guarded)
     def feierabend():
+        haustier.feierabend(fritte_datei(ws.root), today())
         flash("", cue="shutdown")
         return back("/feierabend")
 
@@ -1182,6 +1185,18 @@ def create_app(
         today=today,
     )
 
+    register_haustier(
+        app,
+        ws=ws,
+        page=page,
+        back=back,
+        flash=flash,
+        db=db,
+        settings=settings,
+        guarded=guarded,
+        today=today,
+    )
+
     from frits.web.lernen import register_lernen
 
     register_lernen(
@@ -1193,7 +1208,7 @@ def create_app(
 # ---------- helpers ----------
 
 TEXT_FIELDS = ("name", "company", "email", "phone", "steuernummer", "ust_id", "bank", "iban", "bic")
-CHECKBOXES = ("strict_local", "sound")
+CHECKBOXES = ("strict_local", "sound", "haustier")
 EFFECTS = ("ruhig", "verspielt")
 
 

@@ -124,6 +124,7 @@ class Settings:
     sound: bool = False  # cues and focus music; off until Fritz turns it on
     music: str = "entspannt"  # music mood, see frits.sounds.MOODS
     effects: str = "ruhig"  # "ruhig" (stamp only) or "verspielt" (numbers tick up, sparkle)
+    haustier: bool = True  # Fritte's room and shop on the Heute page
     setup_done: bool = False
 
     @property
