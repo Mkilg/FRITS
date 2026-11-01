@@ -10,7 +10,7 @@ never harder.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 
 from frits.spiel import ausbau, stand
 
@@ -24,8 +24,10 @@ THEMEN = {
     3: ("feierabend", "Lange Abende: Feierabende bringen doppelt so viele Körner."),
     4: ("rechnung", "Erntezeit: Rechnungen bringen doppelt so viele Körner."),
 }
-ZIELE = {1: 120, 2: 300, 3: 700, 4: 1200, 5: 2000}  # by the house stage at the season's start
+ZIELE = {1: 120, 2: 300, 3: 700, 4: 1200, 5: 2000}  # when there is no history yet
 BONUS_ANTEIL = 4  # reaching the goal brings a quarter of it on top
+TEMPO = 0.9  # the goal: 90 % of what the same pace as the eight weeks before would bring
+RUECKBLICK_WOCHEN = 8
 
 
 @dataclass
@@ -59,18 +61,44 @@ def jetzt(conn, heute: date) -> Saison:
     sid = f"{heute.year}-Q{q}"
     ziel = int(stand.einstellung(conn, f"saison:{sid}:ziel", "0") or 0)
     if not ziel:
-        faktor = 1 + ausbau.RUF_PREIS * ausbau.ruf(conn)
-        ziel = round(ZIELE[ausbau.stufe(conn).nummer] * faktor)
+        ziel = _ziel(conn, anfang, ende)
         stand.setze(conn, f"saison:{sid}:ziel", str(ziel))
     erreicht = conn.execute(
-        "SELECT COALESCE(SUM(summe), 0) FROM spiel_kassenstuerze WHERE tag BETWEEN ? AND ?",
-        (anfang.isoformat(), ende.isoformat()),
+        "SELECT COALESCE(SUM(summe), 0) FROM spiel_kassenstuerze WHERE tag BETWEEN ? AND ?"
+        " AND id != ?",
+        (anfang.isoformat(), ende.isoformat(), _willkommen(conn)),
     ).fetchone()[0]
     thema, text = THEMEN[q]
     return Saison(
         sid, f"{NAMEN[q]} {heute.year}", anfang, ende, ziel, int(erreicht),
         stand.einstellung(conn, f"saison:{sid}:geschafft"), thema, text, ZEICHEN[q],
     )  # fmt: skip
+
+
+def _willkommen(conn) -> int:
+    """The welcome round is a present and doesn't count towards a season."""
+    return int(stand.einstellung(conn, "willkommen_ks", "0") or 0)
+
+
+def _ziel(conn, anfang: date, ende: date) -> int:
+    """Fritz's own pace decides: the eight weeks before the season, at 90 %. Only the
+    weeks before the season count, so the goal is the same whenever it is first looked
+    at, and moving house just before a season changes nothing. Without a history yet,
+    the goal of the house stage."""
+    von = anfang - timedelta(weeks=RUECKBLICK_WOCHEN)
+    erster = conn.execute(
+        "SELECT MIN(tag) FROM spiel_kassenstuerze WHERE id != ?", (_willkommen(conn),)
+    ).fetchone()[0]
+    summe = conn.execute(
+        "SELECT COALESCE(SUM(summe), 0) FROM spiel_kassenstuerze WHERE tag >= ? AND tag < ?"
+        " AND id != ?",
+        (von.isoformat(), anfang.isoformat(), _willkommen(conn)),
+    ).fetchone()[0]
+    wochen = ((ende - anfang).days + 1) / 7
+    if erster and erster <= (anfang - timedelta(weeks=4)).isoformat() and summe:
+        tempo = summe / RUECKBLICK_WOCHEN
+        return max(ZIELE[1], round(tempo * wochen * TEMPO / 10) * 10)
+    return round(ZIELE[ausbau.stufe(conn).nummer] * (1 + ausbau.RUF_PREIS * ausbau.ruf(conn)))
 
 
 def pruefen(conn, heute: date) -> Saison | None:

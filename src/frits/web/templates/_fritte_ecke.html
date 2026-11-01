@@ -6,7 +6,7 @@
     <p>{{ f.satz }}</p>
     <p class="salz"><span aria-hidden="true">🧂</span> <strong data-zaehlen>{{ f.guthaben }}</strong> Salzkörner</p>
     {% if f.wartend %}
-    <p class="wartet">{{ f.wartend }} {{ "Karte wartet" if f.wartend == 1 else "Karten warten" }} auf den Kassensturz. Das sind gerade etwa <strong>+{{ f.bereit }} Salzkörner</strong>.</p>
+    <p class="wartet">{{ f.wartend }} {{ "Karte wartet" if f.wartend == 1 else "Karten warten" }} auf den Kassensturz. Das {{ "ist" if f.bereit == 1 else "sind" }} gerade etwa <strong>+{{ f.bereit }} {{ "Salzkorn" if f.bereit == 1 else "Salzkörner" }}</strong>.</p>
     <div class="row">
       <form method="post" action="/fritte/kassensturz">
         <input type="hidden" name="token" value="{{ token }}">

@@ -64,6 +64,7 @@ ORTE: tuple[Ort, ...] = (
 )  # fmt: skip
 RUF_WUERZE = 0.5  # every finished Bude adds this much Würze to every Kassensturz
 RUF_PREIS = 0.5  # building costs this much more in each new place
+ORT_STUFE_WUERZE = 0.1  # in a new place, every stage built adds this much Würze
 UMZUG_PREIS = 1200  # times the number of the place Fritte leaves
 
 
@@ -82,7 +83,24 @@ def preis(conn, ziel: Stufe) -> int:
 
 
 def grundwuerze(conn) -> float:
-    return round(stufe(conn).grundwuerze + RUF_WUERZE * ruf(conn), 2)
+    """Never goes down: in a new place Fritte keeps the Würze of her finished Bude, the
+    Ruf adds to it, and every stage built there adds a little more."""
+    if not ruf(conn):
+        return stufe(conn).grundwuerze
+    return round(
+        STUFEN[-1].grundwuerze
+        + RUF_WUERZE * ruf(conn)
+        + ORT_STUFE_WUERZE * (stufe(conn).nummer - 1),
+        2,
+    )
+
+
+def stufen_text(conn, ziel: Stufe) -> str:
+    """What a stage brings: in a new place the shelf and the market are already big."""
+    if not ruf(conn):
+        return ziel.text
+    bonus = f"{ORT_STUFE_WUERZE:g}".replace(".", ",")
+    return f"{ziel.text.split('. ')[0]}. Hier bringt jede Stufe +{bonus} Würze für immer."
 
 
 def extra_plaetze(conn) -> int:

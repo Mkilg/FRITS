@@ -104,7 +104,7 @@
     {% for d in huete %}
     <form method="post" action="/fritte/hut">
       <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="ding" value="{{ d.id }}">
-      <button aria-pressed="{{ 'true' if f.hut and f.hut.id == d.id else 'false' }}">{{ d.zeichen }} {{ "Absetzen" if f.hut and f.hut.id == d.id else d.name ~ " aufsetzen" }}</button>
+      <button aria-pressed="{{ 'true' if f.hut and f.hut.id == d.id else 'false' }}">{{ d.zeichen }} {{ d.name }} {{ "absetzen" if f.hut and f.hut.id == d.id else "aufsetzen" }}</button>
     </form>
     {% endfor %}
   </div>

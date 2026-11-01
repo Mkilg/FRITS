@@ -89,7 +89,14 @@
     ["ausbau", "saison", "erfolge"].forEach(function (n) { if (el(n)) el(n).classList.add("da"); });
     el("weiter").hidden = true;
     el("nochmal").hidden = reduced;
+    // A finished stage or season goal below the fold: bring it into view once.
+    var banner = el("ausbau") || el("saison") || el("erfolge");
+    if (banner && !gezeigt && banner.getBoundingClientRect().bottom > window.innerHeight) {
+      gezeigt = true;
+      banner.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
+    }
   }
+  var gezeigt = false;
   function ending(delay) {
     later(function () {
       karten.forEach(function (k) { k.classList.remove("aktiv"); });
@@ -132,8 +139,9 @@
           bump(koernerEl.parentNode, "pochen");
           blip(n, "karte");
         } else if (s.typ === "plus") {
-          bump(glas(s.gewuerz), "wackeln");
-          popup(glas(s.gewuerz), "+" + zahl(s.plus) + " Würze", "wuerze");
+          var quelle = glas(s.gewuerz) || karten[s.karte]; // a spice, or a card like Fritte's move-in
+          bump(quelle, "wackeln");
+          popup(quelle, "+" + zahl(s.plus) + " Würze", "wuerze");
           wuerzeEl.textContent = zahl(s.wuerze);
           bump(wuerzeEl.parentNode, "pochen");
           blip(n, "plus");

@@ -88,7 +88,7 @@
 .bild-done { --hut-x: 32%; --hut-dreh: 8deg; }
 .bild-feierabend { --hut-x: 72%; --hut-dreh: 16deg; }
 
-.fritte-figur .zzz { position: absolute; right: -22%; top: -2%; font-family: var(--hand); color: var(--tinte); font-size: 2.6cqw; }
+.fritte-figur .zzz { position: absolute; right: -48%; top: -10%; font-family: var(--hand); color: var(--tinte); font-size: 2.6cqw; }
 .zzz i { display: inline-block; font-style: normal; opacity: .35; animation: zzz 3.6s ease-in-out infinite; }
 .zzz i:nth-child(2) { font-size: 1.3em; animation-delay: .6s; }
 .zzz i:nth-child(3) { font-size: 1.6em; animation-delay: 1.2s; }
@@ -415,10 +415,12 @@ details[open] > summary::before { content: "▾ "; }
   mask: radial-gradient(circle at 50% 100%, transparent 0 1.6cqw, #000 1.7cqw) 0 0 / 6% 100%, linear-gradient(#000 0 60%, transparent 60%);
   box-shadow: 0 .6cqw .6cqw rgba(58, 36, 18, .2); }
 .zimmer.stufe-5 .girlande { top: 11%; height: 6%; }
-.zimmer .theke { position: absolute; left: 2%; bottom: 0; width: 29%; height: 30%; z-index: 0; border-radius: 2px 2px 0 0;
-  background: linear-gradient(180deg, var(--eiche-hell) 0 14%, var(--eiche) 14%),
-    repeating-linear-gradient(90deg, transparent 0 18%, rgba(58, 36, 18, .25) 18% 19%); }
-.zimmer .theke-schild { position: absolute; left: 50%; top: 32%; transform: translateX(-50%) rotate(-2deg); white-space: nowrap;
+/* the counter runs along the back wall, behind Fritte and her things */
+.zimmer .theke { position: absolute; left: 0; right: 0; bottom: 22%; height: 9%; z-index: 0;
+  background: linear-gradient(180deg, var(--eiche-hell) 0 22%, var(--eiche) 22%),
+    repeating-linear-gradient(90deg, transparent 0 9%, rgba(58, 36, 18, .25) 9% 9.3%); }
+/* the shop sign hangs from the awning */
+.zimmer .theke-schild { position: absolute; left: 83%; bottom: 575%; transform: translateX(-50%) rotate(-2deg); white-space: nowrap; z-index: 4;
   padding: .2cqw 1cqw; background: var(--gold); color: var(--eiche-tief); font-family: var(--schrift); font-weight: 700; font-size: 1.6cqw;
   border: .25cqw solid var(--eiche-tief); border-radius: 2px; }
 /* the cups of reached season goals */
@@ -459,4 +461,12 @@ details[open] > summary::before { content: "▾ "; }
   .kassensturz-show .ks-karten .karte-bild img { max-height: 2.6rem; }
   .kassensturz-show .ks-regal .gewuerzglas { width: 3.8rem; }
   .kassensturz-show .ks-regal .glas-koerper { height: 4rem; }
+}
+
+/* short windows: the buttons stay in reach while the show runs */
+@media (max-height: 820px) {
+  .kassensturz-show .ks-aktionen { position: sticky; bottom: 0; z-index: 5; padding: .5rem 0;
+    background: linear-gradient(180deg, transparent, var(--bg) 35%); }
+  .kassensturz-show .ks-karten .spielkarte { width: 5.9rem; min-height: 7.6rem; }
+  .kassensturz-show .ks-karten .karte-detail { display: none; }
 }
