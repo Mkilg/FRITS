@@ -18,10 +18,10 @@ key = "rathaus"
 name = "Rathaus"
 bereich = "Persönliches und Finanzamt"
 frage = "immer"
-anlage = "Hauptvordruck"
+anlage = "Hauptvordruck (ESt 1 A)"
 woerter = ["finanzamt", "bescheid", "vorauszahlung", "steuer-id", "identifikationsnummer", "steuernummer"]
 stuecke = [
-  { key = "steuer-id", name = "Steuer-ID", hinweis = "Steht auf jedem Steuerbescheid und auf der Lohnsteuerbescheinigung." },
+  { key = "steuer-id", kern = true, name = "Steuer-ID", hinweis = "Steht auf jedem Steuerbescheid und auf der Lohnsteuerbescheinigung." },
   { key = "bescheid", name = "Letzter Steuerbescheid", hinweis = "Der Bescheid vom Vorjahr hilft der Beraterin beim Vergleich." },
   { key = "vorauszahlungen", name = "Vorauszahlungsbescheide", hinweis = "Nur wenn du Steuern vorab zahlst." },
   { key = "briefe", name = "Weitere Briefe vom Finanzamt", hinweis = "Alles, was das Finanzamt dieses Jahr geschickt hat." },
@@ -38,10 +38,11 @@ person = true
 anlage = "Anlage N"
 woerter = ["lohnsteuer", "gehalt", "arbeitgeber", "lohn", "arbeit", "pendeln", "homeoffice"]
 stuecke = [
-  { key = "lohnsteuerbescheinigung", name = "Lohnsteuerbescheinigung", hinweis = "Schickt der Arbeitgeber meist bis Ende Februar." },
+  { key = "lohnsteuerbescheinigung", kern = true, name = "Lohnsteuerbescheinigung", hinweis = "Schickt der Arbeitgeber meist bis Ende Februar." },
   { key = "arbeitsmittel", name = "Arbeitsmittel", hinweis = "Laptop, Fachbücher, Werkzeug, Berufskleidung.", art = "bonus", wenn = "arbeit" },
   { key = "fahrten", name = "Fahrten zur Arbeit und Homeoffice-Tage", hinweis = "Kilometer einfach und Zahl der Tage reicht.", art = "bonus", wenn = "arbeit" },
   { key = "fortbildung", name = "Fortbildung", hinweis = "Kurse, Seminare, Prüfungsgebühren.", art = "bonus", wenn = "arbeit" },
+  { key = "umzug", name = "Umzugskosten", hinweis = "Beruflich bedingter Umzug: zählt als Werbungskosten.", art = "bonus", wenn = "umzug" },
 ]
 
 [[provinz]]
@@ -51,17 +52,24 @@ bereich = "Freiberuflich"
 frage = "freiberuflich"
 zaehlbar = true
 person = true
-anlage = "Anlage S und EÜR"
+anlage = "Anlage S, Anlage EÜR und AVEÜR"
 woerter = ["rechnung", "beleg", "geschäftskonto", "fahrt", "arbeitszimmer", "einnahmen", "ausgaben", "eür", "umsatzsteuer", "freiberuf"]
 stuecke = [
-  { key = "ausgangsrechnungen", name = "Ausgangsrechnungen", hinweis = "Schreibst du mit FRITS? Dann holt die FRITS-Ernte auf dem Kartentisch sie automatisch." },
+  { key = "ausgangsrechnungen", kern = true, name = "Ausgangsrechnungen", hinweis = "Schreibst du mit FRITS? Dann holt die FRITS-Ernte auf dem Kartentisch sie automatisch." },
   { key = "euer", name = "EÜR-Übersicht", hinweis = "Einnahmen minus Ausgaben. FRITS rechnet sie aus deinen Rechnungen und Ausgaben aus." },
-  { key = "belege", name = "Belege und Quittungen", hinweis = "Alles, was du fürs Geschäft bezahlt hast. Ausgaben aus FRITS kommen mit der FRITS-Ernte." },
-  { key = "kontoauszuege", name = "Kontoauszüge Geschäftskonto", hinweis = "Am einfachsten als Jahres-Export aus dem Online-Banking." },
-  { key = "umsatzsteuer", name = "Umsatzsteuer-Meldungen des Jahres", hinweis = "Nur wenn du Umsatzsteuer ausweist.", wenn = "umsatzsteuer" },
-  { key = "anschaffungen", name = "Größere Anschaffungen", hinweis = "Geräte über 800 € netto, Auto, Möbel.", art = "bonus" },
-  { key = "fahrten", name = "Fahrtenbuch oder Kilometerliste", hinweis = "Für Fahrten zu Kunden.", art = "bonus" },
-  { key = "arbeitszimmer", name = "Arbeitszimmer", hinweis = "Größe und Kosten, falls du zu Hause arbeitest.", art = "bonus" },
+  { key = "belege", kern = true, name = "Belege und Quittungen", hinweis = "Alles, was du fürs Geschäft bezahlt hast. Ausgaben aus FRITS kommen mit der FRITS-Ernte." },
+  { key = "kontoauszuege", kern = true, name = "Kontoauszüge Geschäftskonto", hinweis = "Am einfachsten als Jahres-Export aus dem Online-Banking." },
+  { key = "umsatzsteuer", name = "Umsatzsteuer-Meldungen des Jahres", hinweis = "Voranmeldungen und, falls schon da, die Jahreserklärung. 7 % gilt für Texte und Beiträge mit Nutzungsrechten, 19 % z. B. für Moderation und Beratung.", wenn = "umsatzsteuer" },
+  { key = "sender", name = "Honorarabrechnungen der Sender", hinweis = "Jahresübersicht oder alle Abrechnungen. Hat ein Sender Lohnsteuer abgezogen, gibt es eine Lohnsteuerbescheinigung: Zähl ihn dann bei „Angestellt“ mit.", wenn = "sender" },
+  { key = "vgwort", name = "Ausschüttungen VG Wort, VG Bild-Kunst oder GVL", hinweis = "Die Abrechnungen des Jahres. Sie zählen als Einnahmen deines Geschäfts.", wenn = "verwertung" },
+  { key = "ausland", name = "Honorare aus dem Ausland", hinweis = "Rechnungen und Belege über einbehaltene Quellensteuer (Anlage AUS).", wenn = "ausland_honorar" },
+  { key = "verlustvortrag", name = "Bescheid über den Verlustvortrag", hinweis = "Nur wenn du im Vorjahr Verlust gemacht hast.", wenn = "verlust" },
+  { key = "anschaffungen", name = "Größere Anschaffungen", hinweis = "Geräte über 800 € netto, Auto, Möbel. Computer und Software dürfen sofort abgeschrieben werden.", art = "bonus" },
+  { key = "fahrten", name = "Fahrtenbuch oder Kilometerliste", hinweis = "Für Fahrten zu Kunden. Eigenes Auto: 0,30 € pro Kilometer.", art = "bonus" },
+  { key = "reisen", name = "Dienstreisen", hinweis = "Bahn, Hotel, Ort und Dauer. Pro Tag unterwegs gibt es 14 € (ab 8 Stunden) oder 28 € (ganzer Tag) für Verpflegung.", art = "bonus" },
+  { key = "arbeitszimmer", name = "Homeoffice oder Arbeitszimmer", hinweis = "Homeoffice: 6 € pro Tag, höchstens 1.260 € im Jahr. Die Zahl der Tage reicht.", art = "bonus" },
+  { key = "beitraege", name = "Verbände, Presseausweis, Berufshaftpflicht", hinweis = "Zum Beispiel DJV, ver.di, Freischreiber und Versicherungen fürs Geschäft.", art = "bonus" },
+  { key = "umzug", name = "Umzugskosten", hinweis = "Beruflich bedingter Umzug: zählt als Betriebsausgabe.", art = "bonus", wenn = "umzug" },
 ]
 
 [[provinz]]
@@ -71,16 +79,17 @@ bereich = "Gewerbe"
 frage = "gewerbe"
 zaehlbar = true
 person = true
-anlage = "Anlage G und EÜR"
+anlage = "Anlage G, Anlage EÜR und AVEÜR"
 woerter = ["gewerbe", "laden", "shop", "waren", "inventur", "gewerbesteuer", "handel"]
 stuecke = [
-  { key = "ausgangsrechnungen", name = "Rechnungen und Kassenberichte", hinweis = "Alle Einnahmen des Betriebs." },
-  { key = "belege", name = "Einkaufsbelege", hinweis = "Waren, Material, Miete, Werbung." },
+  { key = "ausgangsrechnungen", kern = true, name = "Rechnungen und Kassenberichte", hinweis = "Alle Einnahmen des Betriebs." },
+  { key = "belege", kern = true, name = "Einkaufsbelege", hinweis = "Waren, Material, Miete, Werbung." },
   { key = "euer", name = "EÜR-Übersicht", hinweis = "Einnahmen minus Ausgaben. FRITS rechnet sie aus deinen Rechnungen und Ausgaben aus." },
-  { key = "kontoauszuege", name = "Kontoauszüge Geschäftskonto", hinweis = "Jahres-Export aus dem Online-Banking." },
+  { key = "kontoauszuege", kern = true, name = "Kontoauszüge Geschäftskonto", hinweis = "Jahres-Export aus dem Online-Banking." },
   { key = "warenbestand", name = "Warenbestand zum Jahresende", hinweis = "Eine einfache Liste reicht oft." },
   { key = "umsatzsteuer", name = "Umsatzsteuer-Meldungen des Jahres", hinweis = "Nur wenn du Umsatzsteuer ausweist.", wenn = "umsatzsteuer" },
   { key = "gewerbesteuer", name = "Gewerbesteuer-Bescheid", hinweis = "Von der Gemeinde, falls es einen gab." },
+  { key = "verlustvortrag", name = "Bescheid über den Verlustvortrag", hinweis = "Nur wenn du im Vorjahr Verlust gemacht hast.", wenn = "verlust" },
 ]
 
 [[provinz]]
@@ -93,9 +102,9 @@ person = true
 anlage = "eigene Erklärung der Gesellschaft (ESt 1 B), privat nur dein Anteil"
 woerter = ["gbr", "gesellschaft", "gesellschafter", "gesellschaftsvertrag", "gemeinsam", "partner", "gewinnverteilung"]
 stuecke = [
-  { key = "rechnungen", name = "Rechnungen der Gesellschaft", hinweis = "Alles, was die Gesellschaft geschrieben hat." },
-  { key = "belege", name = "Belege der Gesellschaft", hinweis = "Ausgaben, die die Gesellschaft bezahlt hat." },
-  { key = "konto", name = "Kontoauszüge Gesellschaftskonto", hinweis = "Jahres-Export des gemeinsamen Kontos." },
+  { key = "rechnungen", kern = true, name = "Rechnungen der Gesellschaft", hinweis = "Alles, was die Gesellschaft geschrieben hat." },
+  { key = "belege", kern = true, name = "Belege der Gesellschaft", hinweis = "Ausgaben, die die Gesellschaft bezahlt hat." },
+  { key = "konto", kern = true, name = "Kontoauszüge Gesellschaftskonto", hinweis = "Jahres-Export des gemeinsamen Kontos." },
   { key = "vertrag", name = "Gesellschaftsvertrag und Änderungen", hinweis = "Vor allem, wenn sich dieses Jahr etwas geändert hat." },
   { key = "verteilung", name = "Gewinnverteilung", hinweis = "Wer bekommt welchen Anteil." },
   { key = "eigene-kosten", name = "Eigene Kosten für die Gesellschaft", hinweis = "Was du privat für die Gesellschaft bezahlt hast.", art = "bonus" },
@@ -108,7 +117,7 @@ bereich = "GmbH oder UG"
 frage = "gmbh"
 zaehlbar = true
 person = true
-anlage = "Die Firma hat eine eigene Erklärung. Privat zählen Gehalt und Ausschüttungen."
+anlage = "Die Firma hat eine eigene Erklärung. Privat: Anlage N (Gehalt) und Anlage KAP (Ausschüttungen)."
 woerter = ["gmbh", "ug", "geschäftsführer", "ausschüttung", "gesellschafterdarlehen"]
 stuecke = [
   { key = "ausschuettungen", name = "Gewinnausschüttungen", hinweis = "Steuerbescheinigung der Firma über ausgezahlte Gewinne." },
@@ -124,8 +133,8 @@ zaehlbar = true
 anlage = "Anlage V (eine pro Wohnung)"
 woerter = ["miete", "mieter", "wohnung", "nebenkosten", "hausgeld", "grundsteuer", "darlehen", "zins", "handwerker", "gebäude", "hausverwaltung", "vermietung"]
 stuecke = [
-  { key = "mieteinnahmen", name = "Mieteinnahmen", hinweis = "Kontoauszug oder Liste der Mietzahlungen." },
-  { key = "mietvertrag", name = "Mietvertrag bei Mieterwechsel", hinweis = "Nur wenn sich dieses Jahr etwas geändert hat." },
+  { key = "mieteinnahmen", kern = true, name = "Mieteinnahmen", hinweis = "Kontoauszug oder Liste der Mietzahlungen." },
+  { key = "mietvertrag", kern = true, name = "Mietvertrag bei Mieterwechsel", hinweis = "Nur wenn sich dieses Jahr etwas geändert hat." },
   { key = "nebenkosten", name = "Nebenkosten- oder Hausgeldabrechnung", hinweis = "Kommt von der Hausverwaltung." },
   { key = "grundsteuer", name = "Grundsteuerbescheid", hinweis = "Kommt meist zum Jahresanfang per Post." },
   { key = "zinsen", name = "Zinsbescheinigung Kredit", hinweis = "Von der Bank, falls die Wohnung finanziert ist." },
@@ -143,8 +152,8 @@ zaehlbar = true
 anlage = "Anlage V"
 woerter = ["büro", "laden", "gewerbefläche", "gewerbemiete", "praxis", "mieter", "umsatzsteuer"]
 stuecke = [
-  { key = "mieteinnahmen", name = "Mieteinnahmen", hinweis = "Kontoauszug oder Liste der Mietzahlungen." },
-  { key = "mietvertrag", name = "Mietvertrag", hinweis = "Wichtig, falls mit Umsatzsteuer vermietet wird." },
+  { key = "mieteinnahmen", kern = true, name = "Mieteinnahmen", hinweis = "Kontoauszug oder Liste der Mietzahlungen." },
+  { key = "mietvertrag", kern = true, name = "Mietvertrag", hinweis = "Wichtig, falls mit Umsatzsteuer vermietet wird." },
   { key = "nebenkosten", name = "Nebenkostenabrechnung", hinweis = "Kommt von der Hausverwaltung." },
   { key = "grundsteuer", name = "Grundsteuerbescheid", hinweis = "Kommt meist zum Jahresanfang per Post." },
   { key = "zinsen", name = "Zinsbescheinigung Kredit", hinweis = "Falls finanziert." },
@@ -161,7 +170,7 @@ zaehlbar = true
 anlage = "Anlage V und V-FeWo"
 woerter = ["ferienwohnung", "airbnb", "booking", "gäste", "belegung", "kurtaxe", "kurzzeit"]
 stuecke = [
-  { key = "einnahmen", name = "Einnahmen der Plattformen", hinweis = "Jahresübersicht von Airbnb, Booking & Co." },
+  { key = "einnahmen", kern = true, name = "Einnahmen der Plattformen", hinweis = "Jahresübersicht von Airbnb, Booking & Co." },
   { key = "belegung", name = "Belegungskalender", hinweis = "Vermietete Tage, eigene Nutzung, Leerstand." },
   { key = "nebenkosten", name = "Nebenkosten", hinweis = "Strom, Wasser, Reinigung, Hausgeld." },
   { key = "grundsteuer", name = "Grundsteuerbescheid", hinweis = "Kommt meist zum Jahresanfang per Post." },
@@ -179,7 +188,7 @@ zaehlbar = true
 anlage = "Anlage KAP"
 woerter = ["depot", "steuerbescheinigung", "kapitalerträge", "dividende", "zinsen", "bank", "fonds"]
 stuecke = [
-  { key = "steuerbescheinigung", name = "Jahressteuerbescheinigung", hinweis = "Stellt die Bank im Frühjahr ins Online-Postfach." },
+  { key = "steuerbescheinigung", kern = true, name = "Jahressteuerbescheinigung", hinweis = "Stellt die Bank im Frühjahr ins Online-Postfach." },
   { key = "verluste", name = "Verlustbescheinigung", hinweis = "Nur wenn die Bank Verluste bescheinigt.", art = "bonus" },
 ]
 
@@ -192,7 +201,7 @@ zaehlbar = true
 anlage = "Anlage KAP, KAP-INV und AUS"
 woerter = ["depot", "dividende", "quellensteuer", "broker", "1099", "aktien", "verkauf", "ausland", "us", "activity"]
 stuecke = [
-  { key = "jahresuebersicht", name = "Jahresübersicht des Depots", hinweis = "Eine deutsche Steuerbescheinigung gibt es hier nicht." },
+  { key = "jahresuebersicht", kern = true, name = "Jahresübersicht des Depots", hinweis = "Eine deutsche Steuerbescheinigung gibt es hier nicht." },
   { key = "dividenden", name = "Dividenden-Liste", hinweis = "Alle Ausschüttungen des Jahres." },
   { key = "quellensteuer", name = "Einbehaltene Quellensteuer", hinweis = "Steht oft in der Jahresübersicht." },
   { key = "verkaeufe", name = "Verkäufe mit Gewinn oder Verlust", hinweis = "Nur wenn du etwas verkauft hast." },
@@ -218,10 +227,11 @@ bereich = "Rente"
 frage = "renten"
 zaehlbar = true
 person = true
-anlage = "Anlage R"
+anlage = "Anlage R, R-AV/bAV (Riester, Betriebsrente) und R-AUS"
 woerter = ["rente", "rentenbezugsmitteilung", "pension", "betriebsrente"]
 stuecke = [
-  { key = "rentenbezug", name = "Rentenbezugsmitteilung", hinweis = "Kommt von der Rentenversicherung oder der Kasse." },
+  { key = "rentenbezug", kern = true, name = "Rentenbezugsmitteilung", hinweis = "Kommt von der Rentenversicherung oder der Kasse." },
+  { key = "betriebsrente", name = "Leistungsmitteilung Riester oder Betriebsrente", hinweis = "Nur wenn du so eine Rente bekommst. Kommt vom Anbieter." },
 ]
 
 [[provinz]]
@@ -230,10 +240,10 @@ name = "Brunnen"
 bereich = "Elterngeld, Krankengeld, Arbeitslosengeld"
 frage = "leistungen"
 person = true
-anlage = "Hauptvordruck (steuerfrei, muss aber angegeben werden)"
+anlage = "Hauptvordruck oder Anlage N (steuerfrei, muss aber angegeben werden)"
 woerter = ["elterngeld", "krankengeld", "arbeitslosengeld", "kurzarbeit", "mutterschaftsgeld"]
 stuecke = [
-  { key = "bescheinigung", name = "Bescheinigung über die Leistung", hinweis = "Schickt die Stelle, die gezahlt hat." },
+  { key = "bescheinigung", kern = true, name = "Bescheinigung über die Leistung", hinweis = "Schickt die Stelle, die gezahlt hat." },
 ]
 
 [[provinz]]
@@ -255,18 +265,18 @@ key = "burg"
 name = "Burg"
 bereich = "Privates, das Steuern spart"
 frage = "immer"
-anlage = "Anlagen Vorsorgeaufwand, Sonderausgaben, Haushaltsnahe Aufwendungen, Außergewöhnliche Belastungen"
+anlage = "Anlagen Vorsorgeaufwand, AV, Sonderausgaben, Haushaltsnahe Aufwendungen, Außergewöhnliche Belastungen, Unterhalt, Energetische Maßnahmen"
 woerter = ["krankenversicherung", "rentenversicherung", "spende", "haushalt", "versicherung", "altersvorsorge", "riester", "rürup", "pflege", "krankheit", "steuerberatung"]
 stuecke = [
+  { key = "ksk", name = "Beitragsbescheinigung der Künstlersozialkasse", hinweis = "Jahresbescheinigung der KSK. Dein Anteil zählt wie gesetzliche Renten- und Krankenversicherung.", art = "bonus", wenn = "ksk" },
   { key = "krankenversicherung", name = "Kranken- und Pflegeversicherung", hinweis = "Jahresbescheinigung der Kasse.", art = "bonus", wenn = "vorsorge" },
-  { key = "altersvorsorge", name = "Altersvorsorge", hinweis = "Rürup, Riester, private Rentenversicherung.", art = "bonus", wenn = "vorsorge" },
+  { key = "altersvorsorge", name = "Altersvorsorge", hinweis = "Rürup, private Rentenversicherung. Für Riester die Bescheinigung des Anbieters (Anlage AV).", art = "bonus", wenn = "vorsorge" },
   { key = "versicherungen", name = "Weitere Versicherungen", hinweis = "Haftpflicht, Berufsunfähigkeit, Unfall.", art = "bonus", wenn = "vorsorge" },
   { key = "spenden", name = "Spenden und Mitgliedsbeiträge", hinweis = "Bis 300 € reicht oft der Kontoauszug.", art = "bonus", wenn = "spenden" },
   { key = "haushalt", name = "Handwerker und Hilfe im Haushalt", hinweis = "Rechnung muss überwiesen worden sein.", art = "bonus", wenn = "haushalt" },
   { key = "sanierung", name = "Energetische Sanierung", hinweis = "Am selbst bewohnten Haus, mit Bescheinigung des Fachbetriebs.", art = "bonus", wenn = "sanierung" },
   { key = "krankheit", name = "Krankheitskosten", hinweis = "Zuzahlungen, Brille, Zahnersatz, Therapie.", art = "bonus", wenn = "krankheit" },
-  { key = "pflege", name = "Pflege oder Behinderung", hinweis = "Bescheide und Kosten.", art = "bonus", wenn = "pflege" },
-  { key = "unterhalt", name = "Unterhalt an Angehörige", hinweis = "Überweisungen und Bescheinigung.", art = "bonus", wenn = "unterhalt" },
-  { key = "umzug", name = "Umzugskosten", hinweis = "Bei beruflich bedingtem Umzug.", art = "bonus", wenn = "umzug" },
-  { key = "steuerberatung", name = "Kosten der Steuerberatung", hinweis = "Rechnung deiner Beraterin vom letzten Jahr.", art = "bonus", wenn = "steuerberatung" },
+  { key = "pflege", name = "Pflege oder Behinderung", hinweis = "Schwerbehindertenausweis oder Pflegegrad-Bescheid und die Kosten.", art = "bonus", wenn = "pflege" },
+  { key = "unterhalt", name = "Unterhalt an Angehörige", hinweis = "Kontoauszüge der Überweisungen. Bar gezahlter Unterhalt zählt seit 2025 nicht mehr.", art = "bonus", wenn = "unterhalt" },
+  { key = "steuerberatung", name = "Kosten der Steuerberatung", hinweis = "Rechnung deiner Beraterin vom letzten Jahr. Absetzbar ist nur der Teil für Geschäft, Vermietung oder Job, das teilt sie selbst auf.", art = "bonus", wenn = "steuerberatung" },
 ]

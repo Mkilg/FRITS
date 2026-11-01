@@ -10,10 +10,17 @@
   </div>
 </div>
 
+{% if not chosen %}
+{% with dz_action="/expenses/beleg", dz_class="card form", dz_id="beleg", dz_icon="🧾",
+        dz_title="Beleg hierher ziehen oder einfügen", dz_hint="Foto, Scan, PDF oder die Bestellbestätigung aus einer Mail.",
+        dz_send="Als Beleg eintragen", dz_busy="Ich lese den Beleg. Einen Moment.",
+        dz_text_label="Text eines Belegs einfügen, z. B. eine Bestellbestätigung" %}{% include "_dropzone.html" %}{% endwith %}
+{% endif %}
+
 {% if receipts %}
 <section class="card warn">
   <h2>Belege zum Eintragen</h2>
-  <p class="hint">FRITS hat diese Dateien als Belege erkannt. Die Beträge trägst du selbst ein, so bleibt die Buchhaltung in deiner Hand.</p>
+  <p class="hint">FRITS hat diese Dateien als Belege erkannt. Betrag, Datum und Laden lese ich hier auf deinem Computer vor, du prüfst und speicherst. So bleibt die Buchhaltung in deiner Hand.</p>
   <ul class="list">
     {% for r in receipts %}
     <li class="split"><span><strong>{{ r.filename }}</strong> <span class="muted">· {{ r.received | de_date }}</span></span>
@@ -40,17 +47,19 @@
   {% endif %}
   <section class="card" id="neu">
     <h2>{{ "Diesen Beleg eintragen" if chosen else "Neue Ausgabe" }}</h2>
+    {% set g = guessed or {} %}
+    {% if g %}<p class="flash">Ich habe {{ g | length }} {{ "Angabe" if g | length == 1 else "Angaben" }} vom Beleg gelesen, hier auf deinem Computer. Bitte kurz prüfen.</p>{% endif %}
     <form method="post" action="/expenses" class="form">
       <input type="hidden" name="token" value="{{ token }}">
       <input type="hidden" name="source_file" value="{{ chosen.filename if chosen else '' }}">
-      <label class="field">Bezahlt am <input type="date" name="date" value="{{ today }}" required></label>
-      <label class="field">Bei wem? <input name="vendor" placeholder="z. B. Deutsche Bahn, Baumarkt" required></label>
+      <label class="field">Bezahlt am <input type="date" name="date" value="{{ g.date or today }}" required {{ "class=imported" if g.date }}></label>
+      <label class="field">Bei wem? <input name="vendor" placeholder="z. B. Deutsche Bahn, Baumarkt" required value="{{ g.vendor or '' }}" {{ "class=imported" if g.vendor }}></label>
       <label class="field">Wofür? <input name="description" placeholder="z. B. Fahrt zum Kunden, Schrauben"></label>
-      <label class="field">Betrag in € (so wie bezahlt, mit Steuer) <input name="gross" inputmode="decimal" required></label>
+      <label class="field">Betrag in € (so wie bezahlt, mit Steuer) <input name="gross" inputmode="decimal" required value="{{ g.gross or '' }}" {{ "class=imported" if g.gross }} {{ "autofocus" if chosen and not g.gross }}></label>
       <label class="field">Umsatzsteuer auf dem Beleg
         <select name="vat_rate">
           <option value="0.19">19 %</option>
-          <option value="0.07">7 % (z. B. Bahnticket im Nahverkehr, Bücher)</option>
+          <option value="0.07" {{ "selected" if g.vat_rate == "0.07" }}>7 % (z. B. Bahnticket im Nahverkehr, Bücher)</option>
           <option value="0">0 %</option>
           <option value="">keine angegeben</option>
         </select>
@@ -73,7 +82,7 @@
     <tr>
       <td>{{ e.date | de_date }}</td><td>{{ e.vendor }}</td><td>{{ e.description }}</td>
       <td>{{ categories[e.category].label }}</td><td class="amount">{{ e.gross | eur }}</td>
-      <td class="actions"><form method="post" action="/expenses/{{ e.id }}/delete" data-confirm="Diese Ausgabe löschen?"><input type="hidden" name="token" value="{{ token }}"><button class="tiny quiet danger">Löschen</button></form></td>
+      <td class="actions"><form method="post" action="/expenses/{{ e.id }}/delete"><input type="hidden" name="token" value="{{ token }}"><button class="tiny quiet danger">Löschen</button></form></td>
     </tr>
     {% endfor %}
     </tbody>

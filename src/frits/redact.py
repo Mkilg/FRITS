@@ -176,8 +176,9 @@ def load_ner():
         except OSError:
             continue
     raise RuntimeError(
-        "No German spaCy model installed. Run: uv pip install de_core_news_lg "
-        "(see README) - FRITS will not send anything without it."
+        "Das deutsche Sprachmodell zum Schwärzen fehlt auf diesem Computer. Ohne es schickt "
+        "FRITS aus Sicherheit nichts an eine KI. In der FRITS-App ist es eingebaut; wenn du "
+        "FRITS selbst installiert hast, steht in der Anleitung (README), wie du es nachlädst."
     )
 
 

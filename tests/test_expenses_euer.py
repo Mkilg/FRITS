@@ -8,6 +8,7 @@ import pytest
 from frits.euer import (
     LINE_KLEINUNTERNEHMER,
     LINE_NET_INCOME,
+    LINE_TAX_FREE,
     LINE_VAT_COLLECTED,
     LINE_VORSTEUER,
     summarize,
@@ -166,6 +167,25 @@ def test_euer_regelbesteuerung_splits_vat(db):
         LINE_VORSTEUER: D("38.00"),  # VAT on meals is fully reclaimable
     }
     assert s.profit == D("1904.00") - D("228.00")
+
+
+def test_euer_puts_income_without_german_vat_on_its_own_line(db):
+    conn = sqlite3.connect(db)
+    # Reverse Charge for a broadcaster in Austria, paid in 2026
+    conn.execute(
+        "INSERT INTO invoices VALUES ('2026-004', 'ORF', '2026-02-01', '2026-02-10',"
+        " '800.00', '0.00', '800.00')"
+    )
+    conn.commit()
+    conn.close()
+    income = {
+        line.label: line.amount for line in summarize(db, 2026, "regelbesteuerung").income_lines
+    }
+    assert income == {
+        LINE_NET_INCOME: D("1600.00"),
+        LINE_VAT_COLLECTED: D("304.00"),
+        LINE_TAX_FREE: D("800.00"),
+    }
 
 
 def test_euer_without_invoices_table(tmp_path):

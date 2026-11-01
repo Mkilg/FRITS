@@ -1,15 +1,18 @@
 {% extends "base.html" %}
-{% block title %}{{ title }} · FRITS{% endblock %}
+{% block title %}{{ titel }} · FRITS{% endblock %}
 {% block content %}
-<section class="hello fehler">
+<section class="hello">
   <div class="mascot-big">{{ mascot("warning") }}</div>
   <div>
-    <h1>{{ title }}</h1>
+    <h1>{{ titel }}</h1>
     <p class="speech">{{ text }}</p>
   </div>
 </section>
-<p class="row">
-  <a class="button primary" href="/">Zurück zu Heute</a>
-  <button type="button" class="quiet" onclick="history.back()">Eine Seite zurück</button>
-</p>
+<section class="card">
+  <p>Deine Daten sind sicher, dabei ist nichts verloren gegangen.</p>
+  <div class="row">
+    <a class="button primary" href="/">Zu „Heute“</a>
+    <button type="button" class="quiet" onclick="history.back()">Eine Seite zurück</button>
+  </div>
+</section>
 {% endblock %}

@@ -92,6 +92,11 @@ class Provinzstand:
         return STUFEN[self.stand.stufe]
 
     @property
+    def nur_bonus(self) -> bool:
+        """Eine Provinz nur aus Schätzen (z. B. die Burg) ist Extra, nie Pflicht."""
+        return bool(self.stuecke) and all(ist_bonus(s) for s in self.stuecke)
+
+    @property
     def schaetze(self) -> int:
         """Gefundene Bonus-Schätze."""
         return sum(1 for s in self.stuecke if ist_bonus(s) and s["status"] == "gesammelt")
@@ -142,7 +147,7 @@ def ressourcen(stuecke: list[dict], provinzstaende: list[Provinzstand]) -> Resso
     return Ressourcen(
         belege=sum(s.get("dateien", 0) for s in stuecke),
         briefe=sum(1 for s in stuecke if s["wunsch"]),
-        siegel=sum(1 for p in provinzstaende if p.stand.siegel),
+        siegel=sum(1 for p in provinzstaende if p.stand.siegel and not p.nur_bonus),
         fragen=sum(1 for s in stuecke if s["status"] == "fragen"),
         gold=sum(1 for s in stuecke if ist_bonus(s) and s["status"] == "gesammelt"),
     )
@@ -204,13 +209,24 @@ def drache(stuecke: list[dict]) -> Drache:
     return Drache(lp=len(karten), max_lp=len(pflichten), karten=karten)
 
 
-def treffer(combo: int, kritisch: bool) -> tuple[int, str]:
-    """Neue Combo-Zahl und der passende Ruf. Kritische Treffer zählen doppelt."""
+def treffer(combo: int, kritisch: bool, zaehlt: bool = True) -> tuple[int, str]:
+    """Neue Combo-Zahl und der passende Ruf. Kritische Treffer (eine Datei) zählen doppelt.
+
+    "Gibt's nicht" zählt nicht für die Serie (zaehlt=False): Die Serie hält, wächst aber nicht.
+    Sonst wäre Wegstempeln der schnellste Weg zum Sieg, und genau das soll das Spiel nicht belohnen.
+    """
+    if not zaehlt:
+        return combo, "Notiert. Die Serie hält."
     neu = combo + (2 if kritisch else 1)
     ruf = RUFE[min(neu, len(RUFE) - 1)]
     if kritisch:
         ruf = "Kritischer Treffer! " + ruf
     return neu, ruf
+
+
+def drache_wach(stuecke: list[dict]) -> bool:
+    """Der Drache wacht erst im Zeitalter der Ordnung auf: Erst wird gebaut, dann gekämpft."""
+    return gesamtstand(stuecke).anteil >= ZEITALTER[1][0]
 
 
 # ---------- Erfolge ----------

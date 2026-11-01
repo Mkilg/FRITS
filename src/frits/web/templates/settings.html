@@ -52,7 +52,7 @@
     <label class="field">Deine letzte Rechnungsnummer vor FRITS (falls du schon Rechnungen geschrieben hast) <input name="last_number_before" value="{{ settings.last_number_before }}" placeholder="z. B. 2026-0042"></label>
     <p class="hint">Die nächste Rechnung bekommt die Nummer <strong>{{ next_invoice_number }}</strong>. Rechnungsnummern müssen lückenlos und eindeutig sein, darum vergibt FRITS sie erst, wenn du eine Rechnung fertig machst.</p>
   </section>
-  <section class="card">
+  <section class="card" id="ki">
     <h2>KI</h2>
     <label class="field">Welche KI liest deine Notizen?
       <select name="provider">{% for key, label in providers.items() %}<option value="{{ key }}" {{ "selected" if key == settings.provider }}>{{ label }}</option>{% endfor %}</select>

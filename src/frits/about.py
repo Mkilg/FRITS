@@ -30,8 +30,13 @@ ABOUT = {
         ),
     ],
     "podcast_name": "Der KI-Podcast der ARD",
-    "podcast_text": "FRITS ist für eine Live-Folge vom ARD KI-Podcast entstanden.",
-    "podcast_link": "",  # e.g. "https://…"; empty means: no button
+    "podcast_text": (
+        "FRITS ist für eine Live-Folge vom ARD KI-Podcast entstanden. "
+        "Im Podcast besprechen Gregor Schmalzried, Marie Kilg und Fritz Espenlaub jeden Dienstag, "
+        "was hinter den wichtigsten KI-Entwicklungen steckt. "
+        "Eine ARD-Produktion von BR24 und SWR."
+    ),
+    "podcast_link": "https://www.ardsounds.de/sendung/der-ki-podcast/urn:ard:show:65505255c703e51e/",
 }
 
 

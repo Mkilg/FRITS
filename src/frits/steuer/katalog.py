@@ -38,12 +38,28 @@ HAKEN = {
     "pflege": "Pflege, Pflegegrad oder Behinderung",
     "unterhalt": "Unterhalt an Angehörige gezahlt",
     "umzug": "Beruflich bedingter Umzug",
+    "ksk": "Über die Künstlersozialkasse (KSK) versichert",
+    "sender": "Honorare von Rundfunksendern (ARD, ZDF, Deutschlandradio …)",
+    "verwertung": "Geld von VG Wort, VG Bild-Kunst oder GVL",
+    "ausland_honorar": "Honorare von Auftraggebern im Ausland",
+    "verlust": "Verlust im Vorjahr (Verlustvortrag)",
     "arbeit": "Kosten für die Arbeit als Angestellte:r (Laptop, Fahrten, Fortbildung)",
     "steuerberatung": "Rechnung der Steuerberatung vom letzten Jahr",
     "kirche": "Kirchenmitglied",
     "kinder_betreuung": "Kinderbetreuung (Kita, Tagesmutter, Hort)",
     "kinder_schulgeld": "Schulgeld für eine Privatschule",
     "kinder_ausbildung": "Kind über 18 in Ausbildung oder Studium",
+}
+
+# Manche Haken passen nur, wenn es die Einkunft gibt: Haken -> Fragen aus Teil 2.
+HAKEN_NUR_MIT = {
+    "arbeit": ("angestellt",),
+    "umzug": ("angestellt", "freiberuflich"),
+    "ksk": ("freiberuflich",),
+    "sender": ("freiberuflich",),
+    "verwertung": ("freiberuflich",),
+    "ausland_honorar": ("freiberuflich", "gewerbe"),
+    "verlust": ("freiberuflich", "gewerbe"),
 }
 
 
@@ -54,6 +70,7 @@ class Stueck:
     hinweis: str = ""
     art: str = PFLICHT  # pflicht | bonus
     wenn: str = ""  # nur dabei, wenn dieser Haken im Fragebogen gesetzt ist
+    kern: bool = False  # gibt es fast immer: "Gibt's nicht" fragt einmal nach
 
 
 @dataclass(frozen=True)
@@ -126,10 +143,17 @@ class Profil:
         werte += [0] * (2 - len(werte))
         return [max(0, int(werte[0])), max(0, int(werte[1])) if self.zusammen else 0]
 
+    def zeigt_haken(self, haken: str) -> bool:
+        """Ob die Frage nach diesem Haken im Fragebogen überhaupt Sinn ergibt."""
+        if haken.startswith("kinder_"):
+            return bool(self.kinder)
+        noetig = HAKEN_NUR_MIT.get(haken)
+        return not noetig or any(sum(self.anzahl(f)) for f in noetig)
+
     def hat(self, haken: str) -> bool:
         if haken == "umsatzsteuer":
             return self.umsatzsteuer != "keine"
-        return haken in self.haken
+        return haken in self.haken and self.zeigt_haken(haken)
 
     @classmethod
     def load(cls, path: Path) -> Profil | None:
@@ -207,6 +231,12 @@ def reich(profil: Profil) -> list[Gebiet]:
                     )
                 )
     return gebiete
+
+
+def ist_kern(gebiet_id: str, key: str) -> bool:
+    """Gibt es dieses Sammelstück fast immer (z. B. Belege bei Selbstständigen)?"""
+    provinz = katalog().get(gebiet_id.split("-")[0])
+    return bool(provinz) and any(s.key == key and s.kern for s in provinz.stuecke)
 
 
 def gebiet(profil: Profil, gebiet_id: str) -> Gebiet | None:

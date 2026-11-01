@@ -14,28 +14,31 @@
 </section>
 {% endif %}
 
-<section class="card">
+<section class="card eingang">
   <h2>Eingang</h2>
+  {% if not ai_ready %}
+  <div class="lesson ki-fehlt">
+    <strong>Die KI ist noch nicht verbunden.</strong> Ablegen geht trotzdem, und Rechnungen kannst du jederzeit von Hand schreiben.
+    <div class="row"><a class="button" href="/settings#ki">KI verbinden (2 Minuten)</a>
+      <form method="post" action="/drafts/new"><input type="hidden" name="token" value="{{ token }}"><button class="quiet">Rechnung von Hand schreiben</button></form></div>
+  </div>
+  {% endif %}
   {% if waiting %}
   <p><strong>{{ waiting | length }} {{ "Datei wartet" if waiting | length == 1 else "Dateien warten" }}</strong>: {{ waiting | map(attribute="name") | join(", ") }}</p>
+  {% if ai_ready %}
+  <form method="post" action="/inbox/process" data-busy="Ich lese gerade. Das dauert einen Moment.">
+    <input type="hidden" name="token" value="{{ token }}">
+    <button class="primary">Jetzt lesen lassen</button>
+  </form>
   <p class="hint">Bevor die KI liest, schwärze ich Namen, Adressen und Kontonummern hier auf deinem Computer. Die KI sieht nur Platzhalter wie [PERSON_1].</p>
-  {% else %}
-  {% if picture("leer-eingang") %}<img class="leer-bild" src="{{ picture('leer-eingang') }}" alt="">{% endif %}
-  <p>Der Eingang ist leer. Zieh eine Notiz, E-Mail oder ein Foto auf das Feld unten oder leg sie in den Ordner, dann lese ich sie, wenn du es sagst.</p>
   {% endif %}
-  <div class="row">
-    {% if waiting %}
-    <form method="post" action="/inbox/process" data-busy="Ich lese gerade. Das dauert einen Moment.">
-      <input type="hidden" name="token" value="{{ token }}">
-      <button class="primary">Jetzt lesen lassen</button>
-    </form>
-    {% endif %}
-    <form method="post" action="/open/inbox">
-      <input type="hidden" name="token" value="{{ token }}">
-      <button>Eingangsordner öffnen</button>
-    </form>
+  {% elif picture("leer-eingang") %}<img class="leer-bild" src="{{ picture('leer-eingang') }}" alt="">
+  {% endif %}
+  {% with dz_back="/", dz_class="form", dz_read=ai_ready, dz_title=("Noch etwas? Hierher ziehen oder einfügen" if waiting else "Notiz, E-Mail oder Foto hierher ziehen") %}{% include "_dropzone.html" %}{% endwith %}
+  <div class="leise-links">
+    <form method="post" action="/open/inbox"><input type="hidden" name="token" value="{{ token }}"><button>Eingangsordner im Finder öffnen</button></form>
+    {% if ai_ready %}<form method="post" action="/drafts/new"><input type="hidden" name="token" value="{{ token }}"><button>Rechnung von Hand schreiben</button></form>{% endif %}
   </div>
-  {% with back_to="/", dz_class="form" %}{% include "_dropzone.html" %}{% endwith %}
 </section>
 
 {% if check_me %}

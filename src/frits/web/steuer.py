@@ -19,9 +19,10 @@ from fastapi.responses import HTMLResponse, Response
 from frits import store, system
 from frits.settings import Workspace
 from frits.steuer import beraterin, ernte, quest, spiel, truhe
-from frits.steuer.katalog import FAMILIENSTAND, HAKEN, Profil, fragen, gebiet, reich
+from frits.steuer.katalog import FAMILIENSTAND, HAKEN, Profil, fragen, gebiet, ist_kern, reich
 
 AKTIONEN = {"gibts_nicht", "fragen", "offen"}
+MAX_LAGER = 30 * 1024 * 1024  # wie beim Eingang von FRITS
 
 BILDER = resources.files("frits.web") / "static" / "steuer"
 
@@ -108,14 +109,43 @@ def wiesenplan(anzahl: int) -> list[tuple[float, float]]:
     return lagen
 
 
+MONATE = (
+    "Januar",
+    "Februar",
+    "März",
+    "April",
+    "Mai",
+    "Juni",
+    "Juli",
+    "August",
+    "September",
+    "Oktober",
+    "November",
+    "Dezember",
+)
+
+
+def schoenes_datum(iso: str) -> str:
+    """ "2026-12-15" wird zu "15. Dezember 2026"; alles andere bleibt, wie es ist."""
+    try:
+        d = date.fromisoformat(str(iso))
+    except ValueError:
+        return str(iso)
+    return f"{d.day}. {MONATE[d.month - 1]} {d.year}"
+
+
 def fritte_tipp(daten: dict, lager: list) -> tuple[str, str]:
     """Was Fritte, die Kartografin, gerade sagt: (Stimmung, Satz)."""
     if daten["drache"].besiegt and daten["stuecke"]:
         return "done", "Der Drache ist besiegt! Die Schatztruhe wartet auf dich."
     if lager:
         n = len(lager)
-        zettel = "ein Zettel" if n == 1 else f"{n} Zettel"
-        return "welcome", f"Im Eingangskorb liegen {zettel}. Zieh sie auf die Insel, ich stempel."
+        if n == 1:
+            return (
+                "welcome",
+                "Im Eingangskorb liegt ein Zettel. Zieh ihn auf die Insel, ich stempel.",
+            )
+        return "welcome", f"Im Eingangskorb liegen {n} Zettel. Zieh sie auf die Insel, ich stempel."
     fehlt_vorjahr = [v for v in daten["vergleich"] if v["jetzt"] == "offen"]
     if fehlt_vorjahr:
         name = fehlt_vorjahr[0]["name"]
@@ -167,7 +197,14 @@ def register_steuer(
     def seite(request: Request, name: str, **context):
         """Wie page(), plus was alle Quest-Seiten brauchen (Bilder, Klang)."""
         return page(
-            request, name, bild=bild, provinzbild=provinzbild, klang=settings().sound, **context
+            request,
+            name,
+            bild=bild,
+            provinzbild=provinzbild,
+            klang=settings().sound,
+            kern=ist_kern,
+            datum=schoenes_datum,
+            **context,
         )
 
     def quest_jahre() -> list[int]:
@@ -207,6 +244,7 @@ def register_steuer(
             "zeitalter": spiel.zeitalter(gesamt.anteil),
             "naechstes": spiel.naechstes_zeitalter(gesamt.anteil),
             "drache": drache,
+            "drache_wach": spiel.drache_wach(alle) or jahr in app.state.steuer_notausgang,
             "auftrag": spiel.auftrag(jahr, staende, drache, zettel, alle),
             "burg_fehlt": not any(g.provinz.key == "burg" for g in gebiete),
             "jahre": quest_jahre(),
@@ -371,8 +409,10 @@ def register_steuer(
             p.zusammen = p.familienstand == "verheiratet" and form.get("zusammen") == "on"
             p.partner = str(form.get("partner") or "").strip() if p.zusammen else ""
             p.kinder = _zahl(form.get("kinder"))
-            p.beraterin_email = str(form.get("beraterin_email") or "").strip()
-            p.beraterin_termin = str(form.get("beraterin_termin") or "").strip()
+            if "beraterin_email" in form:
+                p.beraterin_email = str(form.get("beraterin_email") or "").strip()
+            if "beraterin_termin" in form:
+                p.beraterin_termin = str(form.get("beraterin_termin") or "").strip()
         elif teil == 2:
             mengen = {}
             for provinz in fragen():
@@ -420,7 +460,8 @@ def register_steuer(
     def provinz(request: Request, jahr: int, gebiet_id: str):
         g = gebiet(profil_oder_404(jahr), gebiet_id)
         if g is None:
-            raise HTTPException(404)
+            flash("Diese Provinz gibt es auf deiner Insel nicht (mehr).", "hinweis")
+            return back(f"/steuer/{jahr}")
         daten = lage(jahr)
         c = conn()
         eigene = [s for s in daten["stuecke"] if s["gebiet"] == g.id]
@@ -505,6 +546,51 @@ def register_steuer(
         quest.entferne_datei(conn(), datei_id)
         flash("Die Datei liegt wieder im Lager. Nichts ist verloren.")
         return back(str(form.get("back") or f"/steuer/{jahr}"))
+
+    @app.post("/steuer/{jahr}/lager/hochladen", dependencies=guarded)
+    async def lager_hochladen(request: Request, jahr: int):
+        """Dateien, die auf den Eingangskorb fallen, landen im Lager wie im Finder hineingelegt."""
+        form = await request.form()
+        ablage = quest.lager(ws.root)
+        ablage.mkdir(parents=True, exist_ok=True)
+        gelegt, zu_gross = [], []
+        for upload in [*form.getlist("files"), *form.getlist("datei")]:
+            name = Path(str(getattr(upload, "filename", "") or "").replace("\\", "/")).name.strip()
+            if not name or name.startswith("."):
+                continue
+            daten = await upload.read(MAX_LAGER + 1)
+            if len(daten) > MAX_LAGER:
+                zu_gross.append(name)
+                continue
+            ziel, n = ablage / name, 1
+            while ziel.exists():
+                ziel = ablage / f"{Path(name).stem} ({n}){Path(name).suffix}"
+                n += 1
+            ziel.write_bytes(daten)
+            gelegt.append(ziel.name)
+        text = str(form.get("text") or "").strip()
+        if text:
+            from frits.web.app import _save_text  # beim Einfügen von Text: eine .txt im Lager
+
+            gelegt.append(_save_text(text[:200_000], ablage, "eingefuegt").name)
+        if gelegt:
+            n = len(gelegt)
+            flash(
+                f"{n} neue{'r' if n == 1 else ''} Zettel im Eingangskorb. Zieh {'ihn' if n == 1 else 'sie'} auf eine Provinz.",
+                "beute",
+            )
+        for name in zu_gross:
+            flash(
+                f"{name} ist größer als 30 MB. Leg sie lieber direkt in den Lager-Ordner.", "error"
+            )
+        if not gelegt and not zu_gross:
+            flash("Es wurde keine Datei mitgeschickt.", "error")
+        return back(f"/steuer/{jahr}#sq-korb")
+
+    @app.get("/steuer/{jahr}/lager/anzahl")
+    def lager_anzahl(jahr: int):
+        """Wie viele Zettel im Lager liegen. Die Karte fragt das, wenn du aus dem Finder zurückkommst."""
+        return {"anzahl": len(quest.lager_dateien(ws.root))}
 
     @app.post("/steuer/{jahr}/lager/oeffnen", dependencies=guarded)
     def lager_oeffnen(jahr: int):
@@ -594,6 +680,9 @@ def register_steuer(
         s = stueck_im_jahr(jahr, int(str(form.get("stueck_id") or 0)))
         aktion = str(form.get("aktion") or "")
         vorher = lage(jahr)
+        if not vorher["drache_wach"]:
+            flash("Der Drache schläft noch. Bau erst deine Provinzen auf.")
+            return back(f"/steuer/{jahr}/drache")
         kritisch = False
         if aktion == "datei":
             uploads = [f for f in form.getlist("datei") if hasattr(f, "filename") and f.filename]
@@ -609,7 +698,7 @@ def register_steuer(
         else:
             raise HTTPException(400)
         alt = app.state.steuer_combo.get(jahr, {"combo": 0})
-        combo, ruf = spiel.treffer(alt["combo"], kritisch)
+        combo, ruf = spiel.treffer(alt["combo"], kritisch, zaehlt=aktion != "gibts_nicht")
         app.state.steuer_combo[jahr] = {
             "combo": combo,
             "ruf": ruf,
@@ -622,7 +711,7 @@ def register_steuer(
             app.state.steuer_combo.pop(jahr, None)
             flash("SIEG! Der Drache faltet sich zu einer Schatztruhe zusammen.", "sieg", "sent")
             return back(f"/steuer/{jahr}/sieg")
-        return back(f"/steuer/{jahr}/drache")
+        return back(f"/steuer/{jahr}/drache#karte")
 
     @app.post("/steuer/{jahr}/drache/notausgang", dependencies=guarded)
     def notausgang(jahr: int):
@@ -683,6 +772,23 @@ def register_steuer(
         quest.notiere(conn(), jahr, "truhe", ziel.name)
         return back(f"/steuer/{jahr}/sieg")
 
+    @app.post("/steuer/{jahr}/beraterin/daten", dependencies=guarded)
+    async def beraterin_daten(request: Request, jahr: int):
+        form = await request.form()
+        p = profil_oder_404(jahr)
+        p.beraterin_email = str(form.get("beraterin_email") or "").strip()
+        termin = str(form.get("beraterin_termin") or "").strip()
+        try:
+            p.beraterin_termin = date.fromisoformat(termin).isoformat() if termin else ""
+        except ValueError:
+            p.beraterin_termin = ""
+        p.save(quest.profil_datei(ws.root, jahr))
+        if p.beraterin_termin:
+            flash(f"Gemerkt: Abgabe bis {schoenes_datum(p.beraterin_termin)}.")
+        else:
+            flash("Gemerkt.")
+        return back(str(form.get("back") or f"/steuer/{jahr}/beraterin"))
+
     @app.post("/steuer/{jahr}/mail", dependencies=guarded)
     async def mail_oeffnen(request: Request, jahr: int):
         form = await request.form()
@@ -691,6 +797,10 @@ def register_steuer(
         if not zip_pfad.exists():
             flash("Pack zuerst die Schatztruhe, dann hänge ich sie an.")
             return back(f"/steuer/{jahr}/sieg")
+        an = str(form.get("an") or "").strip()
+        if an and an != p.beraterin_email:
+            p.beraterin_email = an
+            p.save(quest.profil_datei(ws.root, jahr))
         betreff = str(form.get("betreff") or f"Steuerunterlagen {jahr}")
         text = str(form.get("text") or "")
         result = system.compose_email(p.beraterin_email, betreff, text, zip_pfad)

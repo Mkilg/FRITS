@@ -1,8 +1,11 @@
 {% extends "base.html" %}
 {% block title %}Entwurf {{ row.id }} · FRITS{% endblock %}
 {% block content %}
+{% macro rate_select(current) %}<select name="vat" {{ "disabled" if not editable }} aria-label="Umsatzsteuer"><option value="">normal</option>{% for r in vat_rates %}<option value="{{ r | qty }}" {{ "selected" if current is not none and current == r }}>{{ r | qty }} %</option>{% endfor %}</select>{% endmacro %}
 {% set editable = row.status == "draft" %}
 {% set is_quote = draft.kind == "quote" %}
+{% set rate_column = sums.vat_rate is not none and draft.customer_tax not in ("eu", "drittland") %}
+{% set cols = 6 if rate_column else 5 %}
 <div class="head-row">
   <h1>{{ "Angebot" if is_quote else "Rechnung" }}: Entwurf {{ row.id }}</h1>
   <span class="muted">aus {{ draft.source_file }}</span>
@@ -56,7 +59,7 @@
 
       <div class="table-wrap">
       <table class="lines">
-        <thead><tr><th>Leistung</th><th>Datum</th><th>Menge</th><th>Einheit</th><th>Preis je Einheit</th><th class="amount">Betrag</th></tr></thead>
+        <thead><tr><th>Leistung</th><th>Datum</th><th>Menge</th><th>Einheit</th><th>Preis je Einheit</th>{% if rate_column %}<th>USt</th>{% endif %}<th class="amount">Betrag</th></tr></thead>
         <tbody>
         {% for line in draft.lines %}
           <tr class="{{ 'needs' if line.unit_price is none }}">
@@ -73,6 +76,7 @@
               {% if "price_not_in_text" in line.flags %}<small class="note">Die KI nannte einen Preis, der nicht im Text steht. Ignoriert.</small>{% endif %}
               {% if "quantity_unusual" in line.flags %}<small class="note">Ungewöhnliche Menge, bitte prüfen.</small>{% endif %}
             </td>
+            {% if rate_column %}<td>{{ rate_select(line.vat_rate) }}</td>{% endif %}
             <td class="amount">{{ line.net | eur if line.net is not none else "" }}</td>
           </tr>
         {% endfor %}
@@ -83,20 +87,29 @@
             <td><input name="quantity" size="5" inputmode="decimal"></td>
             <td><select name="unit">{% for u in units %}<option>{{ u }}</option>{% endfor %}</select></td>
             <td><input name="price" size="7" inputmode="decimal"></td>
+            {% if rate_column %}<td>{{ rate_select(none) }}</td>{% endif %}
             <td></td>
           </tr>
         {% endif %}
         </tbody>
         <tfoot>
           {% if sums.vat_rate is not none %}
-          <tr><td colspan="5" class="amount">Netto</td><td class="amount">{{ sums.net | eur }}</td></tr>
-          <tr><td colspan="5" class="amount">Umsatzsteuer {{ sums.vat_rate | qty }} %</td><td class="amount">{{ sums.vat | eur }}</td></tr>
+          {% if sums.groups | length > 1 %}
+          {% for rate, part, vat in sums.groups %}<tr><td colspan="{{ cols }}" class="amount">Netto zu {{ rate | qty }} %</td><td class="amount">{{ part | eur }}</td></tr>{% endfor %}
+          {% for rate, part, vat in sums.groups %}<tr><td colspan="{{ cols }}" class="amount">Umsatzsteuer {{ rate | qty }} %</td><td class="amount">{{ vat | eur }}</td></tr>{% endfor %}
+          {% else %}
+          <tr><td colspan="{{ cols }}" class="amount">Netto</td><td class="amount">{{ sums.net | eur }}</td></tr>
+          <tr><td colspan="{{ cols }}" class="amount">Umsatzsteuer {{ (sums.groups[0][0] if sums.groups else sums.vat_rate) | qty }} %</td><td class="amount">{{ sums.vat | eur }}</td></tr>
           {% endif %}
-          <tr class="total"><td colspan="5" class="amount">Gesamt</td><td class="amount">{{ sums.gross | eur }}</td></tr>
+          {% endif %}
+          <tr class="total"><td colspan="{{ cols }}" class="amount">Gesamt</td><td class="amount">{{ sums.gross | eur }}</td></tr>
         </tfoot>
       </table>
       </div>
-      {% if sums.vat_rate is none %}<p class="hint">Kleinunternehmer: keine Umsatzsteuer (§ 19 UStG).</p>{% endif %}
+      {% if sums.note %}<p class="hint">Steht auf der Rechnung: „{{ sums.note }}“</p>{% endif %}
+      {% if rate_column and editable %}<p class="hint">USt „normal“ ist dein Satz aus den Einstellungen. 7 % gilt zum Beispiel, wenn du Nutzungsrechte an Texten, Beiträgen oder Fotos einräumst (§ 12 Abs. 2 Nr. 7c UStG). Im Zweifel frag deine Steuerberatung.</p>{% endif %}
+      {% for w in limit_warnings or [] %}<p class="hint warn-text">{{ w }}</p>{% endfor %}
+      {% if editable and not is_quote and not period %}<p class="hint">Keine Position hat ein Datum. Dann steht auf der Rechnung „Leistungsdatum entspricht dem Rechnungsdatum“. Hast du früher gearbeitet, trag bitte bei den Positionen das Datum ein (Pflicht nach § 14 UStG).</p>{% endif %}
       <p class="hint">Preise kommen aus der Kundennotiz oder deinen Einstellungen, nie von der KI. Du kannst jeden Wert ändern.</p>
 
       {% if draft.questions %}
@@ -116,7 +129,7 @@
 
       {% if editable %}
       <div class="row actions">
-        <button name="action" value="save">Speichern</button>
+        <button name="action" value="save" title="Kurzbefehl: ⌘S">Speichern</button>
         {% if is_quote %}
         <button class="primary" name="action" value="quote">Angebot erstellen</button>
         {% else %}
@@ -127,7 +140,7 @@
       {% endif %}
     </form>
     {% if editable %}
-    <form method="post" action="/drafts/{{ row.id }}/discard" class="discard" data-confirm="Entwurf verwerfen? Es wird keine Nummer verbraucht.">
+    <form method="post" action="/drafts/{{ row.id }}/discard" class="discard">
       <input type="hidden" name="token" value="{{ token }}">
       <button class="quiet danger">Entwurf verwerfen</button>
     </form>

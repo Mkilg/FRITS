@@ -31,13 +31,17 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from frits import __version__, about, emails, euer, expenses, haustier, setup, store, system
 from frits.billing import (
+    CUSTOMER_TAX,
     DEFAULT_PATTERN,
+    VAT_RATES,
     BillingError,
     Draft,
     approve,
     blockers,
     cancel,
     discard_draft,
+    draft_totals,
+    limit_check,
     list_invoices,
     load_draft,
     mark_paid,
@@ -46,18 +50,19 @@ from frits.billing import (
     parse_amount,
     reviewed_line,
     save_draft,
+    service_period,
     set_customer,
-    totals,
     unit_price,
     valid_pattern,
 )
-from frits.customers import Customer, load_customers, note_id, save_note
+from frits.customers import COUNTRIES, Customer, load_customers, note_id, save_note
 from frits.ingest import SUPPORTED, IngestError, extract_text
 from frits.providers import KEY_ENV, ProviderError, get_api_key, make_provider, store_api_key
 from frits.quotes import accept_quote, create_quote, decline_quote, list_quotes
 from frits.reminders import create_reminder
 from frits.render import eur, qty
 from frits.settings import Settings, Workspace
+from frits.spiel import stand as spiel_stand
 from frits.web.haustier import fritte_datei, register_haustier
 
 UNITS = ("Std", "km", "Stk", "pauschal")
@@ -235,6 +240,8 @@ def _templates() -> Jinja2Templates:
     env.globals.update(
         mascot=mascot_markup,
         units=UNITS,
+        customer_tax=CUSTOMER_TAX,
+        countries=COUNTRIES,
         providers=PROVIDERS,
         supported=",".join(sorted(SUPPORTED)),
     )
@@ -266,6 +273,7 @@ def create_app(
     app = FastAPI(title="FRITS", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
     app.state.token = secrets.token_urlsafe(32)
     app.state.flashes = []
+    app.state.undo = None  # the last step that can still be taken back
     app.state.nlp = None
     app.state.tab_waiting = False  # a "FRITS ist aus" tab is waiting to come back
     app.state.files = ExitStack()
@@ -280,6 +288,14 @@ def create_app(
         if current.strict_local and current.provider != "ollama":
             raise ProviderError("Strikter Modus ist an: Es wird nur die lokale KI benutzt.")
         return make_provider(current.provider, current.models)
+
+    def ai_ready(current: Settings) -> bool:
+        """Can FRITS hand redacted text to an AI right now? (Ollama is checked when used.)"""
+        if provider_factory or current.provider == "ollama":
+            return True
+        if current.strict_local or current.provider not in KEY_ENV:
+            return False
+        return bool(get_api_key(current.provider))
 
     def nlp():
         if app.state.nlp is None:
@@ -299,10 +315,20 @@ def create_app(
         return next((c for c in customers() if value in (c.id, c.display_name, c.name)), None)
 
     def flash(
-        text: str, kind: str = "ok", cue: str | None = None, stamp: str | None = None
+        text: str,
+        kind: str = "ok",
+        cue: str | None = None,
+        stamp: str | None = None,
+        undo: dict | None = None,
     ) -> None:
-        """A short note on the next page. `stamp` puts an ink stamp on it, e.g. "Bezahlt"."""
-        app.state.flashes.append({"text": text, "kind": kind, "cue": cue, "stamp": stamp})
+        """A short note on the next page. `stamp` puts an ink stamp on it, e.g. "Bezahlt".
+        `undo` remembers how to take the step back and puts a "Rückgängig" button on the note:
+        undo beats "Are you sure?" (people click OK by habit; a way back always works)."""
+        if undo:
+            app.state.undo = undo
+        app.state.flashes.append(
+            {"text": text, "kind": kind, "cue": cue, "stamp": stamp, "undo": bool(undo)}
+        )
 
     def page(request: Request, name: str, **context) -> HTMLResponse:
         current = settings()
@@ -321,25 +347,6 @@ def create_app(
 
     def back(url: str) -> RedirectResponse:
         return RedirectResponse(url, status_code=303)
-
-    @app.exception_handler(StarletteHTTPException)
-    async def friendly_error(request: Request, exc: StarletteHTTPException):
-        # A page in FRITS's own look instead of bare "Not Found" text
-        if exc.status_code == 404:
-            title, text = (
-                "Diese Seite gibt es nicht",
-                ("Hier liegt nichts. Vielleicht wurde der Eintrag gelöscht oder der Link ist alt."),
-            )
-        elif exc.status_code == 403:
-            title, text = (
-                "Das hat nicht geklappt",
-                (str(exc.detail) if exc.detail != "Forbidden" else "Das darf diese Seite nicht."),
-            )
-        else:
-            title, text = "Da ist etwas schiefgelaufen", str(exc.detail)
-        response = page(request, "fehler.html", title=title, text=text, code=exc.status_code)
-        response.status_code = exc.status_code
-        return response
 
     # Sounds and music, if that part of FRITS is installed
     app.state.sounds_url = None
@@ -365,6 +372,21 @@ def create_app(
         if host not in ("127.0.0.1", "localhost", "testserver"):
             return HTMLResponse("FRITS antwortet nur auf diesem Computer.", status_code=403)
         return await call_next(request)
+
+    @app.exception_handler(StarletteHTTPException)
+    async def friendly_error(request: Request, exc: StarletteHTTPException):
+        """Plain words instead of {"detail": "Not Found"}."""
+        if exc.status_code == 404:
+            titel, text = "Diese Seite gibt es nicht", (
+                "Vielleicht ist sie umgezogen, oder der Link war nicht ganz vollständig."
+            )
+        elif exc.status_code == 403:
+            titel, text = "Das hat nicht geklappt", str(exc.detail)
+        else:
+            titel, text = "Das hat nicht geklappt", "Versuch es gleich noch einmal."
+        response = page(request, "fehler.html", titel=titel, text=text)
+        response.status_code = exc.status_code
+        return response
 
     async def check_token(request: Request) -> None:
         form = await request.form()
@@ -404,42 +426,64 @@ def create_app(
             receipts=receipts,
             mood=moment[0],
             moment=moment[1],
-            f=haustier.ansehen(conn, fritte_datei(ws.root), today()) if current.haustier else None,
+            ai_ready=ai_ready(current),
+            f=haustier.ansehen(conn, today(), fritte_datei(ws.root)) if current.haustier else None,
         )
 
     @app.post("/inbox/process", dependencies=guarded)
     def process_inbox():
+        return read_inbox("/")
+
+    def read_inbox(target: str, after_upload: bool = False) -> RedirectResponse:
+        """Read everything waiting in the inbox: redact here, then the AI sees placeholders only."""
         from frits.pipeline import process_file
 
         current = settings()
         files_waiting = _inbox_files(ws)
         if not files_waiting:
-            flash("Der Eingang ist leer. Leg eine Notiz, E-Mail oder ein Foto hinein.")
-            return back("/")
+            flash("Der Eingang ist leer. Zieh eine Notiz, E-Mail oder ein Foto auf das Feld.")
+            return back(target)
         try:
             provider = provider_for(current)
             model = nlp()
         except (ProviderError, RuntimeError) as exc:
+            if after_upload:
+                # Fritz just handed something over: keep him where he is, the file is safe.
+                flash(f"{exc} Die Datei liegt sicher im Eingang.", "error")
+                return back(target)
             flash(str(exc), "error")
-            return back("/settings" if isinstance(exc, ProviderError) else "/")
+            return back("/settings" if isinstance(exc, ProviderError) else target)
         counts = {"drafted": 0, "check-me": 0, "receipt": 0, "skipped": 0}
+        drafted: list[int] = []
         for path in files_waiting:
             outcome = process_file(path, ws, current, provider, model)
             counts[outcome.status] += 1
+            if outcome.draft_id:
+                drafted.append(outcome.draft_id)
             if outcome.status == "check-me" and path.exists():
                 flash(f"{path.name}: {outcome.message}", "error")
                 break  # e.g. the AI isn't reachable: the next files would fail the same way
         parts = []
         if counts["drafted"]:
-            parts.append(f"{counts['drafted']} neue Entwürfe")
+            parts.append(
+                "1 neuer Entwurf"
+                if counts["drafted"] == 1
+                else f"{counts['drafted']} neue Entwürfe"
+            )
         if counts["receipt"]:
-            parts.append(f"{counts['receipt']} Belege")
+            parts.append("1 Beleg" if counts["receipt"] == 1 else f"{counts['receipt']} Belege")
         if counts["check-me"]:
             parts.append(f"{counts['check-me']} zum Prüfen")
         if counts["skipped"]:
             parts.append(f"{counts['skipped']} schon bekannt")
         flash("Fertig gelesen: " + (", ".join(parts) or "nichts Neues") + ".", cue="done")
-        return back("/")
+        if target == "/" and not counts["check-me"]:
+            # Exactly one thing to do next? Then go there instead of making Fritz look for it.
+            if len(drafted) == 1 and not counts["receipt"]:
+                return back(f"/drafts/{drafted[0]}")
+            if counts["receipt"] and not drafted and (waiting := open_receipts(db())):
+                return back(f"/expenses?receipt={waiting[0]['id']}#neu")
+        return back(target)
 
     @app.post("/open/{folder}", dependencies=guarded)
     async def open_folder(request: Request, folder: str):
@@ -460,25 +504,25 @@ def create_app(
 
     @app.post("/inbox/upload", dependencies=guarded)
     async def inbox_upload(request: Request):
-        """Files dropped into the browser land in the inbox folder, as if dragged there in Finder."""
+        """Files dropped or pasted into the browser land in the inbox folder, as if dragged
+        there in Finder. Pasted text becomes a small note file."""
         form = await request.form()
-        target = str(form.get("back") or "/")
-        target = target if target.startswith("/") and not target.startswith("//") else "/"
-        saved, problems = [], []
-        for upload in form.getlist("files"):
-            if not getattr(upload, "filename", None):
-                continue
-            try:
-                saved.append(await _save_upload(upload, ws.inbox))
-            except IngestError as exc:
-                problems.append(f"{Path(upload.filename).name}: {exc}")
+        target = _local(form.get("back"))
+        saved, problems = await _saved_uploads(form, ws.inbox)
+        if saved and "lesen_merken" in form:
+            # The "gleich lesen" box on Heute: whatever Fritz chose last time stays chosen.
+            wants = form.get("lesen") == "on"
+            if wants != settings().auto_read:
+                replace(settings(), auto_read=wants).save(ws.settings_file)
+            if wants and not problems:
+                return read_inbox(target, after_upload=True)
         if saved:
             names = ", ".join(p.name for p in saved)
             flash(f"Im Eingang: {names}. Drück „Jetzt lesen lassen“, wenn du so weit bist.")
         for problem in problems:
             flash(problem, "error")
         if not saved and not problems:
-            flash("Es wurde keine Datei mitgeschickt.", "error")
+            flash("Es kam nichts an. Zieh eine Datei auf das Feld oder füg Text ein.", "error")
         return back(target)
 
     @app.get("/check-me", response_class=HTMLResponse)
@@ -534,13 +578,24 @@ def create_app(
                     original = extract_text(source).text
                 except IngestError:
                     original = None
+        problems, limit_warnings = [], []
+        if row["status"] == "draft":
+            problems = blockers(draft, current)
+            if draft.kind != "quote":
+                extra, limit_warnings = limit_check(
+                    conn, current, today().year, draft_totals(draft, current).net
+                )
+                problems += extra
         return page(
             request,
             "draft.html",
             draft=draft,
             row=row,
-            sums=totals(draft.lines, current),
-            problems=blockers(draft, current) if row["status"] == "draft" else [],
+            sums=draft_totals(draft, current),
+            period=service_period(draft.lines),
+            problems=problems,
+            limit_warnings=limit_warnings,
+            vat_rates=VAT_RATES,
             customers=customers(),
             original=original,
             sent_text=job["sent_text"] if job else None,
@@ -592,7 +647,10 @@ def create_app(
     def draft_discard(draft_id: int):
         try:
             discard_draft(db(), draft_id)
-            flash("Entwurf verworfen. Es wurde keine Nummer verbraucht.")
+            flash(
+                "Entwurf verworfen. Es wurde keine Nummer verbraucht.",
+                undo={"kind": "draft", "id": draft_id},
+            )
         except BillingError as exc:
             flash(str(exc), "error")
         return back("/drafts")
@@ -691,7 +749,7 @@ def create_app(
         current = settings()
         quotes = list_quotes(db())
         for quote in quotes:
-            quote["gross"] = totals(quote["draft"].lines, current).gross
+            quote["gross"] = draft_totals(quote["draft"], current).gross
         return page(request, "quotes.html", quotes=quotes, customers=customers())
 
     @app.get("/quotes/{number}/pdf")
@@ -729,7 +787,7 @@ def create_app(
         current = settings()
         customer = customer_by(row["customer_id"])
         subject, body = emails.quote_email(
-            dict(row), totals(draft.lines, current).gross, customer, current
+            dict(row), draft_totals(draft, current).gross, customer, current
         )
         result = system.compose_email(
             customer.email if customer and customer.email else "",
@@ -752,6 +810,36 @@ def create_app(
         prefill = _prefill_from_draft(int(found.group(1))) if found else {}
         return page(
             request, "customer.html", customer=None, back_to=target or None, prefill=prefill
+        )
+
+    @app.post("/customers/new/einlesen", dependencies=guarded)
+    async def customer_read_contact(request: Request):
+        """A pasted signature or a dragged contact card fills the new customer's fields."""
+        from frits import kontakt
+
+        form = await request.form()
+        target = _local(form.get("back")) if form.get("back") else ""
+        text = str(form.get("text") or "").strip()[:MAX_PASTED_TEXT]
+        upload = next((u for u in form.getlist("files") if getattr(u, "filename", None)), None)
+        try:
+            if not text and upload is not None:
+                text = await _upload_text(upload)
+            found = kontakt.details(text, nlp()) if text else {}
+        except (IngestError, RuntimeError) as exc:
+            flash(str(exc), "error")
+            found = {}
+        else:
+            if not text:
+                flash("Zieh eine Visitenkarte oder einen Kontakt auf das Feld oder füg Text ein.")
+            elif not found:
+                flash("Darin habe ich keine Kontaktdaten gefunden. Trag sie einfach von Hand ein.")
+        return page(
+            request,
+            "customer.html",
+            customer=None,
+            back_to=target or None,
+            prefill=found,
+            prefill_from="contact" if found else None,
         )
 
     def _prefill_from_draft(draft_id: int) -> dict[str, str]:
@@ -806,6 +894,12 @@ def create_app(
             phone=str(form.get("phone", "")).strip() or None,
             hourly_rate=rate,
             aliases=tuple(a.strip() for a in str(form.get("aliases", "")).split(",") if a.strip()),
+            umsatzsteuer=where
+            if (where := str(form.get("umsatzsteuer", ""))) in CUSTOMER_TAX
+            else "",
+            ust_id=str(form.get("ust_id", "")).replace(" ", "").upper() or None,
+            land=land if (land := str(form.get("land", "DE"))) in COUNTRIES else "DE",
+            referenz=str(form.get("referenz", "")).strip() or None,
         )
         save_note(ws.customers, customer)
         flash(f"{customer.display_name} ist gespeichert.")
@@ -900,6 +994,7 @@ def create_app(
         conn = db()
         receipts = open_receipts(conn)
         chosen = next((r for r in receipts if r["id"] == receipt), None)
+        guessed = _receipt_guess(chosen["filename"]) if chosen else {}
         items = expenses.list_expenses(ws.db, year=year)
         return page(
             request,
@@ -911,7 +1006,18 @@ def create_app(
             chosen=chosen,
             categories=expenses.CATEGORIES,
             today=today().isoformat(),
+            guessed=guessed,
         )
+
+    def _receipt_guess(filename: str) -> dict[str, str]:
+        """Amount, date and shop read from the receipt here on this computer (OCR, no AI)."""
+        from frits import beleg
+
+        path = ws.done / Path(filename).name
+        try:
+            return beleg.guess(extract_text(path).text, today()) if path.is_file() else {}
+        except IngestError:
+            return {}
 
     @app.get("/receipts/{job_id}")
     def receipt_file(job_id: int):
@@ -929,6 +1035,37 @@ def create_app(
         if not path.is_file() or ws.done.resolve() not in path.parents:
             raise HTTPException(404)
         return FileResponse(path, content_disposition_type="inline")
+
+    @app.post("/expenses/beleg", dependencies=guarded)
+    async def receipt_upload(request: Request):
+        """A receipt dropped or pasted on Ausgaben: kept in "done" and opened for entering.
+        No AI involved: FRITS reads the amount and date on this computer."""
+        from frits.pipeline import file_hash
+
+        form = await request.form()
+        saved, problems = await _saved_uploads(form, ws.done, prefix="beleg")
+        for problem in problems:
+            flash(problem, "error")
+        conn = db()
+        first = None
+        for path in saved:
+            digest = file_hash(path)
+            known = conn.execute(
+                "SELECT id, status FROM jobs WHERE sha256 = ?", (digest,)
+            ).fetchone()
+            if known:
+                path.unlink()
+                flash(f"{path.name}: Diesen Beleg kenne ich schon.")
+                if known["status"] == "receipt":
+                    first = first or known["id"]
+                continue
+            job_id = store.add_job(conn, digest, path.name, "receipt")
+            first = first or job_id
+        if first:
+            return back(f"/expenses?receipt={first}#neu")
+        if not saved and not problems:
+            flash("Es kam nichts an. Zieh einen Beleg auf das Feld oder füg ihn ein.", "error")
+        return back("/expenses")
 
     @app.post("/expenses", dependencies=guarded)
     async def expense_add(request: Request):
@@ -968,9 +1105,32 @@ def create_app(
 
     @app.post("/expenses/{expense_id}/delete", dependencies=guarded)
     def expense_delete(expense_id: int):
-        if expenses.delete_expense(ws.db, expense_id):
-            flash("Ausgabe gelöscht.")
-        return back("/expenses")
+        gone = next((e for e in expenses.list_expenses(ws.db) if e.id == expense_id), None)
+        if gone and expenses.delete_expense(ws.db, expense_id):
+            flash(
+                f"Ausgabe gelöscht: {eur(gone.gross)} bei {gone.vendor}.",
+                undo={"kind": "expense", "expense": replace(gone, id=None)},
+            )
+        return back(f"/expenses?year={gone.date.year}" if gone else "/expenses")
+
+    @app.post("/rueckgaengig", dependencies=guarded)
+    def undo_last():
+        """Take the last step back (a deleted expense, a discarded draft)."""
+        last, app.state.undo = app.state.undo, None
+        if last and last["kind"] == "expense":
+            expense = last["expense"]
+            expenses.add_expense(ws.db, expense)
+            flash(f"Wieder da: {eur(expense.gross)} bei {expense.vendor}.")
+            return back(f"/expenses?year={expense.date.year}")
+        if last and last["kind"] == "draft":
+            db().execute(
+                "UPDATE drafts SET status = 'draft' WHERE id = ? AND status = 'discarded'",
+                (last["id"],),
+            )
+            flash("Der Entwurf ist wieder da.")
+            return back(f"/drafts/{last['id']}")
+        flash("Da gibt es nichts mehr rückgängig zu machen.")
+        return back("/")
 
     @app.post("/receipts/{job_id}/ignore", dependencies=guarded)
     def receipt_ignore(job_id: int):
@@ -1031,6 +1191,7 @@ def create_app(
             "billing_links": setup.BILLING_LINKS,
             "inbox": ws.inbox,
             "sample": setup.sample_note(current),
+            "learning": step in setup.LEARNING_STEPS,
         }
         if step == "trick_document" and "demo" not in extra:
             try:  # no AI involved: show the result right away
@@ -1043,14 +1204,22 @@ def create_app(
     @app.post("/setup/business_details/import", dependencies=guarded)
     async def setup_import(request: Request):
         """Read Fritz's details from an old invoice. The file is read here and then forgotten."""
-        upload = (await request.form()).get("file")
-        if not getattr(upload, "filename", None):
-            flash("Bitte wähle zuerst eine Datei aus.", "error")
+        form = await request.form()
+        upload = next(
+            (u for u in [form.get("file"), *form.getlist("files")] if getattr(u, "filename", None)),
+            None,
+        )
+        pasted = str(form.get("text") or "").strip()[:MAX_PASTED_TEXT]
+        if not getattr(upload, "filename", None) and not pasted:
+            flash("Zieh eine alte Rechnung auf das Feld oder füg ihren Text ein.", "error")
             return back("/setup/business_details")
         try:
-            with TemporaryDirectory() as tmp:
-                saved = await _save_upload(upload, Path(tmp))
-                text = extract_text(saved).text
+            if pasted:
+                text = pasted
+            else:
+                with TemporaryDirectory() as tmp:
+                    saved = await _save_upload(upload, Path(tmp))
+                    text = extract_text(saved).text
             details = setup.own_details(text, nlp())
         except (IngestError, RuntimeError) as exc:
             flash(str(exc), "error")
@@ -1059,16 +1228,6 @@ def create_app(
             flash("In dieser Datei habe ich keine Angaben gefunden. Trag sie einfach von Hand ein.")
             return back("/setup/business_details")
         return setup_page(request, "business_details", imported=details)
-
-    @app.post("/setup/later", dependencies=guarded)
-    def setup_later():
-        # Fritz may look around first; FRITS reminds him on "Heute" what's still missing
-        current = settings()
-        replace(current, setup_done=True).save(ws.settings_file)
-        flash(
-            "Gut, schau dich in Ruhe um. Die Einrichtung findest du jederzeit unter Mehr › Einstellungen."
-        )
-        return back("/")
 
     @app.post("/setup/{step}", dependencies=guarded)
     async def setup_save(request: Request, step: str):
@@ -1119,6 +1278,8 @@ def create_app(
                 flash(str(exc), "error")
                 return back(f"/setup/{step}")
             return setup_page(request, step, demo=demo)
+        if action == "skip_learning":
+            return back("/setup/first_invoice")
         if action == "sample":
             (ws.inbox / "beispiel-notiz.txt").write_text(setup.FIRST_NOTE, encoding="utf-8")
             flash("Die Beispielnotiz liegt im Eingang. Auf „Heute“ kannst du sie lesen lassen.")
@@ -1127,6 +1288,13 @@ def create_app(
             flash("Alles eingerichtet. Schön, dass du da bist.", cue="done")
             return back("/")
         return back(f"/setup/{following}")
+
+    @app.post("/setup-spaeter", dependencies=guarded)
+    def setup_later():
+        """Leave the setup for now. Heute then shows what's still missing."""
+        replace(settings(), setup_done=True).save(ws.settings_file)
+        flash("Du kannst die Einrichtung jederzeit in den Einstellungen fortsetzen.")
+        return back("/")
 
     @app.post("/sound", dependencies=guarded)
     async def sound_toggle(request: Request):
@@ -1138,7 +1306,7 @@ def create_app(
 
     @app.post("/feierabend", dependencies=guarded)
     def feierabend():
-        haustier.feierabend(fritte_datei(ws.root), today())
+        spiel_stand.feierabend(db(), today())
         flash("", cue="shutdown")
         return back("/feierabend")
 
@@ -1164,6 +1332,9 @@ def create_app(
             waiting=len(_inbox_files(ws)),
             mood=mood,
             text=text,
+            karten=spiel_stand.abgleichen(conn, today(), fritte_datei(ws.root))
+            if settings().haustier
+            else 0,
         )
 
     @app.get("/health")
@@ -1228,6 +1399,7 @@ def create_app(
         settings=settings,
         guarded=guarded,
         today=today,
+        aufgeraeumt=lambda: not _inbox_files(ws) and not _open_drafts(db(), settings()),
     )
 
     from frits.web.lernen import register_lernen
@@ -1241,7 +1413,7 @@ def create_app(
 # ---------- helpers ----------
 
 TEXT_FIELDS = ("name", "company", "email", "phone", "steuernummer", "ust_id", "bank", "iban", "bic")
-CHECKBOXES = ("strict_local", "sound", "haustier")
+CHECKBOXES = ("strict_local", "sound", "haustier", "auto_read")
 EFFECTS = ("ruhig", "verspielt")
 
 
@@ -1287,6 +1459,61 @@ def settings_from_form(current: Settings, form) -> Settings:
 
 
 MAX_UPLOAD = 30 * 1024 * 1024
+MAX_PASTED_TEXT = 200_000
+
+
+def _local(target) -> str:
+    """Only addresses inside FRITS, so a form can't send Fritz to another website."""
+    target = str(target or "/")
+    return target if target.startswith("/") and not target.startswith("//") else "/"
+
+
+def pasted_name(prefix: str = "notiz") -> str:
+    """A readable name for pasted text, e.g. "notiz-2026-11-01-1403.txt"."""
+    from datetime import datetime
+
+    return f"{prefix}-{datetime.now():%Y-%m-%d-%H%M}.txt"
+
+
+async def _saved_uploads(form, folder: Path, prefix: str = "notiz") -> tuple[list[Path], list[str]]:
+    """Store every file of the form (field "files") and pasted text (field "text") in `folder`."""
+    saved, problems = [], []
+    for upload in form.getlist("files"):
+        if not getattr(upload, "filename", None):
+            continue
+        try:
+            saved.append(await _save_upload(upload, folder))
+        except IngestError as exc:
+            problems.append(f"{Path(upload.filename).name}: {exc}")
+    text = str(form.get("text") or "").strip()
+    if text:
+        if len(text) > MAX_PASTED_TEXT:
+            problems.append("Der eingefügte Text ist sehr lang. Bitte leg ihn als Datei ab.")
+        else:
+            saved.append(_save_text(text, folder, prefix))
+    return saved, problems
+
+
+async def _upload_text(upload) -> str:
+    """The text inside one uploaded file, read here and then forgotten."""
+    name = Path(str(upload.filename).replace("\\", "/")).name
+    if name.lower().endswith(".vcf"):  # a contact dragged out of the Contacts app
+        data = await upload.read(MAX_UPLOAD)
+        return data.decode("utf-8", errors="replace")
+    with TemporaryDirectory() as tmp:
+        saved = await _save_upload(upload, Path(tmp))
+        return extract_text(saved).text
+
+
+def _save_text(text: str, folder: Path, prefix: str = "notiz") -> Path:
+    folder.mkdir(parents=True, exist_ok=True)
+    name = pasted_name(prefix)
+    target, n = folder / name, 1
+    while target.exists():
+        target = folder / f"{Path(name).stem} ({n}).txt"
+        n += 1
+    target.write_text(text.replace("\r\n", "\n") + "\n", encoding="utf-8")
+    return target
 
 
 async def _save_upload(upload, folder: Path) -> Path:
@@ -1340,7 +1567,7 @@ def _open_drafts(conn, current: Settings) -> list[dict]:
                 "id": row["id"],
                 "created": row["created"],
                 "draft": draft,
-                "sums": totals(draft.lines, current),
+                "sums": draft_totals(draft, current),
                 "ready": not blockers(draft, current),
             }
         )
@@ -1379,7 +1606,9 @@ def _apply_form(draft: Draft, form, customer_by, current: Settings) -> None:
         form.getlist("price"),
         strict=False,
     )
-    for description, when, quantity, unit, price in fields:
+    # The VAT column only shows with Regelbesteuerung; without it every line keeps the normal rate.
+    rates = [str(v) for v in form.getlist("vat")]
+    for index, (description, when, quantity, unit, price) in enumerate(fields):
         if not str(description).strip() and not str(quantity).strip():
             continue  # the empty row at the bottom
         amount = parse_amount(str(quantity))
@@ -1390,7 +1619,9 @@ def _apply_form(draft: Draft, form, customer_by, current: Settings) -> None:
         if given is None:  # an empty price field takes the price list's price, if one fits
             customer = customer_by(draft.customer_id) if draft.customer_id else None
             given = unit_price(unit, customer, current, str(description))
-        lines.append(reviewed_line(str(description), str(when), amount, unit, given))
+        chosen_rate = rates[index] if index < len(rates) else ""
+        rate = Decimal(chosen_rate) if chosen_rate in ("19", "7", "0") else None
+        lines.append(reviewed_line(str(description), str(when), amount, unit, given, rate))
     draft.lines = lines
     if form.get("questions_done") == "on":
         draft.questions = []

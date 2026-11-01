@@ -12,7 +12,7 @@ from frits import store, system
 from frits.expenses import Expense, add_expense
 from frits.settings import Settings, Workspace
 from frits.steuer import beraterin, ernte, quest, spiel, truhe
-from frits.steuer.katalog import HAKEN, Profil, katalog, reich
+from frits.steuer.katalog import HAKEN, Profil, ist_kern, katalog, reich
 from frits.web.app import create_app
 from frits.web.steuer import inselplan
 
@@ -544,6 +544,20 @@ def test_ganze_quest_im_browser(client, ws):
 
     # Zur Sieg-Seite geht es nur über den Drachen
     assert "Papierdrache" in client.get("/steuer/2025/sieg", follow_redirects=True).text
+
+    # Der Drache schläft, bis das Reich im Zeitalter der Ordnung ist (40 %)
+    assert "Der Papierdrache schläft noch" in client.get("/steuer/2025/drache").text
+    offen = [s for s in spiel.pflicht(quest.stuecke(conn, 2025)) if s["status"] == "offen"]
+    karte = spiel.drache(quest.stuecke(conn, 2025)).karte
+    page = post(
+        client, "/steuer/2025/drache/schlag", stueck_id=str(karte["id"]), aktion="gibts_nicht"
+    )
+    assert "schläft noch" in page.text
+    while not spiel.drache_wach(quest.stuecke(conn, 2025)):
+        quest.setze_status(conn, offen.pop()["id"], "gesammelt")
+    wach = client.get("/steuer/2025/drache").text
+    assert "schläft noch" not in wach and 'id="karte"' in wach
+
     page = None
     for _ in range(40):
         karte = spiel.drache(quest.stuecke(conn, 2025)).karte
@@ -646,7 +660,8 @@ def test_seiten_rendern(client):
         "/steuer/2025/fragebogen?teil=3",
     ):
         assert client.get(url).status_code == 200, url
-    assert client.get("/steuer/2025/gebiet/gibtsnicht").status_code == 404
+    unbekannt = client.get("/steuer/2025/gebiet/gibtsnicht")
+    assert unbekannt.status_code == 200 and "gibt es auf deiner Insel nicht" in unbekannt.text
     karte = client.get("/steuer/2025").text
     assert 'class="sq-insel' in karte and "Drachenhort" in karte
 
@@ -731,3 +746,93 @@ def test_siegel_kommt_als_belohnung_mit_naechstem_auftrag(client, ws):
         )
     assert "data-belohnung" in page.text and "Gold-Siegel!" in page.text
     assert "Nächster Auftrag" in page.text and "Versiegle Werkstatt" in page.text
+
+
+def test_gibts_nicht_haelt_die_serie_zaehlt_aber_nicht_hoch():
+    combo, _ruf = spiel.treffer(3, kritisch=False, zaehlt=False)
+    assert combo == 3
+    assert spiel.treffer(3, kritisch=False)[0] > 3
+
+
+def test_wichtige_karten_fragen_bei_gibts_nicht_nach():
+    assert ist_kern("rathaus", "steuer-id")
+    assert ist_kern("werkstatt-2", "belege")
+    assert not ist_kern("rathaus", "briefe")
+
+
+def test_reine_bonus_provinz_zaehlt_nicht_zu_den_siegeln():
+    stuecke = [
+        {"gebiet": "burg", "art": "bonus", "status": "gesammelt", "wunsch": 0},
+        {"gebiet": "rathaus", "art": "pflicht", "status": "offen", "wunsch": 0},
+    ]
+    gebiete = [gb for gb in reich(MARIE) if gb.id in ("burg", "rathaus")]
+    assert len(gebiete) == 2
+    staende = spiel.provinzen(gebiete, stuecke)
+    burg = next(p for p in staende if p.gebiet.id == "burg")
+    assert burg.nur_bonus and burg.stand.siegel
+    assert spiel.ressourcen(stuecke, staende).siegel == 0
+
+
+def test_journalisten_haken_nur_mit_freiberuf():
+    ohne = Profil(jahr=2025, haken=["ksk", "sender"])
+    assert not ohne.zeigt_haken("ksk") and not ohne.hat("ksk")
+    frei = Profil(jahr=2025, mengen={"freiberuflich": [1, 0]}, haken=["ksk", "sender"])
+    assert frei.zeigt_haken("ksk") and frei.hat("sender")
+    keys = {(g.id, s.key) for g in reich(frei) for s in g.stuecke}
+    assert ("werkstatt-1", "sender") in keys and ("burg", "ksk") in keys
+    assert ("werkstatt-1", "vgwort") not in keys  # Haken "verwertung" nicht gesetzt
+
+
+def test_neuer_katalogtext_kommt_auch_in_alte_quests(conn):
+    quest.start(conn, MARIE)
+    conn.execute("UPDATE steuer_stuecke SET hinweis = 'alt' WHERE gebiet = 'rathaus'")
+    quest.start(conn, MARIE)
+    hinweise = {s["hinweis"] for s in quest.stuecke(conn, MARIE.jahr, "rathaus")}
+    assert "alt" not in hinweise
+
+
+def test_dateien_lassen_sich_auf_den_eingangskorb_ziehen(client, ws):
+    fragebogen(client, teil1={"name": "Marie"})
+    karte = client.get("/steuer/2025").text
+    assert "/steuer/2025/lager/hochladen" in karte and "data-dropzone" in karte
+    assert client.get("/steuer/2025/lager/anzahl").json() == {"anzahl": 0}
+    dateien = [("files", ("bescheid.pdf", b"%PDF-1", "application/pdf"))] * 2
+    seite = post(client, "/steuer/2025/lager/hochladen", files=dateien)
+    assert "2 neue Zettel im Eingangskorb" in seite.text
+    namen = sorted(p.name for p in quest.lager_dateien(ws.root))
+    assert namen == ["bescheid (1).pdf", "bescheid.pdf"]
+    assert client.get("/steuer/2025/lager/anzahl").json() == {"anzahl": 2}
+    # Ein Pfad im Namen wird nie ein Pfad auf der Platte
+    post(client, "/steuer/2025/lager/hochladen", files=[("files", ("../../boese.txt", b"x"))])
+    assert (quest.lager(ws.root) / "boese.txt").is_file()
+    # Auch Bankexporte (CSV) dürfen in den Korb, und eingefügter Text wird ein Zettel
+    post(client, "/steuer/2025/lager/hochladen", files=[("files", ("konto.csv", b"a;b"))])
+    seite = post(client, "/steuer/2025/lager/hochladen", text="Mail vom Finanzamt: bitte Belege")
+    assert "1 neuer Zettel" in seite.text
+    namen = [p.name for p in quest.lager_dateien(ws.root)]
+    assert "konto.csv" in namen and any(n.startswith("eingefuegt-") for n in namen)
+
+
+def test_beraterin_steht_nicht_mehr_im_ersten_teil(client, ws):
+    seite = client.get("/steuer/2025/fragebogen").text
+    assert 'name="beraterin_email"' not in seite and "data-stapel" in seite
+    fragebogen(client, teil1={"name": "Marie"})
+    brief = client.get("/steuer/2025/beraterin").text
+    assert 'name="beraterin_email"' in brief
+    post(
+        client,
+        "/steuer/2025/beraterin/daten",
+        beraterin_email="b@example.org",
+        beraterin_termin="2026-03-12",
+    )
+    p = Profil.load(quest.profil_datei(ws.root, 2025))
+    assert p.beraterin_email == "b@example.org" and p.beraterin_termin == "2026-03-12"
+    assert "12. März 2026" in client.get("/steuer/2025").text
+    # Teil 1 erneut speichern löscht die Beraterin nicht
+    post(client, "/steuer/2025/fragebogen", teil="1", name="Marie K.")
+    post(client, "/steuer/2025/fragebogen", teil="3")
+    p = Profil.load(quest.profil_datei(ws.root, 2025))
+    assert p.beraterin_email == "b@example.org"
+    # Kaputtes Datum wird nicht gespeichert
+    post(client, "/steuer/2025/beraterin/daten", beraterin_termin="morgen")
+    assert Profil.load(quest.profil_datei(ws.root, 2025)).beraterin_termin == ""

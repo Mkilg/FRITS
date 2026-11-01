@@ -15,13 +15,13 @@
       <h2>Deine Ausbeute</h2>
       <dl class="sq-statistik">
         <dt>Dokumente gesichert</dt><dd data-zaehler="sieg-belege" data-von="0">{{ ressourcen.belege }}</dd>
-        <dt>Gold-Siegel</dt><dd><span data-zaehler="sieg-siegel" data-von="0">{{ ressourcen.siegel }}</span> / {{ provinzen | length }}</dd>
+        <dt>Gold-Siegel</dt><dd><span data-zaehler="sieg-siegel" data-von="0">{{ ressourcen.siegel }}</span> / {{ provinzen | rejectattr("nur_bonus") | list | length }}</dd>
         <dt>Bonus-Schätze</dt><dd data-zaehler="sieg-gold" data-von="0">{{ ressourcen.gold }}</dd>
         <dt>Aufträge der Beraterin</dt><dd>{{ ressourcen.briefe }}</dd>
         <dt>Fragen an sie</dt><dd>{{ ressourcen.fragen }}</dd>
       </dl>
     </section>
-    <ul class="sq-orden" aria-label="Orden">{% for e in erfolge if e.erreicht %}<li title="{{ e.name }}: {{ e.beschreibung }}">{{ e.name[:1] }}<span class="sr-only">{{ e.name }}</span></li>{% endfor %}</ul>
+    <ul class="sq-orden" aria-label="Orden">{% for e in erfolge if e.erreicht %}<li tabindex="0" aria-label="{{ e.name }}: {{ e.beschreibung }}">{{ e.name[:1] }}<span class="sq-orden-info" aria-hidden="true"><strong>{{ e.name }}</strong>{{ e.beschreibung }}</span></li>{% endfor %}</ul>
   </aside>
 
   <div class="sq-rand">
@@ -50,6 +50,7 @@
     <form method="post" action="/steuer/{{ jahr }}/mail" class="sq-papier sq-brief">
       <input type="hidden" name="token" value="{{ token }}">
       <h2>2. Brief an deine Beraterin</h2>
+      <label>An <input type="email" name="an" value="{{ profil.beraterin_email }}" placeholder="E-Mail deiner Beraterin"></label>
       <label>Betreff <input name="betreff" value="{{ betreff }}"></label>
       <label class="sr-only" for="sq-mailtext">Text (alles änderbar)</label>
       <textarea id="sq-mailtext" name="text" rows="16">{{ mailtext }}</textarea>

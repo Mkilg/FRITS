@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 env:
   SPACY_MODEL: https://github.com/explosion/spacy-models/releases/download/de_core_news_lg-3.8.0/de_core_news_lg-3.8.0-py3-none-any.whl
@@ -16,8 +17,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Fritz uses a Mac, so macOS comes first. Windows joins after version 1.
-        os: [macos-latest, ubuntu-latest]
+        # Fritz uses a Mac. But macOS minutes count 10x on a private repo, and the free
+        # monthly minutes ran low with many pull requests. So pull requests and pushes test
+        # on Linux, and macOS runs when started by hand ("Run workflow"). The "Mac app"
+        # workflow also starts the real app on macOS before every release.
+        os: ${{ github.event_name == 'workflow_dispatch' && fromJSON('["macos-latest", "ubuntu-latest"]') || fromJSON('["ubuntu-latest"]') }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4

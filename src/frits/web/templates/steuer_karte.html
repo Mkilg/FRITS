@@ -11,7 +11,7 @@
 
 <div class="sq-flaeche">
   {# Links: Eingangskorb und Dinge auf dem Tisch #}
-  <aside class="sq-rand sq-korb" id="sq-korb" aria-label="Eingangskorb">
+  <aside class="sq-rand sq-korb" id="sq-korb" aria-label="Eingangskorb" data-lager="{{ lager | length }}" data-lager-url="/steuer/{{ jahr }}/lager/anzahl">
     <div>
       <h2 class="sq-rand-titel">Eingangskorb</h2>
       {% if lager %}
@@ -19,7 +19,7 @@
       {% set zurueck = "/steuer/" ~ jahr %}
       {% include "_steuer_zettel.html" %}
       {% else %}
-      <p class="sq-leer">Leer. Leg Fotos, PDFs und Mails in deinen Lager-Ordner, dann tauchen sie hier als Zettel auf.</p>
+      <p class="sq-leer">Leer. Zieh Fotos, PDFs und Mails hier unten aufs Ablagefach oder leg sie in deinen Lager-Ordner. Dann tauchen sie als Zettel auf.</p>
       {% endif %}
     </div>
     {% if not ernte.leer %}
@@ -43,6 +43,7 @@
       {% endif %}
     </form>
     {% endif %}
+    {% with dz_action="/steuer/" ~ jahr ~ "/lager/hochladen", dz_back="/steuer/" ~ jahr ~ "#sq-korb", dz_class="sq-einwurf", dz_id="lager", dz_icon="📦", dz_title="Hier ablegen", dz_hint="Bescheide, Belege, Fotos, Kontoauszüge.", dz_accept="*/*", dz_send="In den Korb", dz_busy="Ich lege es in den Korb.", dz_text_label="Text einfügen, z. B. eine Mail vom Finanzamt" %}{% include "_dropzone.html" %}{% endwith %}
     <form method="post" action="/steuer/{{ jahr }}/lager/oeffnen">
       <input type="hidden" name="token" value="{{ token }}">
       <button class="sq-ding"><span class="sq-ding-bild kiste"></span><span><strong>Lager-Ordner</strong>öffnen und Dateien hineinlegen</span></button>
@@ -68,10 +69,10 @@
       </div>
     </div>
     <div class="sq-insel-schatten"></div>
-    <a class="sq-hort" href="/steuer/{{ jahr }}/drache">
+    <a class="sq-hort{% if not drache_wach %} schlaeft{% endif %}" href="/steuer/{{ jahr }}/drache">
       <span class="sq-drache-klein">{% include "_steuer_drache.html" %}</span>
       {% if drache.stimmung == "schläfrig" %}<span class="sq-zzz" aria-hidden="true">z z Z</span>{% endif %}
-      <span class="sq-schild"><strong>Drachenhort</strong><small>{% if drache.besiegt %}Besiegt! Zur Beute{% else %}{{ drache.lp }} Karten übrig{% endif %}</small></span>
+      <span class="sq-schild"><strong>Drachenhort</strong><small>{% if drache.besiegt %}Besiegt! Zur Beute{% elif not drache_wach %}schläft noch{% else %}{{ drache.lp }} Karten übrig{% endif %}</small></span>
     </a>
   </section>
 
@@ -97,7 +98,7 @@
     <section aria-label="Orden">
       <h2 class="sq-rand-titel">Orden</h2>
       <ul class="sq-orden">
-        {% for e in erfolge %}<li class="{{ '' if e.erreicht else 'aus' }}" title="{{ e.name }}: {{ e.beschreibung }}">{{ e.name[:1] }}<span class="sr-only">{{ e.name }}{% if not e.erreicht %} (noch nicht){% endif %}</span></li>{% endfor %}
+        {% for e in erfolge %}<li class="{{ '' if e.erreicht else 'aus' }}" tabindex="0" aria-label="{{ e.name }}: {{ e.beschreibung }}{% if not e.erreicht %} (noch nicht){% endif %}">{{ e.name[:1] }}<span class="sq-orden-info" aria-hidden="true"><strong>{{ e.name }}</strong>{{ e.beschreibung }}{% if not e.erreicht %} <em>Noch nicht geschafft.</em>{% endif %}</span></li>{% endfor %}
       </ul>
     </section>
 
@@ -111,7 +112,7 @@
 </div>
 
 <nav class="sq-fusszeile" aria-label="Steuerjahre">
-  <span>Steuerjahr {{ jahr }}{% if profil.beraterin_termin %} · Abgabe bei der Beraterin bis {{ profil.beraterin_termin }}{% endif %}</span>
+  <span>Steuerjahr {{ jahr }}{% if profil.beraterin_termin %} · Abgabe bei der Beraterin bis {{ datum(profil.beraterin_termin) }}{% endif %}</span>
   {% for j in jahre if j != jahr %}<a href="/steuer/{{ j }}">Zur Quest {{ j }}</a>{% endfor %}
   {% if (jahr - 1) not in jahre %}<a href="/steuer/{{ jahr - 1 }}/intro">Neue Quest für {{ jahr - 1 }}</a>{% endif %}
 </nav>

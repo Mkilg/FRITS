@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Album · Fritte · FRITS{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/haustier.css">{% endblock %}
+{% block content %}
+<div class="spiel-kopf">
+  <h1>Frittes Album</h1>
+  {% include "_spiel_reiter.html" %}
+  <p class="salz kopf-salz">{{ geschafft }} von {{ seiten | length }} Stickern</p>
+</div>
+<section class="card">
+  <p class="hint">Sticker gibt es für gute Gewohnheiten und große Momente. Einmal eingeklebt, bleiben sie für immer.</p>
+  <div class="album">
+    {% for s in seiten %}
+    <div class="sticker{{ ' da' if s.seit else '' }}">
+      <span class="sticker-rund" aria-hidden="true">{{ s.erfolg.zeichen if s.seit else "?" }}</span>
+      <strong>{{ s.erfolg.name }}</strong>
+      <span class="hint">{{ s.erfolg.text }}</span>
+      {% if s.seit %}<span class="sticker-tag">{{ s.seit | de_date }}</span>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

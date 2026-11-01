@@ -770,3 +770,103 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
 .sq-mini-insel .sq-leuchtfeuer, .sq-mini-insel .sq-parzelle.auftragsziel .sq-diorama::before { display: none; }
 .sq-felder .sq-kachel { grid-column: 1 / -1; }
 .sq-siegelknopf { font-family: var(--schrift); }
+
+/* =====================================================================
+   Runde 3: Tester-Feedback (Drache schläft, Knöpfe über dem Falz, Orden-Infos,
+   lesbare Dialoge, Fokus, schmale Fenster)
+   ===================================================================== */
+/* Drache und Karte nebeneinander, damit alle Knöpfe ohne Scrollen sichtbar sind */
+@media (min-width: 900px) {
+  .sq-arena { display: grid; grid-template-columns: minmax(240px, 1fr) minmax(360px, 440px); grid-template-areas: "boss karte" "combo karte"; column-gap: 2.5rem; align-items: start; text-align: left; }
+  .sq-arena-boss { grid-area: boss; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.5rem; }
+  .sq-arena .sq-combo { grid-area: combo; justify-self: center; }
+  .sq-arena .sq-wurf, .sq-arena > .sq-siegelknopf { grid-area: karte; }
+  .sq-arena .sq-drache-gross { width: 240px; height: 220px; }
+  .sq-arena-schlaf { grid-template-areas: "boss karte"; align-items: center; }
+}
+.sq-arena-boss { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
+.sq-arena-boss > p { margin: 0; color: #f3e3c0; text-shadow: 0 1px 2px rgba(0,0,0,.95); }
+.sq-arena-schlaf .sq-drache-gross { filter: saturate(.6) brightness(.85); }
+.sq-arena-schlaf .sq-papier { color: var(--tinte); text-align: left; padding: 1.2rem 1.4rem; max-width: 440px; }
+.sq-arena-schlaf .sq-papier h1 { color: var(--tinte); text-shadow: none; font-size: 1.5rem; }
+.sq-arena-schlaf .sq-band { display: block; margin: 0.6rem 0; }
+.sq-arena-knopf { margin: 0.8rem 0 0; }
+.sq-arena-schlaf .sq-papier p { text-wrap: pretty; }
+.sq-hort.schlaeft .sq-drache-klein { filter: saturate(.5) brightness(.8); }
+.sq-hort.schlaeft:hover .sq-drache-klein { transform: none; }
+
+/* Zweiter Klick nötig */
+.sq-stempelknopf.rueckfrage, .sq-stempelknopf.rueckfrage:hover { background: var(--terrakotta) !important; color: #fff; border-color: var(--terrakotta-dunkel) !important; animation: sq-zucken .3s; }
+@keyframes sq-zucken { 0%, 100% { transform: none; } 30% { transform: translateX(-3px); } 70% { transform: translateX(3px); } }
+
+/* Orden erklären sich beim Drüberfahren oder per Tab */
+.sq-orden li { position: relative; cursor: help; }
+.sq-orden-info { position: absolute; bottom: calc(100% + 8px); left: 0; width: 210px; z-index: 90;
+  background: var(--papier); color: var(--tinte); font: 400 0.82rem/1.35 system-ui, sans-serif; text-align: left; text-shadow: none;
+  padding: 0.55rem 0.7rem; border-radius: 4px; box-shadow: 0 8px 18px rgba(0,0,0,.35); opacity: 0; pointer-events: none; transition: opacity .15s; }
+.sq-orden li:nth-child(n+5) .sq-orden-info { left: auto; right: 0; }
+.sq-orden-info strong { display: block; font-family: var(--schrift); font-size: 0.9rem; margin-bottom: 0.15rem; }
+.sq-orden-info em { display: block; color: var(--terrakotta-dunkel); font-style: normal; margin-top: 0.2rem; }
+.sq-orden li:hover .sq-orden-info, .sq-orden li:focus .sq-orden-info, .sq-orden li:focus-within .sq-orden-info { opacity: 1; }
+
+/* Kein verwischter Schatten in Papier-Dialogen */
+.sq dialog *, .sq-zettel form *, .sq-belohnung * { text-shadow: none; }
+/* Schritt-Reiter besser lesbar */
+.sq-schritte li { color: #6b5a3a; }
+.sq-zettel small, .sq-weg { color: #6b5a3a; }
+
+/* Gut sichtbarer Fokus auf dem Holztisch */
+.sq a:focus-visible, .sq button:focus-visible, .sq input:focus-visible, .sq select:focus-visible, .sq textarea:focus-visible, .sq [tabindex]:focus-visible {
+  outline: 3px solid var(--gold); outline-offset: 3px; border-radius: 3px; }
+
+/* Bonus-Provinz klar als Bonus markieren */
+.sq-parzelle.bonus .sq-schild::after { content: "Bonus"; display: block; font: 600 0.65rem system-ui, sans-serif; letter-spacing: .06em; text-transform: uppercase; color: var(--ocker-dunkel); }
+
+/* Kleinere Fenster: Insel als Kacheln, damit nichts abgeschnitten wird */
+@media (max-width: 1100px) {
+  .sq-insel { height: auto !important; animation: none; }
+  .sq-insel-gras { border-radius: 28px; inset: 0; }
+  .sq-insel-fels, .sq-insel-schatten { display: none; }
+  .sq-provinzen { position: relative; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1rem 0.4rem; padding: 1.2rem 0.4rem; }
+  .sq-provinzen .sq-parzelle { position: relative; left: auto; top: auto; margin: 0 auto; }
+  .sq-hort { position: relative; margin: 1rem auto 0; width: max-content; }
+  .sq-insel.mit-bild { width: 100%; margin-left: 0; aspect-ratio: auto; }
+  .sq-insel.mit-bild .sq-insel-gras { background: linear-gradient(rgba(40, 60, 20, .25), rgba(40, 60, 20, .25)), var(--insel-bild) center / cover; border-radius: 28px; filter: none; box-shadow: 0 20px 30px rgba(20, 8, 2, .4); }
+  .sq-insel.mit-bild .sq-provinzen { position: relative; left: auto; right: auto; top: auto; bottom: auto; }
+}
+
+/* Einwurf im Eingangskorb: Dateien aus dem Finder hineinziehen oder mit ⌘V einfügen */
+.sq .sq-einwurf { margin: 0.4rem 0; color: var(--creme); }
+.sq .sq-einwurf .dropzone { padding: 0.8rem 0.9rem; border: 2px dashed rgba(246, 236, 210, .55); border-radius: 8px; background: rgba(30, 14, 4, .4); color: var(--creme); }
+.sq .sq-einwurf .dropzone:hover, .sq .sq-einwurf .dropzone.over, body.zieht-datei .sq .sq-einwurf .dropzone { border-color: var(--gold); background: rgba(212, 160, 23, .22); }
+.sq .sq-einwurf .dz-titel { font-family: var(--schrift); font-weight: 700; text-shadow: 0 1px 2px rgba(0,0,0,.9); }
+.sq .sq-einwurf small, .sq .sq-einwurf .muted { color: #f1e4c4; text-shadow: 0 1px 2px rgba(0,0,0,.9); }
+.sq .sq-einwurf kbd { color: var(--tinte); text-shadow: none; }
+.sq .sq-einwurf .dz-text summary { cursor: pointer; font-size: 0.82rem; color: #f1e4c4; text-shadow: 0 1px 2px rgba(0,0,0,.9); margin-top: 0.35rem; }
+.sq .sq-einwurf .dz-text[open] { background: var(--papier); color: var(--tinte); padding: 0.5rem 0.6rem; border-radius: 4px; margin-top: 0.35rem; }
+.sq .sq-einwurf .dz-text[open] summary, .sq .sq-einwurf .dz-text[open] .muted { color: var(--tinte); text-shadow: none; }
+.sq .sq-einwurf textarea { width: 100%; }
+.sq .sq-einwurf .dropzone:focus-within { outline: 3px solid var(--gold); outline-offset: 3px; }
+
+
+/* Teil 1 als Kartenstapel: eine Frage pro Bildschirm (ohne JS: alle untereinander) */
+.sq-felder:not(:has(option[value=verheiratet]:checked)) .nur-verheiratet,
+.sq-felder:not(:has(option[value=verheiratet]:checked)) .nur-zusammen { display: none; }
+.sq-felder.stapel-an { display: grid; grid-template-columns: minmax(0, 1fr); position: relative; min-height: 15rem; }
+.sq-felder.stapel-an .sq-frage { grid-area: 1 / 1; display: flex; flex-direction: column; gap: 0.8rem; padding: 1.2rem 1.4rem 1rem; background: rgba(255, 252, 240, .7);
+  border: 1px solid #e3d6b4; border-radius: 6px; box-shadow: 0 10px 22px rgba(60, 35, 10, .12);
+  opacity: 0; visibility: hidden; transform: translateX(40px) rotate(1.5deg); transition: opacity .3s, transform .35s cubic-bezier(.2, 1.2, .4, 1), visibility 0s .35s; }
+.sq-felder.stapel-an .sq-frage.vorbei { transform: translateX(-60px) rotate(-3deg); }
+.sq-felder.stapel-an .sq-frage.dran { opacity: 1; visibility: visible; transform: none; transition: opacity .3s, transform .35s cubic-bezier(.2, 1.2, .4, 1); }
+.sq-frage-gross { font-family: var(--schrift); font-size: 1.25rem; color: var(--tinte); }
+.sq-frage-gross input, .sq-frage-gross select { font-size: 1.1rem; margin-top: 0.4rem; }
+.sq-stapel-knoepfe { display: flex; justify-content: space-between; gap: 0.6rem; margin: auto 0 0; }
+.sq-stapel-knoepfe .sq-siegelknopf:only-child { margin-left: auto; }
+.sq-stapel-punkte { display: flex; gap: 0.35rem; justify-content: center; list-style: none; padding: 0; margin: 0.6rem 0 0; }
+.sq-stapel-punkte li { width: 22px; height: 5px; border-radius: 3px; background: #e3d6b4; transition: background .2s; }
+.sq-stapel-punkte li.an { background: var(--terrakotta); }
+.sq-fb-fuss.stapel-wartet .sq-siegelknopf { visibility: hidden; }
+.sq-beraterin-karte { padding: 1rem 1.1rem; display: grid; gap: 0.6rem; color: var(--tinte); }
+.sq-beraterin-karte h2 { margin: 0; font-size: 1.1rem; }
+.sq-beraterin-karte .quiet { justify-self: start; }
+@media (prefers-reduced-motion: reduce) { .sq-felder.stapel-an .sq-frage { transition: none; } }

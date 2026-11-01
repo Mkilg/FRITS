@@ -146,6 +146,9 @@ form { margin: 0; }
 
 .muted, .hint { color: var(--muted); }
 .hint { font-size: 0.88rem; margin: 0.4rem 0; }
+.hint.warn-text { color: var(--ink); border-left: 3px solid #c98a00; padding-left: 0.6rem; }
+details.abroad { margin: 0.6rem 0; }
+details.abroad summary { cursor: pointer; font-weight: 600; }
 .platzhalter { color: var(--muted); font-style: italic; }
 .note { display: block; color: var(--ketchup); font-size: 0.78rem; }
 .badge { display: inline-block; padding: 0.1rem 0.6rem; border-radius: 999px; font-size: 0.8rem;
@@ -200,7 +203,7 @@ label.field { display: flex; flex-direction: column; gap: 0.2rem; margin-bottom:
 .choice { display: block; margin: 0.3rem 0 0.6rem; }
 
 @media (max-width: 800px) {
-  .review { grid-template-columns: 1fr; }
+  .review { grid-template-columns: minmax(0, 1fr); }
   ul.list a { grid-template-columns: 1fr auto; }
   ul.list a .muted { display: none; }
   .top { padding: 0.6rem 1rem; }
@@ -305,6 +308,35 @@ details.lesson summary { cursor: pointer; }
 fieldset.prices { border: 1px solid var(--line); border-radius: var(--radius); margin: 0.8rem 0; }
 fieldset.prices input { width: 100%; }
 
+/* ---------- Einwurf: drop, paste (⌘V) or pick ---------- */
+.einwurf .dropzone { padding: 1.4rem 1rem; }
+.dz-titel { display: block; font-size: 1.12rem; font-weight: 600; margin-bottom: 0.2rem; }
+.dropzone small { display: block; line-height: 1.5; }
+body.zieht-datei .dropzone { border-color: var(--fry); }
+.dropzone.over { box-shadow: 0 0 0 4px rgba(217, 164, 65, .25); }
+.dropzone.bringt { border-style: solid; border-color: var(--moos); background: #eef4e1; }
+.dropzone:focus-within { outline: 3px solid var(--tinte-hell); outline-offset: 2px; }
+kbd { display: inline-block; min-width: 1.4em; padding: 0 0.3em; margin: 0 0.1em; border: 1px solid var(--papier-schatten);
+  border-bottom-width: 2px; border-radius: 4px; background: #fff; font: 0.8rem/1.4 -apple-system, system-ui, sans-serif;
+  text-align: center; color: var(--ink); }
+.dz-text { margin-top: 0.6rem; }
+.dz-text summary { cursor: pointer; color: var(--tinte); font-size: 0.92rem; }
+.dz-text textarea { width: 100%; margin: 0.5rem 0; font: inherit; }
+.dz-text .row { align-items: center; }
+.dz-tipp { font-size: 0.8rem; }
+.dz-lesen { display: block; margin-top: 0.6rem; font-size: 0.92rem; }
+.dz-lesen .muted { font-size: 0.82rem; }
+.dz-hinweis { margin: 0.6rem 0 0; color: var(--ketchup); font-size: 0.9rem; }
+.ki-fehlt { border-left: 4px solid var(--fry); }
+.leise-links { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; margin-top: 0.6rem; font-size: 0.9rem; }
+.leise-links form { display: inline; }
+.leise-links button { background: none; border: 0; padding: 0; color: var(--tinte); text-decoration: underline;
+  cursor: pointer; font: inherit; }
+p code, li code { overflow-wrap: anywhere; }
+.flash form.rueckgaengig { display: inline; margin-left: 0.6rem; }
+details.mehr-felder { margin: 0.4rem 0 0.8rem; }
+details.mehr-felder summary { cursor: pointer; color: var(--tinte); font-size: 0.92rem; margin-bottom: 0.4rem; }
+
 /* ---------- Easy to see where you are, easy to hit ---------- */
 /* Keyboard focus: a gold ring around a thin ink line, visible on paper and on the dark quest table */
 :focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; box-shadow: 0 0 0 2px var(--tinte); }
@@ -319,8 +351,8 @@ input[type=checkbox], input[type=radio] { width: 1.15rem; height: 1.15rem; verti
   input[type=checkbox], input[type=radio] { width: 1.4rem; height: 1.4rem; flex: 0 0 auto; }
 }
 
-/* First setup: just the logo and "Später einrichten" */
-.top.nur-einrichtung .top-actions { margin-left: auto; }
+/* First setup: the logo left, "Später einrichten" on the right */
+.top > .brand + .top-actions { margin-left: auto; }
 
 /* Phone-sized windows: a compact header and a smaller Fritte */
 @media (max-width: 600px) {
@@ -351,7 +383,3 @@ body:has(.sq-tisch) .bottom { max-width: none; margin: 0; border-radius: 0; back
 .vorschau[data-effekte="ruhig"] .flash.mit-stempel { animation: none; }
 .vorschau[data-effekte="verspielt"] .mascot-small > * { animation: hopsen .5s ease-in-out .3s 2; }
 @media (prefers-reduced-motion: reduce) { .vorschau * { animation: none !important; } }
-
-/* A missing page in FRITS's own look */
-.fehler + .row { margin-left: calc(84px + 1.2rem); }
-@media (max-width: 600px) { .fehler + .row { margin-left: 0; } }

@@ -26,39 +26,194 @@
     if (input) { input.value = b.getAttribute("data-fill"); input.focus(); }
   });
 
-  // Drop zones: files dropped on the field (or picked) are sent right away.
+  // ---------- Einwurf: hand FRITS something without a folder ----------
+  // Drag files onto the page, press ⌘V to paste what was copied (photo, PDF, text from a mail),
+  // or pick a file. Files are sent right away; text opens in the box first, so Fritz sees what
+  // he pasted (a password in the clipboard must never travel on by accident).
+  var mac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || "");
+  function zeigeTasten() {
+    if (mac) return;
+    document.querySelectorAll("[data-taste-cmd]").forEach(function (k) { k.textContent = "Strg"; });
+  }
+
   document.addEventListener("change", function (e) {
     var input = e.target;
     if (input.matches && input.matches("[data-autosubmit]") && input.files && input.files.length) {
       input.form.requestSubmit ? input.form.requestSubmit() : input.form.submit();
     }
   });
+
+  function einwurfFuer(el) {
+    var own = el && el.closest && el.closest("form[data-einwurf]");
+    return own || document.querySelector("form[data-einwurf][data-einwurf-haupt]") ||
+      document.querySelector("form[data-einwurf]");
+  }
+  function dropzoneIn(form) { return form && form.querySelector("[data-dropzone]"); }
+
+  function stamp() {
+    var d = new Date(), z = function (n) { return (n < 10 ? "0" : "") + n; };
+    return d.getFullYear() + "-" + z(d.getMonth() + 1) + "-" + z(d.getDate()) + "-" + z(d.getHours()) + z(d.getMinutes());
+  }
+  var TYPEN = { "image/png": ".png", "image/jpeg": ".jpg", "image/heic": ".heic", "application/pdf": ".pdf",
+    "text/plain": ".txt" };
+  // A screenshot pasted from the clipboard is called "image.png": give it a name Fritz recognises.
+  function benannt(file, i) {
+    var generic = !file.name || /^(image|bild|unbenannt|untitled)(\.\w+)?$/i.test(file.name);
+    if (!generic) return file;
+    var ext = TYPEN[file.type] || (file.name.match(/\.\w+$/) || [".png"])[0];
+    var name = "eingefuegt-" + stamp() + (i ? "-" + (i + 1) : "") + ext;
+    try { return new File([file], name, { type: file.type }); } catch (err) { return file; }
+  }
+
+  function dateienGeben(form, files) {
+    var input = form && form.querySelector("input[type=file]");
+    if (!input || !files.length) return false;
+    try {
+      var dt = new DataTransfer();
+      files.forEach(function (f, i) { dt.items.add(benannt(f, i)); });
+      input.files = dt.files;
+    } catch (err) {
+      try { input.files = files; } catch (err2) { return false; }
+    }
+    var zone = dropzoneIn(form);
+    if (zone) zone.classList.add("bringt");
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    return true;
+  }
+
+  function textGeben(form, text) {
+    var box = form && form.querySelector("textarea[name=text]");
+    if (!box || !text.trim()) return false;
+    var details = box.closest("details");
+    if (details) details.open = true;
+    box.value = box.value.trim() ? box.value.replace(/\s+$/, "") + "\n\n" + text : text;
+    box.focus();
+    box.setSelectionRange(box.value.length, box.value.length);
+    if (box.scrollIntoView) box.scrollIntoView({ block: "center", behavior: "smooth" });
+    return true;
+  }
+
+  function hinweis(form, text) {
+    var old = form.querySelector(".dz-hinweis");
+    if (old) old.remove();
+    var p = document.createElement("p");
+    p.className = "dz-hinweis";
+    p.setAttribute("role", "status");
+    p.textContent = text;
+    form.appendChild(p);
+  }
+
+  function dateienAus(data) {
+    var files = Array.prototype.slice.call((data && data.files) || []);
+    if (!files.length && data && data.items) {
+      Array.prototype.forEach.call(data.items, function (item) {
+        if (item.kind === "file") { var f = item.getAsFile(); if (f) files.push(f); }
+      });
+    }
+    return files;
+  }
+
+  // In some browsers, a file copied in Finder pastes as a picture of its icon plus its name.
+  function nurDateiSymbol(files, text) {
+    var name = (text || "").trim();
+    return files.length === 1 && /^image\//.test(files[0].type) && /^[^\n\/]+\.(pdf|docx?|eml|txt|md|xml|pages)$/i.test(name);
+  }
+
+  function editierbar(el) {
+    if (!el || !el.closest) return false;
+    return !!el.closest("input, textarea, select, [contenteditable=''], [contenteditable=true]");
+  }
+
+  document.addEventListener("paste", function (e) {
+    var form = einwurfFuer(e.target);
+    if (!form) return;
+    var data = e.clipboardData;
+    var files = dateienAus(data);
+    var text = data ? data.getData("text/plain") : "";
+    if (files.length) {
+      if (nurDateiSymbol(files, text)) {
+        e.preventDefault();
+        hinweis(form, "Kopierte Dateien aus dem Finder kommen hier nur als Bildchen an. Zieh die Datei bitte direkt auf das Feld.");
+        return;
+      }
+      e.preventDefault();
+      dateienGeben(form, files);
+      return;
+    }
+    // Text pasted into a field stays in that field, as everywhere else.
+    if (editierbar(e.target) || !text) return;
+    e.preventDefault();
+    textGeben(form, text);
+  });
+
+  // ⌘↩ (Strg+↩) in the text box sends it.
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Enter" || !(e.metaKey || e.ctrlKey)) return;
+    var box = e.target.closest && e.target.closest("form[data-einwurf] textarea[name=text]");
+    if (!box || !box.value.trim()) return;
+    e.preventDefault();
+    box.form.requestSubmit ? box.form.requestSubmit() : box.form.submit();
+  });
+
+  // ⌘S (Strg+S) saves the form that has a "Speichern" button, e.g. a draft, instead of
+  // making the browser save the web page as a file.
+  document.addEventListener("keydown", function (e) {
+    if (!(e.metaKey || e.ctrlKey) || e.altKey || (e.key !== "s" && e.key !== "S")) return;
+    var save = document.querySelector("form button[name=action][value=save]");
+    if (!save) return;
+    e.preventDefault();
+    save.click();
+  });
+
   function zoneOf(e) { return e.target.closest && e.target.closest("[data-dropzone]"); }
+  function hatDateien(e) {
+    var types = Array.prototype.slice.call((e.dataTransfer && e.dataTransfer.types) || []);
+    return types.indexOf("Files") >= 0 || types.indexOf("text/plain") >= 0;
+  }
   ["dragenter", "dragover"].forEach(function (type) {
     document.addEventListener(type, function (e) {
-      if (!document.querySelector("[data-dropzone]")) return;
+      if (!document.querySelector("[data-dropzone]") || !hatDateien(e)) return;
       e.preventDefault();  // a file dropped next to the field must not open in the browser
-      var zone = zoneOf(e);
+      var zone = zoneOf(e) || dropzoneIn(einwurfFuer(null)) || document.querySelector("[data-dropzone]");
       document.querySelectorAll("[data-dropzone].over").forEach(function (z) {
         if (z !== zone) z.classList.remove("over");
       });
       if (zone) zone.classList.add("over");
+      document.body.classList.add("zieht-datei");
     });
   });
+  function dragEnde() {
+    document.body.classList.remove("zieht-datei");
+    document.querySelectorAll("[data-dropzone].over").forEach(function (z) { z.classList.remove("over"); });
+  }
   document.addEventListener("dragleave", function (e) {
+    if (!e.relatedTarget) dragEnde();  // left the window
     var zone = zoneOf(e);
     if (zone && !zone.contains(e.relatedTarget)) zone.classList.remove("over");
   });
   document.addEventListener("drop", function (e) {
     if (!document.querySelector("[data-dropzone]")) return;
+    // Places with their own drag & drop (e.g. the Steuer-Quest cards) handle it themselves.
+    if (e.defaultPrevented || (e.target.closest && e.target.closest("[data-eigenes-ziehen]"))) { dragEnde(); return; }
+    var files = dateienAus(e.dataTransfer);
+    // Text dragged into a text field lands there, as everywhere else.
+    if (!files.length && e.target.closest && e.target.closest("textarea, input:not([type=file])")) { dragEnde(); return; }
     e.preventDefault();
-    var zone = zoneOf(e) || document.querySelector("[data-dropzone]");
-    zone.classList.remove("over");
-    var input = zone.querySelector("input[type=file]");
-    var dropped = e.dataTransfer && e.dataTransfer.files;
-    if (!input || !dropped || !dropped.length) return;
-    try { input.files = dropped; } catch (err) { return; }
-    input.dispatchEvent(new Event("change", { bubbles: true }));
+    dragEnde();
+    var zone = zoneOf(e);
+    var form = zone ? zone.closest("form") : einwurfFuer(null);
+    if (!zone && !form) zone = document.querySelector("[data-dropzone]");
+    form = form || (zone && zone.closest("form"));
+    if (files.length) {
+      if (form && form.hasAttribute("data-einwurf")) { dateienGeben(form, files); return; }
+      var input = zone && zone.querySelector("input[type=file]");
+      if (!input) return;
+      try { input.files = e.dataTransfer.files; } catch (err) { return; }
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+      return;
+    }
+    var text = e.dataTransfer && e.dataTransfer.getData("text/plain");
+    if (text && form) textGeben(form, text);
   });
 
   // "Mehr" in the top row closes again when you click anywhere else.
@@ -142,6 +297,7 @@
     requestAnimationFrame(step);
   }
   function start() {
+    zeigeTasten();
     if (playful() && !calmMotion()) document.querySelectorAll("[data-zaehlen]").forEach(countUp);
   }
   // Settings: try "Ruhig" and "Verspielt" before saving. The preview card plays the chosen kind.
@@ -163,6 +319,10 @@
   document.addEventListener("change", function (event) {
     if (event.target.name === "effects") preview();
   });
+  // Sound switched off: forget the music that should carry on to the next page (frits-sound.js).
+  if (document.body.getAttribute("data-frits-sound") !== "on") {
+    try { sessionStorage.removeItem("frits-music"); } catch (e) { /* egal */ }
+  }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
   else start();

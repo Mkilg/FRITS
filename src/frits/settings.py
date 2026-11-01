@@ -125,6 +125,7 @@ class Settings:
     music: str = "entspannt"  # music mood, see frits.sounds.MOODS
     effects: str = "ruhig"  # "ruhig" (stamp only) or "verspielt" (numbers tick up, sparkle)
     haustier: bool = True  # Fritte's room and shop on the Heute page
+    auto_read: bool = True  # files dropped or pasted on "Heute" are read right away
     setup_done: bool = False
 
     @property

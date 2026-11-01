@@ -192,8 +192,8 @@
     var zettel = e.target.closest && e.target.closest(".sq-zettel");
     if (!zettel) return;
     gezogen = zettel.getAttribute("data-name");
+    // Nur unser eigener Typ, kein text/plain: sonst hält der Einwurf den Zettel für eingefügten Text
     e.dataTransfer.setData(TYP, gezogen);
-    e.dataTransfer.setData("text/plain", gezogen);
     e.dataTransfer.effectAllowed = "move";
     zettel.classList.add("zieht");
     ton(660, 0.08, "triangle", 0.06);
@@ -428,4 +428,95 @@
     document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden") gleichSichern(); });
     window.addEventListener("pagehide", gleichSichern);
   }
+})();
+
+// Wichtige Karten (z. B. Steuer-ID): "Gibt's nicht" braucht einen zweiten Klick
+(function () {
+  document.addEventListener("click", function (e) {
+    var knopf = e.target.closest("[data-rueckfrage]");
+    if (!knopf) return;
+    if (knopf.classList.contains("rueckfrage")) return; // zweiter Klick: abschicken
+    e.preventDefault();
+    knopf.dataset.vorher = knopf.textContent;
+    knopf.textContent = knopf.dataset.rueckfrage;
+    knopf.classList.add("rueckfrage");
+    setTimeout(function () {
+      if (!knopf.isConnected) return;
+      knopf.textContent = knopf.dataset.vorher;
+      knopf.classList.remove("rueckfrage");
+    }, 5000);
+  });
+})();
+
+// Zurück aus dem Finder: Liegen neue Dateien im Lager, holt die Karte sie als Zettel in den Korb
+(function () {
+  var korb = document.querySelector("[data-lager-url]");
+  if (!korb) return;
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState !== "visible") return;
+    fetch(korb.dataset.lagerUrl, { credentials: "same-origin" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (d && String(d.anzahl) !== korb.dataset.lager && !document.querySelector("dialog[open]")) {
+          location.hash = "sq-korb";
+          location.reload();
+        }
+      })
+      .catch(function () {});
+  });
+})();
+
+// Teil 1 des Fragebogens: eine Frage pro Bildschirm, wie ein Kartenstapel
+(function () {
+  var stapel = document.querySelector("[data-stapel]");
+  if (!stapel) return;
+  var karten = Array.prototype.slice.call(stapel.querySelectorAll(".sq-frage"));
+  if (karten.length < 2) return;
+  var form = stapel.closest("form");
+  var fuss = form.querySelector(".sq-fb-fuss");
+  var jetzt = 0;
+  stapel.classList.add("stapel-an");
+  var punkte = document.createElement("ol");
+  punkte.className = "sq-stapel-punkte";
+  punkte.setAttribute("aria-hidden", "true");
+  karten.forEach(function () { punkte.appendChild(document.createElement("li")); });
+  stapel.appendChild(punkte);
+
+  karten.forEach(function (karte, i) {
+    var reihe = document.createElement("p");
+    reihe.className = "sq-stapel-knoepfe";
+    if (i > 0) {
+      var zurueck = document.createElement("button");
+      zurueck.type = "button"; zurueck.className = "quiet"; zurueck.textContent = "← Zurück";
+      zurueck.addEventListener("click", function () { zeige(i - 1); });
+      reihe.appendChild(zurueck);
+    }
+    if (i < karten.length - 1) {
+      var weiter = document.createElement("button");
+      weiter.type = "button"; weiter.className = "sq-siegelknopf"; weiter.textContent = "Weiter →";
+      weiter.addEventListener("click", function () { zeige(i + 1); });
+      reihe.appendChild(weiter);
+    }
+    karte.appendChild(reihe);
+    // Enter springt zur nächsten Frage statt gleich abzuschicken
+    karte.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" && e.target.tagName === "INPUT" && i < karten.length - 1) {
+        e.preventDefault();
+        zeige(i + 1);
+      }
+    });
+  });
+
+  function zeige(n) {
+    jetzt = Math.max(0, Math.min(karten.length - 1, n));
+    karten.forEach(function (k, i) {
+      k.classList.toggle("dran", i === jetzt);
+      k.classList.toggle("vorbei", i < jetzt);
+    });
+    Array.prototype.forEach.call(punkte.children, function (p, i) { p.classList.toggle("an", i <= jetzt); });
+    if (fuss) fuss.classList.toggle("stapel-wartet", jetzt < karten.length - 1);
+    var feld = karten[jetzt].querySelector("input:not([type=hidden]), select");
+    if (feld && document.activeElement !== feld) setTimeout(function () { feld.focus({ preventScroll: true }); }, 250);
+  }
+  zeige(0);
 })();

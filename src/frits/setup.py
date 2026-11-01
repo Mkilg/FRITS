@@ -31,6 +31,9 @@ STEPS = (
     "first_invoice",
     "done",
 )
+# How FRITS protects data: worth seeing once, but never in the way. "Überspringen" jumps to
+# first_invoice; the same lessons live on in the KI-Werkstatt.
+LEARNING_STEPS = ("redaction_test", "trick_document", "permissions")
 
 # Used when the mascot module (with its lines.json) isn't installed.
 FALLBACK_STEPS = {
@@ -39,7 +42,7 @@ FALLBACK_STEPS = {
         "Hallo, ich bin FRITS!",
         (
             "Ich kümmere mich um den Papierkram. Die "
-            "Einrichtung dauert etwa zehn Minuten, ein Schritt nach dem anderen."
+            "Das Wichtigste dauert etwa drei Minuten, den Lern-Teil kannst du überspringen."
         ),
     ),
     "choose_ai": (
@@ -83,7 +86,7 @@ FALLBACK_STEPS = {
     "first_invoice": (
         "thinking",
         "Deine erste Rechnung",
-        "Leg eine Notiz in deinen Eingangsordner.",
+        "Zieh eine Notiz auf das Feld oder füg sie mit ⌘V ein.",
     ),
     "done": ("done", "Erledigt!", "Alles eingerichtet."),
 }
