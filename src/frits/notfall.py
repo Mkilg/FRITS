@@ -93,6 +93,8 @@ KIND_LABELS = {
     "BIC": "BIC",
     "USTID": "USt-ID",
     "STEUERNR": "Steuernummer",
+    "STEUERID": "Steuer-ID",
+    "SVNR": "Sozialversicherungsnummer",
     "GEBDATUM": "Geburtsdatum",
     "GEHEIM": "von dir geschwärzt",
 }
