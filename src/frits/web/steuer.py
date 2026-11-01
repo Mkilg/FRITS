@@ -22,7 +22,7 @@ from starlette.concurrency import run_in_threadpool
 
 from frits import store, system
 from frits.settings import Workspace
-from frits.steuer import beraterin, ernte, quest, spiel, truhe
+from frits.steuer import beraterin, ernte, pruefung, quest, spiel, truhe
 from frits.steuer.katalog import (
     FAMILIENSTAND,
     HAKEN,
@@ -277,6 +277,30 @@ def register_steuer(
     today: Callable[[], date],
 ) -> None:
     app.state.steuer_combo = {}
+
+    def gewuerze() -> int:
+        """Wie viele Gewürze in Frittes Regal stehen (0, wenn Fritte ausgeschaltet ist)."""
+        if not settings().haustier:
+            return 0
+        try:
+            from frits.spiel.kassensturz import regal
+
+            return len(regal(conn()))
+        except Exception:  # noqa: BLE001 — ohne Fritte-Tabellen gibt es eben keine Gewürze
+            return 0
+
+    def kampf_anfang() -> dict:
+        """Die Serie zu Kampfbeginn: Frittes Gewürze wärmen auf (siehe spiel.start_serie)."""
+        n = gewuerze()
+        start = spiel.start_serie(n)
+        if not start:
+            return {"combo": 0, "ruf": spiel.RUFE[0]}
+        ruf = (
+            f"Frittes {'Gewürz wärmt' if n == 1 else 'Gewürze wärmen'} dich auf:"
+            f" Die Gold-Serie startet bei ×{start}."
+        )
+        return {"combo": start, "ruf": ruf, "gewuerze": n}
+
     app.state.steuer_notausgang = set()
     app.state.steuer_passwort = {}
     # Jahre, deren Drache gerade gefallen ist: dort die Falt-Animation zeigen
@@ -316,6 +340,7 @@ def register_steuer(
             vermute=spiel.vermute,
             ahnung=spiel.ahnung,
             ware=spiel.ware,
+            hafen_angebot=spiel.hafen_angebot,
             **context,
         )
 
@@ -600,7 +625,34 @@ def register_steuer(
             if plus and not ferne:
                 # Der größte Treffer des Kampfes soll man sehen, auch wenn der Sieg ihn verdrängt
                 flash(f"Letzter Treffer: {basis} × {faktor} = +{basis * faktor} Gold.", "sieg")
+            if goldjahr and fritte_truhe(c, jahr, silber=bool(nachher["zweifel"])):
+                flash(
+                    "Fritte hat eine Truhe für dich bekommen. Sie wartet bei Fritte.",
+                    "sieg",
+                    link=("/fritte#truhen", "Zu Fritte"),
+                )
         return sieg
+
+    def fritte_truhe(c, jahr: int, silber: bool) -> bool:
+        """Der Sieg zahlt in den Alltag zurück: eine Truhe bei Fritte, einmal pro Steuerjahr.
+        Gold-Sieg: mindestens selten. Ohne Fritte (ausgeschaltet oder noch nicht da) nichts."""
+        if not settings().haustier:
+            return False
+        try:
+            from frits.spiel.truhen import truhe_geben
+        except ImportError:
+            return False
+        try:
+            return bool(
+                truhe_geben(
+                    c,
+                    f"drachensieg:{jahr}",
+                    seltenheit="gewöhnlich" if silber else "selten",
+                    text=f"Der Drache {jahr} ist besiegt!",
+                )
+            )
+        except Exception:  # noqa: BLE001 — der Sieg darf an Frittes Truhe nie scheitern
+            return False
 
     def stueck_im_jahr(jahr: int, stueck_id: int) -> dict:
         try:
@@ -615,11 +667,49 @@ def register_steuer(
         # Im Herbst 2026 sammelt man meistens für 2025.
         return today().year - 1
 
-    async def hochladen(jahr: int, stueck_id: int, uploads: list[UploadFile]) -> list[quest.Fund]:
-        """Speichert hochgeladene Dateien und sammelt sie ein. Gibt alle Funde zurück (neu oder
-        schon da), damit die Seite ehrlich sagen kann, was passiert ist."""
-        funde = []
+    def zweifel_an(jahr: int, s: dict, pfad: Path, original: str) -> pruefung.Zweifel | None:
+        """Fritte stutzt, wenn eine Datei offensichtlich nicht zur Karte passt (siehe pruefung).
+        Kennt FRITS die Datei schon, kümmert sich doppelt_melden darum."""
         c = conn()
+        if quest.datei_mit_hash(c, jahr, quest.datei_hash(pfad)):
+            return None
+        return pruefung.pruefe(pfad, original, s, quest.stuecke(c, jahr))
+
+    def nachfragen(jahr: int, s: dict, name: str, z: pruefung.Zweifel, zurueck: str) -> None:
+        """Die Rückfrage als Zettel mit zwei Wegen. Bis dahin gibt es kein Gold."""
+        flash(
+            f"Fritte stutzt: {z.text} Ich habe es erst mal in den Eingangskorb gelegt.",
+            "warn",
+            aktion={
+                "url": f"/steuer/{jahr}/lager/zuordnen",
+                "knopf": "Trotzdem ablegen",
+                "felder": {"name": name, "stueck_id": s["id"], "trotzdem": "1", "back": zurueck},
+                "zweit": {
+                    "url": f"/steuer/{jahr}/lager/beiseite",
+                    "knopf": "Beiseite legen",
+                    "felder": {"name": name, "back": zurueck},
+                },
+            },
+        )
+
+    def in_den_korb(tmp: Path, name: str) -> Path:
+        ablage = quest.lager(ws.root)
+        ziel, n = ablage / name, 1
+        while ziel.exists():
+            ziel = ablage / f"{Path(name).stem} ({n}){Path(name).suffix}"
+            n += 1
+        tmp.replace(ziel)
+        return ziel
+
+    async def hochladen(
+        jahr: int, stueck_id: int, uploads: list[UploadFile], zurueck: str = ""
+    ) -> tuple[list[quest.Fund], int]:
+        """Speichert hochgeladene Dateien und sammelt sie ein. Gibt alle Funde zurück (neu oder
+        schon da), damit die Seite ehrlich sagen kann, was passiert ist, und wie viele Dateien
+        Fritte erst einmal in den Eingangskorb gelegt hat, weil sie nicht zur Karte passen."""
+        funde, geparkt = [], 0
+        c = conn()
+        s = quest.stueck(c, stueck_id)
         ablage = quest.lager(ws.root)
         ablage.mkdir(parents=True, exist_ok=True)
         for upload in uploads:
@@ -629,11 +719,17 @@ def register_steuer(
             tmp = ablage / f".upload-{name}"
             with tmp.open("wb") as fh:
                 shutil.copyfileobj(upload.file, fh)
+            z = zweifel_an(jahr, s, tmp, name)
+            if z is not None:
+                ziel = in_den_korb(tmp, name)
+                nachfragen(jahr, s, ziel.name, z, zurueck or f"/steuer/{jahr}/gebiet/{s['gebiet']}")
+                geparkt += 1
+                continue
             fund = quest.sammeln(c, ws.root, stueck_id, tmp, original=name, verschieben=True)
             funde.append(fund)
             if fund.neu:
                 quest.notiere(c, jahr, "fund", f"{fund.stueck['name']}: {name}")
-        return funde
+        return funde, geparkt
 
     # ----- Einstieg und Fragebogen -----
 
@@ -677,9 +773,11 @@ def register_steuer(
             p = Profil.load(entwurf_datei(jahr)) or profil(jahr) or profil(jahr - 1)
             if p is None:
                 p = Profil(jahr=jahr, name=settings().name)
-                # Hat FRITS in dem Jahr Rechnungen geschrieben, gibt es sicher einen Betrieb.
-                if ernte.hat_rechnungen(ws, jahr):
+                # Wer FRITS eingerichtet hat oder in dem Jahr Rechnungen geschrieben hat,
+                # arbeitet selbstständig: Die Provinz steht schon da (Fragebogen sagt woher).
+                if settings().setup_done or ernte.hat_rechnungen(ws, jahr):
                     p.mengen["freiberuflich"] = [1, 0]
+                    app.state.steuer_uebernommen.add(jahr)
                 if settings().tax_mode == "regelbesteuerung":
                     p.umsatzsteuer = "quartal"
             p.jahr = jahr
@@ -687,6 +785,7 @@ def register_steuer(
         return p
 
     app.state.steuer_entwurf = {}
+    app.state.steuer_uebernommen = set()  # Jahre, deren Fragebogen FRITS vorbelegt hat
 
     def ausweg(jahr: int) -> tuple[str, str]:
         """Wohin "Abbrechen" führt: zur nächsten Quest, die es schon gibt, sonst nach Hause."""
@@ -731,6 +830,7 @@ def register_steuer(
             familienstaende=FAMILIENSTAND,
             provinz_fragen=fragen(),
             haken=HAKEN,
+            uebernommen=jahr in app.state.steuer_uebernommen,
         )
 
     @app.post("/steuer/{jahr}/fragebogen", dependencies=guarded)
@@ -894,7 +994,8 @@ def register_steuer(
             flash("Da war keine Datei dabei. Zieh eine Datei in das Feld oder wähle eine aus.")
             return back(f"/steuer/{jahr}/gebiet/{s['gebiet']}")
         vorher = lage(jahr)
-        funde = await hochladen(jahr, stueck_id, uploads)
+        zurueck = str(form.get("back") or f"/steuer/{jahr}/gebiet/{s['gebiet']}")
+        funde, geparkt = await hochladen(jahr, stueck_id, uploads, zurueck)
         neu = sum(1 for f in funde if f.neu)
         mit = next((f.verweis for f in funde if f.neu and f.verweis), None)
         if mit and neu == 1:
@@ -906,11 +1007,11 @@ def register_steuer(
             )
         elif neu:
             flash(f"+{neu} Beleg{'e' if neu > 1 else ''}! Gesichert: {s['name']}", "beute", "done")
-        else:
+        elif funde or not geparkt:
             doppelt_melden(jahr, funde[0] if funde else None, s)
         if belohnen(jahr, vorher):
             return back(f"/steuer/{jahr}/drache")
-        return back(str(form.get("back") or f"/steuer/{jahr}/gebiet/{s['gebiet']}"))
+        return back(zurueck)
 
     @app.post("/steuer/{jahr}/lager/zuordnen", dependencies=guarded)
     async def lager_zuordnen(request: Request, jahr: int):
@@ -925,6 +1026,12 @@ def register_steuer(
             flash("Wähle aus, wohin die Datei gehört.")
             return back(f"/steuer/{jahr}")
         s = stueck_im_jahr(jahr, stueck_id)
+        zurueck = str(form.get("back") or f"/steuer/{jahr}")
+        if form.get("trotzdem") != "1":
+            z = zweifel_an(jahr, s, quelle, name)
+            if z is not None:
+                nachfragen(jahr, s, name, z, zurueck)
+                return back(zurueck)
         vorher = lage(jahr)
         c = conn()
         fund = quest.sammeln(c, ws.root, stueck_id, quelle, verschieben=True)
@@ -1138,13 +1245,56 @@ def register_steuer(
         form = await request.form()
         s = stueck_im_jahr(jahr, stueck_id)
         vorher = lage(jahr)
+        zurueck = str(form.get("back") or f"/steuer/{jahr}/gebiet/{s['gebiet']}")
         was = quest.wunsch_weg(conn(), stueck_id)
+        # Ein Fehlklick soll keinen echten Wunsch kosten: Der Zettel bietet den Weg zurück an
+        felder = {"back": zurueck}
         if was == "karte":
-            flash(f"„{s['name']}“ ist wieder weg. Es war nur ein falsch gelesener Wunsch.")
+            text = f"„{s['name']}“ ist wieder weg. Es war nur ein falsch gelesener Wunsch."
+            felder.update(
+                gebiet=s["gebiet"],
+                name=s["name"],
+                hinweis=s.get("hinweis") or "",
+                status=s["status"],
+                frage=s.get("frage") or "",
+            )
         else:
-            flash(f"„{s['name']}“ ist nicht mehr als Wunsch der Beraterin markiert.")
+            text = f"„{s['name']}“ ist nicht mehr als Wunsch der Beraterin markiert."
+            felder["stueck_id"] = s["id"]
+        flash(
+            text,
+            "warn",
+            aktion={
+                "url": f"/steuer/{jahr}/wunsch-zurueck",
+                "knopf": "Doch gewünscht",
+                "felder": felder,
+            },
+        )
         belohnen(jahr, vorher, ferne=False)
-        return back(str(form.get("back") or f"/steuer/{jahr}/gebiet/{s['gebiet']}"))
+        return back(zurueck)
+
+    @app.post("/steuer/{jahr}/wunsch-zurueck", dependencies=guarded)
+    async def wunsch_zurueck(request: Request, jahr: int):
+        """Rückgängig für "Hat sie gar nicht gewünscht?"."""
+        form = await request.form()
+        profil_oder_404(jahr)
+        vorher = lage(jahr)
+        c = conn()
+        if form.get("stueck_id"):
+            s = stueck_im_jahr(jahr, int(str(form.get("stueck_id"))))
+            quest.markiere_wunsch(c, s["id"])
+            name = s["name"]
+        else:
+            gebiet, name = str(form.get("gebiet") or ""), str(form.get("name") or "").strip()
+            if not name or gebiet not in {g.id for g in vorher["gebiete"]}:
+                raise HTTPException(400)
+            neu = quest.neues_stueck(c, jahr, gebiet, name, hinweis=str(form.get("hinweis") or ""))
+            status = str(form.get("status") or "offen")
+            if status in ("fragen", "gibts_nicht"):
+                quest.setze_status(c, neu, status, str(form.get("frage") or ""))
+        flash(f"„{name}“ ist wieder ein Wunsch der Beraterin.", "beute")
+        belohnen(jahr, vorher, ferne=False)
+        return back(str(form.get("back") or f"/steuer/{jahr}"))
 
     @app.post("/steuer/{jahr}/stueck/{stueck_id}/frage", dependencies=guarded)
     async def frage_merken(request: Request, jahr: int, stueck_id: int):
@@ -1370,7 +1520,11 @@ def register_steuer(
     @app.get("/steuer/{jahr}/drache", response_class=HTMLResponse)
     def drache_seite(request: Request, jahr: int):
         daten = lage(jahr)
+        if jahr not in app.state.steuer_combo and daten["drache_wach"]:
+            app.state.steuer_combo[jahr] = kampf_anfang()
         combo = dict(app.state.steuer_combo.get(jahr, {"combo": 0, "ruf": spiel.RUFE[0]}))
+        # Das Banner zeigt den echten Faktor (mit Kriegstrommel und Sanduhr), nicht die Zählung
+        combo["mult"] = spiel.multiplikator(combo["combo"], daten["helfer"])
         frisch = app.state.steuer_combo.get(jahr, {}).pop("frisch", False)
         wurf = app.state.steuer_wurf.pop(jahr, None) if frisch else None
         beute = app.state.steuer_combo.get(jahr, {}).pop("beute", None) if frisch else None
@@ -1408,8 +1562,10 @@ def register_steuer(
             if not uploads:
                 flash("Wähle eine Datei aus, dann trifft der Schlag.")
                 return back(f"/steuer/{jahr}/drache")
-            funde = await hochladen(jahr, s["id"], uploads)
+            funde, geparkt = await hochladen(jahr, s["id"], uploads, f"/steuer/{jahr}/drache")
             kritisch = any(f.neu for f in funde)
+            if geparkt and not funde:
+                return back(f"/steuer/{jahr}/drache#karte")  # Fritte fragt erst nach
             if not kritisch and not any(f.stueck["id"] == s["id"] for f in funde):
                 # Die Datei gehört schon zu einer anderen Karte: Das ist kein Treffer
                 doppelt_melden(jahr, funde[0] if funde else None, s, f"/steuer/{jahr}/drache")
@@ -1420,6 +1576,10 @@ def register_steuer(
             quelle = quest.lager(ws.root) / name
             if not name or not quelle.is_file():
                 flash("Den Zettel finde ich nicht mehr im Eingangskorb.")
+                return back(f"/steuer/{jahr}/drache#karte")
+            z = zweifel_an(jahr, s, quelle, name)
+            if z is not None:
+                nachfragen(jahr, s, name, z, f"/steuer/{jahr}/drache")
                 return back(f"/steuer/{jahr}/drache#karte")
             c = conn()
             fund = quest.sammeln(c, ws.root, s["id"], quelle, verschieben=True)
@@ -1459,7 +1619,7 @@ def register_steuer(
                 "karte": s["name"],
                 "wie": aktion,
             }
-        alt = app.state.steuer_combo.get(jahr, {"combo": 0})
+        alt = app.state.steuer_combo.get(jahr) or kampf_anfang()
         combo, ruf = spiel.treffer(alt["combo"], kritisch, zaehlt=aktion != "gibts_nicht")
         if aktion == "gibts_nicht" and "trommel" in vorher["helfer"]:
             combo, ruf = 0, "Die Kriegstrommel verstummt. Die Serie ist weg."

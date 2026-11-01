@@ -590,13 +590,16 @@ def create_app(
         return back("/#liste")
 
     @app.post("/aufgaben/{pid}/abhaken", dependencies=guarded)
-    def aufgabe_abhaken(pid: int):
+    async def aufgabe_abhaken(request: Request, pid: int):
+        ziel = str((await request.form()).get("back") or "")
+        if not ziel.startswith("/") or ziel.startswith("//"):
+            ziel = "/#liste"
         conn = db()
         current = settings()
         text = aufgaben.text_von(conn, pid)
         ergebnis = aufgaben.abhaken(conn, pid, today(), spiel=current.haustier)
         if ergebnis is None or text is None:
-            return back("/#liste")
+            return back(ziel)
         if ergebnis == "karte":
             uebrig = aufgaben.karten_uebrig(conn, today())
             nachsatz = (
@@ -611,7 +614,7 @@ def create_app(
         else:
             nachsatz = ""
         flash(f"Erledigt: {_punkt_text(text)}.{nachsatz}", cue="done")
-        return back("/#liste")
+        return back(ziel)
 
     @app.post("/aufgaben/{pid}/zurueck", dependencies=guarded)
     def aufgabe_zurueck(pid: int):
@@ -2258,6 +2261,19 @@ def create_app(
         today=today,
         aufgeraeumt=lambda: not _inbox_files(ws) and not _open_drafts(db(), settings()),
     )
+
+    def liste_hinweis(path: str, current) -> list[dict]:
+        """Work just done that fits a point on "Deine Liste": offer to tick it off.
+        Runs after Fritte's note, which has already turned the work into cards."""
+        if not current.haustier or path.startswith(("/steuer", "/mailto", "/feierabend")):
+            return []  # in the Steuer-Quest it waits for the next page
+        return [
+            {"text": f"Passt das zu „{_punkt_text(p.text)}“ auf deiner Liste?", "kind": "karte",
+             "cue": None, "stamp": None, "undo": False, "abhaken": p.id}
+            for p in aufgaben.vorschlaege(db())
+        ]  # fmt: skip
+
+    app.state.hinweise.append(liste_hinweis)
 
     from frits.web.lernen import register_lernen
 

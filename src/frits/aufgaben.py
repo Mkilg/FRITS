@@ -272,3 +272,58 @@ def text_von(conn: sqlite3.Connection, pid: int) -> str | None:
     vorbereiten(conn)
     row = conn.execute("SELECT text FROM aufgaben WHERE id = ?", (pid,)).fetchone()
     return row[0] if row else None
+
+
+# ---------- the list notices finished work ----------
+# Which place in FRITS a new game card belongs to (the same places the points link to).
+KARTE_ZIEL = {
+    "ausgabe": "/expenses",
+    "rechnung": "/drafts",
+    "bezahlt": "/invoices",
+    "erinnerung": "/invoices",
+    "angebot": "/quotes",
+    "steuer": "/steuer",
+    "steuerjahr": "/steuer",
+}
+_WORT = re.compile(r"[\wäöüÄÖÜß]{4,}")
+
+
+def _woerter(text: str) -> set[str]:
+    return {w.casefold() for w in _WORT.findall(text)}
+
+
+def vorschlaege(conn: sqlite3.Connection) -> list[Punkt]:
+    """Open points that fit work FRITS just noticed (new game cards since the last look):
+    the only open point for that place, or the one sharing a word with the work, e.g.
+    "Bahnticket eintragen" for the expense "DB Fernverkehr · Bahnticket". Each new card is
+    looked at once."""
+    from frits.spiel import kassensturz, stand
+
+    vorbereiten(conn)
+    stand.vorbereiten(conn)
+    zuletzt = stand.einstellung(conn, "liste_karte")
+    hoechste = conn.execute("SELECT COALESCE(MAX(rowid), 0) FROM spiel_karten").fetchone()[0]
+    if str(hoechste) != zuletzt:
+        stand.setze(conn, "liste_karte", str(hoechste))
+    if not zuletzt:  # the first look: older work is not news
+        return []
+    neue = conn.execute(
+        "SELECT schluessel, art, gesehen FROM spiel_karten WHERE rowid > ? ORDER BY rowid",
+        (int(zuletzt),),
+    ).fetchall()
+    if not neue:
+        return []
+    offene, _ = liste(conn, date.today())
+    gefunden: list[Punkt] = []
+    for schluessel, art, gesehen in neue:
+        wohin = KARTE_ZIEL.get(art)
+        passend = [p for p in offene if p.ziel == wohin and p not in gefunden]
+        if not wohin or not passend:
+            continue
+        if len(passend) > 1:
+            karte = kassensturz._karte(conn, schluessel, art, gesehen)
+            worte = _woerter(f"{karte.titel} {karte.detail}") if karte else set()
+            passend = [p for p in passend if _woerter(p.text) & worte]
+        if len(passend) == 1:
+            gefunden.append(passend[0])
+    return gefunden[:2]

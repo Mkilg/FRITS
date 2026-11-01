@@ -77,6 +77,18 @@ def _aufgeraeumt(karten: list[dict], umfeld: dict) -> float:
     return 1.5 if umfeld.get("aufgeraeumt") else 1.0
 
 
+PAPIERKRAM = frozenset({"rechnung", "bezahlt", "ausgabe", "angebot", "erinnerung"})
+SALBEI_AB = 3  # real paperwork cards it takes for Salbei
+
+
+def _papierkram(karten: list[dict]) -> int:
+    return sum(1 for k in karten if k["art"] in PAPIERKRAM)
+
+
+def _salbei(karten: list[dict], umfeld: dict) -> float:
+    return 1.5 if _papierkram(karten) >= SALBEI_AB else 1.0
+
+
 def _gereift(karten: list[dict], umfeld: dict) -> float:
     # Grows with every week that had a Kassensturz since it came onto the shelf, up to +2.
     return round(0.2 * min(MALZESSIG_WOCHEN, umfeld.get("reife", {}).get("malzessig", 0)), 1)
@@ -95,6 +107,9 @@ GEWUERZE: tuple[Gewuerz, ...] = (
     Gewuerz("rosmarin", "Rosmarin", "🌿", "gewöhnlich", 7,
             "+4 Körner für jede Rechnung, die höchstens 7 Tage nach dem Eingang der Notiz"
             " fertig war.", pro_karte=_art("rechnung", 4, "frisch")),
+    Gewuerz("salbei", "Salbei", "🍃", "gewöhnlich", 9,
+            "Würze ×1,5, wenn mindestens drei Karten echter Papierkram sind (Rechnung,"
+            " Zahlung, Ausgabe, Angebot oder Erinnerung).", mal_wuerze=_salbei),
     Gewuerz("pfeffer", "Pfeffer", "⚫", "gewöhnlich", 8,
             "+1 Würze, wenn mindestens drei verschiedene Kartenarten dabei sind.",
             plus_wuerze=_kartenarten),
@@ -121,3 +136,109 @@ GEWUERZE: tuple[Gewuerz, ...] = (
             mal_wuerze=_aufgeraeumt),
 )  # fmt: skip
 NACH_ID = {g.id: g for g in GEWUERZE}
+
+
+# ---------- what each spice does with the cards on the table ----------
+# A spice that works says what it brings; one that doesn't says what is still missing.
+# Nothing is hidden: a jar that stays quiet must not look like a bug.
+
+
+def _fehlt_karte(was: str):
+    return lambda karten, umfeld: f"wartet auf {was}"
+
+
+def _fehlt_arten(karten: list[dict], umfeld: dict) -> str:
+    n = len({k["art"] for k in karten} - NUR_KLICKS)
+    return f"{n} von 3 Kartenarten (Abgehakt und Gelernt zählen nicht)"
+
+
+def _fehlt_stapel(karten: list[dict], umfeld: dict) -> str:
+    n = sum(1 for k in karten if k["art"] not in NUR_KLICKS)
+    return f"{n} von 5 Karten"
+
+
+FEHLT: dict[str, Callable[[list[dict], dict], str]] = {
+    "meersalz": _fehlt_karte("eine Rechnung oder Gutschrift"),
+    "muskat": _fehlt_karte("eine Ausgabe"),
+    "schnittlauch": _fehlt_karte("ein Angebot, aus dem eine Rechnung wurde"),
+    "paprika": _fehlt_karte("einen Beleg, der bis 10 Tage nach dem Eingang eingetragen war"),
+    "rosmarin": _fehlt_karte("eine Rechnung, die bis 7 Tage nach der Notiz fertig war"),
+    "knoblauch": _fehlt_karte("eine Zahlung nach einer freundlichen Erinnerung"),
+    "pfeffer": _fehlt_arten,
+    "zimt": _fehlt_karte("einen Feierabend"),
+    "curry": _fehlt_karte("eine eingegangene Zahlung"),
+    "chili": _fehlt_stapel,
+    "malzessig": lambda karten, umfeld: "reift ab der ersten Woche im Regal",
+    "trueffelsalz": lambda karten, umfeld: (
+        f"{umfeld.get('rhythmus_wochen', 0)} von 3 Wochen mit Papierkram"
+    ),
+    "safran": lambda karten, umfeld: "Eingang oder ein Entwurf wartet noch",
+    "salbei": lambda karten, umfeld: (
+        f"{_papierkram(karten)} von {SALBEI_AB} Karten echter Papierkram"
+    ),
+}
+
+
+def _zahl(w: float) -> str:
+    return f"{w:g}".replace(".", ",")
+
+
+def wirkung(g: Gewuerz, karten: list[dict], umfeld: dict) -> tuple[bool, str]:
+    """(works, short text) for one spice with these cards, e.g. (True, "+4 Körner")
+    or (False, "2 von 3 Kartenarten")."""
+    teile = []
+    if g.pro_karte:
+        extra = sum(g.pro_karte(k, umfeld) for k in karten)
+        if extra:
+            teile.append(f"+{extra} {'Korn' if extra == 1 else 'Körner'}")
+    if g.plus_wuerze:
+        plus = g.plus_wuerze(karten, umfeld)
+        if plus:
+            teile.append(f"+{_zahl(plus)} Würze")
+    if g.mal_wuerze:
+        mal = g.mal_wuerze(karten, umfeld)
+        if mal != 1:
+            teile.append(f"Würze ×{_zahl(mal)}")
+    if teile:
+        return True, " und ".join(teile)
+    fehlt = FEHLT.get(g.id)
+    return False, fehlt(karten, umfeld) if fehlt else "greift diesmal nicht"
+
+
+# ---------- Tagesgericht: one choice before each Kassensturz ----------
+# Fritte cooks one dish for the Kassensturz. Two change every day; the third is always
+# "Einkochen": nothing today, +1 Würze next time. Which one is best depends on the cards on
+# the table, so it is a real (small) decision. Never a way to lose anything.
+
+EINKOCHEN = "einkochen"
+
+
+def _bunt(karten: list[dict], umfeld: dict) -> float:
+    return 0.5 * len({k["art"] for k in karten} - NUR_KLICKS - {"start"})
+
+
+def _eingekocht(karten: list[dict], umfeld: dict) -> float:
+    return 1.0
+
+
+REZEPTE: tuple[Gewuerz, ...] = (
+    Gewuerz("belegsuppe", "Belegsuppe", "🍲", "rezept", 0,
+            "+2 Körner für jede Ausgabe.", pro_karte=_art("ausgabe", 2)),
+    Gewuerz("rechnungsbraten", "Rechnungsbraten", "🍖", "rezept", 0,
+            "+3 Körner für jede Rechnung oder Gutschrift.", pro_karte=_art("rechnung", 3)),
+    Gewuerz("zahltagspfanne", "Zahltagspfanne", "🍳", "rezept", 0,
+            "+3 Körner für jede eingegangene Zahlung.", pro_karte=_art("bezahlt", 3)),
+    Gewuerz("angebotsauflauf", "Angebotsauflauf", "🥧", "rezept", 0,
+            "+4 Körner für jedes Angebot, aus dem eine Rechnung wurde.",
+            pro_karte=_art("angebot", 4)),
+    Gewuerz("steuereintopf", "Steuereintopf", "🥘", "rezept", 0,
+            "+2 Körner für jede gesammelte Steuer-Unterlage.", pro_karte=_art("steuer", 2)),
+    Gewuerz("bunter_teller", "Bunter Teller", "🥗", "rezept", 0,
+            "+0,5 Würze für jede Art Papierkram auf dem Tisch.", plus_wuerze=_bunt),
+)  # fmt: skip
+EINGEKOCHT = Gewuerz(
+    EINKOCHEN, "Eingekochtes", "🫙", "rezept", 0,
+    "Heute nichts extra. Dafür +1 Würze beim nächsten Kassensturz.",
+    plus_wuerze=_eingekocht,
+)  # fmt: skip
+REZEPT_NACH_ID = {g.id: g for g in (*REZEPTE, EINGEKOCHT)}

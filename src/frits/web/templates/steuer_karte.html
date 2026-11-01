@@ -6,7 +6,7 @@
 {% block content %}
 {{ gouache_filter() }}
 {% set insel_bild = bild("insel") %}
-<div class="sq sq-tisch" data-klang="{{ 'an' if klang else 'aus' }}"{% include "_steuer_stil.html" %}>
+<div class="sq sq-tisch sq-inselseite" data-klang="{{ 'an' if klang else 'aus' }}"{% include "_steuer_stil.html" %}>
 {% include "_steuer_meldungen.html" %}
 {% include "_steuer_kopf.html" %}
 {% include "_steuer_auftrag.html" %}

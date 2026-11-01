@@ -1,5 +1,6 @@
 """Die Steuer-Quest: Fragebogen, Sammeln, Drache, Beraterin-Mail, FRITS-Ernte und Schatztruhe."""
 
+import shutil
 import sqlite3
 from datetime import date
 from decimal import Decimal
@@ -12,7 +13,7 @@ from fastapi.testclient import TestClient
 from frits import store, system
 from frits.expenses import Expense, add_expense
 from frits.settings import Settings, Workspace
-from frits.steuer import beraterin, ernte, quest, spiel, truhe
+from frits.steuer import beraterin, ernte, pruefung, quest, spiel, truhe
 from frits.steuer.katalog import HAKEN, MACHT_BERATERIN, Profil, ist_kern, katalog, reich
 from frits.web.app import create_app
 from frits.web.steuer import inselplan
@@ -276,7 +277,7 @@ def test_combo_und_kritische_treffer():
     combo, ruf = spiel.treffer(0, kritisch=False)
     assert (combo, ruf) == (1, "Treffer!")
     combo, ruf = spiel.treffer(combo, kritisch=True)
-    assert combo == 3 and ruf.startswith("Kritischer Treffer!")
+    assert combo == 3 and ruf.startswith("Volltreffer mit Beleg!")
 
 
 def test_erfolge():
@@ -561,7 +562,7 @@ def test_ganze_quest_im_browser(client, ws):
     page = post(
         client,
         f"/steuer/2025/stueck/{erstes['id']}/datei",
-        files={"datei": ("miete.pdf", b"mieten", "application/pdf")},
+        files={"datei": ("scan-01.pdf", b"mieten", "application/pdf")},
     )
     assert "+1 Beleg!" in page.text
     assert "Neuer Orden: Erster Fund" in page.text
@@ -988,20 +989,20 @@ def test_eingangskorb_ist_die_hand_im_drachenkampf(client, ws):
     conn = quest.ensure_schema(store.connect(ws.db))
     _bis_wach(conn)
     quest.lager(ws.root).mkdir(parents=True, exist_ok=True)
-    (quest.lager(ws.root) / "kontoauszug.pdf").write_bytes(b"%PDF-1 konto")
+    (quest.lager(ws.root) / "scan-02.pdf").write_bytes(b"%PDF-1 konto")
     seite = client.get("/steuer/2025/drache").text
-    assert 'class="sq-hand"' in seite and 'value="kontoauszug.pdf"' in seite
+    assert 'class="sq-hand"' in seite and 'value="scan-02.pdf"' in seite
     karte = spiel.drache(quest.stuecke(conn, 2025)).karte
     seite = post(
         client,
         "/steuer/2025/drache/schlag",
         stueck_id=str(karte["id"]),
         aktion="zettel",
-        zettel="kontoauszug.pdf",
+        zettel="scan-02.pdf",
     )
     assert 'data-treffer="kritisch"' in seite.text
     assert quest.stueck(conn, karte["id"])["status"] == "gesammelt"
-    assert not (quest.lager(ws.root) / "kontoauszug.pdf").exists()
+    assert not (quest.lager(ws.root) / "scan-02.pdf").exists()
     # Ein Zettel, den es nicht (mehr) gibt, trifft nicht
     seite = post(
         client,
@@ -1085,7 +1086,7 @@ def test_hand_fragt_nach_und_ein_wurf_laesst_sich_zuruecknehmen(client, ws):
     conn = quest.ensure_schema(store.connect(ws.db))
     _bis_wach(conn)
     quest.lager(ws.root).mkdir(parents=True, exist_ok=True)
-    (quest.lager(ws.root) / "urlaubsfoto.png").write_bytes(b"strand")
+    (quest.lager(ws.root) / "scan-03.png").write_bytes(b"strand")
     karte = spiel.drache(quest.stuecke(conn, 2025)).karte
     seite = client.get("/steuer/2025/drache").text
     assert 'data-rueckfrage-ja="Ja, passt"' in seite and "data-beiseite=" in seite
@@ -1094,12 +1095,12 @@ def test_hand_fragt_nach_und_ein_wurf_laesst_sich_zuruecknehmen(client, ws):
         "/steuer/2025/drache/schlag",
         stueck_id=str(karte["id"]),
         aktion="zettel",
-        zettel="urlaubsfoto.png",
+        zettel="scan-03.png",
     )
-    assert "„urlaubsfoto.png“ liegt jetzt bei" in seite.text and "Nächste Karte" in seite.text
+    assert "„scan-03.png“ liegt jetzt bei" in seite.text and "Nächste Karte" in seite.text
     datei = quest.dateien(conn, 2025, karte["id"])[0]
     seite = post(client, f"/steuer/2025/datei/{datei['id']}/entfernen", back="/steuer/2025/drache")
-    assert (quest.lager(ws.root) / "urlaubsfoto.png").exists()
+    assert (quest.lager(ws.root) / "scan-03.png").exists()
     assert quest.stueck(conn, karte["id"])["status"] == "offen"
     assert "Der Drache hat wieder" in seite.text  # Zurücklegen ist nicht stumm
 
@@ -1299,11 +1300,11 @@ def test_gold_im_kampf_mit_serie_und_markt_im_browser(client, ws):
     _bis_wach(conn)
     gold_vorher = quest.gold(conn, 2025)
     quest.lager(ws.root).mkdir(parents=True, exist_ok=True)
-    (quest.lager(ws.root) / "quittung-eins.pdf").write_bytes(b"%PDF eins")
+    (quest.lager(ws.root) / "scan-eins.pdf").write_bytes(b"%PDF eins")
     karte = spiel.drache(quest.stuecke(conn, 2025)).karte
-    werfen = {"stueck_id": str(karte["id"]), "aktion": "zettel", "zettel": "quittung-eins.pdf"}
+    werfen = {"stueck_id": str(karte["id"]), "aktion": "zettel", "zettel": "scan-eins.pdf"}
     seite = post(client, "/steuer/2025/drache/schlag", **werfen)
-    # Kritischer Treffer: Serie 2, also 3 Gold × 2
+    # Volltreffer: Gold-Serie 2, also 3 Gold × 2
     assert 'class="sq-rechnung"' in seite.text and "+6 Gold" in seite.text
     assert quest.gold(conn, 2025) == gold_vorher + 6
     # Zurücklegen bucht das Gold zurück; danach zahlt die Karte als Frage nur ihre 1
@@ -1324,6 +1325,7 @@ def test_gold_im_kampf_mit_serie_und_markt_im_browser(client, ws):
     assert 'class="sq-zier windmuehle neu"' in seite.text and 'class="sq-hafen"' in seite.text
     post(client, "/steuer/2025/markt/kaufen", ware="spuernase")
     (quest.lager(ws.root) / "kontoauszug-juni.pdf").write_bytes(b"%PDF juni")
+    (quest.lager(ws.root) / "quittung-juni.pdf").write_bytes(b"%PDF quittung")
     assert "Spürnase:" in client.get("/steuer/2025").text
     assert "Spürnase" in client.get("/steuer/2025/drache").text  # Helferreihe im Kampf
 
@@ -1336,14 +1338,14 @@ def test_letzter_treffer_zeigt_seine_rechnung_im_sieg(client, ws):
         k = spiel.drache(quest.stuecke(conn, 2025)).karte
         post(client, "/steuer/2025/drache/schlag", stueck_id=str(k["id"]), aktion="fragen")
     quest.lager(ws.root).mkdir(parents=True, exist_ok=True)
-    (quest.lager(ws.root) / "letzter.pdf").write_bytes(b"%PDF letzter")
+    (quest.lager(ws.root) / "scan-04.pdf").write_bytes(b"%PDF letzter")
     k = spiel.drache(quest.stuecke(conn, 2025)).karte
     seite = post(
         client,
         "/steuer/2025/drache/schlag",
         stueck_id=str(k["id"]),
         aktion="zettel",
-        zettel="letzter.pdf",
+        zettel="scan-04.pdf",
     )
     assert "Letzter Treffer: 3 ×" in seite.text
 
@@ -2044,3 +2046,225 @@ def test_runde_17_drachenbaendigerin_erst_mit_echtem_beleg():
     ]
     orden = {e.key: e for e in spiel.erfolge(karten, [])}
     assert not orden["drachenbaendigerin"].erreicht
+
+
+# ---------- Runde 18: Lenas Urteil ----------
+
+
+def test_runde_18_urlaubsfoto_wird_nicht_einfach_gesichert(client, ws):
+    # Lena: "Das Spiel glaubt dir alles." Ein Urlaubsfoto auf "Steuer-ID" gab Gold und
+    # landete in der Truhe. Jetzt fragt Fritte erst, und Gold gibt es erst nach dem Ja.
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    sid = next(s for s in quest.stuecke(conn, 2025) if s["key"] == "steuer-id")
+    gold = quest.gold(conn, 2025)
+    seite = post(
+        client,
+        f"/steuer/2025/stueck/{sid['id']}/datei",
+        files={"datei": ("urlaubsfoto.png", b"strand", "image/png")},
+    )
+    assert "Fritte stutzt" in seite.text and "klingt nach einem privaten Foto" in seite.text
+    assert "Trotzdem ablegen" in seite.text and "Beiseite legen" in seite.text
+    assert "+1 Beleg" not in seite.text
+    assert quest.stueck(conn, sid["id"])["status"] == "offen" and quest.gold(conn, 2025) == gold
+    assert (quest.lager(ws.root) / "urlaubsfoto.png").read_bytes() == b"strand"
+    # "Trotzdem ablegen" geht immer
+    seite = post(
+        client,
+        "/steuer/2025/lager/zuordnen",
+        name="urlaubsfoto.png",
+        stueck_id=str(sid["id"]),
+        trotzdem="1",
+        back="/steuer/2025/gebiet/rathaus",
+    )
+    assert "+1 Beleg!" in seite.text
+    assert quest.stueck(conn, sid["id"])["status"] == "gesammelt"
+
+
+def test_runde_18_auch_im_drachenkampf_und_aus_dem_korb(client, ws):
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    _bis_wach(conn)
+    karte = spiel.drache(quest.stuecke(conn, 2025)).karte
+    seite = post(
+        client,
+        "/steuer/2025/drache/schlag",
+        files={"datei": ("Strand-Selfie.jpg", b"sonne", "image/jpeg")},
+        stueck_id=str(karte["id"]),
+        aktion="datei",
+    )
+    assert "Fritte stutzt" in seite.text and 'data-treffer="kritisch"' not in seite.text
+    assert quest.stueck(conn, karte["id"])["status"] == "offen"
+    seite = post(
+        client,
+        "/steuer/2025/drache/schlag",
+        stueck_id=str(karte["id"]),
+        aktion="zettel",
+        zettel="Strand-Selfie.jpg",
+    )
+    assert "Fritte stutzt" in seite.text and quest.stueck(conn, karte["id"])["status"] == "offen"
+    seite = post(client, "/steuer/2025/lager/beiseite", name="Strand-Selfie.jpg", back="/")
+    assert (quest.beiseite(ws.root) / "Strand-Selfie.jpg").exists()
+
+
+def test_runde_18_pruefung_im_einzelnen(tmp_path):
+    karte = {
+        "id": 1,
+        "gebiet": "rathaus",
+        "key": "steuer-id",
+        "name": "Steuer-ID",
+        "status": "offen",
+    }
+    assert pruefung.privat_wort("urlaubsfoto.png") == "urlaub"
+    assert pruefung.privat_wort("Hochzeit_2025.jpg") == "hochzeit"
+    # Echte Unterlagen mit ähnlichen Wörtern bleiben unbehelligt
+    for name in (
+        "Urlaubsgeld_Abrechnung.pdf",
+        "Familienkasse.pdf",
+        "Hundesteuer.pdf",
+        "Babysitter.pdf",
+    ):
+        assert pruefung.privat_wort(name) is None, name
+    # Neutrale Namen fragen nicht nach
+    pdf = tmp_path / "scan.pdf"
+    pdf.write_bytes(b"%PDF-1.4")
+    assert pruefung.pruefe(pdf, "Scan_0042.pdf", karte, [karte]) is None
+
+
+@pytest.mark.skipif(not shutil.which("tesseract"), reason="Texterkennung nicht installiert")
+def test_runde_18_foto_ohne_text_und_kassenbon(tmp_path):
+    from PIL import Image
+
+    karte = {"id": 1, "gebiet": "werkstatt-1", "key": "belege", "name": "Belege", "status": "offen"}
+    bild = tmp_path / "IMG_1234.jpg"
+    Image.new("RGB", (800, 600), (60, 120, 200)).save(bild)
+    z = pruefung.pruefe(bild, "IMG_1234.jpg", karte, [karte])
+    assert z is not None and z.grund == "kein_text"
+    bon = Path(__file__).parent / "fixtures" / "docs" / "11_baumarkt.jpg"
+    assert pruefung.pruefe(bon, "IMG_1235.jpg", karte, [karte]) is None
+
+
+def test_runde_18_ehrliche_gold_serie_und_gewuerze_waermen_auf():
+    assert "Doppelschlag!" not in spiel.RUFE
+    assert all("Serie" not in r or "Gold-Serie" in r or r.endswith("hält.") for r in spiel.RUFE)
+    assert spiel.start_serie(0) == 0
+    assert spiel.start_serie(1) == 2 and spiel.multiplikator(spiel.start_serie(1)) == 2
+    assert spiel.start_serie(7) == 4  # höchstens drei Gewürze zählen
+
+
+def test_runde_18_drache_zeigt_den_echten_faktor(client, ws):
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    _bis_wach(conn)
+    karte = spiel.drache(quest.stuecke(conn, 2025)).karte
+    post(client, "/steuer/2025/drache/schlag", stueck_id=str(karte["id"]), aktion="fragen")
+    zweite = spiel.drache(quest.stuecke(conn, 2025)).karte
+    seite = post(client, "/steuer/2025/drache/schlag", stueck_id=str(zweite["id"]), aktion="fragen")
+    # Serie 2, aber Fragen zahlt ohne Serie: das steht jetzt auch da
+    assert "Gold ×2" in seite.text and "Die Gold-Serie läuft!" in seite.text
+    assert "ohne Serie, die zählt nur für Belege" in seite.text
+    assert "1 × 1" not in seite.text
+
+
+def test_runde_18_erwachen_bietet_den_hafen_an(client, ws):
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    quest.verdiene(conn, 2025, "test", 26, "Testgold")
+    offen = [s for s in spiel.pflicht(quest.stuecke(conn, 2025)) if s["status"] == "offen"]
+    for s in offen:
+        stand = quest.stuecke(conn, 2025)
+        if spiel.drache_wach(stand):
+            break
+        nachher = post(client, f"/steuer/2025/stueck/{s['id']}/status", status="gibts_nicht")
+    assert "Der Drache erwacht!" in nachher.text
+    assert "Erst zum Hafenmarkt: Helfer anheuern" in nachher.text
+
+
+def test_runde_18_freiberuflich_aus_der_einrichtung(client, ws):
+    seite = client.get("/steuer/2025/fragebogen?teil=2")
+    if "Welche Provinzen" not in seite.text:
+        post(client, "/steuer/2025/fragebogen", teil="1", name="Kim")
+        seite = client.get("/steuer/2025/fragebogen?teil=2")
+    assert "Aus deiner Einrichtung übernommen" in seite.text
+
+
+def test_runde_18_falscher_wunsch_laesst_sich_zurueckholen(client, ws):
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    neu = quest.neues_stueck(
+        conn, 2025, "rathaus", "Hausordnung", hinweis="Wunsch deiner Beraterin"
+    )
+    seite = post(
+        client, f"/steuer/2025/stueck/{neu}/wunsch-weg", back="/steuer/2025/gebiet/rathaus"
+    )
+    assert "Doch gewünscht" in seite.text
+    seite = post(
+        client,
+        "/steuer/2025/wunsch-zurueck",
+        gebiet="rathaus",
+        name="Hausordnung",
+        hinweis="Wunsch deiner Beraterin",
+        status="offen",
+        back="/steuer/2025/gebiet/rathaus",
+    )
+    assert "wieder ein Wunsch der Beraterin" in seite.text
+    wieder = [s for s in quest.stuecke(conn, 2025) if s["name"] == "Hausordnung"]
+    assert len(wieder) == 1 and wieder[0]["wunsch"] and wieder[0]["herkunft"] == "beraterin"
+
+
+def test_runde_18_gold_ausgeben_geht_nie_unter_null(conn):
+    quest.verdiene(conn, 2025, "test", 25, "Testgold")
+    assert quest.gold_ausgeben(conn, 2025, 20, "Drachengold: +1 Würze")
+    assert not quest.gold_ausgeben(conn, 2025, 20, "Drachengold: +1 Würze")
+    assert quest.gold(conn, 2025) == 5
+
+
+def test_runde_18_gold_von_fritte_zahlt_jeden_grund_einmal(conn):
+    assert quest.gold_gutschreiben(conn, 2025, 7, "Fritte-Truhe", "fritte-truhe:1") == 7
+    assert quest.gold_gutschreiben(conn, 2025, 7, "Fritte-Truhe", "fritte-truhe:1") == 0
+    assert quest.gold(conn, 2025) == 7
+
+
+def test_runde_18_drachensieg_gibt_fritte_eine_truhe(client, ws, monkeypatch):
+    # Brücke Quest -> Alltag: Der Sieg legt bei Fritte eine Truhe ab, einmal pro Jahr.
+    # frits.spiel.truhen kommt aus dem Fritte-Thread; bis dahin hier ein Stellvertreter.
+    import sys
+    import types
+
+    gegeben = []
+    attrappe = types.ModuleType("frits.spiel.truhen")
+
+    def truhe_geben(conn, grund, seltenheit=None, text="", heute=None):
+        neu = grund not in [g[0] for g in gegeben]
+        gegeben.append((grund, seltenheit, text))
+        return neu
+
+    attrappe.truhe_geben = truhe_geben
+    monkeypatch.setitem(sys.modules, "frits.spiel.truhen", attrappe)
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    _bis_wach(conn)
+    while spiel.drache(quest.stuecke(conn, 2025)).lp > 1:
+        k = spiel.drache(quest.stuecke(conn, 2025)).karte
+        post(client, "/steuer/2025/drache/schlag", stueck_id=str(k["id"]), aktion="fragen")
+    k = spiel.drache(quest.stuecke(conn, 2025)).karte
+    seite = post(client, "/steuer/2025/drache/schlag", stueck_id=str(k["id"]), aktion="fragen")
+    assert gegeben == [("drachensieg:2025", "selten", "Der Drache 2025 ist besiegt!")]
+    assert "Fritte hat eine Truhe für dich bekommen. Sie wartet bei Fritte." in seite.text
+    assert 'href="/fritte#truhen"' in seite.text
+
+
+def test_runde_18_sieg_ohne_fritte_truhen_bricht_nicht(client, ws, monkeypatch):
+    import sys
+
+    monkeypatch.setitem(sys.modules, "frits.spiel.truhen", None)  # Import schlägt fehl
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    _bis_wach(conn)
+    while spiel.drache(quest.stuecke(conn, 2025)).lp > 1:
+        k = spiel.drache(quest.stuecke(conn, 2025)).karte
+        post(client, "/steuer/2025/drache/schlag", stueck_id=str(k["id"]), aktion="fragen")
+    k = spiel.drache(quest.stuecke(conn, 2025)).karte
+    seite = post(client, "/steuer/2025/drache/schlag", stueck_id=str(k["id"]), aktion="fragen")
+    assert seite.status_code == 200 and "Fritte hat eine Truhe" not in seite.text
+    assert spiel.drache(quest.stuecke(conn, 2025)).besiegt
