@@ -196,6 +196,8 @@ class Gebiet:
             titel += f" {self.nummer}"
         if self.wappen:
             titel += f" ({self.wappen})"
+        if self.name:
+            titel += f" · {self.name}"  # "Gehöft 1 · Lindenstraße"
         return titel
 
     @property
