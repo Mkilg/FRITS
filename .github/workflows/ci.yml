@@ -1,8 +1,8 @@
 name: CI
 
+# Pull requests only: a merged pull request was already tested, so testing main again
+# after the merge would only spend the scarce free minutes twice.
 on:
-  push:
-    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -41,7 +41,12 @@ jobs:
       - run: uv run pytest -q
 
   docker:
-    # Proves the dev image still builds and its tests pass inside it.
+    # Proves the dev image still builds and its tests pass inside it. The tests are the same
+    # as above, so this runs only by hand ("Run workflow") or on a pull request labelled "docker"
+    # (worth it when Dockerfile or dependencies change).
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || contains(github.event.pull_request.labels.*.name, 'docker')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
