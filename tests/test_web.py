@@ -686,3 +686,16 @@ def test_hints_from_tester_round_3(client, ws, nlp):
     app = create_app(ws, nlp_loader=lambda: nlp, today=lambda: TODAY)
     with TestClient(app) as plain:
         assert "Eine KI ist noch nicht verbunden" in plain.get("/notfall").text
+
+
+def test_painted_pictures_keep_their_space_while_loading(tmp_path):
+    from PIL import Image
+
+    from frits.web.app import picture_tag
+
+    (tmp_path / "bilder").mkdir()
+    Image.new("RGB", (420, 299)).save(tmp_path / "bilder" / "leer-eingang.webp")
+    tag = picture_tag(tmp_path, {"leer-eingang": "/static/bilder/leer-eingang.webp"})
+    html = tag("leer-eingang", "leer-bild")
+    assert 'class="leer-bild"' in html and 'width="420" height="299"' in html
+    assert tag("gibts-nicht", "x") == ""

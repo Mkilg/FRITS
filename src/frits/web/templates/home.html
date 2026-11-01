@@ -32,7 +32,7 @@
   </form>
   <p class="hint">Bevor die KI liest, schwärze ich Namen, Adressen und Kontonummern hier auf deinem Computer. Die KI sieht nur Platzhalter wie [PERSON_1].</p>
   {% endif %}
-  {% elif picture("leer-eingang") %}<img class="leer-bild" src="{{ picture('leer-eingang') }}" alt="">
+  {% elif picture("leer-eingang") %}{{ picture_tag("leer-eingang", "leer-bild") }}
   {% endif %}
   {% with dz_back="/", dz_class="form", dz_read=ai_ready, dz_title=("Noch etwas? Hierher ziehen oder einfügen" if waiting else "Notiz, E-Mail oder Foto hierher ziehen") %}{% include "_dropzone.html" %}{% endwith %}
   <div class="leise-links">
