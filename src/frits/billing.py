@@ -26,6 +26,7 @@ DRITTLAND_NOTE = (
     "im Ausland (§ 3a Abs. 2 UStG)."
 )
 VAT_RATES = (Decimal(19), Decimal(7), Decimal(0))
+DOMESTIC_RATES = (Decimal(19), Decimal(7))  # what the review page offers
 # Where a customer sits, for VAT. "" is Germany.
 CUSTOMER_TAX = {
     "": "In Deutschland",
@@ -315,7 +316,14 @@ def blockers(draft: Draft, settings: Settings) -> list[str]:
         problems.append(
             "Für Reverse Charge fehlt die USt-IdNr des Kunden. Trag sie beim Kunden ein."
         )
+    domestic = settings.tax_mode == "regelbesteuerung" and draft.customer_tax == ""
     for line in draft.lines:
+        if domestic and line.vat_rate == 0:
+            problems.append(
+                f"0 % bei „{line.description}“ geht im Inland nur mit einer Steuerbefreiung, und "
+                "die braucht einen Hinweis auf der Rechnung. Das kann FRITS noch nicht: bitte "
+                "19 % oder 7 % wählen oder deine Steuerberatung fragen."
+            )
         if line.vat_rate is not None and line.vat_rate not in VAT_RATES:
             problems.append(f"Steuersatz {line.vat_rate} % bei „{line.description}“ gibt es nicht.")
     if draft.kind != "quote" and not (settings.steuernummer.strip() or settings.ust_id.strip()):
@@ -470,6 +478,7 @@ def cancel(conn, number: str, settings: Settings, invoices_dir: Path, today: dat
             None,
             cancels=number,
             cancels_date=date.fromisoformat(original["issue_date"]),
+            original_paid=bool(original["paid_date"]),
         )
     return storno, pdf_path
 
@@ -493,12 +502,17 @@ def _never_overwrite(path: Path) -> None:
 
 
 def parse_amount(text: str | None) -> Decimal | None:
-    """Read a number the way Fritz types it: "40", "40,5", "1.234,50" or "40.50"."""
+    """Read a number the way Fritz types it: "40", "40,5", "1.234,50", "1.400" or "40.50".
+
+    A dot before exactly three digits is a German thousands dot: "1.400" is 1400, not 1,40.
+    """
     text = (text or "").strip().replace("€", "").replace(" ", "")
     if not text:
         return None
     if "," in text:
         text = text.replace(".", "").replace(",", ".")
+    elif re.fullmatch(r"-?\d{1,3}(\.\d{3})+", text):
+        text = text.replace(".", "")
     try:
         value = Decimal(text)
     except ArithmeticError:
@@ -581,7 +595,7 @@ def invoice_status(row, today: date | None = None) -> str:
     """bezahlt | storniert | storno | offen | überfällig"""
     today = today or date.today()
     if row["cancels"]:
-        return "storno"
+        return "erstattet" if row["paid_date"] else "storno"
     if row["cancelled_by"]:
         return "storniert"
     if row["paid_date"]:
@@ -594,6 +608,7 @@ def invoice_status(row, today: date | None = None) -> str:
 def list_invoices(conn, today: date | None = None) -> list[dict]:
     rows = conn.execute(
         "SELECT i.*, c.number AS cancelled_by,"
+        " (SELECT o.paid_date FROM invoices o WHERE o.number = i.cancels) AS original_paid,"
         " (SELECT COUNT(*) FROM reminders r WHERE r.invoice_number = i.number) AS reminders"
         " FROM invoices i LEFT JOIN invoices c ON c.cancels = i.number"
         " ORDER BY i.number DESC"
@@ -602,7 +617,23 @@ def list_invoices(conn, today: date | None = None) -> list[dict]:
 
 
 def mark_paid(conn, number: str, paid: date | None = None) -> None:
+    """Paid on the day the money arrived (§ 11 EStG), which decides the EÜR year.
+
+    On a Storno it means: the money of a paid invoice went back to the customer."""
     paid = paid or date.today()
+    row = conn.execute(
+        "SELECT issue_date, cancels FROM invoices WHERE number = ?", (number,)
+    ).fetchone()
+    if row and paid < date.fromisoformat(row["issue_date"]) - timedelta(days=366):
+        raise BillingError("Dieses Zahldatum liegt mehr als ein Jahr vor der Rechnung. Vertippt?")
+    if row and row["cancels"]:
+        original = conn.execute(
+            "SELECT paid_date FROM invoices WHERE number = ?", (row["cancels"],)
+        ).fetchone()
+        if not original or not original["paid_date"]:
+            raise BillingError(
+                "Die stornierte Rechnung war nie bezahlt, also gibt es nichts zu erstatten."
+            )
     cur = conn.execute(
         "UPDATE invoices SET paid_date = ? WHERE number = ? AND paid_date IS NULL",
         (paid.isoformat(), number),
@@ -612,5 +643,6 @@ def mark_paid(conn, number: str, paid: date | None = None) -> None:
 
 
 def _slug(name: str | None) -> str:
-    last = (name or "Kunde").split()[-1]
-    return "".join(ch for ch in last if ch.isalnum()) or "Kunde"
+    """ "Donau Consulting GmbH" -> "Donau-Consulting-GmbH": safe for file names, still readable."""
+    words = ["".join(ch for ch in word if ch.isalnum()) for word in (name or "").split()]
+    return "-".join(w for w in words if w)[:40].strip("-") or "Kunde"
