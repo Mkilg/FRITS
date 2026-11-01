@@ -1,3 +1,4 @@
-{# Fritte, die Kartografin. Erwartet: stimmung (welcome|done|thinking|warning) #}
-{% set gemalt = bild("fritte-" ~ {"done": "jubelt", "warning": "keine-sorge"}.get(stimmung, "ruhig")) %}
-<div class="sq-fritte{% if not gemalt %} hut{% endif %}">{% if gemalt %}<img src="{{ gemalt }}" alt="Fritte">{% else %}{{ mascot(stimmung) }}{% endif %}</div>
+{# Eine Fritte für ganz FRITS: die gemalte aus static/bilder. Malt Marie die Kartografin (fritte-kartograph), nimmt die Quest sie.
+   Bis dahin bekommt die normale Fritte einen gezeichneten Entdeckerhut. #}
+{% set kartograph = bild("fritte-kartograph") %}
+<div class="sq-fritte{% if not kartograph %} hut{% endif %} bild-{{ stimmung }}">{% if kartograph %}<img class="fritte" src="{{ kartograph }}" alt="Fritte">{% else %}{{ mascot(stimmung) }}{% endif %}</div>

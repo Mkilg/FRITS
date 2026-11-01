@@ -10,6 +10,7 @@ Fehlt einer Provinz ihr Bild, leiht sie sich ein ähnliches (siehe LEIHGABEN in 
                    Provinzen: rathaus kaserne werkstatt handelskontor gilde aussenposten
                    gehoeft kontorhaus ferienhaus schatzkammer hafen jahrmarkt altenteil
                    brunnen dorf burg
-  fritte-ruhig, fritte-jubelt, fritte-keine-sorge
+  fritte-kartograph  Fritte als Kartografin mit Hut (gemalt wie static/bilder/fritte-*, transparent, hochkant).
+                   Fehlt sie, nimmt die Quest die normale gemalte Fritte aus static/bilder.
   drache-schlaeft, drache-getroffen, drache-besiegt
   truhe, siegel, stempel
