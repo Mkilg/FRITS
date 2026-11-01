@@ -661,8 +661,16 @@ def register_steuer(
     @app.post("/steuer/{jahr}/datei/{datei_id}/entfernen", dependencies=guarded)
     async def datei_entfernen(request: Request, jahr: int, datei_id: int):
         form = await request.form()
+        vorher = lage(jahr)
         quest.entferne_datei(conn(), datei_id)
-        flash("Die Datei liegt wieder im Lager. Nichts ist verloren.")
+        # Wer zurücklegt, verliert die Serie: sonst ließe sich die Combo hochtreiben
+        if jahr in app.state.steuer_combo:
+            app.state.steuer_combo[jahr] = {"combo": 0, "ruf": spiel.RUFE[0]}
+        flash("Die Datei liegt wieder im Eingangskorb. Nichts ist verloren.")
+        lp = lage(jahr)["drache"].lp
+        if vorher["drache_wach"] and lp > vorher["drache"].lp:
+            flash(f"Der Drache hat wieder {lp} Karte{'n' if lp != 1 else ''}.", "treffer")
+        belohnen(jahr, vorher, ferne=False)
         return back(str(form.get("back") or f"/steuer/{jahr}"))
 
     @app.post("/steuer/{jahr}/lager/hochladen", dependencies=guarded)

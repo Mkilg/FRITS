@@ -94,7 +94,7 @@
   {% set hand = lager[:8] %}
   <div class="sq-hand" aria-label="Deine Hand: Zettel aus dem Eingangskorb">
     <p class="sq-hand-titel"><strong>Deine Hand:</strong> {{ lager | length }} Zettel aus dem Eingangskorb. Passt einer zu „{{ k.name }}“? Wirf ihn auf den Drachen!</p>
-    <form method="post" action="/steuer/{{ jahr }}/drache/schlag" class="sq-hand-faecher" data-stempel="TREFFER!" data-beiseite="/steuer/{{ jahr }}/lager/beiseite">
+    <form method="post" action="/steuer/{{ jahr }}/drache/schlag" class="sq-hand-faecher" style="--n: {{ hand | length }}" data-stempel="TREFFER!" data-beiseite="/steuer/{{ jahr }}/lager/beiseite">
       <input type="hidden" name="token" value="{{ token }}">
       <input type="hidden" name="stueck_id" value="{{ k.id }}">
       <input type="hidden" name="aktion" value="zettel">

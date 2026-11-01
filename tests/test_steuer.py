@@ -1045,6 +1045,7 @@ def test_hand_fragt_nach_und_ein_wurf_laesst_sich_zuruecknehmen(client, ws):
     seite = post(client, f"/steuer/2025/datei/{datei['id']}/entfernen", back="/steuer/2025/drache")
     assert (quest.lager(ws.root) / "urlaubsfoto.png").exists()
     assert quest.stueck(conn, karte["id"])["status"] == "offen"
+    assert "Der Drache hat wieder" in seite.text  # Zurücklegen ist nicht stumm
 
 
 def test_aus_silber_wird_gold_und_zuruecknehmen_ist_nicht_stumm(client, ws):
