@@ -82,6 +82,12 @@ def preis(conn, ziel: Stufe) -> int:
     return round(ziel.preis * (1 + RUF_PREIS * ruf(conn)))
 
 
+def preisstufe(conn) -> int:
+    """How far Fritte has come in all: the stage here plus four for every finished Bude.
+    Prices follow it, so they don't drop when she starts again in a new place."""
+    return stufe(conn).nummer + 4 * ruf(conn)
+
+
 def grundwuerze(conn) -> float:
     """Never goes down: in a new place Fritte keeps the Würze of her finished Bude, the
     Ruf adds to it, and every stage built there adds a little more."""

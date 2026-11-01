@@ -471,3 +471,30 @@ details[open] > summary::before { content: "▾ "; }
   .kassensturz-show .ks-karten .spielkarte { width: 5.9rem; min-height: 7.6rem; }
   .kassensturz-show .ks-karten .karte-detail { display: none; }
 }
+
+/* ---------- a season festival: a string of pennants across the room ---------- */
+.zimmer .wimpel { position: absolute; left: 4%; right: 4%; top: 3%; height: 7%; z-index: 3; pointer-events: none;
+  background:
+    linear-gradient(135deg, transparent 50%, var(--wimpel-a, #c8553d) 50%) 0 0 / 2.4em 100%,
+    linear-gradient(225deg, transparent 50%, var(--wimpel-a, #c8553d) 50%) 1.2em 0 / 2.4em 100%;
+  -webkit-mask: linear-gradient(#000 0 0); opacity: .85; border-top: 2px solid var(--eiche-dunkel, #5a3b22); }
+.zimmer .wimpel::after { content: ""; position: absolute; inset: 0;
+  background: linear-gradient(135deg, transparent 50%, #e8b54a 50%) 1.2em 0 / 4.8em 100%,
+              linear-gradient(225deg, transparent 50%, #e8b54a 50%) 2.4em 0 / 4.8em 100%; opacity: .9; }
+.zimmer.klein .wimpel { height: 9%; }
+.feste { display: grid; gap: .4rem; padding: 0; list-style: none; }
+.feste li { display: flex; gap: .6rem; align-items: baseline; flex-wrap: wrap; }
+.pokal-jahre { display: grid; gap: .5rem; }
+.pokal-jahre .jahr { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+
+/* ---------- closer to the gouache: paper grain and soft light over the drawn room ---------- */
+.zimmer .papier { position: absolute; inset: 0; z-index: 0; pointer-events: none; mix-blend-mode: multiply; opacity: .55;
+  background:
+    radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(90, 57, 29, .22) 100%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .55 0 0 0 0 .45 0 0 0 0 .3 0 0 0 .18 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23p)'/%3E%3C/svg%3E"); }
+/* A painted room (zimmer-<stage> in static/bilder) replaces the drawn one. */
+.zimmer.gemalt { background: var(--zimmer-bild) center / cover no-repeat, #ecdcb6; }
+.zimmer.gemalt::before, .zimmer.gemalt .fenster, .zimmer.gemalt .vorhang, .zimmer.gemalt .lampe,
+.zimmer.gemalt .werkbank, .zimmer.gemalt .theke, .zimmer.gemalt .markise, .zimmer.gemalt .girlande,
+.zimmer.gemalt .teppich { display: none; }
+.zimmer.gemalt .papier { opacity: .25; }

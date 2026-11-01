@@ -11,7 +11,12 @@
 <section class="card willkommen-spiel">
   <span class="sticker-rund" aria-hidden="true">🎁</span>
   <div>
-    <p><strong>Willkommen bei Fritte!</strong> Dein bisheriger Papierkram liegt schon als {{ karten | length }} Karten auf dem Tisch, und Fritte hat dir ein Glas Pfeffer ins Regal gestellt. Schau, was Würze daraus macht.</p>
+    {% set alte = karten | rejectattr("art", "equalto", "start") | list | length %}
+    {% if alte %}
+    <p><strong>Willkommen bei Fritte!</strong> Dein bisheriger Papierkram liegt schon als {{ alte }} {{ "Karte" if alte == 1 else "Karten" }} auf dem Tisch, und Fritte hat dir ein Glas Pfeffer ins Regal gestellt. Schau, was Würze daraus macht.</p>
+    {% else %}
+    <p><strong>Willkommen bei Fritte!</strong> Fritte ist gerade eingezogen und hat dir ein Glas Pfeffer mitgebracht. Er wirkt, sobald drei verschiedene Kartenarten auf dem Tisch liegen. Jede erledigte Rechnung, Ausgabe oder Zahlung wird zu einer Karte.</p>
+    {% endif %}
     <form method="post" action="/fritte/kassensturz">
       <input type="hidden" name="token" value="{{ token }}">
       <button class="primary gross">Ersten Kassensturz machen</button>
@@ -35,8 +40,12 @@
 
 <section class="card kassensturz-tisch" id="kassensturz">
   <h2>Kassensturz</h2>
-  {% if karten %}
-  <p>{{ karten | length }} {{ "Karte wartet" if karten | length == 1 else "Karten warten" }}. Jede bringt Körner, die Gewürze im Regal machen mehr daraus.</p>
+  {% set zaehlbar = karten | rejectattr("art", "equalto", "korrektur") | list %}
+  {% if karten and not zaehlbar %}
+  <p>Gerade wartet nur eine Korrektur. Sie bringt keine Körner und wird beim nächsten Kassensturz still mitgebucht.</p>
+  <p class="hint">Gelöschte oder stornierte Vorgänge fallen heraus. Ein Fehler mit Korrektur bringt nie mehr als gleich richtig.</p>
+  {% elif karten %}
+  <p>{{ zaehlbar | length }} {{ "Karte wartet" if zaehlbar | length == 1 else "Karten warten" }}. Jede bringt Körner, die Gewürze im Regal machen mehr daraus.</p>
   <div class="kartenreihe">
     {% for k in karten[:12] %}{{ spiel.karte(k.als_dict(), loop.index0, pro_karte[loop.index0]) }}{% endfor %}
     {% if karten | length > 12 %}<span class="hint">und {{ karten | length - 12 }} weitere</span>{% endif %}
@@ -50,10 +59,8 @@
     <input type="hidden" name="token" value="{{ token }}">
     <button class="primary gross">{{ "Ersten Kassensturz machen" if willkommen else "Kassensturz machen" }}</button>
   </form>
-  {% if karten | length < 3 and not willkommen %}
-  <p class="hint">Erst {{ karten | length }} {{ "Karte" if karten | length == 1 else "Karten" }}. Du kannst gern noch sammeln: Mehr Karten auf einmal bringen oft mehr Würze. Aber auch jetzt ist völlig in Ordnung.</p>
-  {% else %}
-  <p class="hint">Du kannst Karten auch sammeln: Manche Gewürze lohnen sich bei großen Stapeln mehr.</p>
+  {% if not willkommen %}
+  <p class="hint">Du kannst auch sammeln, Fritte rechnet alles gern auf einmal.</p>
   {% endif %}
   {% else %}
   <p>Gerade wartet keine Karte. Jede erledigte Rechnung, Gutschrift, Zahlung, Ausgabe, jedes Angebot und jeder Feierabend wird zu einer Karte. Beim Kassensturz rechnet Fritte sie zusammen.</p>
@@ -68,9 +75,21 @@
     {% if saison.geschafft %}
     <p><strong>🏆 Saisonziel geschafft!</strong> Der Pokal steht in Frittes Zimmer.</p>
     {% else %}
-    <p>Saisonziel: <strong>{{ saison.erreicht }} von {{ saison.ziel }}</strong> Salzkörnern aus Kassenstürzen. Geschafft gibt es {{ saison.ziel // 4 }} Salzkörner extra und einen Pokal. Wenn nicht, ist das auch gut: Die nächste Saison beginnt einfach neu.</p>
+    <p>Saisonziel: in <strong>{{ saison.ziel }} von {{ saison.wochen }} Wochen</strong> Papierkram machen. Bisher {{ "eine Woche" if saison.erreicht == 1 else saison.erreicht ~ " Wochen" }}. Geschafft gibt es {{ saison.bonus }} Salzkörner extra und einen Pokal. Urlaub und Pausen sind eingeplant, und wenn es nicht klappt, ist das auch gut: Die nächste Saison beginnt einfach neu.</p>
     {% endif %}
   </div>
+  {% if fest_moeglich %}
+  {% if saison.fest %}
+  <p>🎉 <strong>{{ fest_name }} {{ saison.fest[0] | lower ~ saison.fest[1:] }}:</strong> Die Girlande hängt noch bis zum Ende der Saison. Im <a href="/fritte/album">Album</a> stehen alle Feste.</p>
+  {% else %}
+  <p><strong>{{ fest_name }}:</strong> Einmal in jeder Saison kann Fritte ein Fest in ihrer Bude feiern. Es kommt ins Album, und eine Girlande hängt bis zum Saisonende. Kein Muss, einfach eine schöne Sache für gesparte Salzkörner.</p>
+  <form method="post" action="/fritte/feiern" data-confirm="Das {{ fest_name }} für {{ fest_preis }} Salzkörner feiern?">
+    <input type="hidden" name="token" value="{{ token }}">
+    <button {{ "disabled" if f.guthaben < fest_preis }}>Fest feiern für {{ fest_preis }} 🧂</button>
+    {% if f.guthaben < fest_preis %}<span class="hint">Noch {{ fest_preis - f.guthaben }} Salzkörner.</span>{% endif %}
+  </form>
+  {% endif %}
+  {% endif %}
 </section>
 
 <section class="card frittes-haus" id="haus">
@@ -137,8 +156,8 @@
     <h3>Kassensturz</h3>
     <p><strong>Körner × Würze = Salzkörner.</strong> Die Würze beginnt bei 1 (mit einem größeren Haus und gutem Ruf auch höher). Gewürze geben Extra-Körner auf passende Karten oder erhöhen die Würze. Die Würze wirkt im Regal von links nach rechts, also lohnt es sich, ein „×“-Gewürz ganz nach rechts zu stellen.</p>
     <h3>Saisons</h3>
-    <p>Jedes Vierteljahr hat ein Saisonziel und ein Thema: Eine Kartenart bringt dann doppelt so viele Körner. Wer das Ziel erreicht, bekommt Salzkörner extra und einen Pokal. Wer es nicht erreicht, verliert nichts.</p>
-    <p class="hint">Gelöschte oder stornierte Vorgänge fallen heraus, und dieselbe Ausgabe bringt nie zweimal eine Karte. Belohnt wird nur, was gute Buchhaltung ausmacht: Belege bald nach dem Eingang eintragen, Rechnungen bald nach der Notiz schreiben, freundlich nachhaken, regelmäßig dranbleiben. Fritte schaut dabei nur auf Daten, die FRITS selbst festhält. Das Datum auf einem Beleg oder einer Rechnung muss einfach stimmen, ein anderes Datum bringt nie mehr.</p>
+    <p>Jedes Vierteljahr hat ein Thema: Eine Kartenart bringt dann doppelt so viele Körner. Das Saisonziel ist der Wochenrhythmus selbst: in sieben von zehn Wochen Papierkram. Gezählt wird, wann FRITS neue Arbeit bemerkt hat, nicht wie viele Salzkörner es waren. Wer das Ziel erreicht, bekommt Salzkörner extra und einen Pokal. Wer es nicht erreicht, verliert nichts. Ab der ersten Frittenbude kann Fritte in jeder Saison ein Fest feiern.</p>
+    <p class="hint">Gelöschte oder stornierte Vorgänge fallen heraus. Wird eine schon gezählte Rechnung, Gutschrift oder Ausgabe storniert oder gestrichen, ist die nächste passende Karte eine Korrektur ohne Körner, egal in welcher Reihenfolge. Belohnt wird nur, was gute Buchhaltung ausmacht: Belege bald nach dem Eingang eintragen, Rechnungen bald nach der Notiz schreiben, freundlich nachhaken, regelmäßig dranbleiben. Fritte schaut dabei nur auf Daten, die FRITS selbst festhält. Das Datum auf einem Beleg oder einer Rechnung muss einfach stimmen, ein anderes Datum bringt nie mehr.</p>
   </details>
 </section>
 <p class="hint">Fritte ausblenden kannst du in den <a href="/settings">Einstellungen</a>.</p>

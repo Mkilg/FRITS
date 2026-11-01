@@ -18,6 +18,10 @@ from dataclasses import dataclass
 
 GEWICHT = {"gewöhnlich": 6, "selten": 3, "legendär": 1}
 MALZESSIG_WOCHEN = 10  # Malzessig is fully matured after ten weeks
+# Würze that grows with the number of cards stops here: otherwise one big Kassensturz a
+# quarter would bring far more than one a week, and the weekly rhythm is the point.
+CHILI_HOECHSTENS = 2.0
+CURRY_HOECHSTENS = 2.0
 
 
 @dataclass(frozen=True)
@@ -51,11 +55,12 @@ def _kartenarten(karten: list[dict], umfeld: dict) -> float:
 def _zahlungen(karten: list[dict], umfeld: dict) -> float:
     # Not "on time": the payment date is the day Fritz clicks "Bezahlt", so rewarding an
     # early date would reward clicking before the money is there (EÜR: Zuflussprinzip).
-    return 0.5 * sum(1 for k in karten if k["art"] == "bezahlt")
+    return min(CURRY_HOECHSTENS, 0.5 * sum(1 for k in karten if k["art"] == "bezahlt"))
 
 
 def _stapel(karten: list[dict], umfeld: dict) -> float:
-    return float(len(karten) // 5)
+    zaehlen = [k for k in karten if k["art"] != "korrektur"]
+    return min(CHILI_HOECHSTENS, float(len(zaehlen) // 5))
 
 
 def _feierabend(karten: list[dict], umfeld: dict) -> float:
@@ -97,9 +102,9 @@ GEWUERZE: tuple[Gewuerz, ...] = (
     Gewuerz("zimt", "Zimt", "🪵", "selten", 10,
             "+2 Würze, wenn ein Feierabend dabei ist.", plus_wuerze=_feierabend),
     Gewuerz("curry", "Curry", "🍛", "selten", 12,
-            "+0,5 Würze für jede eingegangene Zahlung.", plus_wuerze=_zahlungen),
+            "+0,5 Würze für jede eingegangene Zahlung (bis +2).", plus_wuerze=_zahlungen),
     Gewuerz("chili", "Chili", "🌶️", "selten", 12,
-            "+1 Würze für je 5 Karten im Kassensturz. Gut für einen Büro-Block.",
+            "+1 Würze für je 5 Karten im Kassensturz (bis +2). Gut für einen Büro-Block.",
             plus_wuerze=_stapel),
     Gewuerz("malzessig", "Malzessig", "🍶", "legendär", 20,
             "Reift im Regal: +0,2 Würze für jede Woche mit Kassensturz, seit er da ist"
@@ -109,7 +114,8 @@ GEWUERZE: tuple[Gewuerz, ...] = (
             "Würze ×2, wenn du in jeder der letzten drei Wochen Papierkram gemacht hast.",
             mal_wuerze=_rhythmus),
     Gewuerz("safran", "Safran", "🌸", "legendär", 25,
-            "Würze ×1,5, wenn der Eingang leer ist und kein Entwurf auf dich wartet.",
+            "Würze ×1,5, wenn der Eingang leer ist und kein Entwurf auf dich wartet"
+            " (auch keiner, den du in den letzten 7 Tagen verworfen hast).",
             mal_wuerze=_aufgeraeumt),
 )  # fmt: skip
 NACH_ID = {g.id: g for g in GEWUERZE}
