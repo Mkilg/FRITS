@@ -10,7 +10,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
 from frits import haustier, store
-from frits.spiel import kassensturz, stand
+from frits.spiel import ausbau, kassensturz, stand
 from frits.spiel.gewuerze import GEWICHT, GEWUERZE, NACH_ID
 
 MARKT_GROESSE = 3
@@ -71,7 +71,22 @@ def register_haustier(
             chronik=kassensturz.chronik(conn),
             arten=stand.ARTEN_TEXT,
             grund=stand.GRUND,
+            stufen=ausbau.STUFEN,
+            naechste=ausbau.naechste(conn),
         )
+
+    @app.post("/fritte/ausbauen", dependencies=guarded)
+    def fritte_ausbauen():
+        try:
+            ziel = ausbau.ausbauen(db(), today())
+        except stand.SpielFehler as exc:
+            flash(str(exc), "error")
+            return back("/fritte#haus")
+        flash(
+            f"Die Baustelle für „{ziel.name}“ steht. Beim nächsten Kassensturz ist sie fertig.",
+            cue="done",
+        )
+        return back("/fritte#haus")
 
     @app.post("/fritte/kassensturz", dependencies=guarded)
     def fritte_kassensturz():
@@ -103,9 +118,10 @@ def register_haustier(
         conn = db()
         f = fritte(conn)
         wuerfe = stand.wuerfe(conn, today())
+        erlaubt = [g for g in GEWUERZE if g.seltenheit in ausbau.stufe(conn).seltenheiten]
         markt = stand.angebot(
-            [g.id for g in GEWUERZE],
-            [GEWICHT[g.seltenheit] for g in GEWUERZE],
+            [g.id for g in erlaubt],
+            [GEWICHT[g.seltenheit] for g in erlaubt],
             today(),
             wuerfe,
             MARKT_GROESSE,
@@ -123,6 +139,7 @@ def register_haustier(
             verkauf=verkaufs_preis,
             laden=haustier.LADEN,
             kassenbuch=stand.kassenbuch(conn),
+            stufe=ausbau.stufe(conn),
         )
 
     @app.post("/fritte/kaufen", dependencies=guarded)

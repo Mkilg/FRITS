@@ -292,3 +292,73 @@ details[open] > summary::before { content: "▾ "; }
   .kassensturz-show *, .kassensturz-show { animation: none !important; transition: none !important; }
 }
 .ks-aktionen [hidden] { display: none !important; }
+
+/* ---------- Frittes Haus: the room grows with each stage ---------- */
+.zimmer.stufe-2, .zimmer.stufe-3 {
+  background:
+    linear-gradient(180deg, transparent 62%, var(--eiche-hell) 62%, #c08a55 76%), /* wainscoting */
+    radial-gradient(ellipse at 15% 20%, rgba(255, 249, 228, .9), transparent 55%),
+    radial-gradient(circle at 12px 12px, rgba(196, 98, 58, .16) 2px, transparent 3px) 0 0 / 24px 24px,
+    linear-gradient(180deg, #f3e3c0, #ead6ae);
+}
+.zimmer.stufe-4, .zimmer.stufe-5 {
+  background:
+    linear-gradient(180deg, transparent 62%, var(--eiche) 62%, var(--eiche-dunkel) 76%),
+    radial-gradient(ellipse at 15% 20%, rgba(255, 249, 228, .95), transparent 55%),
+    repeating-linear-gradient(90deg, rgba(111, 148, 64, .16) 0 10px, transparent 10px 30px),
+    linear-gradient(180deg, #f1e7cc, #e6d8b4);
+}
+.zimmer .vorhang { position: absolute; top: 9%; height: 52%; width: 5%; border-radius: 0 0 40% 40%;
+  background: repeating-linear-gradient(90deg, var(--terrakotta) 0 6px, var(--terrakotta-dunkel) 6px 8px); opacity: .92; }
+.zimmer .vorhang.links { left: 4.5%; }
+.zimmer .vorhang.rechts { left: 25.5%; }
+.zimmer .lampe { position: absolute; left: 40%; top: 0; width: 2px; height: 16%; background: var(--eiche-tief); }
+.zimmer .lampe::after { content: ""; position: absolute; left: -2.3cqw; top: 100%; width: 4.6cqw; height: 2.4cqw;
+  border-radius: 50% 50% 0 0; background: var(--ocker); box-shadow: 0 2.2cqw 4cqw rgba(255, 220, 140, .65); }
+.zimmer .werkbank { position: absolute; left: 66%; bottom: 23%; width: 24%; height: 3%; background: var(--eiche-dunkel); border-radius: 2px; }
+.zimmer .werkbank::before, .zimmer .werkbank::after { content: ""; position: absolute; top: 100%; width: 6%; height: 4cqw; background: var(--eiche-tief); }
+.zimmer .werkbank::before { left: 4%; }
+.zimmer .werkbank::after { right: 4%; }
+.zimmer .werkbank i { position: absolute; bottom: 260%; font-style: normal; font-size: 2.4cqw; filter: saturate(.7); }
+.zimmer .werkbank i:nth-child(1) { left: 10%; transform: rotate(-20deg); }
+.zimmer .werkbank i:nth-child(2) { left: 42%; }
+.zimmer .werkbank i:nth-child(3) { left: 74%; transform: rotate(10deg); }
+.zimmer .garten { position: absolute; inset: 0; background:
+  radial-gradient(ellipse at 30% 105%, var(--moos) 0 45%, transparent 46%),
+  radial-gradient(ellipse at 85% 110%, var(--moos-hell) 0 50%, transparent 51%),
+  radial-gradient(circle at 70% 62%, var(--gold) 0 5%, transparent 6%); }
+.zimmer.stufe-5 .garten { background:
+  radial-gradient(circle at 15% 30%, var(--gold) 0 3%, transparent 4%), radial-gradient(circle at 40% 24%, #f6d77a 0 3%, transparent 4%),
+  radial-gradient(circle at 65% 30%, var(--gold) 0 3%, transparent 4%), radial-gradient(circle at 88% 24%, #f6d77a 0 3%, transparent 4%),
+  linear-gradient(180deg, transparent 60%, var(--terrakotta) 60% 66%, #f6ecd2 66% 72%, var(--terrakotta) 72% 78%, transparent 78%),
+  radial-gradient(ellipse at 50% 120%, var(--moos) 0 40%, transparent 41%); }
+.zimmer .girlande { position: absolute; left: 0; right: 0; top: 0; height: 9%; z-index: 1;
+  background:
+    conic-gradient(from 150deg at 50% 0, var(--terrakotta) 0 60deg, transparent 0) 0 0 / 6% 100%,
+    conic-gradient(from 150deg at 50% 0, var(--ocker) 0 60deg, transparent 0) 3% 0 / 6% 100%; }
+.zimmer .baustelle { position: absolute; right: 2%; top: 6%; bottom: 22%; width: 22%; z-index: 2;
+  background:
+    linear-gradient(90deg, var(--eiche) 0 4%, transparent 4% 48%, var(--eiche) 48% 52%, transparent 52% 96%, var(--eiche) 96%),
+    repeating-linear-gradient(0deg, transparent 0 22%, var(--eiche-hell) 22% 26%),
+    repeating-linear-gradient(-45deg, rgba(91, 57, 29, .55) 0 2px, transparent 2px 22px);
+  border-radius: 2px; }
+.zimmer .baustelle .schild { position: absolute; left: 50%; bottom: 12%; transform: translateX(-50%) rotate(-3deg); white-space: nowrap;
+  padding: .3cqw 1cqw; background: var(--gold); color: var(--eiche-tief); font-family: var(--schrift); font-weight: 700; font-size: 1.5cqw;
+  border: .3cqw solid var(--eiche-tief); border-radius: 2px; }
+
+.zeitalter { list-style: none; padding: 0; margin: .4rem 0 1rem; display: grid; grid-template-columns: repeat(5, 1fr); gap: .4rem; counter-reset: za; }
+.zeitalter li { position: relative; display: flex; flex-direction: column; align-items: center; gap: .15rem; text-align: center;
+  padding: .6rem .3rem; border-radius: var(--radius); border: 1px solid var(--papier-schatten); background: var(--papier); opacity: .65; }
+.zeitalter li.erreicht { opacity: 1; background: rgba(163, 196, 102, .22); border-color: var(--moos); }
+.zeitalter li.jetzt { box-shadow: 0 0 0 2px var(--moos-dunkel); }
+.zeitalter li.im-bau { opacity: 1; border-style: dashed; border-color: var(--ocker-dunkel); background: rgba(233, 189, 79, .18); }
+.zeitalter li + li::before { content: "›"; position: absolute; left: -.42rem; top: 40%; color: var(--muted); }
+.za-zeichen { font-size: 1.7rem; line-height: 1.1; }
+.zeitalter strong { font-family: var(--schrift); font-size: .9rem; line-height: 1.2; }
+@media (max-width: 700px) { .zeitalter { grid-template-columns: repeat(3, 1fr); } }
+
+.ks-ausbau { display: flex; gap: .9rem; align-items: center; margin-top: 1rem; padding: .8rem 1.1rem; border-radius: 6px;
+  background: linear-gradient(90deg, rgba(233, 189, 79, .35), rgba(233, 189, 79, .1)); border: 2px solid var(--gold); }
+.ks-ausbau .za-zeichen { font-size: 2.4rem; }
+.laeuft .ks-ausbau:not(.da) { visibility: hidden; }
+.ks-ausbau.da { animation: karte-hoch .6s cubic-bezier(.2, 1.5, .4, 1); }

@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 
 from frits import store
-from frits.spiel import stand
+from frits.spiel import ausbau, stand
 from frits.spiel.gewuerze import NACH_ID, Gewuerz
 
 ZEITNAH_TAGE = 10  # GoBD: enter non-cash bookings within about ten days
@@ -180,7 +180,7 @@ def offene_karten(conn: sqlite3.Connection) -> list[Karte]:
 
 
 def plaetze(conn) -> int:
-    return GRUND_PLAETZE + int(stand.einstellung(conn, "extra_plaetze", "0") or 0)
+    return GRUND_PLAETZE + ausbau.stufe(conn).plaetze
 
 
 def regal(conn) -> list[Gewuerz]:
@@ -214,7 +214,7 @@ def rhythmus_wochen(conn, heute: date, wochen: int = 3) -> int:
 
 def berechnen(karten: list[dict], gewuerze: list[Gewuerz], umfeld: dict) -> dict:
     """Pure scoring. Returns {"schritte": [...], "koerner", "wuerze", "summe"}."""
-    koerner, wuerze, schritte = 0, 1.0, []
+    koerner, wuerze, schritte = 0, float(umfeld.get("grundwuerze", 1.0)), []
     for i, karte in enumerate(karten):
         koerner += karte["koerner"]
         schritte.append(
@@ -247,7 +247,13 @@ def berechnen(karten: list[dict], gewuerze: list[Gewuerz], umfeld: dict) -> dict
                      "wuerze": wuerze}
                 )  # fmt: skip
     summe = math.floor(koerner * wuerze + 1e-9)
-    return {"schritte": schritte, "koerner": koerner, "wuerze": wuerze, "summe": summe}
+    return {
+        "schritte": schritte,
+        "koerner": koerner,
+        "wuerze": wuerze,
+        "summe": summe,
+        "grundwuerze": float(umfeld.get("grundwuerze", 1.0)),
+    }
 
 
 def vorschau(conn, heute: date, aufgeraeumt: bool) -> tuple[list[Karte], dict]:
@@ -256,6 +262,7 @@ def vorschau(conn, heute: date, aufgeraeumt: bool) -> tuple[list[Karte], dict]:
         "rhythmus_wochen": rhythmus_wochen(conn, heute),
         "aufgeraeumt": aufgeraeumt,
         "reife": reife(conn),
+        "grundwuerze": ausbau.stufe(conn).grundwuerze,
     }
     return karten, berechnen([k.als_dict() for k in karten], regal(conn), umfeld)
 
@@ -295,6 +302,13 @@ def durchfuehren(conn: sqlite3.Connection, heute: date, aufgeraeumt: bool) -> in
         for g in shelf:
             key = f"reife:{g.id}"
             stand.setze(conn, key, str(int(stand.einstellung(conn, key, "0")) + 1))
+        fertig = ausbau.fertigstellen(conn)
+        if fertig:
+            record["ausbau"] = {"name": fertig.name, "zeichen": fertig.zeichen, "text": fertig.text}
+            conn.execute(
+                "UPDATE spiel_kassenstuerze SET ergebnis = ? WHERE id = ?",
+                (json.dumps(record, ensure_ascii=False), nummer),
+            )
     return nummer
 
 

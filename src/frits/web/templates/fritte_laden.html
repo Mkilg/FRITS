@@ -40,6 +40,7 @@
 
 <section class="card" id="markt">
   <h2>Markttag <span class="hint">neue Ware jeden Montag</span></h2>
+  {% if stufe.nummer < 3 %}<p class="hint">{{ "Seltene" if stufe.nummer < 2 else "Legendäre" }} Gewürze gibt es erst, wenn Frittes Haus weiter ausgebaut ist ({{ "Stube" if stufe.nummer < 2 else "Werkstatt" }}).</p>{% endif %}
   <div class="markt">
     {% for g in markt %}
     <div class="ware gewuerz-ware selten-{{ g.seltenheit | replace('ö', 'oe') | replace('ä', 'ae') }}">

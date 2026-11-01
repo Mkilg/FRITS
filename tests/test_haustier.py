@@ -267,3 +267,39 @@ def test_fritte_can_be_hidden(client, ws):  # noqa: F811
     assert "Fritte zuhause" not in client.get("/").text
     post(client, "/settings", checkboxes=["haustier"], haustier="on")
     assert Settings.load(ws.settings_file).haustier
+
+
+# ---------- Frittes Haus ----------
+
+
+def test_building_out_the_house(conn):
+    from frits.spiel import ausbau
+
+    started(conn)
+    assert ausbau.stufe(conn).name == "Zimmer" and kassensturz.plaetze(conn) == 3
+    with pytest.raises(stand.SpielFehler, match="fehlen noch 80"):
+        ausbau.ausbauen(conn, TODAY)
+    give(conn, 100)
+    assert ausbau.ausbauen(conn, TODAY).name == "Stube"
+    with pytest.raises(stand.SpielFehler, match="schon gebaut"):
+        ausbau.ausbauen(conn, TODAY)
+    f = haustier.ansehen(conn, TODAY)
+    assert f.bau == "Stube" and f.stufe == 1 and f.guthaben == 20
+    # The next Kassensturz finishes the building work.
+    stand.feierabend(conn, TODAY)
+    k = kassensturz.laden(conn, kassensturz.durchfuehren(conn, TODAY, aufgeraeumt=False))
+    assert k["ausbau"]["name"] == "Stube"
+    assert ausbau.stufe(conn).name == "Stube" and kassensturz.plaetze(conn) == 4
+    assert "selten" in ausbau.stufe(conn).seltenheiten
+    assert haustier.ansehen(conn, TODAY).bau == ""
+
+
+def test_later_stages_start_with_more_wuerze(conn):
+    from frits.spiel import ausbau
+
+    started(conn)
+    stand.setze(conn, "ausbau", "4")
+    stand.feierabend(conn, TODAY)
+    k = kassensturz.laden(conn, kassensturz.durchfuehren(conn, TODAY, aufgeraeumt=False))
+    assert (k["koerner"], k["wuerze"], k["summe"]) == (1, 1.5, 1)
+    assert ausbau.naechste(conn).name == "Frittenbude am Markt"

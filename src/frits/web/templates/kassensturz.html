@@ -30,6 +30,12 @@
     </div>
   </div>
 
+  {% if k.ausbau %}
+  <div class="ks-ausbau" data-ks="ausbau">
+    <span class="za-zeichen" aria-hidden="true">{{ k.ausbau.zeichen }}</span>
+    <div><strong>Ausbau fertig: {{ k.ausbau.name }}!</strong><br><span>{{ k.ausbau.text }}</span></div>
+  </div>
+  {% endif %}
   <div class="row ks-aktionen">
     <button type="button" class="quiet" data-ks="nochmal" hidden>Noch einmal ansehen</button>
     <button type="button" class="quiet" data-ks="weiter" hidden>Überspringen</button>
@@ -37,6 +43,6 @@
     <a class="button" href="/fritte">Zu Fritte</a>
   </div>
 </section>
-<script type="application/json" id="ks-daten">{{ {"schritte": k.schritte, "koerner": k.koerner, "wuerze": k.wuerze, "summe": k.summe, "pro_karte": k.pro_karte} | tojson }}</script>
+<script type="application/json" id="ks-daten">{{ {"schritte": k.schritte, "koerner": k.koerner, "wuerze": k.wuerze, "summe": k.summe, "pro_karte": k.pro_karte, "grundwuerze": k.grundwuerze or 1} | tojson }}</script>
 <script src="/static/kassensturz.js"></script>
 {% endblock %}

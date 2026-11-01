@@ -46,6 +46,31 @@
   {% endif %}
 </section>
 
+<section class="card frittes-haus" id="haus">
+  <h2>Frittes Haus</h2>
+  <ol class="zeitalter">
+    {% for st in stufen %}
+    <li class="{{ 'erreicht' if st.nummer <= f.stufe else '' }}{{ ' im-bau' if f.bau == st.name else '' }}{{ ' jetzt' if st.nummer == f.stufe else '' }}">
+      <span class="za-zeichen" aria-hidden="true">{{ st.zeichen }}</span>
+      <strong>{{ st.name }}</strong>
+      {% if st.nummer > f.stufe %}<span class="hint">{{ st.preis }} 🧂</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ol>
+  {% if f.bau %}
+  <p>🚧 <strong>{{ f.bau }}</strong> wird gerade gebaut. Beim nächsten Kassensturz ist es fertig.</p>
+  {% elif naechste %}
+  <p><strong>Nächster Ausbau: {{ naechste.name }}.</strong> {{ naechste.text }}</p>
+  <form method="post" action="/fritte/ausbauen" data-confirm="{{ naechste.name }} für {{ naechste.preis }} Salzkörner bauen?">
+    <input type="hidden" name="token" value="{{ token }}">
+    <button class="primary" {{ "disabled" if f.guthaben < naechste.preis }}>Ausbauen für {{ naechste.preis }} 🧂</button>
+    {% if f.guthaben < naechste.preis %}<span class="hint">Noch {{ naechste.preis - f.guthaben }} Salzkörner.</span>{% endif %}
+  </form>
+  {% else %}
+  <p>Frittes Haus ist fertig ausgebaut. Eine Frittenbude mitten im Ort, wer hätte das gedacht.</p>
+  {% endif %}
+</section>
+
 {% if chronik %}
 <section class="card">
   <h2>Chronik</h2>

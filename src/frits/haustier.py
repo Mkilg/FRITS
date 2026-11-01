@@ -16,7 +16,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 from frits import store
-from frits.spiel import stand
+from frits.spiel import ausbau, stand
 from frits.spiel.stand import SpielFehler as LadenFehler
 
 MUNTER_BIS = 4  # days since the last paperwork: up to here she's lively
@@ -98,6 +98,8 @@ class Fritte:
     zimmer: list[Ding]
     hut: Ding | None
     gekauft: set[str]
+    stufe: int = 1  # how far her house is built out
+    bau: str = ""  # name of the stage being built, if any
 
     @property
     def laune_name(self) -> str:
@@ -137,6 +139,8 @@ def ansehen(conn: sqlite3.Connection, heute: date, alte_datei: Path | None = Non
         zimmer=[DINGE[d] for d in gekauft if DINGE[d].art == "zimmer"],
         hut=DINGE[hut] if hut in gekauft and DINGE[hut].art == "hut" else None,
         gekauft=set(gekauft),
+        stufe=ausbau.stufe(conn).nummer,
+        bau=bau.name if (bau := ausbau.im_bau(conn)) else "",
     )
 
 
