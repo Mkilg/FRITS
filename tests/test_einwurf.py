@@ -295,3 +295,10 @@ def test_shop_from_a_mail_is_the_sender_not_the_header():
     mail = "From: Thomann <rechnung@thomann.de>\nSubject: Ihre Rechnung\n\nSumme 129,00 €"
     assert beleg.guess_vendor(mail) == "Thomann"
     assert beleg.guess_vendor("From: no-reply@adobe.com\nBetreff: Abo") == "Adobe"
+
+
+def test_price_and_tax_on_one_line():
+    """Tester: the scanned DB ticket lost its 89,90 € because the line also named the MwSt."""
+    text = "DB Fernverkehr AG Handy-Ticket\nPreis 89,90 EUR MwSt 7% 5,88 EUR\nBezahlt am 02.03.2025"
+    assert beleg.guess(text, date(2025, 3, 5))["gross"] == "89,90"
+    assert beleg.guess_total("Netto 10,00\nMwSt 19% 1,90\nSumme 11,90") == "11,90"

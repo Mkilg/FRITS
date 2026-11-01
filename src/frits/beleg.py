@@ -74,12 +74,19 @@ def _as_number(amount: str) -> float:
     return float(amount.replace(",", "."))
 
 
+def _before_tax(line: str) -> str:
+    """'Preis 89,90 EUR MwSt 7% 5,88 EUR' -> 'Preis 89,90 EUR': what comes before the tax."""
+    tax = _NOT_TOTAL.search(line)
+    return line[: tax.start()] if tax else line
+
+
 def guess_total(text: str) -> str | None:
     lines = [line for line in text.splitlines() if line.strip()]
     for word in _TOTAL_WORDS:
         pattern = re.compile(word, re.IGNORECASE)
         for i, line in enumerate(lines):
-            if not pattern.search(line) or _NOT_TOTAL.search(line):
+            line = _before_tax(line)
+            if not pattern.search(line):
                 continue
             found = _amounts(line)
             if not found and i + 1 < len(lines):
