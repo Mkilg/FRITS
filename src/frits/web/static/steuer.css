@@ -1329,3 +1329,5 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
 
 /* Die Karte, zu der die Spürnase rät, liegt vorn */
 .sq-handkarte.passt { position: relative; z-index: 4; }
+/* Touch: auch die kleinen Intro-Links bekommen eine 44-px-Trefferfläche */
+@media (pointer: coarse) { .sq-intro-skip, .sq-intro-zurueck { display: inline-flex; align-items: center; min-height: 44px; padding-left: 0.5rem; padding-right: 0.5rem; } }
