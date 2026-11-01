@@ -364,7 +364,7 @@ def mail(
         zeilen[-1] += f" Das Passwort schicke ich {dir_} getrennt."
         zeilen.append(
             "Die Datei ist mit AES verschlüsselt; falls sie sich nicht per Doppelklick "
-            "öffnen lässt, klappt es mit 7-Zip. Darin liegt noch ein Zip mit den "
+            "öffnen lässt, klappt es mit 7-Zip (Windows) oder Keka (Mac). Darin liegt noch ein Zip mit den "
             "Unterlagen, das sich dann ohne Passwort öffnet."
         )
     zeilen.append("")

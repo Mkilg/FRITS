@@ -63,16 +63,16 @@ stuecke = [
   { key = "euer", kern = true, beraterin = true, warum = "Die musst du nicht selbst machen: FRITS rechnet sie aus deinen Rechnungen und Ausgaben (FRITS-Ernte auf der Insel).", name = "EÜR-Übersicht", hinweis = "Einnahmen minus Ausgaben. FRITS rechnet sie aus deinen Rechnungen und Ausgaben aus." },
   { key = "buchungsliste", name = "Buchungsliste", hinweis = "Alle Zahlungen des Jahres als Tabelle, passend zur EÜR. Schreibst du mit FRITS, legt die FRITS-Ernte sie dazu.", art = "bonus" },
   { key = "verfahrensdoku", name = "Verfahrensdokumentation (GoBD)", hinweis = "Kurz beschrieben: wie deine Belege hereinkommen und wo sie sicher liegen. Schreibst du mit FRITS, legt die FRITS-Ernte sie dazu.", art = "bonus" },
-  { key = "belege", kern = true, warum = "Ohne Belege zählen deine Ausgaben nicht, und du zahlst mehr Steuern als nötig.", name = "Belege und Quittungen", hinweis = "Alles, was du fürs Geschäft bezahlt hast. Ausgaben aus FRITS kommen mit der FRITS-Ernte." },
+  { key = "belege", woerter = ["quittung", "quittungen", "kassenbon", "kassenzettel", "bon", "einkauf", "kauf"], kern = true, warum = "Ohne Belege zählen deine Ausgaben nicht, und du zahlst mehr Steuern als nötig.", name = "Belege und Quittungen", hinweis = "Alles, was du fürs Geschäft bezahlt hast. Ausgaben aus FRITS kommen mit der FRITS-Ernte." },
   { key = "kontoauszuege", woerter = ["kontoauszug", "umsätze"], kern = true, warum = "Deine Beraterin gleicht die Einnahmen mit dem Konto ab. Ein Jahres-Export aus dem Online-Banking reicht.", name = "Kontoauszüge Geschäftskonto", hinweis = "Am einfachsten als Jahres-Export aus dem Online-Banking." },
   { key = "umsatzsteuer", woerter = ["ustva", "voranmeldung", "ust"], name = "Umsatzsteuer-Meldungen des Jahres", hinweis = "Voranmeldungen und, falls schon da, die Jahreserklärung. 7 % gilt für Texte und Beiträge mit Nutzungsrechten, 19 % z. B. für Moderation und Beratung.", wenn = "umsatzsteuer" },
   { key = "sender", woerter = ["honorar", "ard", "zdf", "wdr", "ndr", "swr", "mdr", "rbb", "deutschlandfunk"], name = "Honorarabrechnungen der Sender", hinweis = "Jahresübersicht oder alle Abrechnungen. Hat ein Sender Lohnsteuer abgezogen, gibt es eine Lohnsteuerbescheinigung: Zähl ihn dann bei „Angestellt“ mit.", wenn = "sender" },
   { key = "vgwort", name = "Ausschüttungen VG Wort, VG Bild-Kunst oder GVL", hinweis = "Die Abrechnungen des Jahres. Sie zählen als Einnahmen deines Geschäfts.", wenn = "verwertung" },
   { key = "ausland", name = "Honorare aus dem Ausland", hinweis = "Rechnungen und Belege über einbehaltene Quellensteuer (Anlage AUS).", wenn = "ausland_honorar" },
   { key = "verlustvortrag", name = "Bescheid über den Verlustvortrag", hinweis = "Nur wenn du im Vorjahr Verlust gemacht hast.", wenn = "verlust" },
-  { key = "anschaffungen", name = "Größere Anschaffungen", hinweis = "Geräte über 800 € netto, Auto, Möbel. Computer und Software dürfen sofort abgeschrieben werden.", art = "bonus" },
+  { key = "anschaffungen", woerter = ["laptop", "notebook", "computer", "macbook", "kamera", "objektiv", "mikrofon", "monitor", "drucker", "tablet", "ipad", "smartphone", "handy", "software"], name = "Größere Anschaffungen", hinweis = "Geräte über 800 € netto, Auto, Möbel. Computer und Software dürfen sofort abgeschrieben werden.", art = "bonus" },
   { key = "fahrten", angabe = "z. B. 2.300 km zu Kunden und Drehorten", name = "Fahrtenbuch oder Kilometerliste", hinweis = "Für Fahrten zu Kunden. Eigenes Auto: 0,30 € pro Kilometer.", art = "bonus" },
-  { key = "reisen", name = "Dienstreisen und Reisekosten", hinweis = "Bahn, Hotel, Ort und Dauer. Pro Tag unterwegs gibt es 14 € (ab 8 Stunden) oder 28 € (ganzer Tag) für Verpflegung.", art = "bonus" },
+  { key = "reisen", angabe = "z. B. 3 Reisen: Köln 2 Tage, Leipzig 1 Tag, Wien 4 Tage", name = "Dienstreisen und Reisekosten", hinweis = "Bahn, Hotel, Ort und Dauer. Pro Tag unterwegs gibt es 14 € (ab 8 Stunden) oder 28 € (ganzer Tag) für Verpflegung.", art = "bonus" },
   { key = "arbeitszimmer", angabe = "z. B. 160 Tage Homeoffice, oder: eigenes Arbeitszimmer, 14 m² von 70 m²", name = "Homeoffice oder Arbeitszimmer", hinweis = "Homeoffice: 6 € pro Tag, höchstens 1.260 € im Jahr. Die Zahl der Tage reicht.", art = "bonus" },
   { key = "beitraege", name = "Verbände, Presseausweis, Berufshaftpflicht", hinweis = "Zum Beispiel DJV, ver.di, Freischreiber und Versicherungen fürs Geschäft.", art = "bonus" },
   { key = "umzug", name = "Umzugskosten", hinweis = "Beruflich bedingter Umzug: zählt als Betriebsausgabe.", art = "bonus", wenn = "umzug" },
@@ -217,9 +217,9 @@ anlage = "Anlage KAP (ausländische Erträge und anrechenbare Quellensteuer) und
 woerter = ["depot", "dividende", "quellensteuer", "broker", "1099", "aktien", "verkauf", "ausland", "us", "activity", "etf", "fonds", "vorabpauschale"]
 stuecke = [
   { key = "jahresuebersicht", woerter = ["1099", "broker", "activity", "statement"], kern = true, warum = "Ausländische Depots schicken keine deutsche Steuerbescheinigung. Die Jahresübersicht ist dann der einzige Beleg.", name = "Jahresübersicht des Depots", hinweis = "Eine deutsche Steuerbescheinigung gibt es hier nicht." },
-  { key = "dividenden", name = "Dividenden-Liste", hinweis = "Alle Ausschüttungen des Jahres." },
-  { key = "quellensteuer", name = "Einbehaltene Quellensteuer", hinweis = "Steht oft in der Jahresübersicht. Sie wird in der Anlage KAP angerechnet, nicht in der Anlage AUS." },
-  { key = "fonds", name = "ETF- und Fonds-Bestand", hinweis = "Für die Vorabpauschale (Anlage KAP-INV): Wert jedes Fonds am 1.1. und am 31.12. und alle Ausschüttungen. Nur wenn du ETFs oder Fonds im Depot hast." },
+  { key = "dividenden", angabe = "z. B. 412,80 USD Dividenden, steht in der 1099 Box 1a", name = "Dividenden-Liste", hinweis = "Alle Ausschüttungen des Jahres." },
+  { key = "quellensteuer", angabe = "z. B. 61,92 USD, steht in der 1099 Box 7", name = "Einbehaltene Quellensteuer", hinweis = "Steht oft in der Jahresübersicht. Sie wird in der Anlage KAP angerechnet, nicht in der Anlage AUS." },
+  { key = "fonds", angabe = "z. B. MSCI World: 12.400 € am 1.1., 14.100 € am 31.12.", name = "ETF- und Fonds-Bestand", hinweis = "Für die Vorabpauschale (Anlage KAP-INV): Wert jedes Fonds am 1.1. und am 31.12. und alle Ausschüttungen. Nur wenn du ETFs oder Fonds im Depot hast." },
   { key = "verkaeufe", name = "Verkäufe mit Gewinn oder Verlust", hinweis = "Nur wenn du etwas verkauft hast." },
 ]
 

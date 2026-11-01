@@ -36,7 +36,8 @@
     {% set gefuellt = p.karten | selectattr("dateien") | list %}
     {% set mitbenutzt = p.karten | selectattr("mit") | list %}
     {% set gefragt = p.karten | selectattr("frage") | list %}
-    {% if gefuellt or mitbenutzt or gefragt or p.leer %}
+    {% set verneint = p.karten | selectattr("status", "equalto", "gibts_nicht") | list %}
+    {% if gefuellt or mitbenutzt or gefragt or p.leer or verneint %}
     <section class="sq-papier sq-buch-provinz" id="provinz-{{ p.g.id }}" style="--r: {{ [-0.4, 0.3, -0.2, 0.5][loop.index0 % 4] }}deg">
       <header>
         <h2><a href="/steuer/{{ jahr }}/gebiet/{{ p.g.id }}">{{ p.g.titel }}</a></h2>
@@ -65,6 +66,10 @@
               {% if d.da and d.art != "angabe" %}
               <div class="reihe">
                 <a class="button quiet" href="/steuer/{{ jahr }}/datei/{{ d.id }}" target="_blank" rel="noopener">{{ "Ansehen" if d.zeigbar else "Herunterladen" }}</a>
+                <form method="post" action="/steuer/{{ jahr }}/datei/{{ d.id }}/entfernen">
+                  <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back" value="{{ zurueck }}">
+                  <button class="quiet" title="Falsch abgelegt? Zurück in den Eingangskorb, dann neu zuordnen">Zurücklegen</button>
+                </form>
                 <form method="post" action="/steuer/{{ jahr }}/datei/{{ d.id }}/ki">
                   <input type="hidden" name="token" value="{{ token }}">
                   <button class="quiet" title="Öffnet den freien Chat. FRITS schwärzt Namen und Nummern vorher, und du siehst, was rausgehen würde.">Mit KI besprechen</button>
@@ -91,6 +96,10 @@
         </details>
       </article>
       {% endfor %}
+      {% set gibts_nicht = p.karten | selectattr("status", "equalto", "gibts_nicht") | list %}
+      {% if gibts_nicht %}
+      <p class="sq-buch-leer">Steht als „gibt es nicht“ in der Mail: {% for k in gibts_nicht %}<a href="/steuer/{{ jahr }}/gebiet/{{ p.g.id }}" title="Doch vorhanden? Auf der Karte den Stempel zurücknehmen">{{ k.name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}. Doch vorhanden? Klick drauf und nimm den Stempel zurück.</p>
+      {% endif %}
       {% if p.leer %}
       <p class="sq-buch-leer">Noch leer: {% for k in p.leer %}<a href="/steuer/{{ jahr }}/gebiet/{{ p.g.id }}">{{ k.name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</p>
       {% endif %}
@@ -103,7 +112,7 @@
     <a class="sq-zurueck" href="/steuer/{{ jahr }}">← Zur Insel</a>
     <div class="sq-fritte-platz">
       {% set stimmung = "done" if summen.leer == 0 else "thinking" %}{% include "_steuer_fritte.html" %}
-      <p class="sq-sprechblase">{% if summen.belege + summen.angaben == 0 %}Noch leer hier. Zieh deinen ersten Beleg auf eine Karte, dann taucht er hier auf.{% elif summen.leer %}Schon {{ summen.belege + summen.angaben }} Stück gesichert. Unten in jeder Provinz steht, was noch fehlt.{% else %}Alle Pflichtkarten haben etwas. Jetzt nur noch den Drachen besiegen!{% endif %}</p>
+      <p class="sq-sprechblase">{% if summen.belege + summen.angaben == 0 %}Noch leer hier. Zieh deinen ersten Beleg auf eine Karte, dann taucht er hier auf.{% elif summen.leer %}Schon {{ summen.belege + summen.angaben }} Stück gesichert. Unten in jeder Provinz steht, was noch fehlt.{% elif drache.besiegt %}Der Drache ist besiegt! Hier siehst du noch einmal alles, bevor du die Truhe packst.{% else %}Alle Pflichtkarten haben etwas. Jetzt nur noch den Drachen besiegen!{% endif %}</p>
     </div>
     <div class="sq-papier sq-schief sq-wer-sieht" style="--r: 0.8deg">
       <h2>Wer sieht deine Belege?</h2>

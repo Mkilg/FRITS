@@ -59,7 +59,7 @@
         <fieldset class="sq-schloss">
           <legend>Wie soll die Truhe zu sein?</legend>
           <label><input type="radio" name="schloss" value="passwort" {% if mit_passwort %}checked{% endif %}>
-            <span><strong>Mit Passwort</strong> (empfohlen). Nur wer das Passwort hat, kann die Unterlagen lesen, sogar die Dateinamen bleiben versteckt. Deine Beraterin braucht zum Öffnen eventuell 7-Zip.</span></label>
+            <span><strong>Mit Passwort</strong> (empfohlen). Nur wer das Passwort hat, kann die Unterlagen lesen, sogar die Dateinamen bleiben versteckt: Im verschlossenen Zip liegt ein zweites Zip mit den Unterlagen, das sich dann ganz normal öffnet. Der Finder auf dem Mac kann solche Zips nicht öffnen; deine Beraterin braucht 7-Zip (Windows) oder Keka bzw. The Unarchiver (Mac).</span></label>
           <label><input type="radio" name="schloss" value="ohne" {% if not mit_passwort %}checked{% endif %}>
             <span><strong>Ohne Passwort.</strong> Öffnet sich überall mit Doppelklick. Aber jeder, der die Mail sieht, kann alles lesen. Gut, wenn du die Datei über ein sicheres Portal hochlädst oder persönlich übergibst.</span></label>
         </fieldset>

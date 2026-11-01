@@ -206,19 +206,40 @@ def _staerke(wort: str, stichwort: str) -> int:
     return 1 if _passt(wort, stichwort) else 0
 
 
-def _karten_punkte(woerter: set[str], stueck: dict) -> int:
-    """Wie gut ein Wunsch zu einer vorhandenen Karte passt. Ein Wort im Namen zählt am
-    meisten, eins im Hinweis auch ("KSK" steht im Hinweis der Künstlersozialkasse-Karte),
-    ein nur ähnlicher Wortanfang wenig."""
-    name = _woerter(stueck["name"])
+def _aliase(stueck: dict) -> set[str]:
+    """Die Katalog-Wörter einer Karte: "1099" gehört zur Jahresübersicht des Depots."""
+    from frits.steuer.katalog import katalog
+
+    provinz = katalog().get(_provinz(stueck["gebiet"]))
+    if provinz is None:
+        return set()
+    for s in provinz.stuecke:
+        if s.key == stueck["key"]:
+            return {w.lower() for w in s.woerter}
+    return set()
+
+
+def _karten_punkte(woerter: set[str], stueck: dict, orte: set[str] | None = None) -> int:
+    """Wie gut ein Wunsch zu einer vorhandenen Karte passt. Ein Wort im Namen oder in den
+    Katalog-Wörtern zählt am meisten, eins im Hinweis auch ("KSK" steht im Hinweis der
+    Künstlersozialkasse-Karte), ein nur ähnlicher Wortanfang wenig.
+
+    orte: Wörter, die nur sagen, WO etwas hingehört ("Wohnung" beim Gehöft). Sie zählen
+    höchstens 1: "Grundsteuerbescheid für beide Wohnungen" ist der Grundsteuerbescheid,
+    nicht "Fahrten zur Wohnung"."""
+    name = _woerter(stueck["name"]) | _aliase(stueck)
     hinweis = (
         set() if stueck.get("herkunft") == "beraterin" else _woerter(stueck.get("hinweis", ""))
     )
+    orte = orte or set()
     punkte = 0
     for w in woerter:
         im_namen = max((_staerke(w, n) for n in name), default=0)
         im_hinweis = max((_staerke(w, h) for h in hinweis), default=0)
-        punkte += max(im_namen, im_hinweis - 1)
+        wert = max(im_namen, im_hinweis - 1)
+        if any(_staerke(w, o) >= 2 for o in orte):
+            wert = min(wert, 1)
+        punkte += wert
     return punkte
 
 
@@ -256,12 +277,13 @@ def _ein_wunsch(teil: str, zusammenhang: str, gebiete: list[Gebiet], stuecke: li
     # Wörter der Provinz ("Ausgangsrechnungen der GbR" gehört zur Gilde, nicht zur Werkstatt).
     nach_id = {g.id: g for g in gebiete}
     provinz_punkte = {gid: _punkte(_woerter(ganz), nach_id[gid]) for gid in ids}
+    orte = {gid: _woerter(nach_id[gid].provinz.bereich) for gid in ids}
 
     def bewerten(woerter: set[str]) -> list[tuple[int, dict]]:
         bewertet = [
             (k + 2 * provinz_punkte[s["gebiet"]], k, s)
             for s in stuecke
-            if s["gebiet"] in ids and (k := _karten_punkte(woerter, s)) >= 2
+            if s["gebiet"] in ids and (k := _karten_punkte(woerter, s, orte[s["gebiet"]])) >= 2
         ]
         return [(p, s) for p, k, s in bewertet if k >= 3 or p >= 4]
 
