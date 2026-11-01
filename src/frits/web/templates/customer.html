@@ -11,6 +11,49 @@
         dz_busy="Ich suche die Kontaktdaten heraus.", dz_text_label="Signatur oder Adresse einfügen" %}{% include "_dropzone.html" %}{% endwith %}
 <p class="hint">Das Herauslesen passiert nur auf diesem Computer, ohne KI. Du prüfst jedes Feld, bevor etwas gespeichert wird.</p>
 {% endif %}
+{% if customer and (customer.gutschrift or credits) %}
+<section class="card" id="gutschriften">
+  <h2>Gutschriften von {{ customer.display_name }}</h2>
+  <p class="hint">Hier trägst du jede Gutschrift (Honorarabrechnung) ein, die dir dieser Kunde schickt. So zählt das Geld in der EÜR{% if credit_rates %} und in der Umsatzsteuer-Voranmeldung{% endif %}, obwohl du keine eigene Rechnung schreibst.</p>
+  {% if credits %}
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Gutschrift</th><th class="amount">Betrag</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+    {% for c in credits %}
+    <tr>
+      <td>{{ c.their_number }}<br><small class="muted">vom {{ c.issue_date | de_date }}</small></td>
+      <td class="amount">{{ c.gross | eur }}{% if c.vat %}<br><small class="muted">davon USt {{ c.vat | eur }}</small>{% endif %}</td>
+      <td>{% if c.paid_date %}<span class="badge ok">bezahlt am {{ c.paid_date | de_date }}</span>{% else %}<span class="badge todo">noch nicht bezahlt</span>{% endif %}</td>
+      <td class="actions">
+        {% if not c.paid_date %}
+        <form method="post" action="/gutschriften/{{ c.id }}/bezahlt" class="paid-form"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back" value="/customers/{{ customer.id }}#gutschriften"><button class="tiny">Bezahlt am</button> <input type="date" name="paid" value="{{ today_iso }}" max="{{ today_iso }}" aria-label="Zahlungseingang am"></form>
+        {% endif %}
+        <form method="post" action="/gutschriften/{{ c.id }}/streichen"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back" value="/customers/{{ customer.id }}#gutschriften"><button class="tiny quiet danger">Streichen</button></form>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% endif %}
+  <h3 class="spaced">Neue Gutschrift eintragen</h3>
+  <form method="post" action="/customers/{{ customer.id }}/gutschriften" class="form">
+    <input type="hidden" name="token" value="{{ token }}">
+    <label class="field">Nummer der Gutschrift <input name="number" required placeholder="steht oben auf dem Beleg"></label>
+    <label class="field">Datum der Gutschrift <input type="date" name="issue_date" value="{{ today_iso }}" max="{{ today_iso }}" required></label>
+    <label class="field">Gesamtbetrag laut Gutschrift in € <input name="gross" inputmode="decimal" required></label>
+    {% if credit_rates %}
+    <label class="field">Umsatzsteuer auf der Gutschrift
+      <select name="vat_rate"><option value="19">19 %</option><option value="7">7 % (z. B. Nutzungsrechte)</option><option value="0">keine</option></select>
+    </label>
+    {% endif %}
+    <label class="field">Schon auf dem Konto? Dann wann <input type="date" name="paid" max="{{ today_iso }}"></label>
+    <div class="row actions"><button class="primary">Gutschrift eintragen</button></div>
+  </form>
+  {% if not credit_rates and customer.umsatzsteuer not in ("eu", "drittland") %}
+  <p class="hint">Als Kleinunternehmer darf auf der Gutschrift keine Umsatzsteuer stehen. Steht doch welche drauf, widersprich der Gutschrift beim Kunden, sonst schuldest du die Steuer dem Finanzamt (§ 14c UStG).</p>
+  {% endif %}
+</section>
+{% endif %}
 <form method="post" action="/customers" class="card form">
   {% if p %}<p class="flash">{{ "Aus deinem Text vorausgefüllt" if prefill_from == "contact" else "Aus dem Entwurf vorausgefüllt" }}. Bitte prüfen und ergänzen.</p>{% endif %}
   <input type="hidden" name="token" value="{{ token }}">

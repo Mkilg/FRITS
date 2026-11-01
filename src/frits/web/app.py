@@ -35,6 +35,7 @@ from frits import (
     emails,
     euer,
     expenses,
+    gutschriften,
     haustier,
     setup,
     store,
@@ -692,6 +693,7 @@ def create_app(
             request,
             "invoices.html",
             invoices=list_invoices(db(), today()),
+            credits=gutschriften.listing(db()),
             today_iso=today().isoformat(),
         )
 
@@ -918,7 +920,86 @@ def create_app(
         customer = customer_by(customer_id)
         if customer is None:
             raise HTTPException(404)
-        return page(request, "customer.html", customer=customer, back_to=None)
+        return page(
+            request,
+            "customer.html",
+            customer=customer,
+            back_to=None,
+            credits=gutschriften.listing(db(), customer_id=customer.id),
+            credit_rates=_credit_rates(customer),
+            today_iso=today().isoformat(),
+        )
+
+    def _credit_rates(customer: Customer) -> list[str]:
+        """Which VAT rates a Gutschrift from this customer can carry; [] means none asked."""
+        if settings().tax_mode != "regelbesteuerung" or customer.umsatzsteuer in (
+            "eu",
+            "drittland",
+        ):
+            return []
+        return ["19", "7", "0"]
+
+    @app.post("/customers/{customer_id}/gutschriften", dependencies=guarded)
+    async def credit_add(request: Request, customer_id: str):
+        customer = customer_by(customer_id)
+        if customer is None:
+            raise HTTPException(404)
+        form = await request.form()
+        url = f"/customers/{customer.id}#gutschriften"
+        try:
+            gross = parse_amount(str(form.get("gross", "")))
+            issued = date.fromisoformat(str(form.get("issue_date", "")))
+            paid = _paid_day(form.get("paid"), today()) if form.get("paid") else None
+            rates = _credit_rates(customer)
+            regel = settings().tax_mode == "regelbesteuerung"
+            rate = str(form.get("vat_rate", "19"))
+            if rates and rate not in rates:
+                raise BillingError("Bitte den Steuersatz von der Gutschrift wählen.")
+            gutschriften.add(
+                db(),
+                customer_id=customer.id,
+                customer=customer.display_name,
+                their_number=str(form.get("number", "")),
+                issue_date=issued,
+                gross=gross or Decimal(0),
+                vat_rate=Decimal(rate) if rates else (Decimal(0) if regel else None),
+                kind=customer.umsatzsteuer or "inland",
+                paid_date=paid,
+            )
+        except ValueError as exc:  # CreditError, a bad date
+            text = str(exc) if isinstance(exc, gutschriften.CreditError) else None
+            flash(text or "Bitte Datum und Betrag prüfen.", "error")
+            return back(url)
+        except BillingError as exc:
+            flash(str(exc), "error")
+            return back(url)
+        flash(
+            f"Gutschrift erfasst: {eur(gross)} von {customer.display_name}."
+            + (" Sie zählt ab dem Zahltag in der EÜR." if paid is None else ""),
+            cue="done",
+            stamp="Gebucht",
+        )
+        return back(url)
+
+    @app.post("/gutschriften/{credit_id}/bezahlt", dependencies=guarded)
+    async def credit_paid(request: Request, credit_id: int):
+        form = await request.form()
+        try:
+            gutschriften.mark_paid(db(), credit_id, _paid_day(form.get("paid"), today()))
+            flash("Zahlung eingetragen. Schön!", cue="done", stamp="Bezahlt")
+        except BillingError as exc:
+            flash(str(exc), "error")
+        return back(_local(form.get("back")))
+
+    @app.post("/gutschriften/{credit_id}/streichen", dependencies=guarded)
+    async def credit_strike(request: Request, credit_id: int):
+        form = await request.form()
+        if gutschriften.strike(db(), credit_id):
+            flash(
+                "Gutschrift gestrichen. Sie zählt nicht mehr, bleibt fürs Finanzamt aber im Archiv.",
+                undo={"kind": "gutschrift", "id": credit_id, "back": _local(form.get("back"))},
+            )
+        return back(_local(form.get("back")))
 
     @app.post("/customers", dependencies=guarded)
     async def customer_save(request: Request):
@@ -1178,6 +1259,10 @@ def create_app(
             expenses.restore_expense(ws.db, expense.id)
             flash(f"Wieder da: {eur(expense.gross)} bei {expense.vendor}.")
             return back(f"/expenses?year={expense.date.year}")
+        if last and last["kind"] == "gutschrift":
+            gutschriften.restore(db(), last["id"])
+            flash("Die Gutschrift ist wieder da.")
+            return back(last["back"])
         if last and last["kind"] == "draft":
             db().execute(
                 "UPDATE drafts SET status = 'draft' WHERE id = ? AND status = 'discarded'",
@@ -1783,6 +1868,13 @@ def _paid_day(value, day: date) -> date:
     return paid
 
 
+def _local(url, default: str = "/invoices") -> str:
+    """A page of FRITS to go back to; anything else (another site) goes to the default."""
+    text = str(url or "")
+    safe = text.startswith("/") and not text.startswith(("//", "/\\"))
+    return text if safe else default
+
+
 def elster_amount(value, whole: bool = True) -> str:
     """How ELSTER wants an amount typed: "1234" (whole euros) or "123,45", no dots."""
     amount = Decimal(value)
@@ -1807,7 +1899,8 @@ def _draft_hints(draft: Draft, customer: Customer | None) -> list[str]:
     if customer and customer.gutschrift and draft.kind != "quote":
         hints.append(
             f"{customer.display_name} rechnet per Gutschrift ab. Stell dann keine eigene Rechnung, "
-            "sonst gibt es zwei Rechnungen über dieselbe Leistung (§ 14c UStG)."
+            "sonst gibt es zwei Rechnungen über dieselbe Leistung (§ 14c UStG). Trag die "
+            "Gutschrift stattdessen beim Kunden ein, dann zählt das Geld trotzdem."
         )
     if customer and customer.privat and customer.land != "DE":
         hints.append(

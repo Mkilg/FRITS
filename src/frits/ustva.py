@@ -34,6 +34,7 @@ from datetime import date, timedelta
 from decimal import ROUND_DOWN, ROUND_HALF_UP, Decimal
 from pathlib import Path
 
+from frits import gutschriften
 from frits.billing import Draft, _tax_from_invoice, totals
 from frits.expenses import CENT, list_expenses
 from frits.settings import Settings
@@ -188,6 +189,12 @@ def voranmeldung(
             for kind, rate, net, _vat in _groups(conn, row, settings):
                 key = (kind, rate if kind == "inland" else Decimal(0))
                 bases[key] = bases.get(key, Decimal(0)) + net
+        for credit in gutschriften.listing(conn, column=column, start=start, end=end):
+            if credit.vat_rate is None:
+                continue  # received while Kleinunternehmer
+            result.invoices += 1
+            key = (credit.kind, credit.vat_rate if credit.kind == "inland" else Decimal(0))
+            bases[key] = bases.get(key, Decimal(0)) + credit.net
     finally:
         conn.close()
 

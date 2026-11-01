@@ -9,7 +9,7 @@ from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 
-from frits import store
+from frits import gutschriften, store
 from frits.customers import Customer
 from frits.extract import CheckedExtraction
 from frits.redact import Mapping
@@ -225,11 +225,15 @@ def draft_totals(draft: Draft, settings: Settings) -> Totals:
 
 
 def turnover(conn, year: int) -> Decimal:
-    """Net turnover invoiced in a year, Stornos included. Close enough for the § 19 limits."""
+    """Net turnover invoiced in a year, Stornos and received Gutschriften included.
+    Close enough for the § 19 limits."""
     rows = conn.execute(
         "SELECT net FROM invoices WHERE substr(issue_date, 1, 4) = ?", (str(year),)
     ).fetchall()
-    return sum((Decimal(row["net"]) for row in rows), Decimal(0))
+    credits = gutschriften.listing(conn, start=date(year, 1, 1), end=date(year, 12, 31))
+    return sum((Decimal(row[0]) for row in rows), Decimal(0)) + sum(
+        (c.net for c in credits), Decimal(0)
+    )
 
 
 def limit_check(conn, settings: Settings, year: int, adding: Decimal = Decimal(0)):
