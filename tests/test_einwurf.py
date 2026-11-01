@@ -246,3 +246,10 @@ def test_pasted_receipt_text_is_kept_as_a_receipt(client, ws):  # noqa: F811
     conn = store.connect(ws.db)
     row = conn.execute("SELECT filename, status FROM jobs").fetchone()
     assert row["status"] == "receipt" and row["filename"].startswith("beleg-")
+
+
+def test_hotel_abroad_has_no_german_vorsteuer():
+    text = "Hotel Am Ring\n1010 Wien, Österreich\nUID ATU12345678\nNächtigung 113,30\nMwSt 10 %\n"
+    assert beleg.guess(text, date(2026, 11, 2))["vat_rate"] == ""
+    berlin = "Café Wiener Straße\nBerlin\nSumme 12,00\nMwSt 19 %\n"
+    assert beleg.guess(berlin, date(2026, 11, 2))["vat_rate"] == "0.19"

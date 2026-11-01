@@ -336,9 +336,11 @@ def test_settings_save_and_key_goes_to_keychain(client, ws, monkeypatch):
         provider="openrouter",
         api_key="sk-or-test",
         sound="on",
+        verfahren_notiz="Papierbelege\n  im Regal.",
         checkboxes=["strict_local", "sound"],
     )
     assert "Schlüsselbund" in page.text
+    assert Settings.load(ws.settings_file).verfahren_notiz == "Papierbelege im Regal."
     assert stored == {"openrouter": "sk-or-test"}
     saved = Settings.load(ws.settings_file)
     assert saved.hourly_rate == Decimal("45.50")

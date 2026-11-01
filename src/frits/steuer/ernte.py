@@ -84,8 +84,8 @@ def _hash(path: Path) -> str:
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
-def _rechnungen(db: Path, jahr: int) -> list[Path]:
-    conn = sqlite3.connect(db)
+def _rechnungen(ws: Workspace, jahr: int) -> list[Path]:
+    conn = sqlite3.connect(ws.db)
     try:
         if not conn.execute(
             "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'invoices'"
@@ -100,7 +100,8 @@ def _rechnungen(db: Path, jahr: int) -> list[Path]:
         ).fetchall()
     finally:
         conn.close()
-    return [Path(r[0]) for r in rows if Path(r[0]).is_file()]
+    # find(): after restoring a backup the stored full paths point to the old folder.
+    return [p for r in rows if (p := ws.find(r[0])) is not None]
 
 
 def _belege(ws: Workspace, jahr: int) -> list[Path]:
@@ -139,7 +140,7 @@ def _hat_datei(conn: sqlite3.Connection, jahr: int, praefix: str) -> bool:
 def finden(conn: sqlite3.Connection, ws: Workspace, jahr: int, tax_mode: str) -> Ernte:
     """Was das normale FRITS für dieses Steuerjahr hat, und was davon neu ist."""
     quest.ensure_schema(conn)
-    ernte = Ernte(jahr, rechnungen=_rechnungen(ws.db, jahr), belege=_belege(ws, jahr))
+    ernte = Ernte(jahr, rechnungen=_rechnungen(ws, jahr), belege=_belege(ws, jahr))
     summary = euer.summarize(ws.db, jahr, tax_mode)
     if summary.invoice_count or summary.credit_count or summary.expense_count:
         ernte.euer = summary
@@ -227,4 +228,4 @@ def einbringen(
 
 def hat_rechnungen(ws: Workspace, jahr: int) -> bool:
     """Für den Fragebogen: Hat FRITS in diesem Jahr Rechnungen geschrieben?"""
-    return bool(_rechnungen(ws.db, jahr))
+    return bool(_rechnungen(ws, jahr))

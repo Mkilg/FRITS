@@ -119,6 +119,16 @@ def test_verfahrensdoku_describes_the_real_setup(tmp_path):
     assert "Verfahrensdokumentation 2026" in text
     assert "monatlich" in text and "Soll-Versteuerung" in text and "Normalfall" in text
     assert "8 Jahre" in text and "keine Steuerberatung" in text
+    assert "Ergänzungen" not in text
+
+
+def test_verfahrensdoku_takes_frits_own_note(tmp_path):
+    """Tester: „schreib es dazu“ ging nicht. Jetzt: Einstellungen › Bei mir läuft es anders."""
+    ws = Workspace(tmp_path / "FRITS").ensure()
+    _settings(verfahren_notiz="Ich sichere zusätzlich mit Time Machine.").save(ws.settings_file)
+    path = verfahrensdoku(ws, 2026, tmp_path / "out", date(2027, 2, 1))
+    text = " ".join(" ".join(p.extract_text() for p in PdfReader(path).pages).split())
+    assert "8. Ergänzungen des Unternehmers" in text and "zusätzlich mit Time Machine" in text
 
 
 def test_euer_page_offers_both_files(tmp_path):

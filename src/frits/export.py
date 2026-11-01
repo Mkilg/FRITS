@@ -211,7 +211,9 @@ def _doku_text(settings: Settings, jahr: int, heute: date) -> list[tuple[str, st
     sicherung = (
         "Die Datensicherung von FRITS packt den ganzen Ordner verschlüsselt (AES) in eine "
         f"Datei auf einem zweiten Datenträger ({settings.backup_dir}) und erinnert, wenn die "
-        "letzte Sicherung älter als eine Woche ist. Alte Sicherungen werden nicht gelöscht."
+        "letzte Sicherung älter als eine Woche ist. Alte Sicherungen werden nicht gelöscht. "
+        "Eine Sicherung lässt sich auch ohne FRITS mit dem Passwort öffnen, zum Beispiel mit "
+        "Keka oder The Unarchiver."
         if settings.backup_dir
         else "Der Ordner FRITS wird regelmäßig auf einen zweiten Datenträger gesichert "
         "(Datensicherung in FRITS oder Time Machine)."
@@ -287,6 +289,11 @@ def _doku_text(settings: Settings, jahr: int, heute: date) -> list[tuple[str, st
                 f"FRITS löscht nichts von selbst. {sicherung} Für eine Außenprüfung können "
                 "die Daten als CSV und PDF ausgegeben werden (Datenzugriff nach § 147 Abs. 6 AO)."
             ),
+        ),
+        *(
+            [("8. Ergänzungen des Unternehmers", settings.verfahren_notiz)]
+            if settings.verfahren_notiz.strip()
+            else []
         ),
         (
             "Hinweis",

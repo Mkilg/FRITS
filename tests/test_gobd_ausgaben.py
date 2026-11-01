@@ -177,3 +177,14 @@ def test_second_reminder_letter_names_the_first(tmp_path):
     )
     text = " ".join(page.extract_text() for page in PdfReader(second).pages)
     assert "2. Zahlungserinnerung" in text and "ich hatte Sie" in text
+
+
+def test_no_fourth_reminder_after_the_last_friendly_one(tmp_path):
+    conn = store.connect(tmp_path / "frits.db")
+    _overdue_invoice(conn)
+    day = date(2026, 10, 1)
+    for _ in range(3):
+        _, _, due = create_reminder(conn, "2026-0001", _settings(), tmp_path, None, day)
+        day = due + timedelta(days=1)
+    with pytest.raises(BillingError, match="Wie weiter"):
+        create_reminder(conn, "2026-0001", _settings(), tmp_path, None, day)
