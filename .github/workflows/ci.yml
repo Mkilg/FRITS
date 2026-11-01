@@ -1,9 +1,12 @@
 name: CI
 
-# Pull requests only: a merged pull request was already tested, so testing main again
-# after the merge would only spend the scarce free minutes twice.
+# Every pull request, and main after each merge (two pull requests can each be green and
+# still clash once both are in). The repo is public since 1 Nov 2026, so Actions minutes
+# are free, also on macOS.
 on:
   pull_request:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 env:
@@ -17,11 +20,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Fritz uses a Mac. But macOS minutes count 10x on a private repo, and the free
-        # monthly minutes ran low with many pull requests. So pull requests and pushes test
-        # on Linux, and macOS runs when started by hand ("Run workflow"). The "Mac app"
-        # workflow also starts the real app on macOS before every release.
-        os: ${{ github.event_name == 'workflow_dispatch' && fromJSON('["macos-latest", "ubuntu-latest"]') || fromJSON('["ubuntu-latest"]') }}
+        # Fritz uses a Mac, so macOS is tested every time; Linux is what Docker runs on.
+        os: [macos-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
