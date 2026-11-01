@@ -46,3 +46,15 @@
 </svg>
 {%- endif %}
 {%- endmacro %}
+
+{# Ein Pinselfilter für die gezeichneten Figuren: leicht raue Ränder und Farbflecken wie Gouache #}
+{% macro gouache_filter() -%}
+<svg width="0" height="0" style="position: absolute" aria-hidden="true" focusable="false"><filter id="sq-gouache" x="-8%" y="-8%" width="116%" height="116%">
+<feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="7" result="rauschen"/>
+<feDisplacementMap in="SourceGraphic" in2="rauschen" scale="2.4" xChannelSelector="R" yChannelSelector="G" result="rau"/>
+<feTurbulence type="fractalNoise" baseFrequency="0.35" numOctaves="3" seed="2" result="wolken"/>
+<feColorMatrix in="wolken" type="matrix" values="0 0 0 0 0.25  0 0 0 0 0.15  0 0 0 0 0.05  0 0 0 0.9 -0.3" result="schatten"/>
+<feComposite in="schatten" in2="rau" operator="in" result="flecken"/>
+<feMerge><feMergeNode in="rau"/><feMergeNode in="flecken"/></feMerge>
+</filter></svg>
+{%- endmacro %}

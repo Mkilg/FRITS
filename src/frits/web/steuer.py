@@ -307,10 +307,23 @@ def register_steuer(
         c = conn()
         helfer = nachher["helfer"]
         # Gold: jede Karte zahlt einmal aus, im Kampf mal der Serie (Balatro: Chips × Mult)
-        basis = plus = 0
+        basis, faktor, plus, minus = 0, 1, 0, 0
         for v in spiel.verdienste(vorher["stuecke"], nachher["stuecke"], mult, helfer):
             if quest.verdiene(c, jahr, v.grund, v.betrag, v.text):
-                basis, plus = basis + v.basis, plus + v.betrag
+                basis, faktor, plus = basis + v.basis, v.mult, plus + v.betrag
+        # Wieder offen: Das Gold dafür geht zurück (sonst lohnt ein Fehlwurf bei ×8)
+        for grund, text in spiel.rueckbuchungen(vorher["stuecke"], nachher["stuecke"]):
+            minus += quest.storniere(c, jahr, grund, text)
+        neu_siegel = {p.gebiet.id for p in nachher["provinzen"] if p.stand.siegel}
+        for p in vorher["provinzen"]:
+            if p.stand.siegel and p.gebiet.id not in neu_siegel:
+                minus += quest.storniere(
+                    c, jahr, f"siegel:{p.gebiet.id}", f"Siegel {p.gebiet.titel}"
+                )
+        if minus:
+            flash(
+                f"−{minus} Gold zurückgebucht. Wer es neu verdient, bekommt es wieder.", "hinweis"
+            )
         alt_siegel = {p.gebiet.id for p in vorher["provinzen"] if p.stand.siegel}
         for p in nachher["provinzen"]:
             if p.stand.siegel and p.gebiet.id not in alt_siegel:
@@ -319,13 +332,14 @@ def register_steuer(
                     c, jahr, "siegel", f"Gold-Siegel! {titel} ist komplett."
                 ) or quest.hat_notiz(c, jahr, "siegel", f"Silber-Siegel! {titel} ist komplett.")
                 text = f"{'Silber' if p.silber else 'Gold'}-Siegel! {titel} ist komplett."
+                funde = sum(1 for x in p.stuecke if x["status"] == "gesammelt")
+                plus += quest.verdiene(
+                    c, jahr, f"siegel:{p.gebiet.id}", spiel.siegel_gold(funde), f"Siegel: {titel}"
+                )
                 if schon:
                     flash(f"{titel} ist wieder komplett.", "beute")  # kein zweites Fest
                     continue
                 quest.notiere(c, jahr, "siegel", text)
-                plus += quest.verdiene(
-                    c, jahr, f"siegel:{p.gebiet.id}", spiel.GOLD_SIEGEL, f"Siegel: {titel}"
-                )
                 if p.silber:
                     text += " Deine Beraterin prüft noch etwas."
                 flash(text, "siegel", cue="done")
@@ -354,16 +368,15 @@ def register_steuer(
                 "treffer",
             )
         heute, ziel = nachher["tagwerk"]
-        if vorher["tagwerk"][0] < ziel <= heute and not sieg:
+        tag = f"tagwerk:{date.today()}"
+        if vorher["tagwerk"][0] < ziel <= heute and not sieg and not quest.hat_gold(c, jahr, tag):
+            # Einmal am Tag: Wer zurücklegt und neu zuordnet, bekommt kein zweites Fest
             quest.notiere(c, jahr, "tagwerk", "Tagwerk geschafft")
-            lohn = quest.verdiene(
-                c, jahr, f"tagwerk:{date.today()}", spiel.tagwerk_gold(helfer), "Tagwerk"
-            )
+            lohn = quest.verdiene(c, jahr, tag, spiel.tagwerk_gold(helfer), "Tagwerk")
             plus += lohn
             flash(
-                f"Tagwerk geschafft: {ziel} Karten heute"
-                + (f", +{lohn} Gold" if lohn else "")
-                + ". Mehr muss nicht sein, aber du darfst.",
+                f"Tagwerk geschafft: {ziel} Karten heute, +{lohn} Gold."
+                " Mehr muss nicht sein, aber du darfst.",
                 "tagwerk",
             )
         if nachher["zeitalter"][0] > vorher["zeitalter"][0]:
@@ -388,7 +401,7 @@ def register_steuer(
             quest.notiere(c, jahr, "gold", text)
             flash(text, "gold", cue="done")
         if plus and not ferne and jahr in app.state.steuer_combo:
-            app.state.steuer_combo[jahr]["beute"] = {"basis": basis, "mult": mult, "plus": plus}
+            app.state.steuer_combo[jahr]["beute"] = {"basis": basis, "mult": faktor, "plus": plus}
         if sieg:
             quest.notiere(c, jahr, "sieg", "Der Papierdrache ist besiegt")
             app.state.steuer_combo.pop(jahr, None)
@@ -402,6 +415,9 @@ def register_steuer(
                 )
             else:
                 flash("Der Drache faltet sich zu einer Schatztruhe zusammen.", "sieg", "sent")
+            if plus and not ferne:
+                # Der größte Treffer des Kampfes soll man sehen, auch wenn der Sieg ihn verdrängt
+                flash(f"Letzter Treffer: {basis} × {faktor} = +{basis * faktor} Gold.", "sieg")
         return sieg
 
     def stueck_im_jahr(jahr: int, stueck_id: int) -> dict:
@@ -443,7 +459,7 @@ def register_steuer(
         return back(f"/steuer/{standard_jahr()}")
 
     @app.get("/steuer/{jahr}", response_class=HTMLResponse)
-    def karte(request: Request, jahr: int):
+    def karte(request: Request, jahr: int, neu: str = ""):
         if profil(jahr) is None:
             return back(f"/steuer/{jahr}/intro")
         daten = lage(jahr)
@@ -460,6 +476,8 @@ def register_steuer(
             ),
             fritte=stimmung,
             tipp=tipp,
+            neu_zier=neu,
+            zier_plaetze=spiel.ZIER_PLAETZE,
             **daten,
         )
 
@@ -916,6 +934,8 @@ def register_steuer(
             }
         alt = app.state.steuer_combo.get(jahr, {"combo": 0})
         combo, ruf = spiel.treffer(alt["combo"], kritisch, zaehlt=aktion != "gibts_nicht")
+        if aktion == "gibts_nicht" and "trommel" in vorher["helfer"]:
+            combo, ruf = 0, "Die Kriegstrommel verstummt. Die Serie ist weg."
         app.state.steuer_combo[jahr] = {
             "combo": combo,
             "ruf": ruf,
@@ -938,6 +958,7 @@ def register_steuer(
             markt=spiel.MARKT,
             plaetze=spiel.HELFER_PLAETZE,
             goldbuch=quest.goldbuch(conn(), jahr),
+            goldsummen=quest.goldsummen(conn(), jahr),
             regeln=spiel,
             **daten,
         )
@@ -946,13 +967,17 @@ def register_steuer(
     async def markt_kaufen(request: Request, jahr: int):
         form = await request.form()
         profil_oder_404(jahr)
+        key = str(form.get("ware") or "")
         try:
-            text = quest.kaufe(conn(), jahr, str(form.get("ware") or ""))
+            text = quest.kaufe(conn(), jahr, key)
         except quest.QuestError as exc:
             flash(str(exc))
-        else:
-            flash(text, "beute", "done")
-        return back(f"/steuer/{jahr}/markt")
+            return back(f"/steuer/{jahr}/markt")
+        flash(text, "beute", "done")
+        w = spiel.ware(key)
+        if w and w.art == "zierde":
+            return back(f"/steuer/{jahr}?neu={key}#insel")  # der Moment: da steht sie jetzt
+        return back(f"/steuer/{jahr}/markt#helfer")
 
     @app.post("/steuer/{jahr}/markt/helfer", dependencies=guarded)
     async def markt_helfer(request: Request, jahr: int):

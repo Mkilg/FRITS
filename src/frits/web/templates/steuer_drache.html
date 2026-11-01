@@ -46,7 +46,7 @@
   {% endif %}
   <span class="sq-lp-zahl"><b data-zaehler="lp">{{ drache.lp }}</b> Lebenspunkte</span>
   {% if helfer %}
-  <ul class="sq-helferreihe" aria-label="Deine Helfer">{% for key in helfer | sort %}{% set w = ware(key) %}<li title="{{ w.text }}"><span class="sq-ware-zeichen {{ key }}" aria-hidden="true"></span>{{ w.name }}</li>{% endfor %}</ul>
+  <ul class="sq-helferreihe" aria-label="Deine Helfer">{% for key in helfer | sort %}{% set w = ware(key) %}<li title="{{ w.text }} Haken: {{ w.haken }}"><span class="sq-ware-zeichen {{ key }}" aria-hidden="true"></span>{{ w.name }}</li>{% endfor %}</ul>
   {% endif %}
   </div>
 

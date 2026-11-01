@@ -1,9 +1,10 @@
 {% extends "base.html" %}
-{% from "_steuer_zierde.html" import zierde as zierde_bild with context %}
+{% from "_steuer_zierde.html" import zierde as zierde_bild, gouache_filter with context %}
 {% block title %}Steuer-Quest {{ jahr }}{% endblock %}
 {% block head %}<link rel="stylesheet" href="/static/steuer.css"><script>document.documentElement.classList.add("sq-js")</script><script src="/static/steuer.js" defer></script>{% endblock %}
 {% block flashes %}{% endblock %}
 {% block content %}
+{{ gouache_filter() }}
 {% set insel_bild = bild("insel") %}
 <div class="sq sq-tisch" data-klang="{{ 'an' if klang else 'aus' }}"{% include "_steuer_stil.html" %}>
 {% include "_steuer_meldungen.html" %}
@@ -55,7 +56,7 @@
   </aside>
 
   {# Mitte: die schwebende Insel #}
-  <section class="sq-meer" aria-label="Deine Insel">
+  <section class="sq-meer" id="insel" aria-label="Deine Insel">
     {% set n = provinzen | length %}
     <div class="sq-insel zeitalter-{{ zeitalter[0] }}{% if zweifel and zeitalter[0] == 2 %} silber{% endif %}{% if insel_bild %} mit-bild{% endif %}" style="--hoehe: {{ 430 + [0, n - 6] | max * 22 }}px; --massstab: {{ 1 if n <= 8 else (0.82 if n <= 13 else 0.7) }}{% if insel_bild %}; --insel-bild: url({{ insel_bild }}){% endif %}">
       <div class="sq-insel-fels"></div>
@@ -72,12 +73,16 @@
         {% endif %}
       </div>
       {% if zierde %}
-      <div class="sq-zierde" aria-label="Zierde vom Hafenmarkt">
-        {% for w in zierde %}<a class="sq-zier {{ w.key }}" href="/steuer/{{ jahr }}/markt" style="--x: {{ w.platz[0] }}%; --y: {{ w.platz[1] }}%; --i: {{ loop.index0 }}" title="{{ w.name }}">{{ zierde_bild(w.key) }}</a>{% endfor %}
+      <div class="sq-zierde" aria-label="Zierde vom Hafenmarkt" data-plaetze="{{ zier_plaetze | map('list') | list | tojson | forceescape }}">
+        {% for w in zierde %}<a class="sq-zier {{ w.key }}{% if w.key == neu_zier %} neu{% endif %}" href="/steuer/{{ jahr }}/markt" style="--x: {{ w.platz[0] }}%; --y: {{ w.platz[1] }}%; --i: {{ loop.index0 }}" title="{{ w.name }}">{{ zierde_bild(w.key) }}</a>{% endfor %}
       </div>
       {% endif %}
     </div>
     <div class="sq-insel-schatten"></div>
+    <a class="sq-hafen" href="/steuer/{{ jahr }}/markt" title="Hafenmarkt: Gold für Zierde und Helfer">
+      <span class="sq-hafen-muenze" aria-hidden="true"></span>
+      <span class="sq-schild"><strong>Hafenmarkt</strong><small>{{ ressourcen.gold }} Gold{% if helfer %} · {{ helfer | length }} Helfer{% endif %}</small></span>
+    </a>
     {% set hort_wach = drache_wach and not drache.besiegt %}
     <a class="sq-hort sq-hort-insel{% if not drache_wach %} schlaeft{% elif hort_wach %} wach{% endif %}{% if auftrag.art == 'drache' %} auftragsziel{% endif %}" href="/steuer/{{ jahr }}/drache">
       {% if auftrag.art == "drache" %}<span class="sq-leuchtfeuer" aria-hidden="true"><span>Hier weiter</span></span>{% endif %}

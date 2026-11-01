@@ -1231,9 +1231,11 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
 @keyframes sq-glimmen { 50% { opacity: .55; } }
 @keyframes sq-wehen { 50% { transform: skewY(-4deg) scaleX(.94); } }
 .sq-provinzen { z-index: 2; }
-@media (max-width: 720px) {
-  .sq-zierde { position: relative; display: flex; flex-wrap: wrap; justify-content: center; gap: 0.4rem; padding: 0 0.6rem 0.8rem; order: 2; }
-  .sq-zier { position: relative; left: auto; top: auto; transform: none; width: 46px; }
+/* Kachelansicht: Zierde als eigenes Wiesenstück unter den Provinzen, nicht auf den Wolken */
+@media (max-width: 1100px) {
+  .sq-zierde { position: relative; inset: auto; display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-end; gap: 0.6rem 1rem; margin: 0 0.8rem 1rem; padding: 0.8rem 1rem 0.5rem;
+    background: radial-gradient(ellipse at 50% 120%, #8fb158, #6f9440 60%, #557a30); border-radius: 18px 18px 26px 26px; box-shadow: inset 0 -6px 0 #4b6a2a, 0 10px 18px rgba(20, 8, 2, .35); }
+  .sq-zier { position: relative; left: auto; top: auto; transform: none; width: 54px; }
   @keyframes sq-zier-rein { from { opacity: 0; transform: scale(.6); } }
 }
 @media (prefers-reduced-motion: reduce) { .sq-zier, .sq-zier * { animation: none !important; } }
@@ -1264,6 +1266,7 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
 .sq-ware.hat:not(.an) { opacity: .92; }
 .sq-ware-bild { display: block; width: 70px; height: 80px; margin: 0 auto 0.2rem; }
 .sq-ware-bild svg, .sq-ware-bild img { width: 100%; height: 100%; }
+.sq-ware-bild svg { filter: url(#sq-gouache); }
 .sq-ware-stand { font: 700 0.85rem var(--schrift); color: #3f5d22; margin-top: 0.3rem; }
 .sq-preis { display: inline-flex; align-items: center; gap: 0.35rem; font: 800 1.05rem var(--schrift); color: #3a2a08; background: linear-gradient(#ffe7a0, #e9bd4f); border: 1px solid #a8823a; border-radius: 999px; padding: 0.3rem 0.9rem 0.3rem 0.4rem; cursor: pointer; box-shadow: 0 3px 0 #8a6418; }
 .sq-preis i { width: 20px; height: 20px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff1b8, var(--gold) 45%, var(--ocker-dunkel)); border: 1px solid #7a5512; }
@@ -1292,3 +1295,37 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
 .sq-wurf-zurueck .sq-rechnung small { color: #5c5040; }
 .sq-wurf-zurueck form { display: inline; margin: 0; }
 .sq-wurf { scroll-margin-top: 14px; }
+
+/* =====================================================================
+   Runde 8b (Bericht 2a)
+   ===================================================================== */
+/* Rückfrage unter 900 px: ein Blatt unten am Bildschirm, über allem */
+.sq-rueckfrage-blase.sheet { position: fixed; left: 12px; right: 12px; bottom: 12px; top: auto; width: auto; max-width: 560px; margin: 0 auto; z-index: 500;
+  box-shadow: 0 0 0 100vmax rgba(10, 4, 0, .35), 0 18px 40px rgba(10, 4, 0, .55); animation: sq-blatt-hoch .25s ease-out both; }
+.sq-rueckfrage-blase.sheet::after { display: none; }
+.sq-rueckfrage-blase.sheet .knoepfe > * { min-height: 44px; }
+@keyframes sq-blatt-hoch { from { transform: translateY(30px); opacity: 0; } }
+
+/* Zierde: erst sichtbar, wenn sie einen freien Platz hat (steuer.js prüft gegen die Provinzen) */
+.sq-js .sq-zier:not(.platziert) { visibility: hidden; }
+.sq-zier svg { filter: url(#sq-gouache); }
+.sq-zier.neu { animation: sq-zier-neu 1.4s .3s cubic-bezier(.2, 1.6, .4, 1) both; z-index: 3; }
+.sq-zier.neu::after { content: ""; position: absolute; inset: -30% -40%; border-radius: 50%; background: radial-gradient(circle, rgba(255, 236, 160, .85), transparent 65%); z-index: -1; animation: sq-feuer 1.6s ease-in-out 3; pointer-events: none; }
+@keyframes sq-zier-neu { 0% { opacity: 0; transform: translate(-50%, -160%) scale(.4); } 60% { opacity: 1; transform: translate(-50%, -96%) scale(1.15); } 100% { transform: translate(-50%, -100%) scale(1); } }
+@media (max-width: 1100px) { @keyframes sq-zier-neu { 0% { opacity: 0; transform: translateY(-40px) scale(.4); } 60% { opacity: 1; transform: scale(1.15); } } }
+
+/* Hafenmarkt als Ort an der Insel: ohne Scrollen zu sehen */
+.sq-hafen { position: absolute; left: 0; top: 36%; z-index: 60; display: flex; flex-direction: column; align-items: center; gap: 0.2rem; text-decoration: none; }
+.sq-hafen .sq-schild { color: var(--tinte); }
+.sq-hafen-muenze { width: 44px; height: 44px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff1b8, var(--gold) 45%, var(--ocker-dunkel)); border: 2px solid #7a5512;
+  box-shadow: 12px 6px 0 -5px #c9a24a, -10px 8px 0 -7px #e9bd4f, 0 8px 12px rgba(0,0,0,.4); transition: transform .2s; }
+.sq-hafen:hover .sq-hafen-muenze { transform: translateY(-3px) rotate(-8deg); }
+@media (max-width: 1100px) { .sq-hafen { position: relative; left: auto; top: auto; margin: 0.8rem auto 0; width: max-content; } }
+
+/* Helfer haben einen Haken */
+.sq-ware p.sq-haken { flex: none; font-size: 0.8rem; color: var(--terrakotta-dunkel); border-top: 1px dashed #d9c79c; padding-top: 0.3rem; }
+.sq-goldsumme { display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; margin: -0.2rem 0 0.6rem; font-size: 0.85rem; color: #5c5040; }
+.sq-goldsumme b { font-family: var(--schrift); color: var(--tinte); font-size: 1rem; }
+
+/* Die Karte, zu der die Spürnase rät, liegt vorn */
+.sq-handkarte.passt { position: relative; z-index: 4; }

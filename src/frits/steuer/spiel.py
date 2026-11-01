@@ -473,12 +473,13 @@ def zweifel(stuecke: list[dict]) -> list[dict]:
 
 GOLD_FUND = 3  # eine Unterlage gesichert
 GOLD_SCHATZ = 10  # ein Bonus-Schatz: kann Steuern sparen
-GOLD_FRAGE = 1  # lieber gefragt
+GOLD_FRAGE = 1  # lieber gefragt (ohne Serien-Multiplikator)
 GOLD_GIBTS_NICHT = 1  # gibt es nicht (wichtige Unterlagen: 0)
-GOLD_SIEGEL = 10  # eine Provinz ist komplett
+GOLD_SIEGEL = 10  # höchstens, für eine Provinz voller Funde (siehe siegel_gold)
 GOLD_TAGWERK = 5  # das Tagwerk geschafft
 MAX_MULT = 8
 HELFER_PLAETZE = 2
+TAUSCH_PREIS = 5  # einen Helfer an den Tisch holen, der gerade Pause macht
 
 
 @dataclass(frozen=True)
@@ -486,9 +487,10 @@ class Ware:
     key: str
     name: str
     preis: int
-    art: str  # "zierde" (steht auf der Insel) oder "helfer" (wirkt, solange angelegt)
+    art: str  # "zierde" (steht auf der Insel, in allen Jahren) oder "helfer" (pro Jahr)
     text: str
-    platz: tuple[float, float] = (0.0, 0.0)  # Zierde: wo sie auf der gemalten Insel steht
+    haken: str = ""  # Helfer haben wie gute Joker immer auch einen Nachteil
+    platz: tuple[float, float] = (0.0, 0.0)  # Zierde: Lieblingsplatz auf der gemalten Insel
 
 
 MARKT: tuple[Ware, ...] = (
@@ -498,21 +500,31 @@ MARKT: tuple[Ware, ...] = (
         20,
         "helfer",
         "Schnuppert an jedem Zettel im Korb und sagt, wohin er vielleicht gehört.",
+        haken="Sie frisst mit: Funde bringen 2 Gold statt 3.",
     ),
     Ware(
         "brieftaube",
         "Brieftaube",
         15,
         "helfer",
-        "Jede Frage an die Beraterin bringt 3 Gold statt 1. Fragen ist klug.",
+        "Fragen an die Beraterin bringen 2 Gold statt 1.",
+        haken="„Gibt's nicht“ bringt kein Gold mehr.",
     ),
-    Ware("goldwaage", "Goldwaage", 25, "helfer", "Bonus-Schätze wiegen doppelt: 20 Gold statt 10."),
+    Ware(
+        "goldwaage",
+        "Goldwaage",
+        25,
+        "helfer",
+        "Bonus-Schätze wiegen doppelt: 20 Gold statt 10.",
+        haken="Fragen bringen kein Gold mehr.",
+    ),
     Ware(
         "sanduhr",
         "Sanduhr",
         15,
         "helfer",
         "Das Tagwerk bringt 15 Gold statt 5. Wenig am Tag, aber jeden Tag.",
+        haken="Im Drachenkampf zählt die Serie höchstens ×3.",
     ),
     Ware(
         "trommel",
@@ -520,13 +532,31 @@ MARKT: tuple[Ware, ...] = (
         30,
         "helfer",
         "Im Drachenkampf zählt die Serie eins mehr: aus ×2 wird ×3.",
+        haken="„Gibt's nicht“ im Kampf setzt die Serie auf null.",
     ),
     Ware(
-        "laternen", "Laternen", 10, "zierde", "Ein warmer Lichterweg über die Wiese.", (43.0, 67.0)
+        "laternen",
+        "Laternen",
+        10,
+        "zierde",
+        "Ein warmer Lichterweg über die Wiese.",
+        platz=(44.0, 67.0),
     ),
-    Ware("kirschbaum", "Kirschbaum", 15, "zierde", "Blüht das ganze Steuerjahr.", (55.0, 73.0)),
     Ware(
-        "wappenfahne", "Wappenfahne", 20, "zierde", "Dein Wappen weht über der Insel.", (67.0, 65.0)
+        "kirschbaum",
+        "Kirschbaum",
+        15,
+        "zierde",
+        "Blüht jedes Steuerjahr wieder.",
+        platz=(55.0, 73.0),
+    ),
+    Ware(
+        "wappenfahne",
+        "Wappenfahne",
+        20,
+        "zierde",
+        "Dein Wappen weht über der Insel.",
+        platz=(66.0, 70.0),
     ),
     Ware(
         "bienen",
@@ -534,17 +564,33 @@ MARKT: tuple[Ware, ...] = (
         25,
         "zierde",
         "Fleißig, aber in ihrem eigenen Tempo.",
-        (77.0, 71.0),
+        platz=(77.0, 69.0),
     ),
-    Ware("windmuehle", "Windmühle", 35, "zierde", "Mahlt langsam und stetig.", (87.0, 59.0)),
+    Ware("windmuehle", "Windmühle", 35, "zierde", "Mahlt langsam und stetig.", platz=(88.0, 66.0)),
     Ware(
         "leuchtturm",
         "Leuchtturm",
         50,
         "zierde",
         "Zeigt dir auch nächstes Jahr den Weg zurück.",
-        (9.0, 47.0),
+        platz=(9.0, 47.0),
     ),
+)
+
+# Ausweichplätze auf der Wiese, falls ein Lieblingsplatz von einer Provinz belegt ist
+ZIER_PLAETZE: tuple[tuple[float, float], ...] = (
+    (50.0, 68.0),
+    (60.0, 71.0),
+    (72.0, 67.0),
+    (82.0, 69.0),
+    (40.0, 66.0),
+    (48.0, 77.0),
+    (62.0, 79.0),
+    (73.0, 77.0),
+    (88.0, 64.0),
+    (30.0, 64.0),
+    (85.0, 75.0),
+    (35.0, 56.0),
 )
 
 
@@ -553,33 +599,62 @@ def ware(key: str) -> Ware | None:
 
 
 def multiplikator(combo: int, helfer: frozenset[str] | set[str] = frozenset()) -> int:
-    """Die Serie im Drachenkampf als Multiplikator: ×1 bis ×8 (mit Kriegstrommel eins mehr)."""
-    mult = max(1, min(combo, MAX_MULT))
+    """Die Serie im Drachenkampf als Multiplikator: ×1 bis ×8.
+
+    Kriegstrommel: eins mehr. Sanduhr: höchstens ×3."""
+    deckel = 3 if "sanduhr" in helfer else MAX_MULT
+    mult = max(1, min(combo, deckel))
     if combo and "trommel" in helfer:
         mult += 1
     return mult
 
 
+def ist_wunsch(stueck: dict) -> bool:
+    return str(stueck.get("key", "")).startswith("wunsch-")
+
+
 def gold_fuer(stueck: dict, status: str, helfer: frozenset[str] | set[str] = frozenset()) -> int:
-    """Grundwert einer Karte, bevor die Serie multipliziert."""
+    """Grundwert einer Karte. Nur Funde werden im Kampf mit der Serie multipliziert.
+
+    Wünsche der Beraterin zahlen erst, wenn eine Datei dranhängt: Sonst ließe sich mit einer
+    erfundenen "Beraterin-Mail" beliebig viel Gold erfragen."""
     if status == "gesammelt":
         if ist_bonus(stueck):
             return GOLD_SCHATZ * (2 if "goldwaage" in helfer else 1)
-        return GOLD_FUND
+        return GOLD_FUND - (1 if "spuernase" in helfer else 0)
+    if ist_wunsch(stueck):
+        return 0
     if status == "fragen":
-        return GOLD_FRAGE + (2 if "brieftaube" in helfer else 0)
+        wert = GOLD_FRAGE + (1 if "brieftaube" in helfer else 0)
+        return 0 if "goldwaage" in helfer else wert
     if status == "gibts_nicht":
-        return 0 if ist_kern(stueck["gebiet"], stueck["key"]) else GOLD_GIBTS_NICHT
+        if ist_kern(stueck["gebiet"], stueck["key"]) or "brieftaube" in helfer:
+            return 0
+        return GOLD_GIBTS_NICHT
     return 0
+
+
+def siegel_gold(funde: int) -> int:
+    """Ein Siegel zahlt nach Funden: 2 Gold und 2 je gefundener Unterlage, höchstens 10.
+    Eine Provinz voller "Gibt's nicht" bekommt ihr Siegel, aber kaum Gold."""
+    return min(GOLD_SIEGEL, 2 + 2 * funde)
 
 
 def tagwerk_gold(helfer: frozenset[str] | set[str] = frozenset()) -> int:
     return GOLD_TAGWERK * (3 if "sanduhr" in helfer else 1)
 
 
+def karten_grund(stueck: dict, art: str) -> str:
+    """Der Grund im Goldbuch hängt an der Karte selbst (Gebiet und Schlüssel), nicht an der
+    Datenbank-Nummer: Wer eine Karte über den Fragebogen löscht und neu anlegt, bekommt sie
+    nicht zweimal bezahlt. Wünsche heißen nach ihrem Text."""
+    ding = f"wunsch:{stueck['name']}" if ist_wunsch(stueck) else stueck["key"]
+    return f"{art}:{stueck['gebiet']}:{ding}"
+
+
 @dataclass(frozen=True)
 class Verdienst:
-    grund: str  # einmalig pro Jahr, z. B. "fund:12" (siehe quest.verdiene)
+    grund: str  # einmalig pro Jahr, z. B. "fund:werkstatt-1:belege" (siehe quest.verdiene)
     basis: int
     mult: int
     text: str
@@ -607,9 +682,22 @@ def verdienste(
         if not basis:
             continue
         # Finden zahlt extra aus, auch wenn die Karte vorher als Frage erledigt war
-        grund = f"fund:{s['id']}" if status == "gesammelt" else f"antwort:{s['id']}"
-        neu.append(Verdienst(grund, basis, mult, s["name"]))
+        art = "fund" if status == "gesammelt" else "antwort"
+        faktor = mult if status == "gesammelt" else 1  # Fragen füttern keine Gold-Serie
+        neu.append(Verdienst(karten_grund(s, art), basis, faktor, s["name"]))
     return neu
+
+
+def rueckbuchungen(vorher: list[dict], nachher: list[dict]) -> list[tuple[str, str]]:
+    """Karten, die wieder offen sind: ihr Gold geht zurück (Grund, Text). So bringt ein
+    Fehlwurf bei ×8 nichts, und die Karte darf danach ehrlich neu verdienen."""
+    alt = {s["id"]: s for s in vorher}
+    zurueck = []
+    for s in nachher:
+        war = alt.get(s["id"])
+        if s["status"] == "offen" and war and war["status"] != "offen":
+            zurueck += [(karten_grund(war, art), war["name"]) for art in ("fund", "antwort")]
+    return zurueck
 
 
 # ---------- Spürnase: welcher Zettel passt zu welcher Karte? ----------
