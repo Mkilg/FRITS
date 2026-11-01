@@ -464,6 +464,32 @@ def test_quit_stops_the_server(ws, provider, nlp):
         assert stopped == [1]
 
 
+def test_goodbye_page_offers_a_restart(ws, provider, nlp, monkeypatch):
+    app = create_app(ws, provider_factory=provider, nlp_loader=lambda: nlp, stop=lambda: None)
+    with TestClient(app) as c:
+        page = c.post("/quit", data={"token": app.state.token})
+        assert "frits://start" not in page.text  # started from a terminal or Docker
+        assert "docker compose up ui" in page.text
+        assert "/health?reopen=1" in page.text  # the tab comes back by itself
+        monkeypatch.setenv("FRITS_APP", "1")
+        page = c.post("/quit", data={"token": app.state.token})
+        assert 'href="frits://start"' in page.text
+
+
+def test_waiting_goodbye_tab_means_no_second_tab(ws, provider, nlp, monkeypatch):
+    from frits import web
+
+    opened = []
+    monkeypatch.setattr(web.webbrowser, "open", opened.append)
+    app = create_app(ws, provider_factory=provider, nlp_loader=lambda: nlp)
+    web._open_unless_waiting(app, "http://127.0.0.1:8765/")
+    assert opened == ["http://127.0.0.1:8765/"]  # a normal start opens the browser
+    with TestClient(app) as c:
+        assert c.get("/health?reopen=1").text == "FRITS"
+    web._open_unless_waiting(app, "http://127.0.0.1:8765/")
+    assert len(opened) == 1  # the old tab came back, so no new one
+
+
 def test_second_start_reopens_the_running_frits(monkeypatch):
     from frits import web
 

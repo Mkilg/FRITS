@@ -3,6 +3,35 @@
 {% block content %}
 <section class="hello">
   <div class="mascot-big">{{ mascot("feierabend") }}</div>
-  <p class="speech">FRITS ist aus. Du kannst dieses Fenster schließen. Bis zum nächsten Büro-Block!</p>
+  <p class="speech">FRITS ist aus. Bis zum nächsten Büro-Block!</p>
 </section>
+
+<section class="card">
+  <h2>Doch noch etwas vergessen?</h2>
+  {% if mac_app %}
+  <p><a class="button primary" href="frits://start">FRITS wieder starten</a></p>
+  <p class="hint">Beim ersten Mal fragt dein Browser, ob er „FRITS“ öffnen darf. Klick auf „Erlauben“ (oder „Öffnen“).</p>
+  {% else %}
+  <p>Starte FRITS so wie vorhin: Doppelklick auf <strong>FRITS.app</strong>, oder im Terminal <code>frits ui</code> (mit Docker: <code>docker compose up ui</code>).</p>
+  {% endif %}
+  <p class="muted" id="frits-waiting">Lass dieses Fenster ruhig offen: Sobald FRITS wieder läuft, geht es hier von selbst weiter. Sonst kannst du es einfach schließen.</p>
+</section>
+
+<script>
+  // FRITS is shutting down. Wait until it is really gone, then until it is back, then go home.
+  (function () {
+    var gone = false;
+    function check() {
+      fetch("/health?reopen=1", { cache: "no-store" })
+        .then(function (r) { return r.ok ? r.text() : ""; })
+        .then(function (text) {
+          if (text === "FRITS" && gone) { window.location.href = "/"; return; }
+          if (text !== "FRITS") gone = true;
+          setTimeout(check, 1500);
+        })
+        .catch(function () { gone = true; setTimeout(check, 1500); });
+    }
+    setTimeout(check, 1500);
+  })();
+</script>
 {% endblock %}

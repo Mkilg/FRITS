@@ -12,5 +12,13 @@
   <key>CFBundleVersion</key><string>@VERSION@</string>
   <key>LSMinimumSystemVersion</key><string>13.0</string>
   <key>NSHighResolutionCapable</key><true/>
+  <!-- frits://start opens FRITS again, e.g. from the "FRITS ist aus" page in the browser. -->
+  <key>CFBundleURLTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleURLName</key><string>de.frits.app</string>
+      <key>CFBundleURLSchemes</key><array><string>frits</string></array>
+    </dict>
+  </array>
 </dict>
 </plist>

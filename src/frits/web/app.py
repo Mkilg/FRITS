@@ -246,6 +246,7 @@ def create_app(
     app.state.token = secrets.token_urlsafe(32)
     app.state.flashes = []
     app.state.nlp = None
+    app.state.tab_waiting = False  # a "FRITS ist aus" tab is waiting to come back
     app.state.files = ExitStack()
     templates = _templates()
 
@@ -1112,13 +1113,16 @@ def create_app(
         )
 
     @app.get("/health")
-    def health():
+    def health(request: Request):
+        if request.query_params.get("reopen"):
+            # The goodbye page found FRITS again: it takes the user back, no second tab needed.
+            app.state.tab_waiting = True
         return HTMLResponse("FRITS")
 
     @app.post("/quit", dependencies=guarded)
     def quit_frits(request: Request):
         stop()
-        return page(request, "quit.html")
+        return page(request, "quit.html", mac_app=os.environ.get("FRITS_APP") == "1")
 
     @app.get("/mailto")
     def mailto_page(request: Request):
