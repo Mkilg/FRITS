@@ -58,6 +58,22 @@ CREATE TABLE IF NOT EXISTS steuer_chronik (
     art TEXT NOT NULL,             -- fund | siegel | erfolg | brief | treffer | sieg | truhe
     text TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS steuer_gold (
+    id INTEGER PRIMARY KEY,
+    jahr INTEGER NOT NULL,
+    zeit TEXT NOT NULL,
+    betrag INTEGER NOT NULL,       -- plus: verdient, minus: auf dem Markt ausgegeben
+    grund TEXT,                    -- z. B. "fund:12", zahlt nur einmal aus; Käufe: NULL
+    text TEXT NOT NULL,
+    UNIQUE (jahr, grund)
+);
+CREATE TABLE IF NOT EXISTS steuer_besitz (
+    jahr INTEGER NOT NULL,
+    ware TEXT NOT NULL,            -- siehe spiel.MARKT
+    angelegt INTEGER NOT NULL DEFAULT 0,   -- Helfer: 1, solange er mitspielt
+    gekauft TEXT NOT NULL,
+    PRIMARY KEY (jahr, ware)
+);
 """
 
 
@@ -420,3 +436,98 @@ def vergleich(conn: sqlite3.Connection, jahr: int) -> list[dict]:
         (jahr, jahr - 1),
     )
     return [{**dict(r), "jetzt": r["jetzt"] or "nicht im Fragebogen"} for r in rows]
+
+
+# ---------- Gold und Markt ----------
+# Das Goldbuch ist ehrlich und vollständig: jede Münze mit Grund. Ein Grund zahlt nur
+# einmal aus, darum bringt Zurücknehmen und neu Stempeln kein zweites Gold.
+
+
+def verdiene(conn: sqlite3.Connection, jahr: int, grund: str, betrag: int, text: str) -> int:
+    """Bucht Gold, wenn es für diesen Grund noch keins gab. Gibt den Betrag zurück (sonst 0)."""
+    ensure_schema(conn)
+    if betrag <= 0:
+        return 0
+    with transaction(conn):
+        cur = conn.execute(
+            "INSERT OR IGNORE INTO steuer_gold (jahr, zeit, betrag, grund, text)"
+            " VALUES (?, ?, ?, ?, ?)",
+            (jahr, _now(), betrag, grund, text),
+        )
+    return betrag if cur.rowcount else 0
+
+
+def gold(conn: sqlite3.Connection, jahr: int) -> int:
+    ensure_schema(conn)
+    row = conn.execute("SELECT COALESCE(SUM(betrag), 0) FROM steuer_gold WHERE jahr = ?", (jahr,))
+    return int(row.fetchone()[0])
+
+
+def goldbuch(conn: sqlite3.Connection, jahr: int, anzahl: int = 12) -> list[dict]:
+    ensure_schema(conn)
+    rows = conn.execute(
+        "SELECT * FROM steuer_gold WHERE jahr = ? ORDER BY id DESC LIMIT ?", (jahr, anzahl)
+    )
+    return [dict(r) for r in rows]
+
+
+def besitz(conn: sqlite3.Connection, jahr: int) -> dict[str, bool]:
+    """Was auf dem Markt gekauft wurde: Ware -> angelegt (nur für Helfer wichtig)."""
+    ensure_schema(conn)
+    rows = conn.execute("SELECT ware, angelegt FROM steuer_besitz WHERE jahr = ?", (jahr,))
+    return {r["ware"]: bool(r["angelegt"]) for r in rows}
+
+
+def helfer(conn: sqlite3.Connection, jahr: int) -> frozenset[str]:
+    """Die angelegten Helfer."""
+    return frozenset(k for k, an in besitz(conn, jahr).items() if an)
+
+
+def kaufe(conn: sqlite3.Connection, jahr: int, key: str) -> str:
+    """Kauft eine Ware vom Markt. Ein neuer Helfer wird gleich angelegt, wenn ein Platz frei ist.
+
+    Gibt eine freundliche Bestätigung zurück, oder wirft QuestError (zu wenig Gold, schon da)."""
+    from frits.steuer import spiel
+
+    w = spiel.ware(key)
+    if w is None:
+        raise QuestError("Diese Ware gibt es auf dem Markt nicht.")
+    if key in besitz(conn, jahr):
+        raise QuestError(f"{w.name} hast du schon.")
+    fehlt = w.preis - gold(conn, jahr)
+    if fehlt > 0:
+        raise QuestError(f"Für {w.name} fehlen dir noch {fehlt} Gold.")
+    anlegen = w.art == "helfer" and len(helfer(conn, jahr)) < spiel.HELFER_PLAETZE
+    with transaction(conn):
+        conn.execute(
+            "INSERT INTO steuer_gold (jahr, zeit, betrag, grund, text) VALUES (?, ?, ?, NULL, ?)",
+            (jahr, _now(), -w.preis, f"Gekauft: {w.name}"),
+        )
+        conn.execute(
+            "INSERT INTO steuer_besitz (jahr, ware, angelegt, gekauft) VALUES (?, ?, ?, ?)",
+            (jahr, key, int(anlegen), _now()),
+        )
+    if w.art == "zierde":
+        return f"{w.name} steht jetzt auf deiner Insel."
+    if anlegen:
+        return f"{w.name} spielt jetzt mit."
+    return f"{w.name} ist gekauft. Leg einen anderen Helfer ab, dann ist Platz."
+
+
+def lege_helfer(conn: sqlite3.Connection, jahr: int, key: str, an: bool) -> str:
+    """Helfer an- oder ablegen. Es gibt nur wenige Plätze, darum muss man wählen (Balatro)."""
+    from frits.steuer import spiel
+
+    w = spiel.ware(key)
+    if w is None or w.art != "helfer" or key not in besitz(conn, jahr):
+        raise QuestError("Diesen Helfer hast du noch nicht.")
+    if an and key not in helfer(conn, jahr) and len(helfer(conn, jahr)) >= spiel.HELFER_PLAETZE:
+        raise QuestError(
+            f"Nur {spiel.HELFER_PLAETZE} Helfer passen an den Tisch. Leg erst einen ab."
+        )
+    with transaction(conn):
+        conn.execute(
+            "UPDATE steuer_besitz SET angelegt = ? WHERE jahr = ? AND ware = ?",
+            (int(an), jahr, key),
+        )
+    return f"{w.name} spielt jetzt mit." if an else f"{w.name} macht Pause."

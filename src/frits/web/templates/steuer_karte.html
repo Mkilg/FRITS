@@ -1,6 +1,7 @@
 {% extends "base.html" %}
+{% from "_steuer_zierde.html" import zierde as zierde_bild with context %}
 {% block title %}Steuer-Quest {{ jahr }}{% endblock %}
-{% block head %}<link rel="stylesheet" href="/static/steuer.css"><script src="/static/steuer.js" defer></script>{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/steuer.css"><script>document.documentElement.classList.add("sq-js")</script><script src="/static/steuer.js" defer></script>{% endblock %}
 {% block flashes %}{% endblock %}
 {% block content %}
 {% set insel_bild = bild("insel") %}
@@ -50,6 +51,7 @@
     </form>
     <a class="sq-ding" href="/steuer/{{ jahr }}/beraterin"><span class="sq-ding-bild brief"></span><span><strong>Post von der Beraterin?</strong>Mail einfügen, ich lese sie</span></a>
     <a class="sq-ding" href="/steuer/{{ jahr }}/fragebogen"><span class="sq-ding-bild buch"></span><span><strong>Fragebogen</strong>Lebenslage ändern</span></a>
+    <a class="sq-ding" href="/steuer/{{ jahr }}/markt"><span class="sq-ding-bild markt"></span><span><strong>Hafenmarkt</strong>{{ ressourcen.gold }} Gold ausgeben{% if helfer %} · {{ helfer | length }} Helfer{% endif %}</span></a>
   </aside>
 
   {# Mitte: die schwebende Insel #}
@@ -69,6 +71,11 @@
         </a>
         {% endif %}
       </div>
+      {% if zierde %}
+      <div class="sq-zierde" aria-label="Zierde vom Hafenmarkt">
+        {% for w in zierde %}<a class="sq-zier {{ w.key }}" href="/steuer/{{ jahr }}/markt" style="--x: {{ w.platz[0] }}%; --y: {{ w.platz[1] }}%; --i: {{ loop.index0 }}" title="{{ w.name }}">{{ zierde_bild(w.key) }}</a>{% endfor %}
+      </div>
+      {% endif %}
     </div>
     <div class="sq-insel-schatten"></div>
     {% set hort_wach = drache_wach and not drache.besiegt %}

@@ -11,6 +11,7 @@ keine verlorenen Punkte und immer einen Notausgang.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from datetime import date
 
@@ -166,7 +167,8 @@ class Ressourcen:
     briefe: int  # Wünsche der Beraterin
     siegel: int  # fertige Provinzen
     fragen: int
-    gold: int = 0  # gefundene Bonus-Schätze
+    schaetze: int = 0  # gefundene Bonus-Schätze
+    gold: int = 0  # Gold im Beutel (aus dem Goldbuch, siehe quest.gold)
 
 
 def ressourcen(stuecke: list[dict], provinzstaende: list[Provinzstand]) -> Ressourcen:
@@ -175,7 +177,7 @@ def ressourcen(stuecke: list[dict], provinzstaende: list[Provinzstand]) -> Resso
         briefe=sum(1 for s in stuecke if s["wunsch"]),
         siegel=sum(1 for p in provinzstaende if p.stand.siegel and not p.nur_bonus),
         fragen=sum(1 for s in stuecke if s["status"] == "fragen"),
-        gold=sum(1 for s in stuecke if ist_bonus(s) and s["status"] == "gesammelt"),
+        schaetze=sum(1 for s in stuecke if ist_bonus(s) and s["status"] == "gesammelt"),
     )
 
 
@@ -303,7 +305,7 @@ def erfolge(
             "Alles, was letztes Jahr da war, ist wieder da.",
             vorjahr_ok,
         ),
-        Erfolg("schatzsucherin", "Schatzsucherin", "3 Bonus-Schätze gefunden.", r.gold >= 3),
+        Erfolg("schatzsucherin", "Schatzsucherin", "3 Bonus-Schätze gefunden.", r.schaetze >= 3),
         Erfolg(
             "mutig-gefragt",
             "Mutig gefragt",
@@ -461,3 +463,224 @@ def tagwerk(stuecke: list[dict], heute: date, ziel: int = TAGWERK) -> tuple[int,
 def zweifel(stuecke: list[dict]) -> list[dict]:
     """Wichtige Unterlagen, die als "Gibt's nicht" gestempelt sind: die soll die Beraterin prüfen."""
     return [s for s in stuecke if s["status"] == "gibts_nicht" and ist_kern(s["gebiet"], s["key"])]
+
+
+# ---------- Gold: die Wirtschaft der Insel ----------
+# Balatro rechnet "Chips mal Multiplikator": Jede Karte bringt etwas Gold, die Serie im
+# Drachenkampf multipliziert es. Age of Empires: Mit dem Gold baust du dein Reich aus.
+# Ehrlich bleibt es trotzdem: Finden bringt am meisten, Fragen mehr als Wegstempeln,
+# und jede Karte zahlt nur einmal aus (Stempel zurücknehmen und neu setzen bringt nichts).
+
+GOLD_FUND = 3  # eine Unterlage gesichert
+GOLD_SCHATZ = 10  # ein Bonus-Schatz: kann Steuern sparen
+GOLD_FRAGE = 1  # lieber gefragt
+GOLD_GIBTS_NICHT = 1  # gibt es nicht (wichtige Unterlagen: 0)
+GOLD_SIEGEL = 10  # eine Provinz ist komplett
+GOLD_TAGWERK = 5  # das Tagwerk geschafft
+MAX_MULT = 8
+HELFER_PLAETZE = 2
+
+
+@dataclass(frozen=True)
+class Ware:
+    key: str
+    name: str
+    preis: int
+    art: str  # "zierde" (steht auf der Insel) oder "helfer" (wirkt, solange angelegt)
+    text: str
+    platz: tuple[float, float] = (0.0, 0.0)  # Zierde: wo sie auf der gemalten Insel steht
+
+
+MARKT: tuple[Ware, ...] = (
+    Ware(
+        "spuernase",
+        "Spürnase",
+        20,
+        "helfer",
+        "Schnuppert an jedem Zettel im Korb und sagt, wohin er vielleicht gehört.",
+    ),
+    Ware(
+        "brieftaube",
+        "Brieftaube",
+        15,
+        "helfer",
+        "Jede Frage an die Beraterin bringt 3 Gold statt 1. Fragen ist klug.",
+    ),
+    Ware("goldwaage", "Goldwaage", 25, "helfer", "Bonus-Schätze wiegen doppelt: 20 Gold statt 10."),
+    Ware(
+        "sanduhr",
+        "Sanduhr",
+        15,
+        "helfer",
+        "Das Tagwerk bringt 15 Gold statt 5. Wenig am Tag, aber jeden Tag.",
+    ),
+    Ware(
+        "trommel",
+        "Kriegstrommel",
+        30,
+        "helfer",
+        "Im Drachenkampf zählt die Serie eins mehr: aus ×2 wird ×3.",
+    ),
+    Ware(
+        "laternen", "Laternen", 10, "zierde", "Ein warmer Lichterweg über die Wiese.", (43.0, 67.0)
+    ),
+    Ware("kirschbaum", "Kirschbaum", 15, "zierde", "Blüht das ganze Steuerjahr.", (55.0, 73.0)),
+    Ware(
+        "wappenfahne", "Wappenfahne", 20, "zierde", "Dein Wappen weht über der Insel.", (67.0, 65.0)
+    ),
+    Ware(
+        "bienen",
+        "Bienenstöcke",
+        25,
+        "zierde",
+        "Fleißig, aber in ihrem eigenen Tempo.",
+        (77.0, 71.0),
+    ),
+    Ware("windmuehle", "Windmühle", 35, "zierde", "Mahlt langsam und stetig.", (87.0, 59.0)),
+    Ware(
+        "leuchtturm",
+        "Leuchtturm",
+        50,
+        "zierde",
+        "Zeigt dir auch nächstes Jahr den Weg zurück.",
+        (9.0, 47.0),
+    ),
+)
+
+
+def ware(key: str) -> Ware | None:
+    return next((w for w in MARKT if w.key == key), None)
+
+
+def multiplikator(combo: int, helfer: frozenset[str] | set[str] = frozenset()) -> int:
+    """Die Serie im Drachenkampf als Multiplikator: ×1 bis ×8 (mit Kriegstrommel eins mehr)."""
+    mult = max(1, min(combo, MAX_MULT))
+    if combo and "trommel" in helfer:
+        mult += 1
+    return mult
+
+
+def gold_fuer(stueck: dict, status: str, helfer: frozenset[str] | set[str] = frozenset()) -> int:
+    """Grundwert einer Karte, bevor die Serie multipliziert."""
+    if status == "gesammelt":
+        if ist_bonus(stueck):
+            return GOLD_SCHATZ * (2 if "goldwaage" in helfer else 1)
+        return GOLD_FUND
+    if status == "fragen":
+        return GOLD_FRAGE + (2 if "brieftaube" in helfer else 0)
+    if status == "gibts_nicht":
+        return 0 if ist_kern(stueck["gebiet"], stueck["key"]) else GOLD_GIBTS_NICHT
+    return 0
+
+
+def tagwerk_gold(helfer: frozenset[str] | set[str] = frozenset()) -> int:
+    return GOLD_TAGWERK * (3 if "sanduhr" in helfer else 1)
+
+
+@dataclass(frozen=True)
+class Verdienst:
+    grund: str  # einmalig pro Jahr, z. B. "fund:12" (siehe quest.verdiene)
+    basis: int
+    mult: int
+    text: str
+
+    @property
+    def betrag(self) -> int:
+        return self.basis * self.mult
+
+
+def verdienste(
+    vorher: list[dict],
+    nachher: list[dict],
+    mult: int = 1,
+    helfer: frozenset[str] | set[str] = frozenset(),
+) -> list[Verdienst]:
+    """Was diese Änderung an Gold bringen kann. Ob es schon einmal ausgezahlt wurde,
+    entscheidet das Goldbuch (gleicher Grund zahlt nie zweimal)."""
+    alt = {s["id"]: s["status"] for s in vorher}
+    neu = []
+    for s in nachher:
+        status, war = s["status"], alt.get(s["id"], "offen")
+        if status == war or status == "offen":
+            continue
+        basis = gold_fuer(s, status, helfer)
+        if not basis:
+            continue
+        # Finden zahlt extra aus, auch wenn die Karte vorher als Frage erledigt war
+        grund = f"fund:{s['id']}" if status == "gesammelt" else f"antwort:{s['id']}"
+        neu.append(Verdienst(grund, basis, mult, s["name"]))
+    return neu
+
+
+# ---------- Spürnase: welcher Zettel passt zu welcher Karte? ----------
+
+_UMLAUTE = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"})
+_LEERWOERTER = {
+    "scan",
+    "scans",
+    "foto",
+    "fotos",
+    "bild",
+    "datei",
+    "dokument",
+    "kopie",
+    "img",
+    "image",
+    "seite",
+    "neu",
+    "final",
+    "version",
+    "screenshot",
+    "pdf",
+    "jpg",
+    "jpeg",
+    "png",
+    "heic",
+    "mail",
+    "anhang",
+    "und",
+    "der",
+    "die",
+    "das",
+    "fuer",
+    "von",
+}
+
+
+def _woerter(text: str) -> set[str]:
+    text = text.lower().translate(_UMLAUTE)
+    return {w for w in re.findall(r"[a-z]{4,}", text) if w not in _LEERWOERTER}
+
+
+def _naehe(a: str, b: str) -> int:
+    if a == b:
+        return len(a) + 2
+    kurz, lang = sorted((a, b), key=len)
+    if len(kurz) >= 6 and kurz in lang:
+        return len(kurz)
+    gemeinsam = 0
+    for x, y in zip(a, b):
+        if x != y:
+            break
+        gemeinsam += 1
+    return gemeinsam if gemeinsam >= 5 else 0
+
+
+def vermute(dateiname: str, stuecke: list[dict]) -> dict | None:
+    """Die Karte, zu der ein Zettel am ehesten passt, nur nach dem Dateinamen.
+
+    Keine KI und nichts verlässt den Computer: Es vergleicht Wörter, mehr nicht.
+    Darum heißt es auch "vielleicht". Offene Karten haben Vorrang."""
+    woerter = _woerter(dateiname.rsplit(".", 1)[0])
+    if not woerter:
+        return None
+    beste, punkte = None, 0
+    for s in stuecke:
+        ziel = _woerter(f"{s['name']} {s['key'].replace('-', ' ')}")
+        wert = max((_naehe(a, b) for a in woerter for b in ziel), default=0)
+        if not wert:
+            continue
+        wert = wert * 2 + (1 if s["status"] == "offen" else 0)
+        if wert > punkte:
+            beste, punkte = s, wert
+    return beste

@@ -1,38 +1,38 @@
 {% extends "base.html" %}
 {% block title %}Steuer-Quest {{ jahr }}{% endblock %}
-{% block head %}<link rel="stylesheet" href="/static/steuer.css"><script src="/static/steuer.js" defer></script>{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/steuer.css"><script>document.documentElement.classList.add("sq-js")</script><script src="/static/steuer.js" defer></script>{% endblock %}
 {% block flashes %}{% endblock %}
 {% block content %}
-{% set insel = bild("insel") %}{% set drache = bild("drache-schlaeft") %}{% set fritte = bild("fritte-ruhig") %}{% set truhe = bild("truhe") %}
+{% set insel = bild("insel") %}{% set drache = bild("drache-schlaeft") %}{% set kartograph = bild("fritte-kartograph") %}{% set truhe = bild("truhe") %}
 <div class="sq sq-tisch sq-intro{% if kurz %} kurz{% endif %}" data-klang="{{ 'an' if klang else 'aus' }}" data-intro{% include "_steuer_stil.html" %}>
 {% include "_steuer_meldungen.html" %}
   <div class="sq-intro-buehne">
     {% if not kurz %}
-    <section class="sq-szene" data-szene="1">
-      <div class="sq-szene-bild insel">{% if insel %}<img src="{{ insel }}" alt="">{% endif %}<span class="sq-intro-nebel"></span></div>
+    <section class="sq-szene jetzt" data-szene="1">
+      <div class="sq-szene-bild insel">{% if insel %}<img src="{{ insel }}" alt="" width="1400" height="933">{% endif %}<span class="sq-intro-nebel"></span></div>
       <p class="sq-erzaehler">Über deinem Schreibtisch schwebt eine kleine Insel.<br><strong>Das ist dein Reich für das Steuerjahr {{ jahr }}.</strong></p>
     </section>
     <section class="sq-szene" data-szene="2">
       <div class="sq-szene-bild drache">
-        {% if drache %}<img src="{{ drache }}" alt="">{% endif %}
+        {% if drache %}<img src="{{ drache }}" alt="" width="559" height="394">{% endif %}
         {% for dx, dy in [(-250, -90), (230, -110), (-300, 40), (280, 30), (-190, 120), (200, 125), (-90, -140), (110, -150), (0, 150)] %}<span class="sq-flugzettel" style="--i: {{ loop.index0 }}; --dx: {{ dx }}px; --dy: {{ dy }}px; --dreh: {{ (loop.index0 * 47) % 360 - 180 }}deg"></span>{% endfor %}
       </div>
       <p class="sq-erzaehler">Aber ein <strong>Papierdrache</strong> hat all deine Unterlagen darüber verstreut.<br>Bescheide, Belege, Briefe … überall.</p>
     </section>
     <section class="sq-szene" data-szene="3">
       <div class="sq-szene-bild wachsen">
-        {% if fritte %}<img class="fritte" src="{{ fritte }}" alt="">{% endif %}
-        {% for n in (1, 2, 3) %}{% set haus = bild("werkstatt-" ~ n) %}{% if haus %}<img class="haus stufe{{ n }}" src="{{ haus }}" alt="">{% endif %}{% endfor %}
+        {% if kartograph %}<img class="fritte" src="{{ kartograph }}" alt="">{% else %}{{ mascot("welcome") }}{% endif %}
+        {% for n in (1, 2, 3) %}{% set haus = bild("werkstatt-" ~ n) %}{% if haus %}<img class="haus stufe{{ n }}" src="{{ haus }}" alt="" width="320" height="189">{% endif %}{% endfor %}
       </div>
       <p class="sq-erzaehler">„Ich bin <strong>Fritte</strong>, deine Kartografin. Für jedes Dokument, das du findest, wächst eine Provinz.<br>Was es nicht gibt, stempelst du einfach ab. Das zählt auch!“</p>
     </section>
     <section class="sq-szene" data-szene="4">
-      <div class="sq-szene-bild truhe">{% if truhe %}<img src="{{ truhe }}" alt="">{% endif %}<span class="sq-intro-glanz"></span></div>
+      <div class="sq-szene-bild truhe">{% if truhe %}<img src="{{ truhe }}" alt="" width="470" height="427">{% endif %}<span class="sq-intro-glanz"></span></div>
       <p class="sq-erzaehler">Am Ende faltet sich der Drache zur <strong>Schatztruhe</strong>.<br>Die schickst du deiner Beraterin. Fertig für {{ jahr }}!</p>
     </section>
     {% endif %}
     <section class="sq-szene sq-szene-start" data-szene="{{ 1 if kurz else 5 }}">
-      <div class="sq-szene-bild insel klein">{% if insel %}<img src="{{ insel }}" alt="">{% endif %}</div>
+      <div class="sq-szene-bild insel klein">{% if insel %}<img src="{{ insel }}" alt="" width="1400" height="933">{% endif %}</div>
       {% if angefangen %}
       <h1 class="sq-intro-titel">Deine Insel für {{ jahr }} wartet</h1>
       <p class="sq-erzaehler">Du hast schon angefangen. Ich habe mir alles gemerkt.</p>

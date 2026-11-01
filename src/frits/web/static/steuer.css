@@ -440,6 +440,7 @@ main:has(.sq-tisch) > .flash { max-width: 760px; margin: 0.8rem auto; position: 
 .sq-combo .ruf { font: 700 1.5rem var(--schrift); color: var(--gold); text-shadow: 0 2px 0 #3a2412; }
 .frisch .sq-combo .mult { animation: sq-pop .45s cubic-bezier(.2, 1.9, .4, 1); }
 .sq-wurf { position: relative; width: min(440px, 100%); margin-top: 0.4rem; }
+.sq-wurf-stapel { position: relative; }
 .sq-wurf .sq-karte { color: var(--tinte); text-align: left; animation: sq-wurf .55s cubic-bezier(.2, 1.2, .4, 1) both; min-height: 0; }
 .sq-wurf .stapel { position: absolute; inset: 0; background: var(--creme); border-radius: 3px; transform: rotate(4deg) translate(10px, 6px); box-shadow: 0 8px 16px rgba(0,0,0,.3); }
 .sq-wurf .stapel.zwei { transform: rotate(-3deg) translate(-8px, 10px); }
@@ -752,7 +753,7 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
 @keyframes sq-verstreuen { from { transform: translate(-50%, -50%) rotate(0); opacity: 0; }
   to { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(var(--dreh)); opacity: 1; } }
 .sq-szene-bild.wachsen { grid-template-columns: auto 220px; gap: 1rem; }
-.sq-szene-bild.wachsen .fritte { height: 230px; }
+.sq-szene-bild.wachsen .fritte { height: 230px; width: auto; aspect-ratio: auto 172 / 480; }
 .sq-szene-bild.wachsen .haus { grid-column: 2; grid-row: 1; width: 220px; opacity: 0; }
 .sq-szene.jetzt .wachsen .haus.stufe1 { animation: sq-stufe 3.6s 0.3s infinite; }
 .sq-szene.jetzt .wachsen .haus.stufe2 { animation: sq-stufe 3.6s 1.5s infinite; }
@@ -1103,7 +1104,11 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
   .sq-handkarte { flex: none; }
 }
 .sq-hand-faecher.sq-rueckfrage-ort .sq-rueckfrage-blase { bottom: calc(100% - 4px); }
-.sq-wurf-zurueck { margin: 0.4rem 0 0; display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; font-size: 0.82rem; color: #6d6150; border-top: 1px dashed #d9c79c; padding-top: 0.4rem; }
+.sq-wurf-zurueck { position: relative; z-index: 2; margin: 0 0 0.7rem; display: flex; align-items: center; gap: 0.2rem 0.5rem; flex-wrap: wrap; font-size: 0.84rem; color: var(--tinte); text-align: left;
+  background: #e4efd2; border-left: 4px solid var(--moos, #6f9440); padding: 0.4rem 0.7rem; border-radius: 2px; box-shadow: 0 4px 10px rgba(0,0,0,.3); transform: rotate(-0.6deg); animation: sq-treffer-rein .4s ease-out both; }
+.sq-wurf-zurueck b { color: #3f5d22; }
+@keyframes sq-treffer-rein { from { opacity: 0; transform: translateY(-8px) rotate(-0.6deg); } }
+.sq-etikett.naechste { background: var(--tinte); color: var(--creme); }
 .sq-wurf-zurueck button { font-size: 0.82rem; }
 .sq-beiseite { margin-top: 0.3rem; text-align: right; }
 .sq-beiseite button { font-size: 0.78rem; }
@@ -1144,3 +1149,146 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
   .sq-hort.wach .sq-drache-klein { width: 124px; height: 110px; }
   .sq-hort.wach { margin: 1.4rem auto 0.4rem; }
 }
+
+/* ---------- Runde 8: eine Fritte für ganz FRITS ----------
+   Die Quest nimmt die gemalte Fritte aus static/bilder; der Entdeckerhut sitzt auf ihrer Spitze.
+   Feste Maße, damit nichts springt, wenn das Bild nachlädt. */
+.sq-fritte:has(img) { width: 96px; height: 150px; }
+.sq-fritte img.fritte { width: 100%; height: 100%; object-fit: contain; object-position: center bottom; }
+.sq-fritte.hut:has(img)::before { left: var(--hut-x, 50%); top: var(--hut-y, 2px); width: 34px; height: 13px; transform: translateX(-50%) rotate(var(--hut-dreh, 0deg)); }
+.sq-fritte.hut:has(img)::after { left: var(--hut-x, 50%); top: calc(var(--hut-y, 2px) + 10px); width: 48px; height: 5px; transform: translateX(-50%) rotate(var(--hut-dreh, 0deg)); }
+.sq-fritte.bild-welcome { --hut-x: 62%; --hut-y: 1px; --hut-dreh: 12deg; }
+.sq-fritte.bild-thinking { --hut-x: 60%; --hut-y: 1px; --hut-dreh: 12deg; }
+.sq-fritte.bild-done { --hut-x: 40%; --hut-y: 1px; --hut-dreh: -10deg; }
+.sq-fritte.bild-warning { --hut-x: 48%; --hut-y: 1px; --hut-dreh: -6deg; }
+
+/* Handy: die Messingleiste wird schmal (nur Zeichen und Zahlen, der Name steht im Tooltip),
+   damit Hand und Hort ohne Scrollen zu sehen sind */
+@media (max-width: 600px) {
+  .sq-leiste { gap: 0.25rem 0.7rem; padding: 0.4rem 0.7rem; margin-bottom: 0.7rem; }
+  .sq-titel { font-size: 1rem; }
+  .sq-marken { gap: 0.2rem 0.75rem; flex-wrap: nowrap; }
+  .sq-marke { font-size: 0; gap: 0.25rem; }
+  .sq-marke b { font-size: 1.05rem; }
+  .sq-marke i { width: 17px; height: 17px; }
+  .sq-zeitalter { width: 100%; font-size: 0.85rem; gap: 0.4rem; }
+  .sq-zeitalter > span:first-child { white-space: nowrap; }
+  .sq-zeitalter .sq-band { flex: 1; min-width: 60px; }
+  .sq-arena .sq-hand { margin-top: 0.9rem; }
+}
+
+/* =====================================================================
+   Runde 8: Gold-Wirtschaft. Die Serie multipliziert Gold, Gold baut die Insel aus.
+   ===================================================================== */
+.sq-marke.gold a { display: flex; align-items: center; gap: inherit; color: inherit; text-decoration: none; border-radius: 6px; padding: 0 0.2rem; margin: 0 -0.2rem; }
+.sq-marke.gold a:hover, .sq-marke.gold a:focus-visible { background: rgba(255, 255, 255, .45); }
+.sq-gold-plus { position: absolute; z-index: 30; font: 800 1rem var(--schrift); color: #7a5512; background: #fff3c4; border: 1px solid #c9a24a; border-radius: 999px; padding: 0.05rem 0.45rem; pointer-events: none; animation: sq-gold-steigt 1.6s ease-out forwards; }
+@keyframes sq-gold-steigt { 0% { opacity: 0; transform: translateY(6px) scale(.8); } 15% { opacity: 1; transform: translateY(0) scale(1.1); } 70% { opacity: 1; } 100% { opacity: 0; transform: translateY(-26px); } }
+
+/* Die Rechnung im Kampf: Grundwert × Serie = Gold */
+.sq-combo { flex-wrap: wrap; }
+.sq-rechnung { flex-basis: 100%; display: flex; align-items: center; justify-content: center; gap: 0.35rem; margin: 0.2rem 0 0; font: 700 1.05rem var(--schrift); color: var(--creme); }
+.sq-rechnung .chips, .sq-rechnung .faktor { min-width: 2ch; padding: 0.05rem 0.45rem; border-radius: 6px; text-align: center; color: #fff; }
+.sq-rechnung .chips { background: #2f5d8a; box-shadow: 0 3px 0 #1b3a5a; }
+.sq-rechnung .faktor { background: var(--wachs); box-shadow: 0 3px 0 #5e1612; }
+.sq-rechnung b { color: var(--gold); text-shadow: 0 2px 0 #3a2412; animation: sq-pop .5s .35s cubic-bezier(.2, 1.9, .4, 1) both; }
+.sq-rechnung small { font: 600 0.8rem system-ui, sans-serif; color: #f3e3c0; }
+
+/* Helfer: wie Joker in einer Reihe */
+.sq-helferreihe { display: flex; flex-wrap: wrap; gap: 0.4rem; justify-content: center; list-style: none; margin: 0.3rem 0 0; padding: 0; }
+.sq-helferreihe li { display: flex; align-items: center; gap: 0.3rem; font: 600 0.78rem system-ui, sans-serif; color: var(--tinte); background: var(--papierkarte); border-radius: 4px; padding: 0.2rem 0.5rem 0.2rem 0.3rem; box-shadow: 0 3px 8px rgba(0,0,0,.35); transform: rotate(-1.5deg); }
+.sq-helferreihe li:nth-child(2) { transform: rotate(1.2deg); }
+@media (min-width: 900px) { .sq-arena-boss .sq-helferreihe { justify-content: flex-start; } }
+.sq-ware-zeichen { width: 22px; height: 22px; flex: none; display: inline-grid; place-items: center; border-radius: 50%; background: var(--tinte); color: #ffe6a8; font: 700 0.8rem/1 var(--schrift); }
+.sq-ware-zeichen::before { content: "✦"; }
+.sq-ware-zeichen.spuernase::before { content: "⌕"; font-size: 1.35em; transform: translateY(-1px); }
+.sq-ware-zeichen.brieftaube::before { content: "✉\fe0e"; }
+.sq-ware-zeichen.goldwaage::before { content: "⚖\fe0e"; }
+.sq-ware-zeichen.sanduhr::before { content: "⧗"; }
+.sq-ware-zeichen.trommel::before { content: "×"; font-size: 1rem; }
+.sq-ware-zeichen.goldwaage { background: #8a6418; }
+.sq-ware-zeichen.trommel { background: var(--wachs); color: #fff; }
+.sq-ware-zeichen.brieftaube { background: #2f5d8a; }
+.sq-ware-zeichen.sanduhr { background: var(--moos-dunkel); }
+
+/* Spürnase */
+.sq-spur { display: block; font: italic 600 0.74rem system-ui, sans-serif; color: #2f6a2a; }
+.sq-zettel summary .sq-spur { margin-top: 0.1rem; }
+.sq-handkarte.passt { box-shadow: 0 0 0 3px var(--gold), 0 0 18px 4px rgba(233, 189, 79, .7), 0 8px 16px rgba(0,0,0,.4); }
+.sq-handkarte .sq-spur { margin-top: auto; font-size: 0.66rem; }
+
+/* Zierde auf der Insel: steht auf der Wiese, unter den Provinzschildern */
+.sq-zierde { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+.sq-zier { position: absolute; left: var(--x); top: var(--y); width: calc(74px * var(--massstab, 1)); transform: translate(-50%, -100%); pointer-events: auto; filter: drop-shadow(0 4px 3px rgba(20, 10, 2, .35)); animation: sq-zier-rein .7s calc(var(--i) * 90ms) cubic-bezier(.2, 1.5, .4, 1) both; }
+.sq-zier svg, .sq-zier img { display: block; width: 100%; height: auto; }
+.sq-zier:hover { filter: drop-shadow(0 0 8px rgba(255, 230, 160, .9)); }
+@keyframes sq-zier-rein { from { opacity: 0; transform: translate(-50%, -80%) scale(.6); } }
+.sq-insel:not(.mit-bild) .sq-zier.leuchtturm { left: 8%; top: 52%; }
+.sq-zier .fluegel { animation: sq-drehen 9s linear infinite; }
+.sq-zier .glimmen { animation: sq-glimmen 3s ease-in-out infinite; }
+.sq-zier .wehen { animation: sq-wehen 2.6s ease-in-out infinite; transform-origin: 23px 20px; }
+@keyframes sq-drehen { to { transform: rotate(360deg); } }
+@keyframes sq-glimmen { 50% { opacity: .55; } }
+@keyframes sq-wehen { 50% { transform: skewY(-4deg) scaleX(.94); } }
+.sq-provinzen { z-index: 2; }
+@media (max-width: 720px) {
+  .sq-zierde { position: relative; display: flex; flex-wrap: wrap; justify-content: center; gap: 0.4rem; padding: 0 0.6rem 0.8rem; order: 2; }
+  .sq-zier { position: relative; left: auto; top: auto; transform: none; width: 46px; }
+  @keyframes sq-zier-rein { from { opacity: 0; transform: scale(.6); } }
+}
+@media (prefers-reduced-motion: reduce) { .sq-zier, .sq-zier * { animation: none !important; } }
+.sq-ding-bild.markt { background: radial-gradient(circle at 35% 30%, #fff1b8, var(--gold) 45%, var(--ocker-dunkel)); border-radius: 50%; width: 42px; height: 42px; margin: 0 6px; box-shadow: 10px 6px 0 -4px #c9a24a, -8px 8px 0 -6px #e9bd4f; }
+
+/* Der Hafenmarkt */
+.sq-markt-seite { display: flex; flex-direction: column; gap: 1.2rem; }
+.sq-markt-seite > section, .sq-markt-seite > header.sq-markt-kopf, .sq-markt-zurueck { width: min(1100px, 100%); margin-left: auto; margin-right: auto; }
+.sq-markt-zurueck { margin-top: -0.6rem; margin-bottom: -0.4rem; }
+.sq-markt-kopf { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; padding: 1.1rem 1.4rem; }
+.sq-markt-kopf h1 { margin: 0.1rem 0 0.4rem; font-size: 1.7rem; }
+.sq-markt-kopf p:not(.sq-kicker):not(.sq-beutel) { margin: 0; max-width: 40rem; }
+.sq-beutel { display: flex; flex-direction: column; align-items: center; margin: 0; flex: none; font-family: var(--schrift); }
+.sq-beutel i { width: 54px; height: 54px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff1b8, var(--gold) 45%, var(--ocker-dunkel)); border: 2px solid #7a5512; box-shadow: 0 6px 12px rgba(0,0,0,.3); }
+.sq-beutel b { font-size: 2rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.sq-beutel span { font-size: 0.85rem; color: #6d6150; }
+.sq-markt-teil > h2 { margin: 0 0 0.3rem; color: #ffe6a8; text-shadow: 0 2px 4px rgba(0,0,0,.7); }
+.sq-markt-teil > h2 small { font: 600 0.85rem system-ui, sans-serif; color: #f3e3c0; margin-left: 0.5rem; }
+.sq-markt-hinweis { margin: 0 0 0.8rem; color: #f3e3c0; font-size: 0.9rem; text-shadow: 0 1px 2px rgba(0,0,0,.95); }
+.sq-waren { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 1rem; }
+.sq-ware { position: relative; display: flex; flex-direction: column; gap: 0.35rem; padding: 0.9rem 0.9rem 0.8rem; background: linear-gradient(175deg, var(--papier), var(--creme)); border-radius: 3px; transform: rotate(var(--r, 0deg)); box-shadow: 0 1px 0 var(--papier-schatten), 0 8px 16px rgba(25, 12, 3, .32); transition: transform .2s; }
+.sq-ware:hover { transform: rotate(0) translateY(-3px); }
+.sq-ware h3 { margin: 0; font-size: 1.05rem; }
+.sq-ware p { margin: 0; font-size: 0.88rem; line-height: 1.4; color: #4a4033; flex: 1; }
+.sq-ware form { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.3rem; }
+.sq-ware.helfer .sq-ware-zeichen { width: 34px; height: 34px; font-size: 1.1rem; }
+.sq-ware.an { outline: 3px solid var(--gold); outline-offset: -3px; box-shadow: 0 0 22px 4px rgba(233, 189, 79, .55), 0 8px 16px rgba(25, 12, 3, .32); }
+.sq-ware.hat:not(.an) { opacity: .92; }
+.sq-ware-bild { display: block; width: 70px; height: 80px; margin: 0 auto 0.2rem; }
+.sq-ware-bild svg, .sq-ware-bild img { width: 100%; height: 100%; }
+.sq-ware-stand { font: 700 0.85rem var(--schrift); color: #3f5d22; margin-top: 0.3rem; }
+.sq-preis { display: inline-flex; align-items: center; gap: 0.35rem; font: 800 1.05rem var(--schrift); color: #3a2a08; background: linear-gradient(#ffe7a0, #e9bd4f); border: 1px solid #a8823a; border-radius: 999px; padding: 0.3rem 0.9rem 0.3rem 0.4rem; cursor: pointer; box-shadow: 0 3px 0 #8a6418; }
+.sq-preis i { width: 20px; height: 20px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff1b8, var(--gold) 45%, var(--ocker-dunkel)); border: 1px solid #7a5512; }
+.sq-preis:hover:not([disabled]) { transform: translateY(-1px); }
+.sq-preis[disabled] { cursor: not-allowed; filter: grayscale(.8); opacity: .65; box-shadow: none; }
+.sq-noch { font-size: 0.78rem; color: #6d6150; }
+.sq-goldregeln { display: grid; grid-template-columns: 1.2fr 1fr; gap: 1.2rem; align-items: start; }
+.sq-goldregeln .sq-papier { padding: 1rem 1.2rem; }
+.sq-goldregeln ul { margin: 0 0 0.5rem; padding-left: 1.1rem; display: grid; gap: 0.25rem; }
+.sq-goldregeln b { font-family: var(--schrift); }
+.sq-goldbuch ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.2rem; font-size: 0.88rem; }
+.sq-goldbuch li { display: flex; justify-content: space-between; gap: 0.8rem; border-bottom: 1px dotted #d9c79c; padding: 0.15rem 0; }
+.sq-goldbuch li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sq-goldbuch .plus { color: #3f5d22; }
+.sq-goldbuch .minus { color: var(--terrakotta-dunkel); }
+@media (max-width: 720px) {
+  .sq-markt-kopf { flex-direction: column-reverse; align-items: flex-start; }
+  .sq-beutel { flex-direction: row; gap: 0.5rem; align-items: center; }
+  .sq-beutel i { width: 34px; height: 34px; }
+  .sq-goldregeln { grid-template-columns: 1fr; }
+  .sq-waren { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.8rem; }
+}
+
+.sq-wurf-zurueck .sq-rechnung { flex-basis: 100%; justify-content: flex-start; margin: 0.15rem 0 0; color: var(--tinte); font-size: 0.98rem; }
+.sq-wurf-zurueck .sq-rechnung b { color: #7a5512; text-shadow: none; }
+.sq-wurf-zurueck .sq-rechnung small { color: #5c5040; }
+.sq-wurf-zurueck form { display: inline; margin: 0; }
+.sq-wurf { scroll-margin-top: 14px; }

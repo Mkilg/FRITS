@@ -101,6 +101,17 @@
   function erinnern(name) {
     try { return sessionStorage.getItem("sq-" + jahr + "-" + name); } catch (e) { return null; }
   }
+  // Ein kleines "+6" steigt am Goldbeutel auf, wenn Gold dazukam
+  function goldPlus(el, plus) {
+    var r = el.getBoundingClientRect();
+    var p = document.createElement("span");
+    p.className = "sq-gold-plus";
+    p.textContent = "+" + plus;
+    p.style.left = (r.right + window.scrollX + 4) + "px";
+    p.style.top = (r.top + window.scrollY - 6) + "px";
+    document.body.appendChild(p);
+    setTimeout(p.remove.bind(p), ruhig ? 2500 : 1800);
+  }
   var tonhoehe = 0;
   document.querySelectorAll("[data-zaehler]").forEach(function (el) {
     var name = el.getAttribute("data-zaehler");
@@ -110,6 +121,7 @@
     if (!el.hasAttribute("data-von")) merken(name, ziel);
     if (von === null || parseInt(von, 10) === ziel) return;
     von = parseInt(von, 10);
+    if (name === "gold" && ziel > von) goldPlus(el, ziel - von);
     if (ruhig) { el.classList.add("sq-pop"); return; }
     var schritte = Math.min(Math.abs(ziel - von), 24);
     var dauer = 650;

@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% from "_steuer_zierde.html" import zierde as zierde_bild with context %}
+{% block title %}Hafenmarkt · Steuer-Quest {{ jahr }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/steuer.css"><script>document.documentElement.classList.add("sq-js")</script><script src="/static/steuer.js" defer></script>{% endblock %}
+{% block flashes %}{% endblock %}
+{% block content %}
+<div class="sq sq-tisch sq-markt-seite" data-klang="{{ 'an' if klang else 'aus' }}"{% include "_steuer_stil.html" %}>
+{% include "_steuer_meldungen.html" %}
+{% include "_steuer_kopf.html" %}
+<p class="sq-markt-zurueck"><a class="sq-zurueck" href="/steuer/{{ jahr }}">← Zur Insel</a></p>
+
+<header class="sq-papier sq-schief sq-markt-kopf" style="--r: -0.4deg">
+  <div>
+    <p class="sq-kicker">Hafenmarkt</p>
+    <h1>Was baust du mit deinem Gold?</h1>
+    <p>Gold bekommst du für jede Karte. Hier wird es zu Zierde für deine Insel oder zu Helfern, die mitspielen. Steuern ändert das nicht, es macht nur mehr Spaß.</p>
+  </div>
+  <p class="sq-beutel" aria-label="{{ ressourcen.gold }} Gold"><i></i><b data-zaehler="gold-markt">{{ ressourcen.gold }}</b><span>Gold</span></p>
+</header>
+
+{% set angelegt = helfer | list %}
+<section class="sq-markt-teil" id="helfer" aria-labelledby="h-helfer">
+  <h2 id="h-helfer">Helfer <small>{{ angelegt | length }} von {{ plaetze }} Plätzen am Tisch</small></h2>
+  <p class="sq-markt-hinweis">Nur {{ plaetze }} Helfer passen an deinen Tisch. Gekaufte Helfer kannst du jederzeit tauschen, ohne neu zu bezahlen.</p>
+  <div class="sq-waren">
+  {% for w in markt if w.art == "helfer" %}
+    {% set hat = w.key in besitz %}{% set an = w.key in helfer %}
+    <article class="sq-ware helfer{% if an %} an{% elif hat %} hat{% endif %}" style="--r: {{ [-1.2, 0.8, -0.5, 1.1, -0.9][loop.index0 % 5] }}deg">
+      <span class="sq-ware-zeichen {{ w.key }}" aria-hidden="true"></span>
+      <h3>{{ w.name }}</h3>
+      <p>{{ w.text }}</p>
+      {% if an %}
+      <form method="post" action="/steuer/{{ jahr }}/markt/helfer"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="ware" value="{{ w.key }}"><input type="hidden" name="an" value="0">
+        <span class="sq-ware-stand">Spielt mit</span> <button class="quiet">Pause machen</button></form>
+      {% elif hat %}
+      <form method="post" action="/steuer/{{ jahr }}/markt/helfer"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="ware" value="{{ w.key }}"><input type="hidden" name="an" value="1">
+        <button class="sq-stempelknopf"{% if angelegt | length >= plaetze %} disabled title="Leg erst einen anderen Helfer ab"{% endif %}>An den Tisch holen</button></form>
+      {% else %}
+      <form method="post" action="/steuer/{{ jahr }}/markt/kaufen" data-stempel="GEKAUFT"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="ware" value="{{ w.key }}">
+        <button class="sq-preis"{% if ressourcen.gold < w.preis %} disabled{% endif %}><i></i>{{ w.preis }}</button>
+        {% if ressourcen.gold < w.preis %}<small class="sq-noch">noch {{ w.preis - ressourcen.gold }} Gold</small>{% endif %}</form>
+      {% endif %}
+    </article>
+  {% endfor %}
+  </div>
+</section>
+
+<section class="sq-markt-teil" aria-labelledby="h-zierde">
+  <h2 id="h-zierde">Für deine Insel</h2>
+  <div class="sq-waren">
+  {% for w in markt if w.art == "zierde" %}
+    {% set hat = w.key in besitz %}
+    <article class="sq-ware zierde{% if hat %} hat{% endif %}" style="--r: {{ [0.9, -1.1, 0.6, -0.7, 1.2, -0.4][loop.index0 % 6] }}deg">
+      <span class="sq-ware-bild">{{ zierde_bild(w.key) }}</span>
+      <h3>{{ w.name }}</h3>
+      <p>{{ w.text }}</p>
+      {% if hat %}<span class="sq-ware-stand">Steht auf der Insel ✓</span>
+      {% else %}
+      <form method="post" action="/steuer/{{ jahr }}/markt/kaufen" data-stempel="GEKAUFT"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="ware" value="{{ w.key }}">
+        <button class="sq-preis"{% if ressourcen.gold < w.preis %} disabled{% endif %}><i></i>{{ w.preis }}</button>
+        {% if ressourcen.gold < w.preis %}<small class="sq-noch">noch {{ w.preis - ressourcen.gold }} Gold</small>{% endif %}</form>
+      {% endif %}
+    </article>
+  {% endfor %}
+  </div>
+</section>
+
+<section class="sq-markt-teil sq-goldregeln" aria-labelledby="h-regeln">
+  <div class="sq-papier sq-schief" style="--r: 0.5deg">
+    <h2 id="h-regeln">Woher kommt das Gold?</h2>
+    <ul>
+      <li><b>{{ regeln.GOLD_FUND }}</b> für jede Unterlage, die du sicherst</li>
+      <li><b>{{ regeln.GOLD_SCHATZ }}</b> für jeden Bonus-Schatz (der kann Steuern sparen)</li>
+      <li><b>{{ regeln.GOLD_FRAGE }}</b> für jede Frage an die Beraterin</li>
+      <li><b>{{ regeln.GOLD_GIBTS_NICHT }}</b> für „Gibt's nicht“ (bei wichtigen Unterlagen 0, die fragst du lieber)</li>
+      <li><b>{{ regeln.GOLD_SIEGEL }}</b> für jedes Siegel, <b>{{ regeln.GOLD_TAGWERK }}</b> für jedes geschaffte Tagwerk</li>
+      <li>Im Drachenkampf zählt deine <b>Serie mal</b>: ×2, ×3 … bis ×{{ regeln.MAX_MULT }}.</li>
+    </ul>
+    <p class="muted">Jede Karte zahlt nur einmal aus. Zurücknehmen und neu stempeln bringt kein zweites Gold.</p>
+  </div>
+  <div class="sq-papier sq-schief sq-goldbuch" style="--r: -0.6deg">
+    <h2>Goldbuch</h2>
+    {% if goldbuch %}
+    <ol>{% for g in goldbuch %}<li><span>{{ g.text }}</span><b class="{{ 'minus' if g.betrag < 0 else 'plus' }}">{{ "%+d" | format(g.betrag) }}</b></li>{% endfor %}</ol>
+    {% else %}<p class="muted">Noch leer. Sammel deine erste Karte, dann klingelt es.</p>{% endif %}
+  </div>
+</section>
+</div>
+{% endblock %}
