@@ -229,3 +229,30 @@ def test_redaction_lesson_uses_fritz_own_name(client):
     )
     seen = page.text.split("Das sieht die KI")[1].split("</pre>")[0]
     assert "Sonderbar" not in seen
+
+
+def test_wrong_key_says_why_and_offers_the_way_on(client):
+    """Tester (Lena): only „ließ sich nicht speichern“, no reason, no way out."""
+    post(client, "choose_ai", provider="claude")
+    page = post(client, "store_key", api_key="sk-proj-abc123")
+    assert "beginnt mit „sk-ant-“" in page.text
+    assert "Ohne KI weitermachen</a>" in page.text
+    assert not client.keys
+
+
+def test_locked_keychain_says_so(client, monkeypatch):
+    def locked(provider, key):
+        raise RuntimeError("keychain")
+
+    monkeypatch.setattr("frits.web.app.store_api_key", locked)
+    post(client, "choose_ai", provider="claude")
+    page = post(client, "store_key", api_key="sk-ant-api03-abc")
+    assert "Schlüsselbund dieses Macs hat ihn nicht angenommen" in page.text
+    assert "Ohne KI weitermachen" in page.text
+
+
+def test_word_in_a_number_field_names_the_field(client, ws):
+    """Tester (Lena): „neunzig“ as hourly rate emptied name, address and IBAN."""
+    page = post(client, "business_details", name="Lena", hourly_rate="neunzig", km_rate="0,30")
+    assert "Beim Stundensatz bitte nur eine Zahl eingeben, zum Beispiel 90." in page.text
+    assert 'data-merken="setup-business_details"' in page.text  # the page puts typed values back

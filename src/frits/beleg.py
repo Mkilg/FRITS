@@ -97,8 +97,16 @@ def guess_total(text: str) -> str | None:
     return max(every, key=_as_number) if every else None
 
 
+# Words before the day it was paid: that day counts, not the travel day on a ticket.
+_PAID_WORDS = re.compile(
+    r"(?i)(?:bezahlt|gezahlt|zahlung|bezahlung|zahldatum|belegdatum|kaufdatum|rechnungsdatum|"
+    r"bestelldatum|gebucht)[^\n\d]{0,40}$"
+)
+
+
 def guess_date(text: str, today: date) -> str | None:
-    """The first real day on the receipt that isn't in the future, as YYYY-MM-DD."""
+    """The day it was paid if the receipt says so, else the first real day on it that isn't
+    in the future, as YYYY-MM-DD."""
     candidates = []
     for m in _DATE.finditer(text):
         day, month, year = int(m.group(1)), int(m.group(2)), int(m.group(3))
@@ -108,7 +116,12 @@ def guess_date(text: str, today: date) -> str | None:
     for m in _WORD_DATE.finditer(text):
         word = m.group(2).lower().replace("maerz", "märz")
         candidates.append((m.start(), int(m.group(3)), _MONTHS.index(word) + 1, int(m.group(1))))
-    for _, year, month, day in sorted(candidates):
+
+    def paid_first(candidate: tuple) -> tuple:
+        start = candidate[0]
+        return (not _PAID_WORDS.search(text[max(0, start - 50) : start]), start)
+
+    for _, year, month, day in sorted(candidates, key=paid_first):
         try:
             found = date(year, month, day)
         except ValueError:
@@ -143,16 +156,30 @@ _MAIL_FROM = re.compile(r"(?im)^(?:from|von)\s*:\s*(.+)$")
 _MAIL_HEADER = re.compile(r"(?i)^(?:from|von|to|an|cc|subject|betreff|date|datum)\s*:")
 
 
+# Sender names that say nothing about the shop ("Rechnung <noreply@adobe.com>"): take the domain.
+_GENERIC_SENDER = re.compile(
+    r"(?i)(?:ihre\s+)?(?:rechnung(?:en)?|invoice|billing|noreply|no-reply|no reply|service|"
+    r"kundenservice|customer service|info|team|support|buchhaltung|bestellung|order|shop)"
+)
+
+
 def _mail_sender(header: str) -> str | None:
     """'Thomann <rechnung@thomann.de>' -> 'Thomann'; a bare address -> its domain name."""
     name = header.split("<")[0].strip().strip('"').strip()
-    if name and "@" not in name:
+    if name and "@" not in name and not _GENERIC_SENDER.fullmatch(name):
         return name[:60]
     address = re.search(r"[\w.+-]+@([\w-]+(?:\.[\w-]+)+)", header)
     if not address:
         return None
     parts = address.group(1).split(".")
     return (parts[-2] if len(parts) >= 2 else parts[0]).capitalize()
+
+
+# Words after a shop's name that name the paper, not the shop.
+_DOC_WORDS = re.compile(
+    r"(?i)\s+(?:buchungsbestätigung|bestellbestätigung|auftragsbestätigung|rechnung|quittung|"
+    r"kassenbon|handy-ticket|online-ticket|e-ticket|ticket)\b.*$"
+)
 
 
 def guess_vendor(text: str) -> str | None:
@@ -164,6 +191,7 @@ def guess_vendor(text: str) -> str | None:
     for line in text.splitlines()[:8]:
         if _MAIL_HEADER.match(line.strip()):
             continue
+        line = _DOC_WORDS.sub("", line).strip()
         line = re.sub(r"\s+", " ", line).strip(" *-=|_.:")
         letters = sum(ch.isalpha() for ch in line)
         if letters < 3 or letters < len(line) / 2 or _NOT_A_NAME.match(line):

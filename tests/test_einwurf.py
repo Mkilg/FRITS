@@ -302,3 +302,15 @@ def test_price_and_tax_on_one_line():
     text = "DB Fernverkehr AG Handy-Ticket\nPreis 89,90 EUR MwSt 7% 5,88 EUR\nBezahlt am 02.03.2025"
     assert beleg.guess(text, date(2025, 3, 5))["gross"] == "89,90"
     assert beleg.guess_total("Netto 10,00\nMwSt 19% 1,90\nSumme 11,90") == "11,90"
+
+
+def test_pasted_booking_reads_paid_day_and_shop():
+    """Tester (Lena): the travel day instead of the paid day, and „Buchungsbestätigung“ as shop."""
+    text = (
+        "Deutsche Bahn Buchungsbestätigung\nIhre Reise am 24.10.2026 Berlin Hbf - Köln Hbf\n"
+        "Gesamtpreis 89,90 EUR inkl. 7% MwSt\nBezahlt per Kreditkarte am 20.10.2026"
+    )
+    found = beleg.guess(text, date(2026, 11, 1))
+    assert found["gross"] == "89,90" and found["date"] == "2026-10-20"
+    assert found["vendor"] == "Deutsche Bahn"
+    assert beleg.guess_vendor("From: Rechnung <noreply@adobe.com>") == "Adobe"

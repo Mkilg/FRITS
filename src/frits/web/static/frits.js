@@ -2,12 +2,54 @@
 (function () {
   "use strict";
 
-  // Ask before steps that can't be undone (numbering an invoice, Storno, discarding).
+  // Ask before steps that can't be undone (numbering an invoice, Storno, discarding), on a
+  // card in FRITS's own look instead of the browser's grey box.
+  function rueckfrage(message, ja, done) {
+    if (typeof HTMLDialogElement !== "function") { done(window.confirm(message)); return; }
+    var d = document.createElement("dialog");
+    d.className = "rueckfrage-karte";
+    var p = document.createElement("p");
+    p.textContent = message;
+    var row = document.createElement("div");
+    row.className = "row";
+    var yes = document.createElement("button");
+    yes.type = "button"; yes.className = "primary"; yes.textContent = ja || "Ja";
+    var no = document.createElement("button");
+    no.type = "button"; no.className = "quiet"; no.textContent = "Noch nicht";
+    row.appendChild(yes); row.appendChild(no);
+    d.appendChild(p); d.appendChild(row);
+    document.body.appendChild(d);
+    var answered = false;
+    function answer(ok) {
+      if (answered) return;
+      answered = true;
+      d.close();
+      d.remove();
+      done(ok);
+    }
+    yes.addEventListener("click", function () { answer(true); });
+    no.addEventListener("click", function () { answer(false); });
+    d.addEventListener("cancel", function () { answer(false); });
+    d.showModal();
+    yes.focus();
+  }
+
   document.addEventListener("submit", function (e) {
     var form = e.target;
     var button = e.submitter;
-    var message = (button && button.getAttribute("data-confirm")) || form.getAttribute("data-confirm");
-    if (message && !window.confirm(message)) { e.preventDefault(); return; }
+    var asker = button && button.hasAttribute("data-confirm") ? button : form;
+    var message = asker.getAttribute("data-confirm");
+    if (message && form.getAttribute("data-bestaetigt") !== "1") {
+      e.preventDefault();
+      rueckfrage(message, asker.getAttribute("data-confirm-ja"), function (ok) {
+        if (!ok) return;
+        form.setAttribute("data-bestaetigt", "1");
+        if (form.requestSubmit) form.requestSubmit(button || undefined);
+        else form.submit();
+      });
+      return;
+    }
+    form.removeAttribute("data-bestaetigt");
     var busy = (button && button.getAttribute("data-busy")) || form.getAttribute("data-busy");
     if (busy) {
       // A disabled button's name and value are not sent, so keep which one was pressed.
@@ -455,6 +497,24 @@
       });
     });
   })();
+
+  // The browser's own "Please fill out this field." is English: say it in German, plainly.
+  document.addEventListener("invalid", function (e) {
+    var f = e.target;
+    if (!f || !f.validity || f.validity.customError) return;
+    var text = "Bitte ausfüllen.";
+    if (f.validity.tooShort) text = "Bitte mindestens " + f.getAttribute("minlength") + " Zeichen.";
+    else if (f.validity.typeMismatch && f.type === "email") text = "Bitte eine E-Mail-Adresse wie name@beispiel.de.";
+    else if (f.validity.rangeOverflow || f.validity.rangeUnderflow) text = "Diese Zahl passt hier nicht.";
+    else if (f.validity.badInput || f.validity.patternMismatch) text = "Das passt so nicht. Schau bitte noch einmal.";
+    f.setCustomValidity(text);
+  }, true);
+  document.addEventListener("input", function (e) {
+    if (e.target && e.target.setCustomValidity) e.target.setCustomValidity("");
+  }, true);
+  document.addEventListener("change", function (e) {
+    if (e.target && e.target.setCustomValidity) e.target.setCustomValidity("");
+  }, true);
 
   window.Frits = { feedback: feedback, stampSound: stampSound, playful: playful };
 })();

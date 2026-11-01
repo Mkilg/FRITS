@@ -48,7 +48,8 @@
   <section class="card" id="neu">
     <h2>{{ "Diesen Beleg eintragen" if chosen else "Neue Ausgabe" }}</h2>
     {% set g = guessed or {} %}
-    {% if g %}<p class="flash">Ich habe {{ g | length }} {{ "Angabe" if g | length == 1 else "Angaben" }} vom Beleg gelesen, hier auf deinem Computer. Bitte kurz prüfen.</p>{% endif %}
+    {% if g %}{% set fehlt = [] %}{% if not g.gross %}{% set _ = fehlt.append("den Betrag") %}{% endif %}{% if not g.date %}{% set _ = fehlt.append("das Datum") %}{% endif %}
+    <p class="flash{{ ' error' if fehlt }}">Vorausgefüllt aus dem Beleg, hier auf deinem Computer gelesen. {% if fehlt %}Nicht gefunden habe ich {{ fehlt | join(" und ") }}: Bitte abtippen.{% else %}Bitte kurz prüfen.{% endif %}</p>{% endif %}
     <form method="post" action="/expenses" class="form" data-merken="ausgabe">
       <input type="hidden" name="token" value="{{ token }}">
       <input type="hidden" name="source_file" value="{{ chosen.filename if chosen else '' }}">

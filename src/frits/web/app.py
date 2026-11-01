@@ -684,8 +684,6 @@ def create_app(
             parts.append("1 Beleg" if counts["receipt"] == 1 else f"{counts['receipt']} Belege")
         if counts["check-me"]:
             parts.append(f"{counts['check-me']} zum Prüfen")
-        if counts["skipped"]:
-            parts.append(f"{counts['skipped']} schon bekannt")
         flash("Fertig gelesen: " + (", ".join(parts) or "nichts Neues") + ".", cue="done")
         if target == "/" and not counts["check-me"]:
             # Exactly one thing to do next? Then go there instead of making Fritz look for it.
@@ -1463,10 +1461,16 @@ def create_app(
             )
             return back("/settings")
         updated.save(ws.settings_file)
-        if save_key(updated.provider, str(form.get("api_key", ""))):
+        key = str(form.get("api_key", ""))
+        if (
+            key.strip()
+            and not key_problem(updated.provider, key)
+            and save_key(updated.provider, key)
+        ):
             flash(f"Gespeichert. Dein Schlüssel liegt jetzt {umgebung.schluessel_ort()}.")
-        elif str(form.get("api_key", "")).strip():
-            flash("Der Schlüssel ließ sich nicht speichern.", "error")
+        elif key.strip():
+            flash("Die übrigen Einstellungen sind gespeichert.")
+            key_not_saved(updated.provider, key)
         else:
             flash("Gespeichert.")
         return back("/settings")
@@ -1480,6 +1484,19 @@ def create_app(
         except Exception:  # noqa: BLE001  (any keychain failure gets the same plain message)
             return False
         return True
+
+    def key_not_saved(provider: str, key: str, next_step: str | None = None) -> None:
+        """Say why a key wasn't kept, and offer the way on without AI."""
+        reason = key_problem(provider, key) or (
+            "Der Schlüsselbund dieses Macs hat ihn nicht angenommen. Versuch es gleich noch "
+            "einmal, oder starte FRITS neu."
+        )
+        flash(
+            f"Der Schlüssel ließ sich nicht speichern. {reason} FRITS funktioniert auch ohne "
+            "KI, den Schlüssel kannst du später unter Einstellungen › KI eintragen.",
+            "error",
+            link=(f"/setup/{next_step}", "Ohne KI weitermachen") if next_step else None,
+        )
 
     # ----- Ausgaben und EÜR -----
 
@@ -1970,10 +1987,11 @@ def create_app(
         updated.save(ws.settings_file)
 
         if step == "store_key" and str(form.get("api_key", "")).strip():
-            if save_key(updated.provider, str(form.get("api_key"))):
+            key = str(form.get("api_key"))
+            if not key_problem(updated.provider, key) and save_key(updated.provider, key):
                 flash(f"Dein Schlüssel liegt jetzt {umgebung.schluessel_ort()}.")
             else:
-                flash("Der Schlüssel ließ sich nicht speichern.", "error")
+                key_not_saved(updated.provider, key, following)
                 return back(f"/setup/{step}")
         if action == "test":
             try:
@@ -2271,6 +2289,28 @@ def create_app(
 
 TEXT_FIELDS = ("name", "company", "email", "phone", "steuernummer", "ust_id", "bank", "iban", "bic")
 NOTIZ_MAX = 1500
+NUMBER_FIELDS = {
+    "hourly_rate": ("Stundensatz", "90"),
+    "km_rate": ("Kilometerpreis", "0,30"),
+    "vat_rate": ("Steuersatz", "19"),
+}
+# What each provider's keys start with, so a key pasted into the wrong box is caught.
+KEY_STARTS = {"claude": "sk-ant-", "openrouter": "sk-or-", "openai": "sk-"}
+
+
+def key_problem(provider: str, key: str) -> str | None:
+    """A plain reason why this can't be the provider's API key, or None."""
+    key = key.strip()
+    start = KEY_STARTS.get(provider)
+    if any(ch.isspace() for ch in key):
+        return "Im Schlüssel steht ein Leerzeichen. Kopier ihn bitte noch einmal ganz."
+    if start and not key.startswith(start):
+        if provider == "openai" and key.startswith("sk-ant-"):
+            return "Das ist ein Schlüssel von Claude (Anthropic). Wähl oben Claude aus."
+        return f"Ein Schlüssel für diesen Anbieter beginnt mit „{start}“. Kopier ihn bitte noch einmal."
+    return None
+
+
 CHECKBOXES = ("strict_local", "sound", "haustier", "auto_read")
 EFFECTS = ("ruhig", "verspielt")
 
@@ -2297,7 +2337,13 @@ def settings_from_form(current: Settings, form) -> Settings:
         ]
     for key, empty in (("hourly_rate", 0), ("km_rate", 0), ("vat_rate", 19)):
         if key in form:
-            changes[key] = parse_amount(str(form.get(key))) or Decimal(empty)
+            try:
+                changes[key] = parse_amount(str(form.get(key))) or Decimal(empty)
+            except (BillingError, ValueError, ArithmeticError) as exc:
+                label, example = NUMBER_FIELDS[key]
+                raise BillingError(
+                    f"Beim {label} bitte nur eine Zahl eingeben, zum Beispiel {example}."
+                ) from exc
     if "number_pattern" in form:
         pattern = str(form.get("number_pattern", "")).strip() or DEFAULT_PATTERN
         if not valid_pattern(pattern):
@@ -2308,7 +2354,12 @@ def settings_from_form(current: Settings, form) -> Settings:
     if "price_name" in form:
         changes["prices"] = _price_rows(form)
     if "payment_days" in form:
-        days = int(str(form.get("payment_days") or 14))
+        try:
+            days = int(str(form.get("payment_days") or 14).strip())
+        except ValueError as exc:
+            raise BillingError(
+                "Beim Zahlungsziel bitte nur die Zahl der Tage eingeben, zum Beispiel 14."
+            ) from exc
         if not 0 <= days <= 120:
             raise BillingError("Das Zahlungsziel muss zwischen 0 und 120 Tagen liegen.")
         changes["payment_days"] = days

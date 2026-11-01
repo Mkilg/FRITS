@@ -29,7 +29,7 @@
 {% with back_to="/setup/first_invoice" %}{% include "_dropzone.html" %}{% endwith %}
 {% endif %}
 
-<form method="post" action="/setup/{{ step }}" class="card form setup">
+<form method="post" action="/setup/{{ step }}" class="card form setup" data-merken="setup-{{ step }}">
   <input type="hidden" name="token" value="{{ token }}">
 
   {% if step == "welcome" %}
