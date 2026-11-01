@@ -1,0 +1,33 @@
+{# Building blocks of the everyday game: cards and spice jars. #}
+{% macro zahl(w) %}{{ ("%g" % w) | replace(".", ",") }}{% endmacro %}
+
+{% set KARTEN_BILD = {"rechnung": "symbol-rechnungen", "bezahlt": "symbol-euer", "angebot": "symbol-angebote", "ausgabe": "symbol-ausgaben", "erinnerung": "symbol-eingang", "feierabend": "fritte-feierabend"} %}
+{% set KARTEN_ZEICHEN = {"rechnung": "📄", "bezahlt": "💶", "angebot": "📝", "ausgabe": "🧾", "erinnerung": "✉️", "feierabend": "🌙"} %}
+{% set KARTEN_NAME = {"rechnung": "Rechnung", "bezahlt": "Zahlung", "angebot": "Angebot", "ausgabe": "Ausgabe", "erinnerung": "Erinnerung", "feierabend": "Feierabend"} %}
+
+{% macro karte(k, index=0, summe=None, klein=False) %}
+<div class="spielkarte art-{{ k.art }}{{ ' klein' if klein }}" data-karte="{{ index }}">
+  <span class="karte-art">{{ KARTEN_NAME.get(k.art, k.art) }}</span>
+  <span class="karte-bild" aria-hidden="true">{% if picture(KARTEN_BILD.get(k.art, "")) %}<img src="{{ picture(KARTEN_BILD[k.art]) }}" alt="">{% else %}{{ KARTEN_ZEICHEN.get(k.art, "📄") }}{% endif %}</span>
+  {% if not klein %}
+  <strong class="karte-titel">{{ k.titel }}</strong>
+  <span class="karte-detail">{{ k.detail }}</span>
+  <span class="karte-marken">
+    {% if k.frisch %}<span class="marke" title="Höchstens 7 Tage nach der Arbeit geschrieben">frisch</span>{% endif %}
+    {% if k.zeitnah %}<span class="marke" title="Innerhalb von 10 Tagen nach dem Bezahlen eingetragen">zeitnah</span>{% endif %}
+    {% if k.puenktlich %}<span class="marke" title="Vor dem Zahlungsziel bezahlt">pünktlich</span>{% endif %}
+  </span>
+  {% endif %}
+  <span class="karte-koerner" data-koerner="{{ summe if summe is not none else k.koerner }}">+{{ summe if summe is not none else k.koerner }}</span>
+</div>
+{% endmacro %}
+
+{% macro glas(g, klein=False) %}
+<div class="gewuerzglas selten-{{ g.seltenheit | replace('ö', 'oe') | replace('ä', 'ae') }}{{ ' klein' if klein }}" data-gewuerz="{{ g.id }}" title="{{ g.name }}: {{ g.text }}">
+  <span class="glas-deckel" aria-hidden="true"></span>
+  <span class="glas-koerper">
+    <span class="glas-zeichen" aria-hidden="true">{% if picture('gewuerz-' ~ g.id) %}<img src="{{ picture('gewuerz-' ~ g.id) }}" alt="">{% else %}{{ g.zeichen }}{% endif %}</span>
+    <span class="glas-etikett">{{ g.name }}</span>
+  </span>
+</div>
+{% endmacro %}
