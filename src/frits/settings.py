@@ -75,6 +75,23 @@ class Workspace:
         return self
 
 
+@dataclass(frozen=True)
+class PriceItem:
+    """One entry of Fritz's price list, e.g. "Fenster putzen", "Stk", 25."""
+
+    name: str
+    unit: str
+    price: Decimal
+
+    def matches(self, description: str, unit: str) -> bool:
+        if unit != self.unit:
+            return False
+        # Compare word beginnings, so "Fenster putzen" also finds "3 Fenster geputzt".
+        stems = [w[:4] if len(w) > 4 else w for w in self.name.casefold().split() if len(w) > 2]
+        text = description.casefold()
+        return bool(stems) and all(stem in text for stem in stems)
+
+
 @dataclass
 class Settings:
     # Who writes the invoices
@@ -94,6 +111,11 @@ class Settings:
     hourly_rate: Decimal = Decimal(0)
     km_rate: Decimal = Decimal("0.30")
     payment_days: int = 14
+    # Invoice numbers: JJJJ = year, JJ = two-digit year, NNNN = counter with leading zeros
+    number_pattern: str = "JJJJ-NNNN"
+    last_number_before: str = ""  # the last number Fritz wrote before FRITS, e.g. "2026-0042"
+    # Price list for anything that isn't hours or km: [{"name": ..., "unit": ..., "price": ...}]
+    prices: list[dict] = field(default_factory=list)
     # AI
     provider: str = "claude"  # claude | openai | openrouter | ollama
     models: dict[str, str] = field(default_factory=dict)
@@ -116,8 +138,22 @@ class Settings:
         )
 
     @property
+    def price_list(self) -> list[PriceItem]:
+        items = []
+        for entry in self.prices:
+            try:
+                price = Decimal(str(entry.get("price", "")))
+            except ArithmeticError:
+                continue
+            name = str(entry.get("name", "")).strip()
+            if name and price >= 0:
+                items.append(PriceItem(name, str(entry.get("unit") or "Stk"), price))
+        return items
+
+    @property
     def is_complete(self) -> bool:
-        return bool(self.name and self.address and self.iban and self.hourly_rate > 0)
+        has_prices = self.hourly_rate > 0 or bool(self.price_list)
+        return bool(self.name and self.address and self.iban and has_prices)
 
     @classmethod
     def load(cls, path: Path) -> Settings:

@@ -1,0 +1,24 @@
+{# The price list: services that aren't paid by the hour, e.g. "Fenster putzen, Stk, 25". #}
+<fieldset class="prices">
+  <legend>Preisliste <span class="muted">(alles, was nicht nach Stunden geht)</span></legend>
+  <table class="lines">
+    <thead><tr><th>Leistung</th><th>Einheit</th><th>Preis in €</th></tr></thead>
+    <tbody>
+      {% for item in settings.price_list %}
+      <tr>
+        <td><input name="price_name" value="{{ item.name }}"></td>
+        <td><select name="price_unit">{% for u in units %}<option {{ "selected" if u == item.unit }}>{{ u }}</option>{% endfor %}</select></td>
+        <td><input name="price_value" value="{{ item.price | qty }}" size="7" inputmode="decimal"></td>
+      </tr>
+      {% endfor %}
+      {% for example, example_unit in [("Fenster putzen", "Stk"), ("Hecke schneiden", "pauschal"), ("Anfahrtspauschale", "pauschal")] %}
+      <tr>
+        <td><input name="price_name" placeholder="z. B. {{ example }}"></td>
+        <td><select name="price_unit">{% for u in units %}<option {{ "selected" if u == example_unit }}>{{ u }}</option>{% endfor %}</select></td>
+        <td><input name="price_value" size="7" inputmode="decimal"></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="hint">Steht in einer Notiz etwa „3 Fenster geputzt“, nimmt FRITS den Preis von „Fenster putzen“ je Stück. Einen Eintrag löschst du, indem du seinen Namen leerst. Preise kommen immer von hier, nie aus dem Dokument oder von der KI.</p>
+</fieldset>

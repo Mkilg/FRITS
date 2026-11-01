@@ -474,6 +474,83 @@ def test_second_start_reopens_the_running_frits(monkeypatch):
     assert opened == ["http://127.0.0.1:8765/"]
 
 
+def test_files_dropped_in_the_browser_land_in_the_inbox(client, ws):
+    page = client.post(
+        "/inbox/upload",
+        data={"token": client.token, "back": "/"},
+        files=[
+            ("files", ("notiz.txt", b"2 Std Rasen", "text/plain")),
+            ("files", ("../../boese.txt", b"x", "text/plain")),
+            ("files", ("programm.exe", b"x", "application/octet-stream")),
+        ],
+        follow_redirects=True,
+    )
+    names = sorted(p.name for p in ws.inbox.iterdir())
+    assert names == ["boese.txt", "notiz.txt"]  # never outside the inbox, never .exe
+    assert "Im Eingang: notiz.txt, boese.txt" in page.text
+    assert "programm.exe" in page.text  # told why it was refused
+
+
+def test_upload_needs_the_token(client, ws):
+    response = client.post(
+        "/inbox/upload", files=[("files", ("a.txt", b"x", "text/plain"))], data={}
+    )
+    assert response.status_code == 403
+    assert not list(ws.inbox.iterdir())
+
+
+def test_new_customer_from_a_draft_is_prefilled_and_attached(client, ws):
+    drop_and_read(client, ws, "14_herr_wolf.txt")
+    draft_id = latest_draft(ws)
+    page = client.get(f"/customers/new?back=/drafts/{draft_id}")
+    assert "Aus dem Entwurf vorausgefüllt" in page.text
+    assert "Wolf" in page.text
+    assert "Am Hang 5" in page.text
+    post(
+        client,
+        "/customers",
+        name="Herr Wolf",
+        address="Am Hang 5\n12345 Musterstadt",
+        back=f"/drafts/{draft_id}",
+    )
+    row = store.connect(ws.db).execute("SELECT data FROM drafts WHERE id = ?", (draft_id,))
+    assert '"customer_id": "herr-wolf"' in row.fetchone()[0]
+
+
+def test_price_list_prices_lines_that_are_not_hours(client, ws):
+    post(
+        client,
+        "/settings",
+        price_name=["Fenster putzen", ""],
+        price_unit=["Stk", "Stk"],
+        price_value=["25", ""],
+    )
+    assert Settings.load(ws.settings_file).price_list[0].price == Decimal(25)
+    drop_and_read(client, ws, "01_notiz_meier.txt")
+    draft_id = latest_draft(ws)
+    post(
+        client,
+        f"/drafts/{draft_id}",
+        action="save",
+        customer="erika-meier",
+        description=["3 Fenster geputzt"],
+        date=[""],
+        quantity=["3"],
+        unit=["Stk"],
+        price=[""],
+    )
+    page = client.get(f"/drafts/{draft_id}")
+    assert 'value="25"' in page.text
+
+
+def test_invoice_numbers_follow_the_pattern_and_continue(client, ws):
+    post(client, "/settings", number_pattern="RE-JJ-NNN", last_number_before="RE-26-041")
+    page = client.get("/settings")
+    assert "RE-26-042" in page.text
+    page = post(client, "/settings", number_pattern="RE/JJ/NNN")
+    assert "Nummern-Schema" in page.text
+
+
 def test_about_page_and_bug_report_without_personal_data(client, mails):
     page = client.get("/ueber")
     assert page.status_code == 200

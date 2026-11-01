@@ -26,6 +26,41 @@
     if (input) { input.value = b.getAttribute("data-fill"); input.focus(); }
   });
 
+  // Drop zones: files dropped on the field (or picked) are sent right away.
+  document.addEventListener("change", function (e) {
+    var input = e.target;
+    if (input.matches && input.matches("[data-autosubmit]") && input.files && input.files.length) {
+      input.form.requestSubmit ? input.form.requestSubmit() : input.form.submit();
+    }
+  });
+  function zoneOf(e) { return e.target.closest && e.target.closest("[data-dropzone]"); }
+  ["dragenter", "dragover"].forEach(function (type) {
+    document.addEventListener(type, function (e) {
+      if (!document.querySelector("[data-dropzone]")) return;
+      e.preventDefault();  // a file dropped next to the field must not open in the browser
+      var zone = zoneOf(e);
+      document.querySelectorAll("[data-dropzone].over").forEach(function (z) {
+        if (z !== zone) z.classList.remove("over");
+      });
+      if (zone) zone.classList.add("over");
+    });
+  });
+  document.addEventListener("dragleave", function (e) {
+    var zone = zoneOf(e);
+    if (zone && !zone.contains(e.relatedTarget)) zone.classList.remove("over");
+  });
+  document.addEventListener("drop", function (e) {
+    if (!document.querySelector("[data-dropzone]")) return;
+    e.preventDefault();
+    var zone = zoneOf(e) || document.querySelector("[data-dropzone]");
+    zone.classList.remove("over");
+    var input = zone.querySelector("input[type=file]");
+    var dropped = e.dataTransfer && e.dataTransfer.files;
+    if (!input || !dropped || !dropped.length) return;
+    try { input.files = dropped; } catch (err) { return; }
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+
   // ---------- Stamps and the two kinds of joy (Einstellungen > Spiel-Effekte) ----------
   function playful() { return document.body.getAttribute("data-effekte") === "verspielt"; }
   function calmMotion() {

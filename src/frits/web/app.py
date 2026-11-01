@@ -19,6 +19,7 @@ from datetime import date
 from decimal import Decimal
 from importlib.resources import as_file, files
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
@@ -29,6 +30,7 @@ from markupsafe import Markup
 
 from frits import __version__, about, emails, euer, expenses, setup, store, system
 from frits.billing import (
+    DEFAULT_PATTERN,
     BillingError,
     Draft,
     approve,
@@ -39,14 +41,17 @@ from frits.billing import (
     load_draft,
     mark_paid,
     new_draft,
+    next_number,
     parse_amount,
     reviewed_line,
     save_draft,
     set_customer,
     totals,
+    unit_price,
+    valid_pattern,
 )
 from frits.customers import Customer, load_customers, note_id, save_note
-from frits.ingest import IngestError, extract_text
+from frits.ingest import SUPPORTED, IngestError, extract_text
 from frits.providers import KEY_ENV, ProviderError, get_api_key, make_provider, store_api_key
 from frits.quotes import accept_quote, create_quote, decline_quote, list_quotes
 from frits.reminders import create_reminder
@@ -206,7 +211,12 @@ def _templates() -> Jinja2Templates:
     )
     env.filters.update(eur=lambda v: eur(Decimal(v)) if v not in (None, "") else "", qty=de_number)
     env.filters["de_date"] = de_date
-    env.globals.update(mascot=mascot_markup, units=UNITS, providers=PROVIDERS)
+    env.globals.update(
+        mascot=mascot_markup,
+        units=UNITS,
+        providers=PROVIDERS,
+        supported=",".join(sorted(SUPPORTED)),
+    )
     return Jinja2Templates(env=env)
 
 
@@ -388,7 +398,7 @@ def create_app(
         return back("/")
 
     @app.post("/open/{folder}", dependencies=guarded)
-    def open_folder(folder: str):
+    async def open_folder(request: Request, folder: str):
         places = {
             "inbox": ws.inbox,
             "invoices": ws.invoices,
@@ -399,7 +409,33 @@ def create_app(
         }
         if folder not in places or not system.open_path(places[folder]):
             flash(f"Den Ordner findest du hier: {places.get(folder, ws.root)}")
+        target = str((await request.form()).get("back") or "")
+        if target.startswith("/") and not target.startswith("//"):
+            return back(target)
         return back("/" if folder != "customers" else "/customers")
+
+    @app.post("/inbox/upload", dependencies=guarded)
+    async def inbox_upload(request: Request):
+        """Files dropped into the browser land in the inbox folder, as if dragged there in Finder."""
+        form = await request.form()
+        target = str(form.get("back") or "/")
+        target = target if target.startswith("/") and not target.startswith("//") else "/"
+        saved, problems = [], []
+        for upload in form.getlist("files"):
+            if not getattr(upload, "filename", None):
+                continue
+            try:
+                saved.append(await _save_upload(upload, ws.inbox))
+            except IngestError as exc:
+                problems.append(f"{Path(upload.filename).name}: {exc}")
+        if saved:
+            names = ", ".join(p.name for p in saved)
+            flash(f"Im Eingang: {names}. Drück „Jetzt lesen lassen“, wenn du so weit bist.")
+        for problem in problems:
+            flash(problem, "error")
+        if not saved and not problems:
+            flash("Es wurde keine Datei mitgeschickt.", "error")
+        return back(target)
 
     @app.get("/check-me", response_class=HTMLResponse)
     def check_me_page(request: Request):
@@ -472,7 +508,7 @@ def create_app(
         conn = db()
         try:
             draft, _ = load_draft(conn, draft_id)
-            _apply_form(draft, form, customer_by)
+            _apply_form(draft, form, customer_by, settings())
             save_draft(conn, draft_id, draft)
         except BillingError as exc:
             flash(str(exc), "error")
@@ -667,9 +703,31 @@ def create_app(
 
     @app.get("/customers/new", response_class=HTMLResponse)
     def customer_new(request: Request):
+        target = request.query_params.get("back") or ""
+        found = re.fullmatch(r"/drafts/(\d+)", target)
+        prefill = _prefill_from_draft(int(found.group(1))) if found else {}
         return page(
-            request, "customer.html", customer=None, back_to=request.query_params.get("back")
+            request, "customer.html", customer=None, back_to=target or None, prefill=prefill
         )
+
+    def _prefill_from_draft(draft_id: int) -> dict[str, str]:
+        """Suggest the new customer's details from the draft and its original document."""
+        try:
+            draft, _ = load_draft(db(), draft_id)
+        except BillingError:
+            return {}
+        prefill = {"name": draft.customer_name or ""}
+        source = ws.done / draft.source_file
+        if source.is_file():
+            try:
+                found = setup.own_details(extract_text(source).text, None)
+            except IngestError:
+                found = {}
+            mine = settings()
+            for key in ("address", "email", "phone"):
+                if found.get(key) and found[key] != getattr(mine, key):
+                    prefill[key] = found[key]
+        return {k: v for k, v in prefill.items() if v}
 
     @app.get("/customers/{customer_id}", response_class=HTMLResponse)
     def customer_page(request: Request, customer_id: str):
@@ -708,7 +766,21 @@ def create_app(
         save_note(ws.customers, customer)
         flash(f"{customer.display_name} ist gespeichert.")
         target = str(form.get("back") or "")
-        return back(target if target.startswith("/drafts/") else "/customers")
+        if found := re.fullmatch(r"/drafts/(\d+)", target):
+            _attach_customer(int(found.group(1)), customer)
+            return back(target)
+        return back("/customers")
+
+    def _attach_customer(draft_id: int, customer: Customer) -> None:
+        """Coming from a draft: the new customer goes straight onto it."""
+        conn = db()
+        try:
+            draft, row = load_draft(conn, draft_id)
+        except BillingError:
+            return
+        if row["status"] == "draft":
+            set_customer(draft, customer)
+            save_draft(conn, draft_id, draft)
 
     @app.post("/customers/{customer_id}/open", dependencies=guarded)
     def customer_open(customer_id: str):
@@ -725,15 +797,27 @@ def create_app(
     @app.get("/settings", response_class=HTMLResponse)
     def settings_page(request: Request):
         keys = {name: bool(get_api_key(name)) for name in KEY_ENV}
-        return page(request, "settings.html", keys=keys, folder=ws.root)
+        current = settings()
+        upcoming = next_number(
+            db(), today().year, current.number_pattern, current.last_number_before
+        )
+        return page(
+            request, "settings.html", keys=keys, folder=ws.root, next_invoice_number=upcoming
+        )
 
     @app.post("/settings", dependencies=guarded)
     async def settings_save(request: Request):
         form = await request.form()
         try:
             updated = settings_from_form(settings(), form)
-        except (BillingError, ValueError):
-            flash("Bitte nur Zahlen bei Preisen und Zahlungsziel.", "error")
+        except (BillingError, ValueError) as exc:
+            flash(
+                "Das Nummern-Schema braucht genau einen Zähler (NNN) und nur Buchstaben, Ziffern, "
+                "- _ oder Punkt."
+                if "pattern" in str(exc)
+                else "Bitte nur Zahlen bei Preisen und Zahlungsziel.",
+                "error",
+            )
             return back("/settings")
         updated.save(ws.settings_file)
         if save_key(updated.provider, str(form.get("api_key", ""))):
@@ -900,11 +984,37 @@ def create_app(
             "has_key": bool(get_api_key(current.provider))
             if current.provider in KEY_ENV
             else False,
+            "billing_links": setup.BILLING_LINKS,
             "inbox": ws.inbox,
             "sample": setup.sample_note(current),
         }
+        if step == "trick_document" and "demo" not in extra:
+            try:  # no AI involved: show the result right away
+                context["demo"] = setup.trick_demo(current, nlp())
+            except RuntimeError:
+                pass
         context.update(extra)
         return page(request, "setup.html", **context)
+
+    @app.post("/setup/business_details/import", dependencies=guarded)
+    async def setup_import(request: Request):
+        """Read Fritz's details from an old invoice. The file is read here and then forgotten."""
+        upload = (await request.form()).get("file")
+        if not getattr(upload, "filename", None):
+            flash("Bitte wähle zuerst eine Datei aus.", "error")
+            return back("/setup/business_details")
+        try:
+            with TemporaryDirectory() as tmp:
+                saved = await _save_upload(upload, Path(tmp))
+                text = extract_text(saved).text
+            details = setup.own_details(text, nlp())
+        except (IngestError, RuntimeError) as exc:
+            flash(str(exc), "error")
+            return back("/setup/business_details")
+        if not details:
+            flash("In dieser Datei habe ich keine Angaben gefunden. Trag sie einfach von Hand ein.")
+            return back("/setup/business_details")
+        return setup_page(request, "business_details", imported=details)
 
     @app.post("/setup/{step}", dependencies=guarded)
     async def setup_save(request: Request, step: str):
@@ -916,8 +1026,13 @@ def create_app(
         current = settings()
         try:
             updated = settings_from_form(current, form)
-        except (BillingError, ValueError):
-            flash("Bitte nur Zahlen bei Preisen.", "error")
+        except (BillingError, ValueError) as exc:
+            flash(
+                "Das Nummern-Schema braucht genau einen Zähler (NNN)."
+                if "pattern" in str(exc)
+                else "Bitte nur Zahlen bei Preisen.",
+                "error",
+            )
             return back(f"/setup/{step}")
         if step == "done":
             updated = replace(updated, setup_done=True)
@@ -1068,6 +1183,15 @@ def settings_from_form(current: Settings, form) -> Settings:
     for key, empty in (("hourly_rate", 0), ("km_rate", 0), ("vat_rate", 19)):
         if key in form:
             changes[key] = parse_amount(str(form.get(key))) or Decimal(empty)
+    if "number_pattern" in form:
+        pattern = str(form.get("number_pattern", "")).strip() or DEFAULT_PATTERN
+        if not valid_pattern(pattern):
+            raise ValueError("pattern")
+        changes["number_pattern"] = pattern
+    if "last_number_before" in form:
+        changes["last_number_before"] = str(form.get("last_number_before", "")).strip()[:40]
+    if "price_name" in form:
+        changes["prices"] = _price_rows(form)
     if "payment_days" in form:
         changes["payment_days"] = int(str(form.get("payment_days") or 14))
     if "tax_mode" in form:
@@ -1082,6 +1206,50 @@ def settings_from_form(current: Settings, form) -> Settings:
         if key in CHECKBOXES:
             changes[key] = form.get(key) == "on"
     return replace(current, **changes)
+
+
+MAX_UPLOAD = 30 * 1024 * 1024
+
+
+async def _save_upload(upload, folder: Path) -> Path:
+    """Store one uploaded file under its own name (never a path), without overwriting anything."""
+    name = Path(str(upload.filename).replace("\\", "/")).name.strip()
+    if not name or name.startswith("."):
+        raise IngestError("Dieser Dateiname geht nicht.")
+    suffix = Path(name).suffix.lower()
+    if suffix not in SUPPORTED:
+        raise IngestError(f"FRITS kann Dateien vom Typ '{suffix or 'ohne Endung'}' nicht lesen.")
+    data = await upload.read(MAX_UPLOAD + 1)
+    if len(data) > MAX_UPLOAD:
+        raise IngestError("Die Datei ist größer als 30 MB.")
+    folder.mkdir(parents=True, exist_ok=True)
+    target, n = folder / name, 1
+    while target.exists():
+        target = folder / f"{Path(name).stem} ({n}){suffix}"
+        n += 1
+    target.write_bytes(data)
+    return target
+
+
+def _price_rows(form) -> list[dict]:
+    """The price list table: one row per service, empty rows are skipped."""
+    rows = []
+    for name, unit, price in zip(
+        form.getlist("price_name"),
+        form.getlist("price_unit"),
+        form.getlist("price_value"),
+        strict=False,
+    ):
+        name = str(name).strip()
+        if not name:
+            continue
+        amount = parse_amount(str(price))
+        if amount is None or amount < 0:
+            raise ValueError(f"no price for {name}")
+        rows.append(
+            {"name": name[:80], "unit": unit if unit in UNITS else "Stk", "price": str(amount)}
+        )
+    return rows
 
 
 def _open_drafts(conn, current: Settings) -> list[dict]:
@@ -1120,7 +1288,7 @@ def _check_me_files(ws: Workspace) -> list[dict]:
     return result
 
 
-def _apply_form(draft: Draft, form, customer_by) -> None:
+def _apply_form(draft: Draft, form, customer_by, current: Settings) -> None:
     chosen = str(form.get("customer", ""))
     if chosen:
         set_customer(draft, customer_by(chosen))
@@ -1139,15 +1307,12 @@ def _apply_form(draft: Draft, form, customer_by) -> None:
         amount = parse_amount(str(quantity))
         if amount is None:
             raise BillingError(f"Bei „{description}“ fehlt die Menge.")
-        lines.append(
-            reviewed_line(
-                str(description),
-                str(when),
-                amount,
-                str(unit) if unit in UNITS else "Stk",
-                parse_amount(str(price)),
-            )
-        )
+        unit = str(unit) if unit in UNITS else "Stk"
+        given = parse_amount(str(price))
+        if given is None:  # an empty price field takes the price list's price, if one fits
+            customer = customer_by(draft.customer_id) if draft.customer_id else None
+            given = unit_price(unit, customer, current, str(description))
+        lines.append(reviewed_line(str(description), str(when), amount, unit, given))
     draft.lines = lines
     if form.get("questions_done") == "on":
         draft.questions = []

@@ -5,7 +5,7 @@ import json
 import anthropic
 from pydantic import ValidationError
 
-from frits.providers import ProviderError, Usage
+from frits.providers import ProviderError, Usage, explain_status
 from frits.schema import JSON_SCHEMA, SYSTEM_PROMPT, ExtractionResult, user_message
 
 
@@ -38,16 +38,12 @@ class ClaudeProvider:
                     "format": {"type": "json_schema", "schema": JSON_SCHEMA},
                 },
             )
-        except anthropic.AuthenticationError as exc:
-            raise ProviderError("Der Claude-API-Schlüssel wurde abgelehnt.") from exc
-        except anthropic.RateLimitError as exc:
-            raise ProviderError(
-                "Claude ist gerade ausgelastet. Bitte später erneut versuchen."
-            ) from exc
         except anthropic.APIConnectionError as exc:
             raise ProviderError("Keine Verbindung zu Claude. Ist das Internet an?") from exc
         except anthropic.APIStatusError as exc:
-            raise ProviderError(f"Claude hat mit Fehler {exc.status_code} geantwortet.") from exc
+            raise ProviderError(
+                explain_status("Claude", exc.status_code, _detail(exc), model)
+            ) from exc
 
         usage = Usage("claude", model, response.usage.input_tokens, response.usage.output_tokens)
         if response.stop_reason in ("refusal", "max_tokens"):
@@ -57,3 +53,12 @@ class ClaudeProvider:
             return ExtractionResult.model_validate(json.loads(text)), usage
         except (json.JSONDecodeError, ValidationError) as exc:
             raise ProviderError("Claude hat keine gültige Antwort geliefert.") from exc
+
+
+def _detail(exc: Exception) -> str:
+    body = getattr(exc, "body", None)
+    if isinstance(body, dict):
+        error = body.get("error")
+        if isinstance(error, dict) and error.get("message"):
+            return str(error["message"])
+    return ""

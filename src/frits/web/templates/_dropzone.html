@@ -1,0 +1,9 @@
+{# Drop files here: they land in the inbox folder, exactly as if dragged there in Finder. #}
+<form method="post" action="/inbox/upload" enctype="multipart/form-data" class="{{ dz_class or 'card form' }}" data-busy="Ich lege die Dateien in den Eingang.">
+  <input type="hidden" name="token" value="{{ token }}">
+  <input type="hidden" name="back" value="{{ back_to }}">
+  <label class="dropzone" data-dropzone>
+    <input type="file" name="files" multiple accept="{{ supported }}" data-autosubmit>
+    <span>📥 Dateien hierher ziehen oder <u>auswählen</u><br><small class="muted">Notizen, E-Mails, PDFs, Fotos. Sie landen in deinem Eingang.</small></span>
+  </label>
+</form>

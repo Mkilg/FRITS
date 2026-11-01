@@ -125,7 +125,94 @@ def test_trick_lesson_page(client):
     page = post(client, "trick_document", action="trick")
     assert "Die getäuschte KI schlägt vor" in page.text
     assert "Express-Zuschlag" in page.text
-    assert "kein Preis, du entscheidest" in page.text
+    assert "erfunden" in page.text
+    assert "Gestrichen: Steht nicht im Dokument." in page.text
+    assert "Warnung im Entwurf:" in page.text
+    assert "Preise und Summen rechnet immer der Code" in page.text
+
+
+def test_trick_lesson_shows_the_mock_document_right_away(client):
+    page = client.get("/setup/trick_document")
+    assert "Der Entwurf, den du bekommst" in page.text
+    assert "Gestrichen" in page.text
+
+
+def test_failed_connection_test_shows_what_to_check(client, answer, monkeypatch):
+    from frits.providers import ProviderError, explain_status
+
+    def broken(text):
+        raise ProviderError(explain_status("Claude", 400, "Your credit balance is too low", "m"))
+
+    monkeypatch.setattr(answer, "extract", broken)
+    page = post(client, "store_key", action="test")
+    assert "kein Guthaben" in page.text
+    assert "Guthaben aufgeladen?" in page.text
+    assert "console.anthropic.com/settings/billing" in page.text
+
+
+def test_explain_status_covers_the_usual_failures():
+    from frits.providers import explain_status
+
+    assert "Modell" in explain_status("Claude", 404, "model: x", "x")
+    assert "Schlüssel" in explain_status("OpenAI", 401, "", "x")
+    assert "Guthaben" in explain_status("OpenRouter", 402, "Insufficient credits", "x")
+    assert "Guthaben" in explain_status("OpenAI", 429, "You exceeded your current quota", "x")
+
+
+def test_redaction_step_explains_what_if_a_name_slips_through(client):
+    page = client.get("/setup/redaction_test")
+    assert "Und wenn doch mal ein Name durchrutscht?" in page.text
+    assert "AI Act" in page.text
+
+
+def test_own_details_from_an_old_invoice(nlp):
+    from frits.setup import own_details
+
+    text = (
+        "Fritz Muster · Hauptstraße 12 · 50667 Köln\n\nFrau Hanna Lindner\nLindenweg 4\n"
+        "12345 Musterstadt\n\nRechnung Nr. 2026-0007\n2 Std Hecke geschnitten  80,00 €\n\n"
+        "Fritz Muster | Hauptstraße 12, 50667 Köln | Tel. 0221 123456 | fritz@example.de\n"
+        "Steuernummer 214/5678/1234 | Sparkasse KölnBonn | IBAN DE89 3704 0044 0532 0130 00\n"
+    )
+    found = own_details(text, nlp)
+    assert found["name"] == "Fritz Muster"
+    assert found["address"] == "Hauptstraße 12, 50667 Köln"  # the sender, not the customer
+    assert found["iban"] == "DE89370400440532013000"
+    assert found["email"] == "fritz@example.de"
+    assert found["steuernummer"] == "214/5678/1234"
+    assert found["bank"] == "Sparkasse KölnBonn"
+
+
+def test_upload_an_old_invoice_fills_the_form(client, ws):
+    text = "Fritz Muster\nHauptstraße 12\n50667 Köln\nIBAN DE89 3704 0044 0532 0130 00\n"
+    page = client.post(
+        "/setup/business_details/import",
+        data={"token": client.token},
+        files={"file": ("alte-rechnung.txt", text.encode(), "text/plain")},
+        follow_redirects=True,
+    )
+    assert "Aus deiner Rechnung übernommen" in page.text
+    assert 'value="DE89370400440532013000"' in page.text
+    assert not Settings.load(ws.settings_file).iban  # nothing saved until Fritz says Weiter
+    assert not list(ws.inbox.iterdir())  # and the file wasn't kept
+
+
+def test_first_invoice_step_offers_drop_zone_and_folder_button(client):
+    page = client.get("/setup/first_invoice")
+    assert 'action="/inbox/upload"' in page.text
+    assert 'formaction="/open/inbox"' in page.text
+
+
+def test_setup_saves_number_pattern_and_last_number(client, ws):
+    post(
+        client,
+        "tax_status",
+        tax_mode="kleinunternehmer",
+        number_pattern="RE-JJ-NNN",
+        last_number_before="RE-26-041",
+    )
+    saved = Settings.load(ws.settings_file)
+    assert (saved.number_pattern, saved.last_number_before) == ("RE-JJ-NNN", "RE-26-041")
 
 
 def test_unknown_step_is_404(client):

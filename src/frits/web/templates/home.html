@@ -20,7 +20,7 @@
   <p class="hint">Bevor die KI liest, schwärze ich Namen, Adressen und Kontonummern hier auf deinem Computer. Die KI sieht nur Platzhalter wie [PERSON_1].</p>
   {% else %}
   {% if picture("leer-eingang") %}<img class="leer-bild" src="{{ picture('leer-eingang') }}" alt="">{% endif %}
-  <p>Der Eingang ist leer. Leg eine Notiz, E-Mail oder ein Foto in den Ordner, dann lese ich sie, wenn du es sagst.</p>
+  <p>Der Eingang ist leer. Zieh eine Notiz, E-Mail oder ein Foto auf das Feld unten oder leg sie in den Ordner, dann lese ich sie, wenn du es sagst.</p>
   {% endif %}
   <div class="row">
     {% if waiting %}
@@ -34,6 +34,7 @@
       <button>Eingangsordner öffnen</button>
     </form>
   </div>
+  {% with back_to="/", dz_class="form" %}{% include "_dropzone.html" %}{% endwith %}
 </section>
 
 {% if check_me %}
