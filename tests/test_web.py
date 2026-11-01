@@ -464,6 +464,12 @@ def test_quit_stops_the_server(ws, provider, nlp):
         assert stopped == [1]
 
 
+def test_settings_offer_to_run_the_setup_again(client):
+    page = client.get("/settings")
+    assert 'href="/setup/welcome"' in page.text
+    assert "Einrichtung neu starten" in page.text
+
+
 def test_goodbye_page_offers_a_restart(ws, provider, nlp, monkeypatch):
     app = create_app(ws, provider_factory=provider, nlp_loader=lambda: nlp, stop=lambda: None)
     with TestClient(app) as c:
