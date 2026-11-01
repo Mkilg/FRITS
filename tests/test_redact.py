@@ -49,6 +49,40 @@ def test_invalid_iban_checksum_is_left_alone(nlp):
 
 @pytest.mark.parametrize(
     "text",
+    [
+        "Identifikationsnummer: 12 345 678 901",  # tester: came back unchanged
+        "Steuer-ID 12345678901",
+        "Ihre steuerliche Identifikationsnummer lautet 12 345 678 901.",
+        "IdNr. 12345678901",
+        "Lohnsteuerbescheinigung 2025\n86 095 742 719\nBruttoarbeitslohn",  # check digit ok
+        "65929970489",
+    ],
+)
+def test_steuer_id_is_redacted(nlp, text):
+    r = redact(text, [], nlp)
+    digits = "".join(ch for ch in r.text if ch.isdigit())
+    assert "[STEUERID_1]" in r.text
+    assert not any(d in digits for d in ("12345678901", "86095742719", "65929970489"))
+    assert_no_leaks(r)
+
+
+def test_numbers_that_are_not_a_steuer_id_stay(nlp):
+    r = redact("Betrag 12 345 678 901 und Auftrag 10000000000 vom 01.02.2026", [], nlp)
+    assert "12 345 678 901" in r.text and "10000000000" in r.text
+
+
+def test_steuernummer_and_steuer_id_in_one_sentence(nlp):
+    r = redact("Steuernummer 21/815/08150, Steuer-ID 12 345 678 901", [], nlp)
+    assert "[STEUERNR_1]" in r.text and "[STEUERID_1]" in r.text
+
+
+def test_sozialversicherungsnummer_is_redacted(nlp):
+    r = redact("Versicherungsnummer 12 150385 M 123 laut Ausweis", [], nlp)
+    assert "[SVNR_1]" in r.text and "150385" not in r.text
+
+
+@pytest.mark.parametrize(
+    "text",
     ["3 Std am 12.10.2026", "Summe 1.250,00 EUR", "Anfahrt 18 km", "Rechnung 2026-0001"],
 )
 def test_amounts_dates_and_units_survive(text, nlp):

@@ -106,6 +106,15 @@ _PATTERNS: list[tuple[str, re.Pattern[str]]] = [
         ),
     ),
 ]
+# Steuerliche Identifikationsnummer (§ 139b AO): 11 digits, often grouped 2-3-3-3. Redacted
+# when its check digit is right or a label stands just before it (a typo'd ID is still his).
+_STEUER_ID = re.compile(r"(?<![\d/.,])\d{2}[ \t]?\d{3}[ \t]?\d{3}[ \t]?\d{3}(?![\d/.,]\d)")
+_STEUER_ID_LABEL = re.compile(
+    r"(?i)(?:identifikations-?\s?nummer|steuer-?\s?id|id-?\s?nr\.?|idnr\.?|\btin\b|"
+    r"steuerliche[n]?\s+id)[^\n\d]{0,25}$"
+)
+# Sozialversicherungs- / Rentenversicherungsnummer: 2 digits, birth date (6), letter, 3 digits.
+_SVNR = re.compile(r"\b\d{2}[ \t]?\d{6}[ \t]?[A-Z][ \t]?\d{3}\b")
 _BIRTHDATE = re.compile(r"(?i)\b(?:geb\.|geboren(?:\s+am)?)\s*(\d{1,2}\.\s?\d{1,2}\.\s?\d{2,4})")
 _IBAN_START = re.compile(r"\b[A-Z]{2}\d{2}(?=[\sA-Z0-9])")
 _SALUTATION = re.compile(
@@ -280,8 +289,31 @@ def _pattern_spans(text: str) -> list[Span]:
             spans.append(_value_span(m.start(), m.end(), kind, text, PATTERN))
     for m in _BIRTHDATE.finditer(text):
         spans.append(_value_span(m.start(1), m.end(1), "GEBDATUM", text, PATTERN))
+    for m in _STEUER_ID.finditer(text):
+        digits = re.sub(r"\D", "", m.group())
+        before = text[max(0, m.start() - 40) : m.start()]
+        if _steuer_id_valid(digits) or _STEUER_ID_LABEL.search(before):
+            spans.append(_value_span(m.start(), m.end(), "STEUERID", text, PATTERN))
+    for m in _SVNR.finditer(text):
+        spans.append(_value_span(m.start(), m.end(), "SVNR", text, PATTERN))
     spans.extend(_iban_spans(text))
     return spans
+
+
+def _steuer_id_valid(digits: str) -> bool:
+    """Check digit of the Steuer-ID (ISO 7064 MOD 11,10, as § 139b AO uses it)."""
+    if len(digits) != 11 or digits[0] == "0":
+        return False
+    # In the first ten digits exactly one digit repeats (twice or three times).
+    counts = sorted((digits[:10].count(d) for d in set(digits[:10])), reverse=True)
+    if counts[0] not in (2, 3) or (len(counts) > 1 and counts[1] > 1):
+        return False
+    product = 10
+    for d in digits[:10]:
+        total = (int(d) + product) % 10 or 10
+        product = (total * 2) % 11
+    check = 11 - product
+    return (0 if check == 10 else check) == int(digits[10])
 
 
 def _iban_spans(text: str) -> list[Span]:
