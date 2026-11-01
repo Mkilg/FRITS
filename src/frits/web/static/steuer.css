@@ -1050,7 +1050,7 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
 .sq-rueckfrage-blase { position: absolute; left: 0; bottom: calc(100% + 12px); z-index: 60; width: min(330px, 80vw); padding: 0.8rem 0.9rem; text-align: left;
   background: #fffaf0; color: var(--tinte); border-radius: 6px; border-left: 5px solid var(--terrakotta); box-shadow: 0 14px 30px rgba(20, 8, 2, .45);
   animation: sq-zettel-rein .3s cubic-bezier(.2, 1.4, .4, 1) both; text-shadow: none; }
-.sq-rueckfrage-blase::after { content: ""; position: absolute; left: 22px; top: 100%; border: 9px solid transparent; border-top-color: #fffaf0; }
+.sq-rueckfrage-blase::after { content: ""; position: absolute; left: var(--pfeil, 22px); top: 100%; border: 9px solid transparent; border-top-color: #fffaf0; }
 .sq-rueckfrage-blase.unten { bottom: auto; top: calc(100% + 12px); }
 .sq-rueckfrage-blase.unten::after { top: auto; bottom: 100%; border-top-color: transparent; border-bottom-color: #fffaf0; }
 .sq-rueckfrage-blase p { margin: 0 0 0.6rem; font-size: 0.9rem; line-height: 1.4; }
@@ -1060,7 +1060,7 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
 .rueckfrage-offen { outline: 3px solid var(--terrakotta); outline-offset: 2px; }
 
 /* Lesbar auf dem Holz: die Hinweiszeile im Korb bekommt eine dunkle Unterlage */
-.sq-korb > p:not(.sq-leer), .sq-korb > div > p:not(.sq-leer) { display: inline-block; background: rgba(28, 14, 4, .62); padding: 0.35rem 0.6rem; border-radius: 4px; }
+.sq-korb > p:not(.sq-leer) { display: inline-block; background: rgba(28, 14, 4, .62); padding: 0.35rem 0.6rem; border-radius: 4px; }
 
 /* Fokus auf Zetteln sichtbar (die gerissene Kante schneidet den normalen Ring ab) */
 .sq-zettel:has(> summary:focus-visible) { outline: 3px solid var(--gold); outline-offset: 4px; border-radius: 3px; }
@@ -1075,5 +1075,72 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
 .sq-insel.zeitalter-0 .sq-wirbel { width: 34px; height: 44px; opacity: .95; }
 .sq-insel.zeitalter-0 .sq-wirbel:nth-child(odd) { width: 26px; height: 34px; }
 
-/* Ein langer Auftragstitel bleibt einzeilig und schiebt die Insel nicht nach unten */
-@media (min-width: 900px) { .sq-auftrag h2 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } }
+
+
+/* =====================================================================
+   Runde 7: Hort neben der Insel, Hand über dem Falz, Silber wird Gold
+   ===================================================================== */
+
+/* Der wache Hort steht in der rechten Spalte, damit er keine Provinz verdeckt.
+   In schmalen Fenstern (eine Spalte) steht er über den Kacheln der Insel. */
+.sq-rand .sq-hort.sq-hort-rand { position: relative; top: auto; right: auto; bottom: auto; margin: 2.4rem auto 0.4rem; width: max-content; }
+.sq-rand .sq-hort.sq-hort-rand .sq-drache-klein { width: 190px; height: 168px; }
+@media (min-width: 1081px) { .sq-hort.sq-hort-insel.wach { display: none; } }
+@media (max-width: 1080px) { .sq-hort.sq-hort-rand { display: none; } }
+
+/* Kampf: die Hand liegt direkt unter der Drachenkarte, damit man sie ohne Scrollen sieht */
+@media (min-width: 900px) {
+  .sq-arena:has(.sq-hand) { grid-template-areas: "boss karte" "boss hand" "combo hand"; }
+  .sq-arena .sq-hand { margin-top: 0.9rem; }
+  .sq-arena .sq-hand .sq-hand-titel { text-align: left; font-size: 0.85rem; }
+  .sq-arena .sq-hand-faecher { padding-top: 0.6rem; justify-content: flex-start; padding-left: 12px; }
+  .sq-arena .sq-handkarte { width: 92px; height: 112px; margin: 0 -8px; padding: 0.5rem 0.45rem; }
+  .sq-arena .sq-handkarte strong { font-size: 0.7rem; -webkit-line-clamp: 4; }
+}
+@media (max-width: 899px) {
+  .sq-arena .sq-hand { order: -1; margin-top: 0.2rem; }
+  .sq-hand-faecher { flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; max-width: 100%; padding: 1rem 12px 0.6rem; }
+  .sq-handkarte { flex: none; }
+}
+.sq-hand-faecher.sq-rueckfrage-ort .sq-rueckfrage-blase { bottom: calc(100% - 4px); }
+.sq-wurf-zurueck { margin: 0.4rem 0 0; display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; font-size: 0.82rem; color: #6d6150; border-top: 1px dashed #d9c79c; padding-top: 0.4rem; }
+.sq-wurf-zurueck button { font-size: 0.82rem; }
+.sq-beiseite { margin-top: 0.3rem; text-align: right; }
+.sq-beiseite button { font-size: 0.78rem; }
+
+/* Aus Silber wird Gold: das Siegel klappt von grau nach gold */
+.art-gold .sq-belohnung-siegel { perspective: 400px; }
+.art-gold .sq-belohnung-siegel img { animation: sq-silber-zu-gold 1.6s .5s ease-in-out both; }
+.art-gold h2 { color: #9a6a10; }
+@keyframes sq-silber-zu-gold {
+  0% { filter: grayscale(1) brightness(1.4); transform: rotateY(0) scale(1); }
+  45% { filter: grayscale(1) brightness(1.4); transform: rotateY(90deg) scale(1.1); }
+  55% { filter: sepia(1) saturate(3.2) hue-rotate(-8deg) brightness(1.15); transform: rotateY(90deg) scale(1.1); }
+  100% { filter: sepia(1) saturate(3.2) hue-rotate(-8deg) brightness(1.15) drop-shadow(0 0 14px rgba(255, 200, 80, .8)); transform: rotateY(0) scale(1); }
+}
+
+/* Das Silberne Zeitalter sieht silbern aus, nicht golden */
+.sq-insel.zeitalter-2.silber .sq-insel-gras { filter: grayscale(.75) brightness(1.1) contrast(1.06); }
+.sq-insel.mit-bild.zeitalter-2.silber .sq-insel-gras { filter: drop-shadow(0 0 34px rgba(215, 228, 245, .75)) drop-shadow(0 30px 30px rgba(20, 8, 2, .4)) grayscale(.75) brightness(1.1) contrast(1.06); }
+.sq-insel.zeitalter-2.silber .sq-funkeln { background: radial-gradient(circle, #fff 0 30%, rgba(205, 218, 235, .85) 40%, transparent 70%); }
+
+/* Lange Auftragstitel etwas kleiner statt abgeschnitten */
+.sq-auftrag h2.lang { font-size: 1.15rem; line-height: 1.2; }
+
+/* Runde 7b (Bericht 1e) */
+/* Viele Zettel in der Hand: enger fächern statt umbrechen */
+@media (min-width: 900px) {
+  .sq-arena .sq-hand-faecher { flex-wrap: nowrap; }
+  .sq-arena .sq-handkarte { margin: 0 calc(-1 * clamp(8px, (var(--n, 4) - 4) * 4px + 8px, 24px)); }
+  .sq-arena .sq-handkarte:first-child { margin-left: 0; }
+}
+@media (max-width: 600px) { .sq-handkarte { width: 82px; height: 98px; padding: 0.45rem 0.4rem; } .sq-handkarte strong { font-size: 0.68rem; -webkit-line-clamp: 4; } .sq-hand-titel { font-size: 0.82rem; } }
+/* Im Kampf erscheinen kleine Meldungen links unten, damit sie die Hand nicht verdecken */
+.sq-tisch.nacht .sq-zettelchen { right: auto; left: 18px; }
+/* Kachelansicht: kein Sturm-Kasten hinter der Insel, Schilder bleiben in ihrer Kachel */
+@media (max-width: 1100px) {
+  .sq-insel.zeitalter-0::before { display: none; }
+  .sq-provinzen .sq-schild, .sq-provinzen .sq-schild small, .sq-provinzen .sq-schild strong { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+  .sq-hort.wach .sq-drache-klein { width: 124px; height: 110px; }
+  .sq-hort.wach { margin: 1.4rem auto 0.4rem; }
+}

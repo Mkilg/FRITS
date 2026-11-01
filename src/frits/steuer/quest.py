@@ -83,6 +83,26 @@ def lager(root: Path) -> Path:
     return Path(root) / "steuer" / "lager"
 
 
+def beiseite(root: Path) -> Path:
+    """Wohin Zettel kommen, die nirgends hingehören. Nichts wird gelöscht."""
+    return Path(root) / "steuer" / "beiseite gelegt"
+
+
+def lege_beiseite(root: Path, name: str) -> Path | None:
+    """Verschiebt einen Zettel aus dem Lager nach "beiseite gelegt". Gibt das Ziel zurück."""
+    quelle = lager(root) / Path(name).name
+    if not Path(name).name or not quelle.is_file():
+        return None
+    ordner_ = beiseite(root)
+    ordner_.mkdir(parents=True, exist_ok=True)
+    ziel, n = ordner_ / quelle.name, 1
+    while ziel.exists():
+        ziel = ordner_ / f"{quelle.stem} ({n}){quelle.suffix}"
+        n += 1
+    shutil.move(str(quelle), ziel)
+    return ziel
+
+
 def profil_datei(root: Path, jahr: int) -> Path:
     return ordner(root, jahr) / "fragebogen.toml"
 

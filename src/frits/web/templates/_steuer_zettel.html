@@ -18,6 +18,12 @@
         </select></label>
       <button class="sq-stempelknopf gruen">Stempeln</button>
     </form>
+    <form method="post" action="/steuer/{{ jahr }}/lager/beiseite" class="sq-beiseite">
+      <input type="hidden" name="token" value="{{ token }}">
+      <input type="hidden" name="name" value="{{ f.name }}">
+      <input type="hidden" name="back" value="{{ zurueck }}">
+      <button class="quiet" title="Kommt in den Ordner „beiseite gelegt“. Nichts wird gelöscht.">Gehört nirgends hin</button>
+    </form>
   </details>
   {% endfor %}
   {% if lager | length > 12 %}<p>… und {{ lager | length - 12 }} weitere.</p>{% endif %}

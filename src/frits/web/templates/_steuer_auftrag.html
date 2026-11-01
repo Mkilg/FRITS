@@ -4,7 +4,7 @@
   <span class="sq-auftrag-siegel" aria-hidden="true">!</span>
   <div class="sq-auftrag-text">
     <p class="sq-kicker">Dein Auftrag</p>
-    <h2>{{ auftrag.titel }}</h2>
+    <h2{% if auftrag.titel | length > 24 %} class="lang"{% endif %}>{{ auftrag.titel }}</h2>
     <p>{{ auftrag.text }}</p>
     {% if auftrag.gesamt and auftrag.art == "provinz" %}
     <span class="sq-auftrag-perlen" aria-label="{{ auftrag.erledigt }} von {{ auftrag.gesamt }}">{% for i in range(auftrag.gesamt) %}<i class="{{ 'voll' if i < auftrag.erledigt }}"></i>{% endfor %}</span>

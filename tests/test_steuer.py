@@ -759,7 +759,7 @@ def test_siegel_kommt_als_belohnung_mit_naechstem_auftrag(client, ws):
     assert "Nächster Auftrag" not in page.text
     # Ab jetzt ist der Drache der Auftrag, mit Leuchtfeuer auf dem Hort
     karte = client.get("/steuer/2025").text
-    assert "Besiege den Papierdrachen" in karte and "sq-hort wach auftragsziel" in karte
+    assert "Besiege den Papierdrachen" in karte and "sq-hort-rand wach auftragsziel" in karte
     # Stempel zurücknehmen und neu stempeln: kein zweites Fest
     briefe = next(
         s
@@ -1002,3 +1002,81 @@ def test_eingefuegter_text_heisst_nach_seinen_ersten_woertern():
         "Sehr geehrter Herr Espenlaub bitte senden.txt"
     )
     assert textname("  …  ") == "Eingefügter Text.txt"
+
+
+def test_drache_geht_vor_dem_korb_und_zettel_lassen_sich_beiseitelegen(client, ws):
+    # Lena (1d): Ein Zettel, der nirgends passt, blockierte den Drachen-Auftrag für immer
+    fragebogen(client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    quest.lager(ws.root).mkdir(parents=True, exist_ok=True)
+    (quest.lager(ws.root) / "urlaubsfoto.png").write_bytes(b"strand")
+    assert "Sortiere den Eingangskorb" in client.get("/steuer/2025").text
+    _bis_wach(conn)
+    karte = client.get("/steuer/2025").text
+    assert "Besiege den Papierdrachen" in karte and "Zettel aus dem Korb hast du als Hand" in karte
+    assert "Gehört nirgends hin" in karte
+    seite = post(client, "/steuer/2025/lager/beiseite", name="urlaubsfoto.png", back="/steuer/2025")
+    assert "Nichts ist gelöscht" in seite.text
+    assert not (quest.lager(ws.root) / "urlaubsfoto.png").exists()
+    assert (quest.beiseite(ws.root) / "urlaubsfoto.png").read_bytes() == b"strand"
+    # Ein zweites Mal gibt es den Zettel nicht mehr, und fremde Pfade gehen nicht
+    seite = post(client, "/steuer/2025/lager/beiseite", name="../../settings.toml")
+    assert "finde ich nicht mehr" in seite.text
+
+
+def test_hand_fragt_nach_und_ein_wurf_laesst_sich_zuruecknehmen(client, ws):
+    fragebogen(client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    _bis_wach(conn)
+    quest.lager(ws.root).mkdir(parents=True, exist_ok=True)
+    (quest.lager(ws.root) / "urlaubsfoto.png").write_bytes(b"strand")
+    karte = spiel.drache(quest.stuecke(conn, 2025)).karte
+    seite = client.get("/steuer/2025/drache").text
+    assert 'data-rueckfrage-ja="Ja, passt"' in seite and "data-beiseite=" in seite
+    seite = post(
+        client,
+        "/steuer/2025/drache/schlag",
+        stueck_id=str(karte["id"]),
+        aktion="zettel",
+        zettel="urlaubsfoto.png",
+    )
+    assert "Gerade geworfen: „urlaubsfoto.png“" in seite.text
+    datei = quest.dateien(conn, 2025, karte["id"])[0]
+    seite = post(client, f"/steuer/2025/datei/{datei['id']}/entfernen", back="/steuer/2025/drache")
+    assert (quest.lager(ws.root) / "urlaubsfoto.png").exists()
+    assert quest.stueck(conn, karte["id"])["status"] == "offen"
+    assert "Der Drache hat wieder" in seite.text  # Zurücklegen ist nicht stumm
+
+
+def test_aus_silber_wird_gold_und_zuruecknehmen_ist_nicht_stumm(client, ws):
+    fragebogen(client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    belege = next(s for s in quest.stuecke(conn, 2025) if s["key"] == "belege")
+    quest.setze_status(conn, belege["id"], "gibts_nicht")
+    for s in quest.stuecke(conn, 2025):
+        if s["status"] == "offen" and s["art"] != "bonus":
+            quest.setze_status(conn, s["id"], "fragen")
+    assert spiel.drache(quest.stuecke(conn, 2025)).besiegt
+    seite = post(
+        client,
+        f"/steuer/2025/stueck/{belege['id']}/datei",
+        files=[("datei", ("quittung.pdf", b"%PDF quittung"))],
+    )
+
+    assert "Aus Silber wird Gold!" in seite.text and "art-gold" in seite.text
+    # Zurücknehmen sagt etwas, und der Drache schläft hörbar wieder ein
+    andere = [s for s in quest.stuecke(conn, 2025) if s["status"] == "fragen"]
+    for s in andere:
+        seite = post(client, f"/steuer/2025/stueck/{s['id']}/status", status="offen")
+    assert "Stempel zurückgenommen" in seite.text
+    assert quest.hat_notiz(conn, 2025, "gold")
+
+
+def test_im_kampf_keine_grossen_dialoge_auf_provinzseiten(client, ws):
+    fragebogen(client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    _bis_wach(conn)
+    offen = [s for s in spiel.pflicht(quest.stuecke(conn, 2025)) if s["status"] == "offen"]
+    seite = post(client, f"/steuer/2025/stueck/{offen[0]['id']}/status", status="fragen")
+    assert "Neuer Orden: Mutig gefragt" in seite.text  # als kleiner Zettel
+    assert "data-belohnung" not in seite.text

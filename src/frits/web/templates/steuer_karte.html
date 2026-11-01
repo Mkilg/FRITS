@@ -55,7 +55,7 @@
   {# Mitte: die schwebende Insel #}
   <section class="sq-meer" aria-label="Deine Insel">
     {% set n = provinzen | length %}
-    <div class="sq-insel zeitalter-{{ zeitalter[0] }}{% if insel_bild %} mit-bild{% endif %}" style="--hoehe: {{ 430 + [0, n - 6] | max * 22 }}px; --massstab: {{ 1 if n <= 8 else (0.82 if n <= 13 else 0.7) }}{% if insel_bild %}; --insel-bild: url({{ insel_bild }}){% endif %}">
+    <div class="sq-insel zeitalter-{{ zeitalter[0] }}{% if zweifel and zeitalter[0] == 2 %} silber{% endif %}{% if insel_bild %} mit-bild{% endif %}" style="--hoehe: {{ 430 + [0, n - 6] | max * 22 }}px; --massstab: {{ 1 if n <= 8 else (0.82 if n <= 13 else 0.7) }}{% if insel_bild %}; --insel-bild: url({{ insel_bild }}){% endif %}">
       <div class="sq-insel-fels"></div>
       <div class="sq-insel-gras"></div>
       {% if zeitalter[0] == 0 %}{% for i in range(8) %}<span class="sq-wirbel" style="--i: {{ i }}" aria-hidden="true"></span>{% endfor %}
@@ -72,7 +72,7 @@
     </div>
     <div class="sq-insel-schatten"></div>
     {% set hort_wach = drache_wach and not drache.besiegt %}
-    <a class="sq-hort{% if not drache_wach %} schlaeft{% elif hort_wach %} wach{% endif %}{% if auftrag.art == 'drache' %} auftragsziel{% endif %}" href="/steuer/{{ jahr }}/drache">
+    <a class="sq-hort sq-hort-insel{% if not drache_wach %} schlaeft{% elif hort_wach %} wach{% endif %}{% if auftrag.art == 'drache' %} auftragsziel{% endif %}" href="/steuer/{{ jahr }}/drache">
       {% if auftrag.art == "drache" %}<span class="sq-leuchtfeuer" aria-hidden="true"><span>Hier weiter</span></span>{% endif %}
       <span class="sq-drache-klein">{% include "_steuer_drache.html" %}</span>
       {% if drache.stimmung == "schläfrig" %}<span class="sq-zzz" aria-hidden="true">z z Z</span>{% endif %}
@@ -82,6 +82,14 @@
 
   {# Rechts: Fritte, Vorjahr, Orden #}
   <aside class="sq-rand" aria-label="Fritte und Notizen">
+    {% if drache_wach and not drache.besiegt %}
+    {# Der wache Drache steht neben der Insel, nicht darauf: so verdeckt er keine Provinz #}
+    <a class="sq-hort sq-hort-rand wach{% if auftrag.art == 'drache' %} auftragsziel{% endif %}" href="/steuer/{{ jahr }}/drache">
+      {% if auftrag.art == "drache" %}<span class="sq-leuchtfeuer" aria-hidden="true"><span>Hier weiter</span></span>{% endif %}
+      <span class="sq-drache-klein">{% include "_steuer_drache.html" %}</span>
+      <span class="sq-schild"><strong>Drachenhort</strong><small>Wach! {{ drache.lp }} Karte{{ "n" if drache.lp != 1 }} übrig</small></span>
+    </a>
+    {% endif %}
     <div class="sq-fritte-platz">
       {% set stimmung = fritte %}{% include "_steuer_fritte.html" %}
       <p class="sq-sprechblase">{{ tipp }}</p>
