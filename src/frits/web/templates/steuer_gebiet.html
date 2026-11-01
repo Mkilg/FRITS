@@ -1,62 +1,99 @@
 {% extends "base.html" %}
 {% block title %}{{ g.titel }} · Steuer-Quest{% endblock %}
-{% block head %}<link rel="stylesheet" href="/static/steuer.css">{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/steuer.css"><script src="/static/steuer.js" defer></script>{% endblock %}
 {% block content %}
-<div class="sq">
+{% set tisch = bild("tisch") %}
+<div class="sq sq-tisch" data-klang="{{ 'an' if klang else 'aus' }}" {% if tisch %}style="--tisch-bild: url({{ tisch }})"{% endif %}>
 {% include "_steuer_kopf.html" %}
-<p><a href="/steuer/{{ jahr }}">Zur Karte</a></p>
-<section class="sq-buehne">
-  <div class="bild bild-gross" style="background-image: url(/static/steuer/{{ g.provinz.key }}-{{ provinzstand.stand.stufe }}.png)"><span>{{ g.titel }}</span></div>
-  <div>
-    <h1>{{ g.titel }} <span class="muted">· {{ g.bereich }}</span></h1>
-    <p><span class="sq-balken"><span style="width: {{ provinzstand.stand.prozent }}%"></span></span>
-      {{ provinzstand.stand.erledigt }} von {{ provinzstand.stand.gesamt }} · {{ provinzstand.stufe_name }}</p>
-    {% if vorjahr %}
-    {% set fehlt = vorjahr | rejectattr("jetzt", "in", ["gesammelt", "gibts_nicht", "fragen"]) | list %}
-    <p class="sq-sprechblase">{% if fehlt %}Letztes Jahr lagen hier {{ vorjahr | length }} Schriftstücke. Es fehlen noch {{ fehlt | length }} bis zum Stand vom Vorjahr.{% else %}Alles vom letzten Jahr ist wieder da. Stark!{% endif %}</p>
-    {% endif %}
-    <p class="muted">Was fehlt, ist nicht schlimm: Du kannst es einfach als Frage mitschicken.</p>
-  </div>
-</section>
+{% set zurueck = "/steuer/" ~ jahr ~ "/gebiet/" ~ g.id %}
+{% set schild = {"gesammelt": "Gesichert", "gibts_nicht": "Gibt's nicht", "fragen": "Frage"} %}
 
-<ul class="sq-stuecke">
-  {% for s in eigene %}
-  <li class="sq-stueck status-{{ s.status }}">
-    <div class="sq-stueck-kopf">
-      <span class="sq-status">{{ {"offen": "Im Nebel", "gesammelt": "Gesichert", "gibts_nicht": "Gibt's nicht", "fragen": "Frage"}[s.status] }}</span>
-      {% if s.wunsch %}<span class="badge">Wunsch deiner Beraterin</span>{% endif %}
-      {% if s.herkunft == "vorjahr" %}<span class="badge">vom Vorjahr</span>{% endif %}
+<div class="sq-nah">
+  {# Links: die Provinz von nah #}
+  <aside class="sq-nah-insel">
+    <a class="sq-zurueck" href="/steuer/{{ jahr }}">← Zur Insel</a>
+    <div class="sq-mini-insel">
+      <div class="sq-insel-fels"></div><div class="sq-insel-gras"></div>
+      {% set p = provinzstand %}{% set lage = none %}{% include "_steuer_parzelle.html" %}
     </div>
-    <strong>{{ s.name }}</strong>
-    {% if s.hinweis %}<span class="muted">{{ s.hinweis }}</span>{% endif %}
-    {% if s.frage %}<span>Frage: {{ s.frage }}</span>{% endif %}
-    {% for d in s.datei_liste %}
-    <form method="post" action="/steuer/{{ jahr }}/datei/{{ d.id }}/entfernen" class="sq-datei">
-      <input type="hidden" name="token" value="{{ token }}">
-      <input type="hidden" name="back" value="/steuer/{{ jahr }}/gebiet/{{ g.id }}">
-      <span>{{ d.original }}</span><button class="tiny quiet" title="Zurück ins Lager">zurück ins Lager</button>
-    </form>
+    <h1>{{ g.titel }}</h1>
+    <p class="bereich">{{ g.bereich }}{% if g.provinz.anlage %} · {{ g.provinz.anlage }}{% endif %}</p>
+    <p class="bereich">{{ provinzstand.stand.erledigt }} von {{ provinzstand.stand.gesamt }} · {{ provinzstand.stufe_name }}</p>
+    <div class="sq-fritte-platz">
+      {% set fehlt = vorjahr | rejectattr("jetzt", "in", ["gesammelt", "gibts_nicht", "fragen"]) | list %}
+      {% set stimmung = "done" if provinzstand.stand.siegel else ("thinking" if fehlt else "welcome") %}
+      {% include "_steuer_fritte.html" %}
+      <p class="sq-sprechblase">{% if provinzstand.stand.siegel %}Komplett! Diese Provinz trägt ihr Siegel.{% elif fehlt %}Letztes Jahr lagen hier {{ vorjahr | length }} Schriftstücke. Bis zum Vorjahr fehl{{ "t" if fehlt | length == 1 else "en" }} noch {{ fehlt | length }}.{% elif vorjahr %}Alles vom letzten Jahr ist wieder da. Stark!{% else %}Zieh Dateien direkt auf eine Karte. Was es nicht gibt, stempelst du einfach ab.{% endif %}</p>
+    </div>
+  </aside>
+
+  {# Mitte: die Akte, eine Papierkarte pro Sammelstück #}
+  <ul class="sq-akte" aria-label="Sammelstücke">
+    {% for s in eigene %}
+    <li class="sq-karte status-{{ s.status }}{% if s.art == 'bonus' %} bonus{% endif %}" style="--r: {{ [-1.2, 0.8, -0.4, 1.1, -0.9][loop.index0 % 5] }}deg" data-stueck="{{ s.id }}">
+      <div class="sq-etiketten">
+        {% if s.art == "bonus" %}<span class="sq-etikett schatz" title="Freiwillig. Kann Steuern sparen, blockiert nie deinen Sieg.">Bonus-Schatz</span>{% endif %}
+        {% if s.wunsch %}<span class="sq-etikett wunsch">Wunsch der Beraterin</span>{% endif %}
+        {% if s.herkunft == "vorjahr" %}<span class="sq-etikett vorjahr">wie letztes Jahr</span>{% endif %}
+      </div>
+      {% if s.status in schild %}<span class="sq-abdruck {{ s.status }}">{{ schild[s.status] }}</span>{% endif %}
+      <h3>{{ s.name }}</h3>
+      {% if s.hinweis %}<p class="hinweis">{{ s.hinweis }}</p>{% endif %}
+      {% if s.frage %}<p class="hinweis"><strong>Deine Frage:</strong> {{ s.frage }}</p>{% endif %}
+      {% if s.datei_liste %}
+      <ul class="sq-dateien">
+        {% for d in s.datei_liste %}
+        <li><span>{{ d.original }}</span>
+          <form method="post" action="/steuer/{{ jahr }}/datei/{{ d.id }}/entfernen">
+            <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back" value="{{ zurueck }}">
+            <button class="quiet" title="Zurück in den Eingangskorb">zurücklegen</button>
+          </form></li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      <form method="post" action="/steuer/{{ jahr }}/stueck/{{ s.id }}/datei" enctype="multipart/form-data" class="sq-ablage" data-stempel="GESICHERT" data-auto>
+        <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back" value="{{ zurueck }}">
+        <label class="fach">{{ "Noch eine Datei dazulegen" if s.status == "gesammelt" else "Datei hierher ziehen oder auswählen" }}<input type="file" name="datei" multiple></label>
+        <button class="sq-stempelknopf gruen sq-ohne-js">Sichern</button>
+      </form>
+      {% if s.status != "gesammelt" %}
+      <div class="sq-aktionen">
+        {% if s.status == "offen" %}
+        <form method="post" action="/steuer/{{ jahr }}/stueck/{{ s.id }}/status" data-stempel="GIBT'S NICHT" data-farbe="grau">
+          <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back" value="{{ zurueck }}">
+          <button class="sq-stempelknopf grau" name="status" value="gibts_nicht">Gibt's nicht</button>
+        </form>
+        <details>
+          <summary>Lieber fragen …</summary>
+          <form method="post" action="/steuer/{{ jahr }}/stueck/{{ s.id }}/status" data-stempel="FRAGE" data-farbe="blau">
+            <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back" value="{{ zurueck }}">
+            <input name="frage" placeholder="Deine Frage (darf leer bleiben)" aria-label="Frage an die Beraterin">
+            <button class="sq-stempelknopf" name="status" value="fragen">Fragen</button>
+          </form>
+        </details>
+        {% else %}
+        <form method="post" action="/steuer/{{ jahr }}/stueck/{{ s.id }}/status">
+          <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back" value="{{ zurueck }}">
+          <button class="quiet" name="status" value="offen">Stempel zurücknehmen</button>
+        </form>
+        {% endif %}
+      </div>
+      {% endif %}
+    </li>
     {% endfor %}
-    <form method="post" action="/steuer/{{ jahr }}/stueck/{{ s.id }}/datei" enctype="multipart/form-data" class="sq-ablegen">
-      <input type="hidden" name="token" value="{{ token }}">
-      <label>Datei ablegen <input type="file" name="datei" multiple></label>
-      <button class="tiny">Sichern</button>
-    </form>
-    {% if s.status != "gesammelt" %}
-    <div class="row">
-      <form method="post" action="/steuer/{{ jahr }}/stueck/{{ s.id }}/status">
-        <input type="hidden" name="token" value="{{ token }}">
-        <button class="tiny" name="status" value="{{ 'offen' if s.status == 'gibts_nicht' else 'gibts_nicht' }}">{{ "Doch nicht" if s.status == "gibts_nicht" else "Gibt's nicht" }}</button>
-      </form>
-      <form method="post" action="/steuer/{{ jahr }}/stueck/{{ s.id }}/status" class="sq-frage">
-        <input type="hidden" name="token" value="{{ token }}">
-        <input name="frage" placeholder="Deine Frage (optional)" value="{{ s.frage }}" aria-label="Frage an die Beraterin">
-        <button class="tiny" name="status" value="fragen">Lieber fragen</button>
-      </form>
-    </div>
+  </ul>
+
+  {# Rechts: Eingangskorb, Zettel auf Karten ziehen #}
+  <aside class="sq-rand sq-korb" aria-label="Eingangskorb">
+    <h2 class="sq-rand-titel">Eingangskorb</h2>
+    {% if lager %}
+    <p>Zieh einen Zettel auf die passende Karte.</p>
+    {% include "_steuer_zettel.html" %}
+    {% else %}
+    <p class="sq-leer">Leer. Du kannst Dateien auch direkt vom Schreibtisch auf eine Karte ziehen.</p>
     {% endif %}
-  </li>
-  {% endfor %}
-</ul>
+    <a class="sq-ding" href="/steuer/{{ jahr }}/beraterin"><span class="sq-ding-bild brief"></span><span><strong>Post von der Beraterin?</strong>Mail einfügen</span></a>
+  </aside>
+</div>
 </div>
 {% endblock %}

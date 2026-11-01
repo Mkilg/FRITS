@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS steuer_stuecke (
     herkunft TEXT NOT NULL DEFAULT 'katalog',   -- katalog | beraterin | vorjahr
     wunsch INTEGER NOT NULL DEFAULT 0,          -- 1: die Beraterin hat danach gefragt
     frage TEXT NOT NULL DEFAULT '',             -- eigene Frage an die Beraterin
+    art TEXT NOT NULL DEFAULT 'pflicht',        -- pflicht | bonus (Bonus blockiert nie den Sieg)
     geaendert TEXT NOT NULL,
     UNIQUE (jahr, gebiet, key)
 );
@@ -99,19 +100,28 @@ def start(conn: sqlite3.Connection, profil: Profil) -> list[Gebiet]:
     gebiete = reich(profil)
     ids = {g.id for g in gebiete}
     with transaction(conn):
+        erwartet = set()
         for g in gebiete:
-            for s in g.provinz.stuecke:
+            for s in g.stuecke:
+                erwartet.add((g.id, s.key))
                 conn.execute(
-                    "INSERT OR IGNORE INTO steuer_stuecke (jahr, gebiet, key, name, hinweis, geaendert)"
-                    " VALUES (?, ?, ?, ?, ?, ?)",
-                    (profil.jahr, g.id, s.key, s.name, s.hinweis, _now()),
+                    "INSERT OR IGNORE INTO steuer_stuecke"
+                    " (jahr, gebiet, key, name, hinweis, art, geaendert)"
+                    " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (profil.jahr, g.id, s.key, s.name, s.hinweis, s.art, _now()),
                 )
         _vom_vorjahr(conn, profil.jahr, ids)
+        # Was laut Fragebogen nicht mehr dazugehört, verschwindet, solange es unberührt ist.
         rows = conn.execute(
-            "SELECT id, gebiet FROM steuer_stuecke WHERE jahr = ?", (profil.jahr,)
+            "SELECT id, gebiet, key, herkunft, status FROM steuer_stuecke WHERE jahr = ?",
+            (profil.jahr,),
         ).fetchall()
         for row in rows:
-            if row["gebiet"] in ids:
+            if row["gebiet"] in ids and (
+                row["herkunft"] != "katalog" or (row["gebiet"], row["key"]) in erwartet
+            ):
+                continue
+            if row["gebiet"] in ids and row["status"] != "offen":
                 continue
             has_files = conn.execute(
                 "SELECT 1 FROM steuer_dateien WHERE stueck_id = ?", (row["id"],)

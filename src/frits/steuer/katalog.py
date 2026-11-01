@@ -1,7 +1,9 @@
 """Der Fragebogen und der Katalog: welche Provinzen es gibt und was dort gesammelt wird.
 
 Der Katalog liegt in katalog.toml, damit man ihn ohne Programmieren ergänzen kann.
-Aus den Antworten im Fragebogen (Profil) wird die Liste der Provinzen für ein Steuerjahr.
+Aus den Antworten im Fragebogen (Profil) wird die Liste der Gebiete für ein Steuerjahr.
+Das passt für jede Lebenslage: nur Gehalt, mehrere Firmen, Wohnungen und Büros,
+verheiratet mit gemeinsamer Erklärung oder allein.
 """
 
 from __future__ import annotations
@@ -14,23 +16,57 @@ from pathlib import Path
 
 import tomli_w
 
+PFLICHT = "pflicht"
+BONUS = "bonus"
+
+FAMILIENSTAND = {
+    "ledig": "ledig",
+    "verheiratet": "verheiratet oder eingetragene Lebenspartnerschaft",
+    "getrennt": "getrennt lebend",
+    "geschieden": "geschieden",
+    "verwitwet": "verwitwet",
+}
+
+# Teil 3 des Fragebogens: Ausgaben, die Steuern sparen können (Bonus-Schätze),
+# und ein paar Lebenslagen, die einzelne Sammelstücke freischalten.
+HAKEN = {
+    "vorsorge": "Versicherungen und Altersvorsorge (Kranken-, Renten-, Haftpflichtversicherung)",
+    "spenden": "Spenden oder Mitgliedsbeiträge",
+    "haushalt": "Handwerker, Putz- oder Gartenhilfe im eigenen Haushalt",
+    "sanierung": "Energetische Sanierung am selbst bewohnten Haus",
+    "krankheit": "Hohe Krankheitskosten (Zahnersatz, Brille, Therapie)",
+    "pflege": "Pflege, Pflegegrad oder Behinderung",
+    "unterhalt": "Unterhalt an Angehörige gezahlt",
+    "umzug": "Beruflich bedingter Umzug",
+    "arbeit": "Kosten für die Arbeit als Angestellte:r (Laptop, Fahrten, Fortbildung)",
+    "steuerberatung": "Rechnung der Steuerberatung vom letzten Jahr",
+    "kirche": "Kirchenmitglied",
+    "kinder_betreuung": "Kinderbetreuung (Kita, Tagesmutter, Hort)",
+    "kinder_schulgeld": "Schulgeld für eine Privatschule",
+    "kinder_ausbildung": "Kind über 18 in Ausbildung oder Studium",
+}
+
 
 @dataclass(frozen=True)
 class Stueck:
     key: str
     name: str
     hinweis: str = ""
+    art: str = PFLICHT  # pflicht | bonus
+    wenn: str = ""  # nur dabei, wenn dieser Haken im Fragebogen gesetzt ist
 
 
 @dataclass(frozen=True)
 class Provinz:
     key: str
     name: str  # Spielname, z. B. "Gehöft"
-    bereich: str  # Klartext, z. B. "Vermietung"
+    bereich: str  # Klartext, z. B. "Vermietete Wohnung"
     frage: str  # welche Antwort im Fragebogen diese Provinz freischaltet
     stuecke: tuple[Stueck, ...]
     woerter: tuple[str, ...] = ()
-    pro_einheit: bool = False
+    zaehlbar: bool = False  # eine Provinz pro Stück (Wohnung, Arbeitgeber, Firma ...)
+    person: bool = False  # gehört einer Person, nicht beiden
+    anlage: str = ""
 
 
 @cache
@@ -47,35 +83,53 @@ def katalog() -> dict[str, Provinz]:
             frage=p["frage"],
             stuecke=tuple(Stueck(**s) for s in p["stuecke"]),
             woerter=tuple(p.get("woerter", ())),
-            pro_einheit=p.get("pro_einheit", False),
+            zaehlbar=p.get("zaehlbar", False),
+            person=p.get("person", False),
+            anlage=p.get("anlage", ""),
         )
     return result
 
 
+def fragen() -> list[Provinz]:
+    """Die Provinzen, nach denen Teil 2 des Fragebogens fragt (ohne die immer dabei sind)."""
+    return [p for p in katalog().values() if p.frage not in ("immer", "kinder")]
+
+
 @dataclass
 class Profil:
-    """Die Antworten aus dem Fragebogen. Gilt für dich, Fritz und alle anderen."""
+    """Die Antworten aus dem Fragebogen."""
 
     jahr: int
-    selbststaendig: bool = False
-    gesellschaft: bool = False
-    angestellt: bool = False
-    wohnungen: int = 0
-    depot_inland: bool = False
-    depot_ausland: bool = False
-    familie: bool = False
+    name: str = ""
+    partner: str = ""
+    familienstand: str = "ledig"
+    zusammen: bool = False  # gemeinsame Erklärung mit Ehe- oder Lebenspartner:in
+    kinder: int = 0
+    mengen: dict[str, list[int]] = field(default_factory=dict)  # frage -> [du, partner]
+    haken: list[str] = field(default_factory=list)
     umsatzsteuer: str = "keine"  # keine | monatlich | quartal
     beraterin_email: str = ""
-    name: str = ""
-    extra: dict[str, str] = field(default_factory=dict)
+    beraterin_termin: str = ""
 
-    def antwort(self, frage: str) -> int:
-        """Wie oft eine Provinz vorkommt: 0 = gar nicht."""
+    @property
+    def personen(self) -> list[str]:
+        ich = self.name or "Du"
+        return [ich, self.partner or "Partner:in"] if self.zusammen else [ich]
+
+    def anzahl(self, frage: str) -> list[int]:
+        """Wie viele Provinzen pro Person (bei gemeinsamer Erklärung zwei Zahlen)."""
         if frage == "immer":
-            return 1
-        if frage == "vermietung":
-            return max(0, self.wohnungen)
-        return 1 if getattr(self, frage, False) else 0
+            return [1]
+        if frage == "kinder":
+            return [1 if self.kinder > 0 else 0]
+        werte = list(self.mengen.get(frage, []))
+        werte += [0] * (2 - len(werte))
+        return [max(0, int(werte[0])), max(0, int(werte[1])) if self.zusammen else 0]
+
+    def hat(self, haken: str) -> bool:
+        if haken == "umsatzsteuer":
+            return self.umsatzsteuer != "keine"
+        return haken in self.haken
 
     @classmethod
     def load(cls, path: Path) -> Profil | None:
@@ -92,34 +146,66 @@ class Profil:
 
 @dataclass(frozen=True)
 class Gebiet:
-    """Eine Provinz im eigenen Reich, z. B. "Gehöft 2"."""
+    """Eine Provinz im eigenen Reich, z. B. "Gehöft 2" oder "Kaserne (Alex)"."""
 
-    id: str  # "gehoeft-2"
+    id: str  # "gehoeft-2", "kaserne-p2-1"
     provinz: Provinz
     nummer: int = 0  # 0 = gibt es nur einmal
+    person: int | None = None  # 0 = du, 1 = Partner:in, None = gemeinsam
+    wappen: str = ""  # Name der Person, wenn es zwei gibt
+    stuecke: tuple[Stueck, ...] = ()
+    zeige_nummer: bool = False
 
     @property
     def titel(self) -> str:
-        return f"{self.provinz.name} {self.nummer}" if self.nummer else self.provinz.name
+        titel = self.provinz.name
+        if self.zeige_nummer:
+            titel += f" {self.nummer}"
+        if self.wappen:
+            titel += f" ({self.wappen})"
+        return titel
 
     @property
     def bereich(self) -> str:
-        return (
-            f"{self.provinz.bereich} · Nr. {self.nummer}" if self.nummer else self.provinz.bereich
-        )
+        teile = [self.provinz.bereich]
+        if self.zeige_nummer:
+            teile.append(f"Nr. {self.nummer}")
+        if self.wappen:
+            teile.append(self.wappen)
+        return " · ".join(teile)
 
 
 def reich(profil: Profil) -> list[Gebiet]:
     """Alle Gebiete, die der Fragebogen freischaltet, in fester Reihenfolge."""
     gebiete = []
+    zwei = profil.zusammen
     for provinz in katalog().values():
-        anzahl = profil.antwort(provinz.frage)
-        if not anzahl:
+        stuecke = tuple(s for s in provinz.stuecke if not s.wenn or profil.hat(s.wenn))
+        if not stuecke:
             continue
-        if provinz.pro_einheit:
-            gebiete += [Gebiet(f"{provinz.key}-{n}", provinz, n) for n in range(1, anzahl + 1)]
-        else:
-            gebiete.append(Gebiet(provinz.key, provinz))
+        anzahl = profil.anzahl(provinz.frage)
+        if not provinz.person:
+            anzahl = [sum(anzahl)]
+        for p, wie_viele in enumerate(anzahl):
+            if not provinz.zaehlbar:
+                wie_viele = min(wie_viele, 1)
+            for n in range(1, wie_viele + 1):
+                gid = provinz.key
+                if p == 1:
+                    gid += "-p2"
+                if provinz.zaehlbar:
+                    gid += f"-{n}"
+                gebiete.append(
+                    Gebiet(
+                        id=gid,
+                        provinz=provinz,
+                        nummer=n if provinz.zaehlbar else 0,
+                        person=p if provinz.person else None,
+                        wappen=profil.personen[p] if provinz.person and zwei else "",
+                        stuecke=stuecke,
+                        zeige_nummer=provinz.zaehlbar and wie_viele > 1,
+                    )
+                )
     return gebiete
 
 

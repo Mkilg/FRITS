@@ -1,0 +1,41 @@
+{# Zettel aus dem Lager: ziehbar auf eine Provinz oder Karte. Ohne JavaScript: aufklappen und auswählen.
+   Erwartet: lager, provinzen, jahr, token, zurueck #}
+<div class="sq-stapel">
+  {% for f in lager[:12] %}
+  {% set endung = f.suffix.lower().lstrip(".") %}
+  <details class="sq-zettel" style="--r: {{ [-2.5, 1.5, -1, 2.2, -1.8, 0.8][loop.index0 % 6] }}deg" data-name="{{ f.name }}">
+    <summary draggable="true" title="Auf eine Provinz ziehen"><span class="art{% if endung in ['jpg', 'jpeg', 'png', 'heic'] %} bild{% endif %}">{{ (endung or "?")[:4] | upper }}</span><strong>{{ f.name }}</strong><small>ziehen oder klicken</small></summary>
+    <form method="post" action="/steuer/{{ jahr }}/lager/zuordnen" data-stempel="GESICHERT">
+      <input type="hidden" name="token" value="{{ token }}">
+      <input type="hidden" name="name" value="{{ f.name }}">
+      <input type="hidden" name="back" value="{{ zurueck }}">
+      <label>Wohin gehört das?
+        <select name="stueck_id" required>
+          <option value="">Bitte wählen</option>
+          {% for p in provinzen %}<optgroup label="{{ p.gebiet.titel }}">
+            {% for s in p.stuecke %}<option value="{{ s.id }}">{{ s.name }}{% if s.status == "gesammelt" %} (hat schon was){% endif %}</option>{% endfor %}
+          </optgroup>{% endfor %}
+        </select></label>
+      <button class="sq-stempelknopf gruen">Stempeln</button>
+    </form>
+  </details>
+  {% endfor %}
+  {% if lager | length > 12 %}<p>… und {{ lager | length - 12 }} weitere.</p>{% endif %}
+</div>
+
+{# Ein gemeinsamer Dialog für das Ziehen mit der Maus #}
+<dialog class="sq-dialog" id="sq-ablage">
+  <form method="post" action="/steuer/{{ jahr }}/lager/zuordnen" class="sq-papier" data-stempel="GESICHERT">
+    <input type="hidden" name="token" value="{{ token }}">
+    <input type="hidden" name="name" value="">
+    <input type="hidden" name="back" value="{{ zurueck }}">
+    <h2>Wohin gehört <span data-feld="name">der Zettel</span>?</h2>
+    <p class="muted" data-feld="ort">Wähle das passende Fach. Ich stempel es dann ab.</p>
+    <div class="sq-wahl">
+      {% for p in provinzen %}{% for s in p.stuecke %}
+      <button name="stueck_id" value="{{ s.id }}" data-gebiet="{{ p.gebiet.id }}">{{ s.name }}<small>{{ p.gebiet.titel }}{% if s.status == "gesammelt" %} · hat schon eine Datei{% endif %}{% if s.art == "bonus" %} · Bonus-Schatz{% endif %}</small></button>
+      {% endfor %}{% endfor %}
+    </div>
+    <button type="button" class="quiet" data-schliessen>Doch nicht</button>
+  </form>
+</dialog>

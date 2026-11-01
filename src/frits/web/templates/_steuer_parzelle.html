@@ -1,0 +1,20 @@
+{# Eine Provinz als kleines Diorama. Erwartet: p (Provinzstand), jahr, bild(), optional lage=(x, y) #}
+{% set g = p.gebiet %}{% set stufe = p.stand.stufe %}{% set gemalt = bild(g.provinz.key ~ "-" ~ stufe) %}
+<a class="sq-parzelle stufe-{{ stufe }}{% if p.stand.siegel %} siegel{% endif %}" href="/steuer/{{ jahr }}/gebiet/{{ g.id }}" data-gebiet="{{ g.id }}" data-titel="{{ g.titel }}"
+   {% if lage %}style="--x: {{ lage[0] }}%; --y: {{ lage[1] }}%; --zeile: {{ (lage[1] | int) }}"{% endif %}
+   aria-label="{{ g.titel }}: {{ p.stand.erledigt }} von {{ p.stand.gesamt }}, {{ p.stufe_name }}">
+  <span class="sq-diorama">
+    {% if gemalt %}<img src="{{ gemalt }}" alt="">{% else %}
+    <span class="sq-boden"></span>
+    {% if g.provinz.key == "hafen" %}<span class="sq-wasser"></span>{% endif %}
+    <span class="sq-haus haus-{{ g.provinz.key }}"><i class="pfahl"></i><i class="pfahl"></i><i class="kiste"></i><i class="baum"></i><i class="seite"></i><i class="wand"></i><i class="dachseite"></i><i class="dach"></i><i class="rauch"></i><i class="fahne"></i><i class="blumen"></i></span>
+    {% endif %}
+    <span class="sq-nebel"></span>
+  </span>
+  <span class="sq-schild"><strong>{{ g.titel }}</strong>
+    <span class="sq-perlen" aria-hidden="true">{% for s in p.stuecke if s.art != "bonus" or not (p.stuecke | rejectattr("art", "equalto", "bonus") | list) %}<i class="{{ {'gesammelt': 'voll', 'fragen': 'frage', 'gibts_nicht': 'nicht'}.get(s.status, '') }}"></i>{% endfor %}</span>
+  </span>
+  {% if g.wappen %}<span class="sq-wappen{% if g.person == 1 %} p2{% endif %}" title="{{ g.wappen }}">{{ g.wappen[:1] }}</span>{% endif %}
+  {% if p.schaetze %}<span class="sq-muenze" title="{{ p.schaetze }} Bonus-Schatz gefunden">+{{ p.schaetze }}</span>{% endif %}
+  {% if p.stand.siegel %}<span class="sq-wachs" title="Gold-Siegel: komplett">✓</span>{% endif %}
+</a>

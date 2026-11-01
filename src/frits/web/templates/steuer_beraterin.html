@@ -1,28 +1,29 @@
 {% extends "base.html" %}
 {% block title %}Botschaft der Beraterin · Steuer-Quest{% endblock %}
-{% block head %}<link rel="stylesheet" href="/static/steuer.css">{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/steuer.css"><script src="/static/steuer.js" defer></script>{% endblock %}
 {% block content %}
-<div class="sq">
+{% set tisch = bild("tisch") %}
+<div class="sq sq-tisch" data-klang="{{ 'an' if klang else 'aus' }}" {% if tisch %}style="--tisch-bild: url({{ tisch }})"{% endif %}>
 {% include "_steuer_kopf.html" %}
-<p><a href="/steuer/{{ jahr }}">Zur Karte</a></p>
-<div class="sq-spalten">
-  <form method="post" action="/steuer/{{ jahr }}/beraterin" class="sq-rahmen">
+<div class="sq-bote">
+  <form method="post" action="/steuer/{{ jahr }}/beraterin" class="sq-papier sq-brief">
     <input type="hidden" name="token" value="{{ token }}">
-    <h1>Ein Bote ist eingetroffen!</h1>
-    <label class="field">Mail deiner Beraterin hier einfügen
-      <textarea name="text" rows="12">{{ text }}</textarea></label>
-    <p class="muted">Die Mail wird nur hier auf deinem Computer gelesen. Keine KI, kein Internet.</p>
-    <button class="primary sq-gold">Botschaft entschlüsseln</button>
+    <h1>Ein Brief ist eingetroffen</h1>
+    <label class="sr-only" for="sq-brieftext">Mail deiner Beraterin</label>
+    <textarea id="sq-brieftext" name="text" rows="14" placeholder="Füge hier die Mail deiner Beraterin ein, zum Beispiel ihre Liste, was sie dieses Jahr braucht.">{{ text }}</textarea>
+    <p><button class="sq-siegelknopf">Siegel brechen und lesen</button></p>
+    <p class="muted">Ich lese die Mail nur hier auf deinem Computer. Keine KI, kein Internet.</p>
   </form>
-  <aside class="sq-seite">
-    <div class="bild" style="background-image: url(/static/steuer/bote.png)"><span>Bote mit Schriftrolle</span></div>
+  <aside class="sq-rand">
+    <a class="sq-zurueck" href="/steuer/{{ jahr }}">← Zur Insel</a>
+    <div class="sq-fritte-platz">
+      {% set stimmung = "done" if ergebnis else "thinking" %}{% include "_steuer_fritte.html" %}
+      <p class="sq-sprechblase">{% if ergebnis %}{{ ergebnis | length }} Aufträge! Ich habe sie auf die passenden Provinzen gelegt.{% else %}Aufzählungen kann ich am besten lesen. Jeder Punkt wird ein Auftrag auf deiner Insel.{% endif %}</p>
+    </div>
     {% if ergebnis %}
-    <section class="sq-rahmen">
-      <h2>{{ ergebnis | length }} Aufträge</h2>
-      <ul class="plain">
-        {% for e in ergebnis %}<li><strong>{{ e.text }}</strong><br><span class="muted">{{ e.wo }} · {{ "neues Sammelstück" if e.neu else "markiert" }}</span></li>{% endfor %}
-      </ul>
-    </section>
+    <ul class="sq-auftraege">
+      {% for e in ergebnis %}<li style="--i: {{ loop.index0 }}; --r: {{ [-1, 0.8, -0.5, 1.2][loop.index0 % 4] }}deg"><strong>{{ e.text }}</strong><br><span class="muted">{{ e.wo }} · {{ "neue Karte" if e.neu else "Karte markiert" }}</span></li>{% endfor %}
+    </ul>
     {% endif %}
   </aside>
 </div>

@@ -63,6 +63,15 @@ class Stand:
         return self.gesamt > 0 and self.offen == 0
 
 
+def ist_bonus(s: dict) -> bool:
+    return s.get("art", "pflicht") == "bonus"
+
+
+def pflicht(stuecke: list[dict]) -> list[dict]:
+    """Nur die Pflicht-Stücke. Bonus-Schätze zählen nie gegen dich."""
+    return [s for s in stuecke if not ist_bonus(s)]
+
+
 def stand(stuecke: list[dict]) -> Stand:
     return Stand(
         gesamt=len(stuecke),
@@ -75,20 +84,31 @@ def stand(stuecke: list[dict]) -> Stand:
 @dataclass(frozen=True)
 class Provinzstand:
     gebiet: Gebiet
-    stand: Stand
+    stand: Stand  # über die Pflicht-Stücke (oder die Schätze, wenn es nur Schätze gibt)
     stuecke: list[dict]
 
     @property
     def stufe_name(self) -> str:
         return STUFEN[self.stand.stufe]
 
+    @property
+    def schaetze(self) -> int:
+        """Gefundene Bonus-Schätze."""
+        return sum(1 for s in self.stuecke if ist_bonus(s) and s["status"] == "gesammelt")
+
 
 def provinzen(gebiete: list[Gebiet], stuecke: list[dict]) -> list[Provinzstand]:
     result = []
     for g in gebiete:
         eigene = [s for s in stuecke if s["gebiet"] == g.id]
-        result.append(Provinzstand(g, stand(eigene), eigene))
+        basis = pflicht(eigene) or eigene
+        result.append(Provinzstand(g, stand(basis), eigene))
     return result
+
+
+def gesamtstand(stuecke: list[dict]) -> Stand:
+    """Der Fortschritt des ganzen Reichs: nur Pflicht-Stücke zählen."""
+    return stand(pflicht(stuecke))
 
 
 def zeitalter(anteil: float) -> tuple[int, str, str]:
@@ -115,6 +135,7 @@ class Ressourcen:
     briefe: int  # Wünsche der Beraterin
     siegel: int  # fertige Provinzen
     fragen: int
+    gold: int = 0  # gefundene Bonus-Schätze
 
 
 def ressourcen(stuecke: list[dict], provinzstaende: list[Provinzstand]) -> Ressourcen:
@@ -123,6 +144,7 @@ def ressourcen(stuecke: list[dict], provinzstaende: list[Provinzstand]) -> Resso
         briefe=sum(1 for s in stuecke if s["wunsch"]),
         siegel=sum(1 for p in provinzstaende if p.stand.siegel),
         fragen=sum(1 for s in stuecke if s["status"] == "fragen"),
+        gold=sum(1 for s in stuecke if ist_bonus(s) and s["status"] == "gesammelt"),
     )
 
 
@@ -175,10 +197,11 @@ class Drache:
 
 
 def drache(stuecke: list[dict]) -> Drache:
-    karten = [s for s in stuecke if s["status"] == "offen"]
+    pflichten = pflicht(stuecke)
+    karten = [s for s in pflichten if s["status"] == "offen"]
     # Wünsche der Beraterin zuerst, die sind ihr wichtig.
     karten.sort(key=lambda s: (-s["wunsch"], s["id"]))
-    return Drache(lp=len(karten), max_lp=len(stuecke), karten=karten)
+    return Drache(lp=len(karten), max_lp=len(pflichten), karten=karten)
 
 
 def treffer(combo: int, kritisch: bool) -> tuple[int, str]:
@@ -208,7 +231,7 @@ def erfolge(
     brief_gelesen: bool = False,
 ) -> list[Erfolg]:
     r = ressourcen(stuecke, provinzstaende)
-    gesamt = stand(stuecke)
+    gesamt = gesamtstand(stuecke)
     vorjahr_ok = bool(vergleich) and all(v["jetzt"] in ERLEDIGT for v in vergleich)
     return [
         Erfolg("erster-fund", "Erster Fund", "Das erste Dokument ist gesichert.", r.belege >= 1),
@@ -221,6 +244,7 @@ def erfolge(
             "Alles, was letztes Jahr da war, ist wieder da.",
             vorjahr_ok,
         ),
+        Erfolg("schatzsucherin", "Schatzsucherin", "3 Bonus-Schätze gefunden.", r.gold >= 3),
         Erfolg(
             "mutig-gefragt",
             "Mutig gefragt",
@@ -231,7 +255,7 @@ def erfolge(
             "drachenbaendigerin",
             "Drachenbändigerin",
             "Der Papierdrache hat keine Karten mehr.",
-            gesamt.gesamt > 0 and gesamt.offen == 0,
+            gesamt.offen == 0 and bool(stuecke),
         ),
     ]
 

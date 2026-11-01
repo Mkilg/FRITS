@@ -1,88 +1,106 @@
 {% extends "base.html" %}
 {% block title %}Steuer-Quest {{ jahr }}{% endblock %}
-{% block head %}<link rel="stylesheet" href="/static/steuer.css">{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/steuer.css"><script src="/static/steuer.js" defer></script>{% endblock %}
 {% block content %}
-<div class="sq">
+{% set tisch = bild("tisch") %}{% set insel_bild = bild("insel") %}
+<div class="sq sq-tisch" data-klang="{{ 'an' if klang else 'aus' }}" {% if tisch %}style="--tisch-bild: url({{ tisch }})"{% endif %}>
 {% include "_steuer_kopf.html" %}
-<div class="sq-spalten">
-  <section class="sq-karte" aria-label="Deine Provinzen">
-    {% for p in provinzen %}
-    <a class="sq-provinz stufe-{{ p.stand.stufe }}{% if p.stand.siegel %} siegel{% endif %}" href="/steuer/{{ jahr }}/gebiet/{{ p.gebiet.id }}">
-      <div class="bild" style="background-image: url(/static/steuer/{{ p.gebiet.provinz.key }}-{{ p.stand.stufe }}.png)"><span>{{ p.gebiet.titel }}</span></div>
-      <strong>{{ p.gebiet.titel }}</strong>
-      <span class="muted">{{ p.gebiet.bereich }}</span>
-      <span class="sq-balken"><span style="width: {{ p.stand.prozent }}%"></span></span>
-      <span>{% if p.stand.siegel %}Gold-Siegel!{% else %}{{ p.stand.erledigt }} / {{ p.stand.gesamt }} · {{ p.stufe_name }}{% endif %}</span>
-    </a>
-    {% endfor %}
-    <a class="sq-provinz sq-hort" href="/steuer/{{ jahr }}/drache">
-      <div class="bild" style="background-image: url(/static/steuer/drache-{{ drache.stimmung }}.png)"><span>Papierdrache</span></div>
-      <strong>Drachenhort</strong>
-      {% if drache.besiegt %}<span>Besiegt! Die Beute wartet.</span>
-      {% else %}<span>{{ drache.lp }} Karten übrig</span>{% endif %}
+
+<div class="sq-flaeche">
+  {# Links: Eingangskorb und Dinge auf dem Tisch #}
+  <aside class="sq-rand sq-korb" aria-label="Eingangskorb">
+    <div>
+      <h2 class="sq-rand-titel">Eingangskorb</h2>
+      {% if lager %}
+      <p>Zieh jeden Zettel auf die Provinz, zu der er gehört.</p>
+      {% set zurueck = "/steuer/" ~ jahr %}
+      {% include "_steuer_zettel.html" %}
+      {% else %}
+      <p class="sq-leer">Leer. Leg Fotos, PDFs und Mails in deinen Lager-Ordner, dann tauchen sie hier als Zettel auf.</p>
+      {% endif %}
+    </div>
+    {% if not ernte.leer %}
+    <form method="post" action="/steuer/{{ jahr }}/ernte" class="sq-papier sq-schief sq-ernte{% if ernte.neu_gesamt %} frisch{% endif %}" style="--r: -1.4deg" data-stempel="GEERNTET">
+      <input type="hidden" name="token" value="{{ token }}">
+      <h2><span class="sq-ernte-tuete" aria-hidden="true"></span>FRITS-Ernte</h2>
+      <ul>
+        {% if ernte.rechnungen %}<li><b>{{ ernte.rechnungen | length }}</b> Rechnungen{% if ernte.neu.rechnungen %} <em>+{{ ernte.neu.rechnungen }} neu</em>{% endif %}</li>{% endif %}
+        {% if ernte.belege %}<li><b>{{ ernte.belege | length }}</b> Ausgaben-Belege{% if ernte.neu.belege %} <em>+{{ ernte.neu.belege }} neu</em>{% endif %}</li>{% endif %}
+        {% if ernte.euer %}<li>EÜR {{ jahr }}: Gewinn <b>{{ ernte.gewinn }}</b>{% if ernte.neu.euer %} <em>neu</em>{% endif %}</li>{% endif %}
+      </ul>
+      {% if not ernte_ziele %}
+      <p class="muted">Im Fragebogen fehlt noch dein Betrieb. <a href="/steuer/{{ jahr }}/fragebogen?teil=2">Ergänzen</a></p>
+      {% elif ernte.neu_gesamt %}
+      {% if ernte_ziele | length > 1 %}
+      <label>Gehört zu <select name="gebiet">{% for g in ernte_ziele %}<option value="{{ g.id }}">{{ g.titel }}</option>{% endfor %}</select></label>
+      {% else %}<input type="hidden" name="gebiet" value="{{ ernte_ziele[0].id }}"><p class="muted">Kommt in: {{ ernte_ziele[0].titel }}</p>{% endif %}
+      <button class="sq-siegelknopf">Einbringen</button>
+      {% else %}
+      <p class="muted">Alles aus FRITS ist schon auf der Insel. ✓</p>
+      {% endif %}
+    </form>
+    {% endif %}
+    <form method="post" action="/steuer/{{ jahr }}/lager/oeffnen">
+      <input type="hidden" name="token" value="{{ token }}">
+      <button class="sq-ding"><span class="sq-ding-bild kiste"></span><span><strong>Lager-Ordner</strong>öffnen und Dateien hineinlegen</span></button>
+    </form>
+    <a class="sq-ding" href="/steuer/{{ jahr }}/beraterin"><span class="sq-ding-bild brief"></span><span><strong>Post von der Beraterin?</strong>Mail einfügen, ich lese sie</span></a>
+    <a class="sq-ding" href="/steuer/{{ jahr }}/fragebogen"><span class="sq-ding-bild buch"></span><span><strong>Fragebogen</strong>Lebenslage ändern</span></a>
+  </aside>
+
+  {# Mitte: die schwebende Insel #}
+  <section class="sq-meer" aria-label="Deine Insel">
+    {% set n = provinzen | length %}
+    <div class="sq-insel{% if insel_bild %} mit-bild{% endif %}" style="--hoehe: {{ 430 + [0, n - 6] | max * 22 }}px{% if insel_bild %}; --insel-bild: url({{ insel_bild }}){% endif %}">
+      <div class="sq-insel-fels"></div>
+      <div class="sq-insel-gras"></div>
+      <div class="sq-provinzen">
+        {% for p in provinzen %}{% set lage = plan[loop.index0] %}{% include "_steuer_parzelle.html" %}{% endfor %}
+      </div>
+    </div>
+    <div class="sq-insel-schatten"></div>
+    <a class="sq-hort" href="/steuer/{{ jahr }}/drache">
+      <span class="sq-drache-klein">{% include "_steuer_drache.html" %}</span>
+      {% if drache.stimmung == "schläfrig" %}<span class="sq-zzz" aria-hidden="true">z z Z</span>{% endif %}
+      <span class="sq-schild"><strong>Drachenhort</strong><small>{% if drache.besiegt %}Besiegt! Zur Beute{% else %}{{ drache.lp }} Karten übrig{% endif %}</small></span>
     </a>
   </section>
 
-  <aside class="sq-seite">
-    <section class="sq-rahmen">
-      <h2>Lagerhaus</h2>
-      {% if lager %}
-      <p>{{ lager | length }} {{ "Fundstück wartet" if lager | length == 1 else "Fundstücke warten" }} auf dein Urteil:</p>
-      <ul class="sq-lager">
-        {% for f in lager[:6] %}
-        <li>
-          <form method="post" action="/steuer/{{ jahr }}/lager/zuordnen">
-            <input type="hidden" name="token" value="{{ token }}">
-            <input type="hidden" name="name" value="{{ f.name }}">
-            <label><strong>{{ f.name }}</strong>
-            <select name="stueck_id">
-              <option value="">Wohin gehört das?</option>
-              {% for p in provinzen %}<optgroup label="{{ p.gebiet.titel }}">
-                {% for s in p.stuecke %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}
-              </optgroup>{% endfor %}
-            </select></label>
-            <button class="tiny">Einlagern</button>
-          </form>
-        </li>
-        {% endfor %}
-      </ul>
-      {% else %}
-      <p>Leg Fotos, PDFs und Mails in dein Lager. Hier ordnest du sie dann einer Provinz zu.</p>
-      {% endif %}
-      <form method="post" action="/steuer/{{ jahr }}/lager/oeffnen"><input type="hidden" name="token" value="{{ token }}"><button>Lager öffnen</button></form>
-    </section>
+  {# Rechts: Fritte, Vorjahr, Orden #}
+  <aside class="sq-rand" aria-label="Fritte und Notizen">
+    <div class="sq-fritte-platz">
+      {% set stimmung = fritte %}{% include "_steuer_fritte.html" %}
+      <p class="sq-sprechblase">{{ tipp }}</p>
+      <p class="sq-sprechblase" style="font-size: .9rem">Keine Sorge: Was fehlt, kannst du einfach als Frage mitschicken.</p>
+    </div>
 
     {% if vergleich %}
     {% set fehlt = vergleich | rejectattr("jetzt", "in", ["gesammelt", "gibts_nicht", "fragen"]) | list %}
-    <section class="sq-rahmen">
-      <h2>Chronik {{ jahr - 1 }}</h2>
+    <section class="sq-papier sq-schief sq-notiz" style="--r: 1.2deg">
+      <h2>Wie letztes Jahr?</h2>
       {% if fehlt %}
-      <p>Letztes Jahr hattest du {{ vergleich | length }} Sachen. Es fehlen noch {{ fehlt | length }}:</p>
-      <ul class="plain">{% for v in fehlt[:5] %}<li>{{ v.name }}</li>{% endfor %}</ul>
-      {% else %}<p>Alles, was letztes Jahr da war, ist wieder da.</p>{% endif %}
+      <p>{{ jahr - 1 }} hattest du {{ vergleich | length }} Sachen. Noch offen: {{ fehlt | length }}.</p>
+      <ul>{% for v in fehlt[:4] %}<li>{{ v.name }}</li>{% endfor %}</ul>
+      {% else %}<p>Alles, was {{ jahr - 1 }} da war, ist wieder da. Stark!</p>{% endif %}
     </section>
     {% endif %}
 
-    <section class="sq-rahmen">
-      <h2>Botschaft empfangen?</h2>
-      <a class="button" href="/steuer/{{ jahr }}/beraterin">Mail deiner Beraterin einfügen</a>
+    <section aria-label="Orden">
+      <h2 class="sq-rand-titel">Orden</h2>
+      <ul class="sq-orden">
+        {% for e in erfolge %}<li class="{{ '' if e.erreicht else 'aus' }}" title="{{ e.name }}: {{ e.beschreibung }}">{{ e.name[:1] }}<span class="sr-only">{{ e.name }}{% if not e.erreicht %} (noch nicht){% endif %}</span></li>{% endfor %}
+      </ul>
     </section>
 
     {% if chronik %}
-    <section class="sq-rahmen sq-pergament">
+    <section class="sq-papier sq-schief sq-notiz" style="--r: -0.8deg">
       <h2>Chronik</h2>
-      <ul class="plain">{% for e in chronik %}<li>{{ e.text }}</li>{% endfor %}</ul>
+      <ul>{% for e in chronik[:6] %}<li>{{ e.text }}</li>{% endfor %}</ul>
     </section>
     {% endif %}
-
-    <section class="sq-rahmen">
-      <h2>Erfolge</h2>
-      <ul class="sq-erfolge">
-        {% for e in erfolge %}<li class="{{ 'an' if e.erreicht else 'aus' }}" title="{{ e.beschreibung }}">{{ e.name }}</li>{% endfor %}
-      </ul>
-    </section>
-    <p><a href="/steuer/{{ jahr }}/fragebogen">Fragebogen ändern</a> · <a href="/steuer/{{ jahr - 1 }}">Jahr {{ jahr - 1 }}</a> · <a href="/steuer/{{ jahr + 1 }}">Jahr {{ jahr + 1 }}</a></p>
   </aside>
 </div>
+
+<p class="sq-fusszeile"><a href="/steuer/{{ jahr - 1 }}">← Jahr {{ jahr - 1 }}</a><span>Steuerjahr {{ jahr }}{% if profil.beraterin_termin %} · Abgabe bei der Beraterin bis {{ profil.beraterin_termin }}{% endif %}</span><a href="/steuer/{{ jahr + 1 }}">Jahr {{ jahr + 1 }} →</a></p>
 </div>
 {% endblock %}

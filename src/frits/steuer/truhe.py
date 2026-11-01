@@ -137,6 +137,8 @@ def inhaltsverzeichnis(
             continue
         zeilen.append(f"{nr:02d} {g.bereich}")
         for s in eigene:
+            if s.get("art") == "bonus" and s["status"] == "offen":
+                continue  # nicht gesammelte Bonus-Schätze sind kein Thema
             zeilen.append(f"   - {s['name']}: {_STATUS_TEXT[s['status']]}")
             for d in dateien:
                 if d["stueck_id"] == s["id"]:
@@ -193,7 +195,7 @@ def mail(profil: Profil, gebiete: list[Gebiet], stuecke: list[dict]) -> tuple[st
     ]
     gibts_nicht = [s["name"] for s in stuecke if s["status"] == "gibts_nicht"]
     fragen = [s for s in stuecke if s["status"] == "fragen"]
-    offen = [s["name"] for s in stuecke if s["status"] == "offen"]
+    offen = [s["name"] for s in stuecke if s["status"] == "offen" and s.get("art") != "bonus"]
     bereich = {g.id: g.bereich for g in gebiete}
 
     zeilen = [

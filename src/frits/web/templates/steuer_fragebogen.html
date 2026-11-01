@@ -1,48 +1,93 @@
 {% extends "base.html" %}
 {% block title %}Reich gründen · Steuer-Quest{% endblock %}
-{% block head %}<link rel="stylesheet" href="/static/steuer.css">{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/steuer.css"><script src="/static/steuer.js" defer></script>{% endblock %}
 {% block content %}
-<div class="sq">
-<section class="sq-buehne">
-  <div class="bild bild-gross" style="background-image: url(/static/steuer/fritte-ruhig.png)"><span>Fritte, die Kartografin</span></div>
-  <div>
-    <h1>Gründe dein Reich für {{ jahr }}</h1>
-    <p class="sq-sprechblase">„Wähle die Provinzen deines Reiches. Jede bringt eigene Schätze, die wir einsammeln. Falsche Antworten gibt es nicht, alles lässt sich später ändern.“</p>
-  </div>
-</section>
-<form method="post" action="/steuer/{{ jahr }}/fragebogen" class="sq-rahmen">
-  <input type="hidden" name="token" value="{{ token }}">
-  <fieldset class="sq-kacheln">
-    <legend>Was gehört zu deinem Jahr {{ jahr }}?</legend>
-    {% for key, name, text, an in [
-      ("selbststaendig", "Werkstatt", "Selbstständig oder freiberuflich", profil.selbststaendig),
-      ("gesellschaft", "Gilde", "GbR oder andere Gesellschaft", profil.gesellschaft),
-      ("angestellt", "Kaserne", "Angestellt", profil.angestellt),
-      ("vermietung", "Gehöfte", "Vermietung", profil.wohnungen > 0),
-      ("depot_inland", "Schatzkammer", "Depot bei einer deutschen Bank", profil.depot_inland),
-      ("depot_ausland", "Überseehafen", "Depot im Ausland (z. B. US-Broker)", profil.depot_ausland),
-      ("familie", "Dorf", "Kinder, Rente oder Unterhalt", profil.familie),
-    ] %}
-    <label class="sq-kachel"><input type="checkbox" name="ja" value="{{ key }}" {% if an %}checked{% endif %}>
-      <strong>{{ name }}</strong><span>{{ text }}</span></label>
+{% set tisch = bild("tisch") %}
+<div class="sq sq-tisch" data-klang="{{ 'an' if klang else 'aus' }}" {% if tisch %}style="--tisch-bild: url({{ tisch }})"{% endif %}>
+<section class="sq-pergament sq-fragebogen">
+  <header class="sq-fb-kopf">
+    {% set stimmung = "welcome" %}{% include "_steuer_fritte.html" %}
+    <div>
+      <p class="sq-kicker">Steuer-Quest {{ jahr }} · Teil {{ teil }} von 3</p>
+      <h1>{% if teil == 1 %}Wer lebt in deinem Reich?{% elif teil == 2 %}Woher kommt dein Geld?{% else %}Welche Schätze liegen am Wegesrand?{% endif %}</h1>
+      <p class="sq-sprechblase">{% if teil == 1 %}„Erzähl mir kurz von dir. Falsche Antworten gibt es nicht, alles lässt sich später ändern.“{% elif teil == 2 %}„Jede Einnahme wird eine Provinz auf deiner Insel. Gib an, wie viele es sind.“{% else %}„Diese Ausgaben können Steuern sparen. Sie sind freiwillige Bonus-Schätze und blockieren nie deinen Sieg.“{% endif %}</p>
+    </div>
+  </header>
+  <ol class="sq-schritte" aria-label="Fortschritt">
+    {% for n, t in [(1, "Menschen"), (2, "Einnahmen"), (3, "Schätze")] %}
+    <li class="{{ 'jetzt' if n == teil else ('fertig' if n < teil else '') }}">{% if n < teil %}<a href="?teil={{ n }}">{{ t }}</a>{% else %}{{ t }}{% endif %}</li>
     {% endfor %}
-    <p class="muted">Die Burg (Privates wie Versicherungen und Spenden) ist immer dabei.</p>
-  </fieldset>
-  <div class="sq-felder">
-    <label class="field">Wie viele Wohnungen vermietest du?
-      <input type="number" name="wohnungen" min="0" max="20" value="{{ profil.wohnungen }}"></label>
-    <label class="field">Schickst du auch unterm Jahr Unterlagen (Umsatzsteuer)?
-      <select name="umsatzsteuer">
-        {% for v, t in [("keine", "Nein"), ("monatlich", "Ja, jeden Monat"), ("quartal", "Ja, jedes Quartal")] %}
-        <option value="{{ v }}" {% if profil.umsatzsteuer == v %}selected{% endif %}>{{ t }}</option>
+  </ol>
+
+  <form method="post" action="/steuer/{{ jahr }}/fragebogen">
+    <input type="hidden" name="token" value="{{ token }}">
+    <input type="hidden" name="teil" value="{{ teil }}">
+
+    {% if teil == 1 %}
+    <div class="sq-felder">
+      <label class="field">Dein Name <input name="name" value="{{ profil.name }}"></label>
+      <label class="field">Familienstand
+        <select name="familienstand">
+          {% for key, text in familienstaende.items() %}<option value="{{ key }}" {% if profil.familienstand == key %}selected{% endif %}>{{ text }}</option>{% endfor %}
+        </select></label>
+      <label class="sq-kachel"><input type="checkbox" name="zusammen" {% if profil.zusammen %}checked{% endif %}>
+        <strong>Gemeinsame Erklärung</strong><span>Nur bei Ehe oder Lebenspartnerschaft: Ihr gebt zusammen ab. Dann bekommt jede Person ihr eigenes Wappen.</span></label>
+      <label class="field">Name deiner Partnerin oder deines Partners <input name="partner" value="{{ profil.partner }}"></label>
+      <label class="field">Wie viele Kinder (mit Kindergeld)? <input type="number" name="kinder" min="0" max="20" value="{{ profil.kinder }}"></label>
+      <label class="field">E-Mail deiner Beraterin <input type="email" name="beraterin_email" value="{{ profil.beraterin_email }}"></label>
+      <label class="field">Bis wann möchte sie die Unterlagen? <input type="date" name="beraterin_termin" value="{{ profil.beraterin_termin }}"></label>
+    </div>
+
+    {% elif teil == 2 %}
+    <div class="sq-einnahmen">
+      <div class="sq-einnahme sq-einnahme-kopf" aria-hidden="true">
+        <span></span><span>{{ profil.personen[0] }}</span>{% if profil.zusammen %}<span>{{ profil.personen[1] }}</span>{% endif %}
+      </div>
+      {% for prov in provinz_fragen %}
+      {% set werte = profil.anzahl(prov.frage) %}
+      <div class="sq-einnahme">
+        <span><strong>{{ prov.bereich }}</strong><br><span class="muted">wird zu: {{ prov.name }}{% if prov.anlage %} · {{ prov.anlage }}{% endif %}</span></span>
+        {% for person in range(2 if (profil.zusammen and prov.person) else 1) %}
+        {% set wert = werte[person] if prov.person else (werte[0] + werte[1]) %}
+        <label>
+          <span class="sr-only">{{ prov.bereich }}{% if profil.zusammen and prov.person %} ({{ profil.personen[person] }}){% endif %}</span>
+          {% if prov.zaehlbar %}
+          <input type="number" name="m_{{ prov.frage }}_{{ person }}" min="0" max="20" value="{{ wert }}" aria-label="Anzahl">
+          {% else %}
+          <input type="checkbox" name="m_{{ prov.frage }}_{{ person }}" {% if wert %}checked{% endif %}>
+          {% endif %}
+        </label>
         {% endfor %}
-      </select></label>
-    <label class="field">Dein Name (für die Mail)
-      <input name="name" value="{{ profil.name }}"></label>
-    <label class="field">E-Mail deiner Beraterin
-      <input type="email" name="beraterin_email" value="{{ profil.beraterin_email }}"></label>
-  </div>
-  <button class="primary sq-gold">Reich gründen</button>
-</form>
+      </div>
+      {% endfor %}
+      <p class="muted">Zahlen: Wie viele Arbeitgeber, Firmen, Wohnungen, Depots … Leer oder 0 heißt: gibt es nicht. Persönliches (Rathaus) ist immer dabei{% if profil.kinder %}, das Dorf für deine Kinder auch{% endif %}. Die Burg kommt mit den Schätzen in Teil 3.</p>
+      <label class="field">Meldest du unterm Jahr Umsatzsteuer?
+        <select name="umsatzsteuer">
+          {% for v, t in [("keine", "Nein"), ("monatlich", "Ja, jeden Monat"), ("quartal", "Ja, jedes Quartal")] %}
+          <option value="{{ v }}" {% if profil.umsatzsteuer == v %}selected{% endif %}>{{ t }}</option>
+          {% endfor %}
+        </select></label>
+    </div>
+
+    {% else %}
+    <fieldset class="sq-kacheln">
+      <legend>Was trifft auf {{ jahr }} zu?</legend>
+      {% for key, text in haken.items() %}
+      {% if not key.startswith("kinder_") or profil.kinder %}
+      {% if key != "arbeit" or (profil.anzahl("angestellt")[0] + profil.anzahl("angestellt")[1]) %}
+      <label class="sq-kachel"><input type="checkbox" name="haken" value="{{ key }}" {% if key in profil.haken %}checked{% endif %}>
+        <span>{{ text }}</span></label>
+      {% endif %}
+      {% endif %}
+      {% endfor %}
+    </fieldset>
+    {% endif %}
+
+    <div class="sq-fb-fuss">
+      {% if teil > 1 %}<a href="?teil={{ teil - 1 }}">Zurück</a>{% else %}<span></span>{% endif %}
+      <button class="sq-siegelknopf">{% if teil < 3 %}Weiter{% else %}Reich gründen{% endif %}</button>
+    </div>
+  </form>
+</section>
 </div>
 {% endblock %}

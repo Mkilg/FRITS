@@ -89,6 +89,11 @@ def _passt(wort: str, stichwort: str) -> bool:
     """ "versicherungsnachweise" passt zu "versicherungen", "dividenden" zu "dividende"."""
     if min(len(wort), len(stichwort)) < 4:
         return wort == stichwort
+    # Zusammengesetzte Wörter: "vertrag" passt zu "gesellschaftsvertrag"
+    if min(len(wort), len(stichwort)) >= 6 and (
+        wort.endswith(stichwort) or stichwort.endswith(wort)
+    ):
+        return True
     gleich = 0
     for a, b in zip(wort, stichwort, strict=False):
         if a != b:

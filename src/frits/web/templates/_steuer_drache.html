@@ -1,0 +1,5 @@
+{# Der Papierdrache. Erwartet: drache; gemalt, sonst Origami aus CSS #}
+{% set gemalt = bild("drache-" ~ {"schläfrig": "schlaeft", "verunsichert": "getroffen", "taumelt": "getroffen", "besiegt": "besiegt"}[drache.stimmung]) %}
+{% if gemalt %}<img src="{{ gemalt }}" alt="Papierdrache ({{ drache.stimmung }})">{% else %}
+<span class="sq-origami {{ {'schläfrig': 'schlaeft', 'verunsichert': '', 'taumelt': 'taumelt', 'besiegt': 'besiegt'}[drache.stimmung] }}" role="img" aria-label="Papierdrache ({{ drache.stimmung }})"><i class="schwanz"></i><i class="fluegel"></i><i class="koerper"></i><i class="kopf"></i><i class="siegel"></i></span>
+{% endif %}

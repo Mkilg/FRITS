@@ -6,9 +6,11 @@ Wie überall in FRITS: Jeder Knopf, der etwas ändert, ist ein POST mit dem gehe
 
 from __future__ import annotations
 
+import math
 import shutil
 from collections.abc import Callable
 from datetime import date
+from importlib import resources
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, UploadFile
@@ -16,10 +18,64 @@ from fastapi.responses import HTMLResponse
 
 from frits import store, system
 from frits.settings import Workspace
-from frits.steuer import beraterin, quest, spiel, truhe
-from frits.steuer.katalog import Profil, gebiet, reich
+from frits.steuer import beraterin, ernte, quest, spiel, truhe
+from frits.steuer.katalog import FAMILIENSTAND, HAKEN, Profil, fragen, gebiet, reich
 
 AKTIONEN = {"gibts_nicht", "fragen", "offen"}
+
+BILDER = resources.files("frits.web") / "static" / "steuer"
+
+
+def bild(name: str) -> str:
+    """Adresse eines gemalten Bildes, oder "" wenn es (noch) fehlt. Dann malt CSS einen Ersatz."""
+    datei = BILDER / f"{name}.png"
+    return f"/static/steuer/{name}.png" if datei.is_file() else ""
+
+
+def inselplan(anzahl: int) -> list[tuple[float, float]]:
+    """Wo die Provinzen auf der schwebenden Insel stehen, in Prozent (links, oben).
+
+    Das Rathaus steht in der Mitte, die anderen gleichmäßig im Kreis darum herum.
+    Ab neun Provinzen gibt es einen inneren und einen äußeren Ring.
+    So sieht die Insel bei 2 Provinzen genauso aufgeräumt aus wie bei 20.
+    """
+    if anzahl <= 0:
+        return []
+    if anzahl == 2:
+        return [(34.0, 45.0), (66.0, 45.0)]
+    lagen = [(50.0, 45.0)]
+    rest = anzahl - 1
+    ringe = [(rest, 34.0, 31.0)] if rest <= 8 else [(6, 21.0, 18.0), (rest - 6, 40.0, 35.0)]
+    for menge, rx, ry in ringe:
+        for i in range(menge):
+            start = -math.pi / 2 + (math.pi / menge if menge <= 3 else 0)
+            winkel = start + (2 * math.pi * i / menge) + (0.3 if menge > 6 else 0)
+            lagen.append(
+                (round(50 + rx * math.cos(winkel), 1), round(45 + ry * math.sin(winkel), 1))
+            )
+    return lagen
+
+
+def fritte_tipp(daten: dict, lager: list) -> tuple[str, str]:
+    """Was Fritte, die Kartografin, gerade sagt: (Stimmung, Satz)."""
+    if daten["drache"].besiegt and daten["stuecke"]:
+        return "done", "Der Drache ist besiegt! Die Schatztruhe wartet auf dich."
+    if lager:
+        n = len(lager)
+        zettel = "ein Zettel" if n == 1 else f"{n} Zettel"
+        return "welcome", f"Im Eingangskorb liegen {zettel}. Zieh sie auf die Insel, ich stempel."
+    fehlt_vorjahr = [v for v in daten["vergleich"] if v["jetzt"] == "offen"]
+    if fehlt_vorjahr:
+        name = fehlt_vorjahr[0]["name"]
+        satz = f"Letztes Jahr hattest du schon „{name}“. Schau mal, ob es wieder da ist."
+        return "thinking", satz
+    offen = [p for p in daten["provinzen"] if not p.stand.siegel]
+    if offen:
+        naechste = min(offen, key=lambda p: (p.stand.offen, p.gebiet.id))
+        rest = naechste.stand.offen
+        fehlt = "fehlt" if rest == 1 else "fehlen"
+        return "welcome", f"Wie wär's mit {naechste.gebiet.titel}? Da {fehlt} nur noch {rest}."
+    return "done", "Alle Provinzen tragen ein Siegel. Der Drache zittert schon."
 
 
 def register_steuer(
@@ -49,6 +105,10 @@ def register_steuer(
             raise HTTPException(404, "Für dieses Jahr gibt es noch keinen Fragebogen.")
         return p
 
+    def seite(request: Request, name: str, **context):
+        """Wie page(), plus was alle Quest-Seiten brauchen (Bilder, Klang)."""
+        return page(request, name, bild=bild, klang=settings().sound, **context)
+
     def lage(jahr: int):
         """Alles, was die Seiten über den Spielstand wissen müssen."""
         p = profil_oder_404(jahr)
@@ -56,7 +116,7 @@ def register_steuer(
         gebiete = reich(p)
         alle = quest.stuecke(c, jahr)
         staende = spiel.provinzen(gebiete, alle)
-        gesamt = spiel.stand(alle)
+        gesamt = spiel.gesamtstand(alle)
         vergleich = quest.vergleich(c, jahr)
         erfolge = spiel.erfolge(alle, staende, vergleich, quest.hat_notiz(c, jahr, "brief"))
         return {
@@ -135,44 +195,91 @@ def register_steuer(
     def karte(request: Request, jahr: int):
         if profil(jahr) is None:
             return back(f"/steuer/{jahr}/fragebogen")
-        return page(
+        daten = lage(jahr)
+        lager = quest.lager_dateien(ws.root)
+        stimmung, tipp = fritte_tipp(daten, lager)
+        return seite(
             request,
             "steuer_karte.html",
-            lager=quest.lager_dateien(ws.root),
-            **lage(jahr),
+            lager=lager,
+            ernte=ernte.finden(conn(), ws, jahr, settings().tax_mode),
+            ernte_ziele=ernte.ziele(daten["gebiete"]),
+            plan=inselplan(len(daten["provinzen"])),
+            fritte=stimmung,
+            tipp=tipp,
+            **daten,
         )
 
+    def _zahl(value, hoechstens: int = 20) -> int:
+        try:
+            return max(0, min(hoechstens, int(str(value or 0))))
+        except ValueError:
+            return 0
+
+    def entwurf(jahr: int) -> Profil:
+        """Der Fragebogen, wie er gerade ausgefüllt wird (Vorlage: dieses Jahr oder das Vorjahr)."""
+        p = app.state.steuer_entwurf.get(jahr)
+        if p is None:
+            p = profil(jahr) or profil(jahr - 1)
+            if p is None:
+                p = Profil(jahr=jahr, name=settings().name)
+                # Hat FRITS in dem Jahr Rechnungen geschrieben, gibt es sicher einen Betrieb.
+                if ernte.hat_rechnungen(ws, jahr):
+                    p.mengen["freiberuflich"] = [1, 0]
+                if settings().tax_mode == "regelbesteuerung":
+                    p.umsatzsteuer = "quartal"
+            p.jahr = jahr
+            app.state.steuer_entwurf[jahr] = p
+        return p
+
+    app.state.steuer_entwurf = {}
+
     @app.get("/steuer/{jahr}/fragebogen", response_class=HTMLResponse)
-    def fragebogen(request: Request, jahr: int):
-        p = profil(jahr) or profil(jahr - 1) or Profil(jahr=jahr, name=settings().name)
-        p.jahr = jahr
-        return page(request, "steuer_fragebogen.html", jahr=jahr, profil=p)
+    def fragebogen(request: Request, jahr: int, teil: int = 1):
+        teil = teil if teil in (1, 2, 3) else 1
+        p = entwurf(jahr)
+        return seite(
+            request,
+            "steuer_fragebogen.html",
+            jahr=jahr,
+            profil=p,
+            teil=teil,
+            familienstaende=FAMILIENSTAND,
+            provinz_fragen=fragen(),
+            haken=HAKEN,
+        )
 
     @app.post("/steuer/{jahr}/fragebogen", dependencies=guarded)
     async def fragebogen_speichern(request: Request, jahr: int):
         form = await request.form()
-        ja = set(form.getlist("ja"))
-        try:
-            wohnungen = max(0, min(20, int(str(form.get("wohnungen") or 0))))
-        except ValueError:
-            wohnungen = 0
-        if "vermietung" in ja and wohnungen == 0:
-            wohnungen = 1
-        if "vermietung" not in ja:
-            wohnungen = 0
-        p = Profil(
-            jahr=jahr,
-            selbststaendig="selbststaendig" in ja,
-            gesellschaft="gesellschaft" in ja,
-            angestellt="angestellt" in ja,
-            wohnungen=wohnungen,
-            depot_inland="depot_inland" in ja,
-            depot_ausland="depot_ausland" in ja,
-            familie="familie" in ja,
-            umsatzsteuer=str(form.get("umsatzsteuer") or "keine"),
-            beraterin_email=str(form.get("beraterin_email") or "").strip(),
-            name=str(form.get("name") or "").strip(),
-        )
+        p = entwurf(jahr)
+        teil = _zahl(form.get("teil"), 3) or 1
+        if teil == 1:
+            p.name = str(form.get("name") or "").strip()
+            stand = str(form.get("familienstand") or "ledig")
+            p.familienstand = stand if stand in FAMILIENSTAND else "ledig"
+            p.zusammen = p.familienstand == "verheiratet" and form.get("zusammen") == "on"
+            p.partner = str(form.get("partner") or "").strip() if p.zusammen else ""
+            p.kinder = _zahl(form.get("kinder"))
+            p.beraterin_email = str(form.get("beraterin_email") or "").strip()
+            p.beraterin_termin = str(form.get("beraterin_termin") or "").strip()
+        elif teil == 2:
+            mengen = {}
+            for provinz in fragen():
+                werte = []
+                for person in (0, 1):
+                    roh = form.get(f"m_{provinz.frage}_{person}")
+                    werte.append(1 if roh == "on" else _zahl(roh))
+                mengen[provinz.frage] = werte
+            p.mengen = mengen
+            ust = str(form.get("umsatzsteuer") or "keine")
+            p.umsatzsteuer = ust if ust in ("keine", "monatlich", "quartal") else "keine"
+        else:
+            p.haken = [h for h in form.getlist("haken") if h in HAKEN]
+        if teil < 3:
+            return back(f"/steuer/{jahr}/fragebogen?teil={teil + 1}")
+
+        app.state.steuer_entwurf.pop(jahr, None)
         neu = profil(jahr) is None
         p.save(quest.profil_datei(ws.root, jahr))
         gebiete = quest.start(conn(), p)
@@ -198,7 +305,7 @@ def register_steuer(
             s["datei_liste"] = quest.dateien(c, jahr, s["id"])
         vorjahr = [v for v in daten["vergleich"] if v["gebiet"] == g.id]
         stand = next(p for p in daten["provinzen"] if p.gebiet.id == g.id)
-        return page(
+        return seite(
             request,
             "steuer_gebiet.html",
             g=g,
@@ -284,11 +391,40 @@ def register_steuer(
             flash(f"Dein Lager findest du hier: {ordner}")
         return back(f"/steuer/{jahr}")
 
+    # ----- FRITS-Ernte: Rechnungen, Belege und EÜR aus dem normalen FRITS -----
+
+    @app.post("/steuer/{jahr}/ernte", dependencies=guarded)
+    async def ernte_einbringen(request: Request, jahr: int):
+        form = await request.form()
+        daten = lage(jahr)
+        ziele = {g.id: g for g in ernte.ziele(daten["gebiete"])}
+        gebiet_id = str(form.get("gebiet") or "")
+        if gebiet_id not in ziele:
+            flash("Wähle aus, zu welchem Betrieb die Rechnungen gehören.")
+            return back(f"/steuer/{jahr}")
+        c = conn()
+        neu = ernte.einbringen(c, ws, jahr, gebiet_id, settings().tax_mode)
+        teile = []
+        if neu["rechnungen"]:
+            teile.append(f"{neu['rechnungen']} Rechnung{'en' if neu['rechnungen'] > 1 else ''}")
+        if neu["belege"]:
+            teile.append(f"{neu['belege']} Beleg{'e' if neu['belege'] > 1 else ''}")
+        if neu["euer"]:
+            teile.append("die EÜR")
+        if teile:
+            text = f"FRITS-Ernte eingebracht: {', '.join(teile)} → {ziele[gebiet_id].titel}"
+            quest.notiere(c, jahr, "fund", text)
+            flash(text + "!", "beute", "done")
+        else:
+            flash("Aus FRITS ist schon alles da. Nichts doppelt.")
+        belohnen(jahr, daten)
+        return back(f"/steuer/{jahr}")
+
     # ----- Mail der Beraterin -----
 
     @app.get("/steuer/{jahr}/beraterin", response_class=HTMLResponse)
     def beraterin_seite(request: Request, jahr: int):
-        return page(request, "steuer_beraterin.html", ergebnis=None, text="", **lage(jahr))
+        return seite(request, "steuer_beraterin.html", ergebnis=None, text="", **lage(jahr))
 
     @app.post("/steuer/{jahr}/beraterin", dependencies=guarded)
     async def beraterin_lesen(request: Request, jahr: int):
@@ -298,7 +434,7 @@ def register_steuer(
         wuensche = beraterin.zuordnen(text, daten["gebiete"], daten["stuecke"])
         if not wuensche:
             flash("Ich habe in der Mail keine Wünsche gefunden. Aufzählungen klappen am besten.")
-            return page(request, "steuer_beraterin.html", ergebnis=None, text=text, **daten)
+            return seite(request, "steuer_beraterin.html", ergebnis=None, text=text, **daten)
         c = conn()
         titel = {g.id: g.titel for g in daten["gebiete"]}
         ergebnis = []
@@ -318,15 +454,16 @@ def register_steuer(
         quest.notiere(c, jahr, "brief", f"{len(wuensche)} Aufträge der Beraterin")
         flash(f"Botschaft entschlüsselt: {len(wuensche)} Aufträge auf deiner Karte.", "erfolg")
         belohnen(jahr, vorher)
-        return page(request, "steuer_beraterin.html", ergebnis=ergebnis, text="", **lage(jahr))
+        return seite(request, "steuer_beraterin.html", ergebnis=ergebnis, text="", **lage(jahr))
 
     # ----- Der Papierdrache -----
 
     @app.get("/steuer/{jahr}/drache", response_class=HTMLResponse)
     def drache_seite(request: Request, jahr: int):
         daten = lage(jahr)
-        combo = app.state.steuer_combo.get(jahr, {"combo": 0, "ruf": spiel.RUFE[0]})
-        return page(request, "steuer_drache.html", combo=combo, **daten)
+        combo = dict(app.state.steuer_combo.get(jahr, {"combo": 0, "ruf": spiel.RUFE[0]}))
+        frisch = app.state.steuer_combo.get(jahr, {}).pop("frisch", False)
+        return seite(request, "steuer_drache.html", combo=combo, frisch=frisch, **daten)
 
     @app.post("/steuer/{jahr}/drache/schlag", dependencies=guarded)
     async def drache_schlag(request: Request, jahr: int):
@@ -350,7 +487,11 @@ def register_steuer(
             raise HTTPException(400)
         alt = app.state.steuer_combo.get(jahr, {"combo": 0})
         combo, ruf = spiel.treffer(alt["combo"], kritisch)
-        app.state.steuer_combo[jahr] = {"combo": combo, "ruf": ruf}
+        app.state.steuer_combo[jahr] = {
+            "combo": combo,
+            "ruf": ruf,
+            "frisch": "kritisch" if kritisch else "treffer",
+        }
         quest.notiere(conn(), jahr, "treffer", f"{s['name']} ({ruf})")
         belohnen(jahr, vorher)
         if spiel.drache(quest.stuecke(conn(), jahr)).besiegt:
@@ -380,7 +521,7 @@ def register_steuer(
             return back(f"/steuer/{jahr}/drache")
         betreff, text = truhe.mail(daten["profil"], daten["gebiete"], daten["stuecke"])
         zip_pfad = truhe_pfad(jahr, daten["profil"])
-        return page(
+        return seite(
             request,
             "steuer_sieg.html",
             betreff=betreff,
