@@ -1,8 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Papierdrache · Steuer-Quest{% endblock %}
 {% block head %}<link rel="stylesheet" href="/static/steuer.css"><script src="/static/steuer.js" defer></script>{% endblock %}
+{% block flashes %}{% endblock %}
 {% block content %}
 <div class="sq sq-tisch nacht{% if frisch %} frisch wackeln-{{ [combo.combo, 3] | min }}{% endif %}" data-klang="{{ 'an' if klang else 'aus' }}" {% if frisch %}data-treffer="{{ frisch }}" data-combo="{{ combo.combo }}"{% endif %}{% include "_steuer_stil.html" %}>
+{% include "_steuer_meldungen.html" %}
 {% include "_steuer_kopf.html" %}
 <section class="sq-arena">
   <div class="sq-drache-gross">{% include "_steuer_drache.html" %}</div>

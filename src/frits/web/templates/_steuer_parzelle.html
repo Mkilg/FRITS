@@ -1,6 +1,6 @@
 {# Eine Provinz als kleines Diorama. Erwartet: p (Provinzstand), jahr, bild(), optional lage=(x, y) #}
 {% set g = p.gebiet %}{% set stufe = p.stand.stufe %}{% set gemalt, farbe = provinzbild(g.provinz.key, stufe) %}
-<a class="sq-parzelle stufe-{{ stufe }}{% if p.stand.siegel %} siegel{% endif %}" href="/steuer/{{ jahr }}/gebiet/{{ g.id }}" data-gebiet="{{ g.id }}" data-titel="{{ g.titel }}"
+<a class="sq-parzelle stufe-{{ stufe }}{% if p.stand.siegel %} siegel{% endif %}{% if auftrag is defined and auftrag.gebiet_id == g.id %} auftragsziel{% endif %}" href="/steuer/{{ jahr }}/gebiet/{{ g.id }}" data-gebiet="{{ g.id }}" data-titel="{{ g.titel }}"
    {% if lage %}style="--x: {{ lage[0] }}%; --y: {{ lage[1] }}%; --zeile: {{ (lage[1] | int) }}"{% endif %}
    aria-label="{{ g.titel }}: {{ p.stand.erledigt }} von {{ p.stand.gesamt }}, {{ p.stufe_name }}">
   <span class="sq-diorama">
@@ -17,4 +17,5 @@
   {% if g.wappen %}<span class="sq-wappen{% if g.person == 1 %} p2{% endif %}" title="{{ g.wappen }}">{{ g.wappen[:1] }}</span>{% endif %}
   {% if p.schaetze %}<span class="sq-muenze" title="{{ p.schaetze }} Bonus-Schatz gefunden">+{{ p.schaetze }}</span>{% endif %}
   {% if p.stand.siegel %}<span class="sq-wachs" title="Gold-Siegel: komplett">✓</span>{% endif %}
+  {% if auftrag is defined and auftrag.gebiet_id == g.id %}<span class="sq-leuchtfeuer" aria-hidden="true"><span>Hier weiter</span></span>{% endif %}
 </a>

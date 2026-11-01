@@ -1,0 +1,29 @@
+{# Meldungen in der Quest: Belohnungen kommen als großer Moment (Dialog), alles andere als
+   kleine Zettel oben rechts, die von selbst verschwinden. So verrutscht nichts auf dem Tisch. #}
+{% set gross_arten = ["gruendung", "siegel", "zeitalter", "orden", "sieg"] if auftrag is defined else [] %}
+{% set grosse = flashes | selectattr("kind", "in", gross_arten) | selectattr("text") | list %}
+{% set kleine = flashes | rejectattr("kind", "in", gross_arten) | selectattr("text") | list %}
+{% if kleine %}
+<div class="sq-zettelchen" role="status">
+  {% for f in kleine %}<p class="sq-meldung {{ f.kind }}">{{ f.text }}<button type="button" class="sq-weg" aria-label="Schließen">×</button></p>{% endfor %}
+</div>
+{% endif %}
+{% if grosse %}
+<dialog class="sq-belohnung" data-belohnung>
+  <div class="sq-belohnung-licht" aria-hidden="true"></div>
+  {% set siegel_bild = bild("siegel") %}
+  <div class="sq-belohnung-siegel" aria-hidden="true">{% if siegel_bild %}<img src="{{ siegel_bild }}" alt="">{% else %}✓{% endif %}</div>
+  <h2>{{ {"gruendung": "Dein Reich steht!", "siegel": "Gold-Siegel!", "zeitalter": "Neues Zeitalter!", "orden": "Neuer Orden!", "sieg": "Sieg!"}[grosse[0].kind] }}</h2>
+  <ul class="sq-beute">
+    {% for f in grosse %}<li class="{{ f.kind }}">{{ f.text.replace("Gold-Siegel! ", "") }}</li>{% endfor %}
+  </ul>
+  <div class="sq-naechster">
+    <p class="sq-kicker">Nächster Auftrag</p>
+    <p><strong>{{ auftrag.titel }}</strong><br>{{ auftrag.text }}</p>
+  </div>
+  <form method="dialog" class="sq-belohnung-knoepfe">
+    <a class="sq-siegelknopf" href="{{ auftrag.ziel if not auftrag.ziel.startswith('#') else '/steuer/' ~ jahr ~ auftrag.ziel }}">{{ auftrag.knopf }} →</a>
+    <button class="quiet">Hier bleiben</button>
+  </form>
+</dialog>
+{% endif %}

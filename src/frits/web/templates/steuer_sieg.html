@@ -1,9 +1,11 @@
 {% extends "base.html" %}
 {% block title %}Sieg · Steuer-Quest{% endblock %}
 {% block head %}<link rel="stylesheet" href="/static/steuer.css"><script src="/static/steuer.js" defer></script>{% endblock %}
+{% block flashes %}{% endblock %}
 {% block content %}
 {% set truhe_bild = bild("truhe") %}
 <div class="sq sq-tisch" data-klang="{{ 'an' if klang else 'aus' }}" {% if drache.besiegt %}data-konfetti{% endif %}{% include "_steuer_stil.html" %}>
+{% include "_steuer_meldungen.html" %}
 {% include "_steuer_kopf.html" %}
 <h1 class="sq-sieg-titel">{% if drache.besiegt %}Goldenes Zeitalter!{% else %}Bereit zum Senden{% endif %}</h1>
 <div class="sq-sieg">

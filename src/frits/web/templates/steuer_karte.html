@@ -1,14 +1,17 @@
 {% extends "base.html" %}
 {% block title %}Steuer-Quest {{ jahr }}{% endblock %}
 {% block head %}<link rel="stylesheet" href="/static/steuer.css"><script src="/static/steuer.js" defer></script>{% endblock %}
+{% block flashes %}{% endblock %}
 {% block content %}
 {% set insel_bild = bild("insel") %}
 <div class="sq sq-tisch" data-klang="{{ 'an' if klang else 'aus' }}"{% include "_steuer_stil.html" %}>
+{% include "_steuer_meldungen.html" %}
 {% include "_steuer_kopf.html" %}
+{% include "_steuer_auftrag.html" %}
 
 <div class="sq-flaeche">
   {# Links: Eingangskorb und Dinge auf dem Tisch #}
-  <aside class="sq-rand sq-korb" aria-label="Eingangskorb">
+  <aside class="sq-rand sq-korb" id="sq-korb" aria-label="Eingangskorb">
     <div>
       <h2 class="sq-rand-titel">Eingangskorb</h2>
       {% if lager %}
@@ -56,6 +59,12 @@
       <div class="sq-insel-gras"></div>
       <div class="sq-provinzen">
         {% for p in provinzen %}{% set lage = plan[loop.index0] %}{% include "_steuer_parzelle.html" %}{% endfor %}
+        {% if burg_fehlt %}{% set lage = plan[provinzen | length] %}
+        <a class="sq-parzelle sq-geist" href="/steuer/{{ jahr }}/fragebogen?teil=3" style="--x: {{ lage[0] }}%; --y: {{ lage[1] }}%; --zeile: {{ lage[1] | int }}" title="Nebenquest: Ausgaben, die Steuern sparen">
+          <span class="sq-diorama">{% set gemalt, farbe = provinzbild("burg", 2) %}{% if gemalt %}<img src="{{ gemalt }}" alt="">{% endif %}<span class="sq-nebel"></span></span>
+          <span class="sq-schild"><strong>Burg?</strong><small>Nebenquest: Steuern sparen</small></span>
+        </a>
+        {% endif %}
       </div>
     </div>
     <div class="sq-insel-schatten"></div>
@@ -101,6 +110,10 @@
   </aside>
 </div>
 
-<p class="sq-fusszeile"><a href="/steuer/{{ jahr - 1 }}">← Jahr {{ jahr - 1 }}</a><span>Steuerjahr {{ jahr }}{% if profil.beraterin_termin %} · Abgabe bei der Beraterin bis {{ profil.beraterin_termin }}{% endif %}</span><a href="/steuer/{{ jahr + 1 }}">Jahr {{ jahr + 1 }} →</a></p>
+<nav class="sq-fusszeile" aria-label="Steuerjahre">
+  <span>Steuerjahr {{ jahr }}{% if profil.beraterin_termin %} · Abgabe bei der Beraterin bis {{ profil.beraterin_termin }}{% endif %}</span>
+  {% for j in jahre if j != jahr %}<a href="/steuer/{{ j }}">Zur Quest {{ j }}</a>{% endfor %}
+  {% if (jahr - 1) not in jahre %}<a href="/steuer/{{ jahr - 1 }}/intro">Neue Quest für {{ jahr - 1 }}</a>{% endif %}
+</nav>
 </div>
 {% endblock %}

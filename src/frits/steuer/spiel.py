@@ -263,3 +263,86 @@ def erfolge(
 def neue_erfolge(vorher: list[Erfolg], nachher: list[Erfolg]) -> list[Erfolg]:
     alt = {e.key for e in vorher if e.erreicht}
     return [e for e in nachher if e.erreicht and e.key not in alt]
+
+
+# ---------- Der nächste Auftrag ----------
+# Gute Spiele lassen dich nie raten, was als Nächstes kommt: Es gibt immer genau einen
+# klaren Auftrag (Zelda, Stardew Valley), er ist klein genug für die nächsten Minuten,
+# und die Belohnung steht schon dabei. Am liebsten der Auftrag, der fast fertig ist:
+# Je näher das Ziel, desto mehr Lust hat man (Zeigarnik und "goal gradient").
+
+
+@dataclass(frozen=True)
+class Auftrag:
+    art: str  # korb | provinz | sieg | start
+    titel: str
+    text: str
+    knopf: str
+    ziel: str  # Adresse, zu der der Knopf führt
+    belohnungen: tuple[str, ...] = ()
+    gebiet_id: str = ""
+    erledigt: int = 0
+    gesamt: int = 0
+
+
+def auftrag(
+    jahr: int, staende: list[Provinzstand], drache_: Drache, zettel: int, stuecke: list[dict]
+) -> Auftrag:
+    """Genau ein klarer nächster Schritt, mit Belohnung."""
+    basis = f"/steuer/{jahr}"
+    if drache_.besiegt and stuecke:
+        return Auftrag(
+            "sieg",
+            "Hol dir deine Beute",
+            "Der Drache ist besiegt. Pack die Schatztruhe für deine Beraterin.",
+            "Zur Schatztruhe",
+            f"{basis}/sieg",
+            ("Goldenes Zeitalter",),
+        )
+    if zettel:
+        return Auftrag(
+            "korb",
+            "Sortiere den Eingangskorb",
+            (
+                "Ein Zettel wartet. Zieh ihn auf seine Provinz."
+                if zettel == 1
+                else f"{zettel} Zettel warten. Zieh jeden auf seine Provinz."
+            ),
+            "Ersten Zettel ansehen",
+            "#sq-korb",
+            ("+1 Beleg pro Zettel",),
+            erledigt=0,
+            gesamt=zettel,
+        )
+    offen = [p for p in staende if not p.stand.siegel]
+    if not offen:
+        return Auftrag(
+            "sieg",
+            "Stell dich dem Drachen",
+            "Alle Provinzen tragen ihr Siegel.",
+            "Zum Drachenhort",
+            f"{basis}/drache",
+        )
+    # Angefangene Provinzen zuerst, dann die mit den wenigsten offenen Karten.
+    ziel = min(offen, key=lambda p: (p.stand.erledigt == 0, p.stand.offen))
+    gesamt = gesamtstand(stuecke)
+    jetzt = zeitalter(gesamt.anteil)[0]
+    danach_anteil = (gesamt.erledigt + ziel.stand.offen) / gesamt.gesamt if gesamt.gesamt else 1
+    belohnungen = ["Gold-Siegel"]
+    if zeitalter(danach_anteil)[0] > jetzt:
+        belohnungen.append(f"Aufstieg ins {zeitalter(danach_anteil)[1]}")
+    if not any(p.stand.siegel for p in staende):
+        belohnungen.append("Orden „Erste Ernte“")
+    rest = ziel.stand.offen
+    karten = "eine Karte" if rest == 1 else f"{rest} Karten"
+    return Auftrag(
+        "provinz",
+        f"Versiegle {ziel.gebiet.titel}",
+        f"Noch {karten}. Leg ab, was du hast. Was es nicht gibt, stempelst du einfach ab.",
+        "Los geht's",
+        f"{basis}/gebiet/{ziel.gebiet.id}",
+        tuple(belohnungen),
+        gebiet_id=ziel.gebiet.id,
+        erledigt=ziel.stand.erledigt,
+        gesamt=ziel.stand.gesamt,
+    )
