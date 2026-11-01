@@ -14,14 +14,14 @@
   <h2>Einnahmen</h2>
   <table class="table">
     {% for line in summary.income_lines %}<tr><td>{{ line.label }}</td><td class="amount">{{ line.amount | eur }}</td></tr>{% endfor %}
-    <tr class="total"><td><strong>Summe Einnahmen</strong> <span class="muted">({{ summary.invoice_count }} bezahlte Rechnungen)</span></td><td class="amount"><strong>{{ summary.income_total | eur }}</strong></td></tr>
+    <tr class="total"><td><strong>Summe Einnahmen</strong> <span class="muted">({{ summary.invoice_count }} bezahlte Rechnungen)</span></td><td class="amount"><strong data-zaehlen>{{ summary.income_total | eur }}</strong></td></tr>
   </table>
   <h2 class="spaced">Ausgaben</h2>
   <table class="table">
     {% for line in summary.expense_lines %}<tr><td>{{ line.label }}</td><td class="amount">{{ line.amount | eur }}</td></tr>{% endfor %}
-    <tr class="total"><td><strong>Summe Ausgaben</strong> <span class="muted">({{ summary.expense_count }} Belege)</span></td><td class="amount"><strong>{{ summary.expense_total | eur }}</strong></td></tr>
+    <tr class="total"><td><strong>Summe Ausgaben</strong> <span class="muted">({{ summary.expense_count }} Belege)</span></td><td class="amount"><strong data-zaehlen>{{ summary.expense_total | eur }}</strong></td></tr>
   </table>
-  <p class="profit">{{ "Gewinn" if summary.profit >= 0 else "Verlust" }}: <strong>{{ summary.profit | eur }}</strong></p>
+  <p class="profit">{{ "Gewinn" if summary.profit >= 0 else "Verlust" }}: <strong data-zaehlen>{{ summary.profit | eur }}</strong></p>
   <div class="row">
     <a class="button" href="/euer/{{ year }}.pdf">Als PDF</a>
     <a class="button" href="/euer/{{ year }}.csv">Als Tabelle (CSV)</a>

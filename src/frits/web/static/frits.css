@@ -1,74 +1,109 @@
-/* FRITS: calm, warm, one thing at a time. */
+/* FRITS: calm, warm, one thing at a time.
+   One look for every part of FRITS, the Steuer-Quest included: paper cards on a desk,
+   painted in moss green, ochre, terracotta, cream and ink blue. */
 :root {
-  --bg: #fbf7ef;
-  --card: #ffffff;
+  /* Shared colours (the Steuer-Quest uses the same names) */
+  --moos: #6f9440; --moos-dunkel: #4b6a2a; --moos-hell: #a3c466;
+  --ocker: #d9a441; --ocker-dunkel: #9c6f1f;
+  --terrakotta: #c4623a; --terrakotta-dunkel: #8e3f22;
+  --creme: #f6ecd2; --papier: #fcf6e6; --papier-schatten: #d9c9a2;
+  --tinte: #24395c; --tinte-hell: #4a6896;
+  --wachs: #b3302a; --gold: #e9bd4f;
+  --eiche: #8a5a32; --eiche-dunkel: #5b391d; --eiche-tief: #3a2412; --eiche-hell: #b07a45;
+  /* Only fonts every Mac already has: FRITS works without internet. */
+  --schrift: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --hand: "Bradley Hand", "Segoe Print", "Chalkboard SE", "Comic Neue", cursive;
+  --papierkarte: linear-gradient(175deg, var(--papier), var(--creme));
+  --karten-schatten: 0 1px 0 var(--papier-schatten), 0 6px 14px rgba(60, 35, 10, .12);
+
+  /* Everyday names used below */
+  --bg: #f1e4c8;
+  --card: var(--papier);
   --ink: #2b2620;
-  --muted: #7a7064;
-  --line: #e8dfd0;
-  --fry: #f4c542;
-  --fry-dark: #a0711c;
-  --ketchup: #c8473a;
-  --ok: #3f7d4e;
-  --warn-bg: #fff6dc;
-  --radius: 12px;
+  --muted: #6e6253;
+  --line: #e6d7b6;
+  --fry: var(--ocker);
+  --fry-dark: var(--ocker-dunkel);
+  --ketchup: var(--terrakotta-dunkel);
+  --ok: var(--moos-dunkel);
+  --warn-bg: #fbefd0;
+  --radius: 4px;
   font-size: 17px;
 }
 * { box-sizing: border-box; }
 body {
   margin: 0;
-  background: var(--bg);
+  /* A light oak desk in morning light; the painted desk replaces it once it is there. */
+  background-color: var(--bg);
+  background-image:
+    var(--tisch-bild, none),
+    radial-gradient(ellipse at 12% -10%, rgba(255, 251, 238, .85), transparent 55%),
+    repeating-linear-gradient(90deg, rgba(176, 122, 69, 0) 0 38px, rgba(176, 122, 69, .07) 38px 41px,
+      rgba(176, 122, 69, 0) 41px 97px, rgba(176, 122, 69, .05) 97px 99px, rgba(176, 122, 69, 0) 99px 150px);
+  background-size: cover, auto, auto;
+  background-position: center, 0 0, 0 0;
+  background-attachment: fixed;
   color: var(--ink);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   line-height: 1.5;
+  min-height: 100vh;
 }
-a { color: var(--fry-dark); }
-h1 { font-size: 1.6rem; margin: 0.2rem 0 1rem; }
-h2 { font-size: 1.15rem; margin: 0 0 0.5rem; }
+a { color: var(--tinte); }
+h1, h2, h3 { font-family: var(--schrift); color: var(--eiche-tief); }
+h1 { font-size: 1.75rem; margin: 0.2rem 0 1rem; }
+h2 { font-size: 1.25rem; margin: 0 0 0.5rem; }
 h3 { font-size: 1rem; margin: 0.8rem 0 0.3rem; }
 
 .top {
   display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;
-  padding: 0.6rem 1.5rem; background: var(--card); border-bottom: 1px solid var(--line);
+  padding: 0.6rem 1.5rem; background: var(--papierkarte); border-bottom: 1px solid var(--papier-schatten);
+  box-shadow: 0 2px 10px rgba(60, 35, 10, .10);
 }
-.brand { display: flex; align-items: center; gap: 0.4rem; font-weight: 700; font-size: 1.2rem;
-  color: var(--ink); text-decoration: none; letter-spacing: 0.04em; }
-.brand-fry svg, .brand-fry .fry-fallback { width: 32px; height: 32px; font-size: 26px; display: block; }
+.brand { display: flex; align-items: center; gap: 0.4rem; font-weight: 700; font-size: 1.3rem; font-family: var(--schrift);
+  color: var(--eiche-tief); text-decoration: none; letter-spacing: 0.06em; }
+.brand-fry svg, .brand-fry img, .brand-fry .fry-fallback { object-fit: contain; width: 32px; height: 32px; font-size: 26px; display: block; }
 nav { display: flex; gap: 0.2rem; flex-wrap: wrap; flex: 1; }
 nav a { padding: 0.35rem 0.7rem; border-radius: 999px; color: var(--ink); text-decoration: none; }
-nav a:hover { background: var(--bg); }
+/* Painted symbols appear before each label once they are there (see static/bilder). */
+nav a::before { content: ""; display: none; width: 22px; height: 22px; margin-right: 0.35rem;
+  vertical-align: -5px; background: center / contain no-repeat; }
+nav a:hover { background: var(--creme); }
 nav a[aria-current="page"] { background: var(--fry); }
 .top-actions { display: flex; gap: 0.4rem; align-items: center; }
 
 main { max-width: 1100px; margin: 0 auto; padding: 1.5rem; }
 .bottom { max-width: 1100px; margin: 0 auto; padding: 1rem 1.5rem 2rem; color: var(--muted); font-size: 0.85rem; }
 
-.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
-  padding: 1.1rem 1.3rem; margin-bottom: 1rem; }
+.card { background: var(--papierkarte); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--karten-schatten); padding: 1.1rem 1.3rem; margin-bottom: 1rem; }
 .card.accent { border-color: var(--fry); box-shadow: inset 4px 0 0 var(--fry); }
-.card.warn { background: var(--warn-bg); border-color: #f0d68a; }
+.card.warn { background: linear-gradient(175deg, #fff5d9, var(--warn-bg)); border-color: #ecd08a; }
 .with-fry { display: flex; gap: 1rem; align-items: flex-start; }
 
 .hello { display: flex; align-items: center; gap: 1.2rem; margin: 0.5rem 0 1.5rem; }
-.mascot-big svg, .mascot-big .fry-fallback { width: 120px; height: 120px; font-size: 90px; display: block; }
-.mascot-small svg, .mascot-small .fry-fallback { width: 64px; height: 64px; font-size: 48px; display: block; }
-.speech { position: relative; background: var(--card); border: 1px solid var(--line); border-radius: 18px;
-  padding: 0.9rem 1.2rem; margin: 0; max-width: 34rem; font-size: 1.05rem; }
+.mascot-big svg, .mascot-big img, .mascot-big .fry-fallback { object-fit: contain; width: 120px; height: 120px; font-size: 90px; display: block; }
+.mascot-small svg, .mascot-small img, .mascot-small .fry-fallback { object-fit: contain; width: 64px; height: 64px; font-size: 48px; display: block; }
+.speech { position: relative; background: var(--papier); border: 1px solid var(--papier-schatten); border-radius: 18px;
+  box-shadow: var(--karten-schatten); padding: 0.9rem 1.2rem; margin: 0; max-width: 34rem;
+  font-family: var(--hand); font-size: 1.2rem; line-height: 1.4; }
 .speech::before { content: ""; position: absolute; left: -9px; top: 50%; width: 16px; height: 16px;
-  background: var(--card); border-left: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  background: var(--papier); border-left: 1px solid var(--papier-schatten); border-bottom: 1px solid var(--papier-schatten);
   transform: translateY(-50%) rotate(45deg); }
 
 button, .button {
   font: inherit; font-size: 0.95rem; padding: 0.5rem 1rem; border-radius: 999px; cursor: pointer;
-  border: 1px solid var(--line); background: var(--card); color: var(--ink); text-decoration: none;
+  border: 1px solid var(--papier-schatten); background: var(--papier); color: var(--ink); text-decoration: none;
   display: inline-block;
 }
 button:hover, .button:hover { border-color: var(--fry-dark); }
-button.primary, .button.primary { background: var(--fry); border-color: var(--fry-dark); font-weight: 600; }
+button.primary, .button.primary { background: linear-gradient(#e6b65a, var(--ocker)); border-color: var(--ocker-dunkel);
+  box-shadow: 0 2px 0 var(--ocker-dunkel); font-weight: 700; }
+button.primary:active, .button.primary:active { transform: translateY(2px); box-shadow: none; }
 button.quiet, .button.quiet { background: transparent; border-color: transparent; color: var(--muted); }
 button.quiet:hover { color: var(--ink); }
 button.danger { color: var(--ketchup); }
 button.tiny, .button.tiny { font-size: 0.8rem; padding: 0.2rem 0.6rem; }
-button.feierabend { background: #2f3b4c; color: #fff; border-color: #2f3b4c; }
+button.feierabend { background: var(--tinte); color: var(--papier); border-color: var(--tinte); }
 button:disabled { opacity: 0.5; cursor: wait; }
 .row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
 .actions { margin-top: 1rem; }
@@ -76,19 +111,24 @@ button:disabled { opacity: 0.5; cursor: wait; }
 form { margin: 0; }
 .discard { margin-top: 0.6rem; text-align: right; }
 
-.flash { background: #eef6ef; border: 1px solid #c7dfcb; color: #234d2d; padding: 0.7rem 1rem;
-  border-radius: var(--radius); margin-bottom: 1rem; }
-.flash.error { background: #fdeeee; border-color: #f0c4c0; color: #7d2a22; }
+.flash { background: var(--papierkarte); border: 1px solid var(--papier-schatten);
+  box-shadow: inset 4px 0 0 var(--moos), var(--karten-schatten);
+  color: #2d4419; padding: 0.7rem 1rem; border-radius: var(--radius); margin-bottom: 1rem; }
+.flash.error { background: #fbeee6; border-color: #eac3b0; color: var(--terrakotta-dunkel);
+  box-shadow: inset 4px 0 0 var(--terrakotta), var(--karten-schatten); }
 .busy { color: var(--muted); font-style: italic; margin: 0.4rem 0 0; }
 
 .muted, .hint { color: var(--muted); }
 .hint { font-size: 0.88rem; margin: 0.4rem 0; }
 .note { display: block; color: var(--ketchup); font-size: 0.78rem; }
 .badge { display: inline-block; padding: 0.1rem 0.6rem; border-radius: 999px; font-size: 0.8rem;
-  background: var(--bg); border: 1px solid var(--line); white-space: nowrap; }
-.badge.ok { background: #e7f3ea; border-color: #c7dfcb; color: var(--ok); }
+  background: var(--creme); border: 1px solid var(--line); white-space: nowrap; }
+/* Done and overdue look like small ink stamps */
+.badge.ok, .badge.late { background: transparent; border: 1.5px solid currentColor; border-radius: 5px;
+  font-weight: 700; letter-spacing: 0.03em; transform: rotate(-2deg); }
+.badge.ok { color: var(--ok); }
 .badge.todo { background: var(--warn-bg); border-color: #f0d68a; color: #7a5a10; }
-.badge.late { background: #fdeeee; border-color: #f0c4c0; color: var(--ketchup); }
+.badge.late { color: var(--ketchup); }
 .amount { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 ul.plain { padding-left: 1.2rem; margin: 0.3rem 0 0.8rem; }
@@ -97,7 +137,7 @@ ul.list li { border-top: 1px solid var(--line); }
 ul.list li:first-child { border-top: 0; }
 ul.list a { display: grid; grid-template-columns: 1.3fr 1.5fr auto auto; gap: 1rem; align-items: center;
   padding: 0.6rem 0.2rem; color: var(--ink); text-decoration: none; }
-ul.list a:hover { background: var(--bg); }
+ul.list a:hover { background: var(--creme); }
 ul.list li.split { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.6rem 0; }
 ul.cards { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem; }
 ul.cards a { display: flex; flex-direction: column; color: var(--ink); text-decoration: none; }
@@ -108,7 +148,7 @@ table { width: 100%; border-collapse: collapse; }
 .table small { display: block; }
 .table tr:target { background: var(--warn-bg); }
 .lines input, .lines select { width: 100%; font: inherit; font-size: 0.92rem; padding: 0.3rem 0.4rem;
-  border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+  border: 1px solid var(--line); border-radius: 6px; background: #fffdf6; }
 .lines tr.needs input[name=price] { border-color: var(--ketchup); background: #fff8f7; }
 .lines tr.blank input { background: var(--bg); }
 .lines tfoot td { border-bottom: 0; }
@@ -122,13 +162,13 @@ table { width: 100%; border-collapse: collapse; }
 .source pre { white-space: pre-wrap; word-break: break-word; background: var(--bg); padding: 0.8rem;
   border-radius: 8px; font-size: 0.85rem; max-height: 28rem; overflow: auto; margin: 0.3rem 0; }
 .source pre.redacted { background: #f3f0ff; }
-details summary { cursor: pointer; margin-top: 0.8rem; color: var(--fry-dark); }
+details summary { cursor: pointer; margin-top: 0.8rem; color: var(--tinte); }
 .questions, .problems { background: var(--warn-bg); border-radius: 8px; padding: 0.4rem 1rem 0.8rem; margin-top: 1rem; }
 .problems { background: #fdeeee; }
 
 .form .field { display: flex; flex-direction: column; gap: 0.2rem; margin-bottom: 0.8rem; font-size: 0.92rem; color: var(--muted); }
 .field input, .field select, .field textarea { font: inherit; color: var(--ink); padding: 0.5rem 0.6rem;
-  border: 1px solid var(--line); border-radius: 8px; background: #fff; max-width: 32rem; }
+  border: 1px solid var(--line); border-radius: 6px; background: #fffdf6; max-width: 32rem; }
 label.field { display: flex; flex-direction: column; gap: 0.2rem; margin-bottom: 0.6rem; }
 .choice { display: block; margin: 0.3rem 0 0.6rem; }
 
@@ -163,3 +203,38 @@ img.receipt { max-width: 100%; border-radius: 8px; border: 1px solid var(--line)
 iframe.receipt { width: 100%; height: 32rem; border: 1px solid var(--line); border-radius: 8px; }
 .spaced { margin-top: 1.4rem; }
 .profit { font-size: 1.2rem; margin: 1rem 0; }
+
+/* ---------- Stamps, pictures and the two kinds of joy ---------- */
+.stempel { display: inline-block; padding: 0.05rem 0.6rem; vertical-align: middle;
+  border: 2.5px solid currentColor; border-radius: 999px; color: var(--moos-dunkel);
+  font-family: var(--schrift); font-weight: 800; font-size: 0.85rem; letter-spacing: 0.1em; text-transform: uppercase;
+  transform: rotate(-8deg); opacity: 0.9; position: relative;
+  animation: stempel-drauf .35s cubic-bezier(.2, 1.6, .4, 1) .15s both; }
+.stempel-fertig { color: var(--tinte); border-radius: 50% / 60%; }
+.flash.mit-stempel { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; flex-wrap: wrap; }
+@keyframes stempel-drauf {
+  0% { transform: rotate(-8deg) scale(2.2); opacity: 0; }
+  60% { opacity: 0.95; }
+  100% { transform: rotate(-8deg) scale(1); opacity: 0.9; } }
+
+img.leer-bild { display: block; width: 150px; max-width: 40%; margin: 0 0 0.4rem; }
+body:has(.feierabend-page) { background-image: var(--feierabend-bild, none),
+  radial-gradient(ellipse at 85% -10%, rgba(255, 214, 160, .55), transparent 60%),
+  linear-gradient(#efdcbc, #e6cfa8); }
+
+/* Verspielt: the stamp sparkles and the Fritte hops. "Ruhig" keeps only the stamp. */
+[data-effekte="verspielt"] .stempel::after { content: ""; position: absolute; left: 50%; top: 50%;
+  width: 8px; height: 8px; margin: -4px; border-radius: 50%; pointer-events: none;
+  box-shadow: 0 -30px var(--gold), 28px -18px var(--ocker), 34px 10px var(--gold), 12px 30px var(--moos-hell),
+    -18px 28px var(--gold), -34px 4px var(--ocker), -26px -22px var(--gold), 6px -40px var(--moos-hell);
+  animation: funkeln .7s ease-out .35s both; }
+@keyframes funkeln { 0% { transform: scale(.2); opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
+[data-effekte="verspielt"] .flash.mit-stempel { animation: karte-hoch .45s cubic-bezier(.2, 1.5, .4, 1); }
+@keyframes karte-hoch { 0% { transform: translateY(8px) scale(.97); } 100% { transform: none; } }
+[data-effekte="verspielt"]:has(.mit-stempel) .brand-fry > *,
+[data-effekte="verspielt"]:has(.mit-stempel) .mascot-big > * { animation: hopsen .5s ease-in-out .3s 2; }
+@keyframes hopsen { 0%, 100% { transform: none; } 40% { transform: translateY(-12px) rotate(-4deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .stempel, .stempel::after, .flash, .brand-fry > *, .mascot-big > * { animation: none !important; }
+}

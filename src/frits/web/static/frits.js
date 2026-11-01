@@ -25,4 +25,76 @@
     var input = b.parentElement.querySelector("input[name=price]");
     if (input) { input.value = b.getAttribute("data-fill"); input.focus(); }
   });
+
+  // ---------- Stamps and the two kinds of joy (Einstellungen > Spiel-Effekte) ----------
+  function playful() { return document.body.getAttribute("data-effekte") === "verspielt"; }
+  function calmMotion() {
+    return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+
+  // A dull "plopp" made right here in the browser: a low tone that falls fast, plus a short rustle.
+  // The Steuer-Quest uses the same sound.
+  var audio = null;
+  function stampSound() {
+    var Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    try { audio = audio || new Ctx(); } catch (e) { return; }
+    var c = audio, start = c.currentTime;
+    var osc = c.createOscillator(), gain = c.createGain();
+    osc.frequency.setValueAtTime(180, start);
+    osc.frequency.exponentialRampToValueAtTime(55, start + 0.12);
+    gain.gain.setValueAtTime(0.35, start);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.16);
+    osc.connect(gain).connect(c.destination);
+    osc.start(start);
+    osc.stop(start + 0.2);
+    var length = Math.floor(c.sampleRate * 0.08);
+    var buffer = c.createBuffer(1, length, c.sampleRate);
+    var data = buffer.getChannelData(0);
+    for (var i = 0; i < length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / length);
+    var noise = c.createBufferSource(), g2 = c.createGain();
+    g2.gain.value = 0.12;
+    noise.buffer = buffer;
+    noise.connect(g2).connect(c.destination);
+    noise.start(start);
+  }
+
+  // After an action: with a stamp, the plopp lands with it ("Verspielt" adds the chime too).
+  function feedback(cue, stamped) {
+    var sound = window.FritsSound;
+    if (!sound || !sound.enabled()) return;
+    if (!stamped) { sound.cue(cue); return; }
+    setTimeout(stampSound, 300);
+    if (playful()) setTimeout(function () { sound.cue(cue); }, 550);
+  }
+
+  // "Verspielt": sums count up from zero, e.g. "1.234,56 €" on the EÜR page.
+  function countUp(el) {
+    var text = el.textContent;
+    var match = text.match(/-?[\d.]+(,\d+)?/);
+    if (!match) return;
+    var decimals = match[1] ? match[1].length - 1 : 0;
+    var target = parseFloat(match[0].replace(/\./g, "").replace(",", "."));
+    if (!isFinite(target) || target === 0) return;
+    var format = function (v) {
+      return v.toLocaleString("de-DE", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+    };
+    var before = text.slice(0, match.index), after = text.slice(match.index + match[0].length);
+    var started = null, ms = 800;
+    function step(now) {
+      started = started || now;
+      var t = Math.min(1, (now - started) / ms);
+      var eased = 1 - Math.pow(1 - t, 3);
+      el.textContent = before + format(target * eased) + after;
+      if (t < 1) requestAnimationFrame(step); else el.textContent = text;
+    }
+    requestAnimationFrame(step);
+  }
+  function start() {
+    if (playful() && !calmMotion()) document.querySelectorAll("[data-zaehlen]").forEach(countUp);
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+  else start();
+
+  window.Frits = { feedback: feedback, stampSound: stampSound, playful: playful };
 })();

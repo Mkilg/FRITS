@@ -77,7 +77,7 @@
     </tr>
     {% endfor %}
     </tbody>
-    <tfoot><tr class="total"><td colspan="4" class="amount">Summe</td><td class="amount">{{ total | eur }}</td><td></td></tr></tfoot>
+    <tfoot><tr class="total"><td colspan="4" class="amount">Summe</td><td class="amount" data-zaehlen>{{ total | eur }}</td><td></td></tr></tfoot>
   </table></div>
   {% else %}
   <p class="muted">Noch keine Ausgaben in {{ year }}.</p>
