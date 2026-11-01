@@ -30,7 +30,12 @@ def create_reminder(
     ).fetchone()
     if row is None:
         raise BillingError(f"Rechnung {number} gibt es nicht.")
-    if invoice_status(row, today) not in ("offen", "überfällig"):
+    status = invoice_status(row, today)
+    if status == "offen":
+        raise BillingError(
+            f"Rechnung {number} ist noch nicht fällig. Erinnern geht ab dem Tag danach."
+        )
+    if status != "überfällig":
         raise BillingError(f"Rechnung {number} ist nicht mehr offen.")
     earlier = conn.execute(
         "SELECT COUNT(*), MAX(new_due_date) FROM reminders WHERE invoice_number = ?", (number,)

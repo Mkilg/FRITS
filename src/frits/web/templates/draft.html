@@ -58,7 +58,7 @@
       {% if draft.customer_address %}<p class="muted">{{ draft.customer_address }}</p>{% endif %}
 
       <div class="table-wrap">
-      <table class="lines">
+      <table class="lines"{% if editable %} data-live data-cols="{{ cols }}" data-rate="{{ (sums.vat_rate | qty | replace(',', '.')) if sums.vat_rate is not none else 0 }}" data-mode="{{ 'klein' if sums.vat_rate is none else ('regel' if rate_column else 'abroad') }}"{% endif %}>
         <thead><tr><th>Leistung</th><th>Datum</th><th>Menge</th><th>Einheit</th><th>Preis je Einheit</th>{% if rate_column %}<th>USt</th>{% endif %}<th class="amount">Betrag</th></tr></thead>
         <tbody>
         {% for line in draft.lines %}
@@ -148,4 +148,5 @@
     {% endif %}
   </section>
 </div>
+{% if row.status == "draft" %}<script src="/static/entwurf.js"></script>{% endif %}
 {% endblock %}

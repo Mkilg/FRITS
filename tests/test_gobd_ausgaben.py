@@ -111,3 +111,26 @@ def test_next_reminder_waits_for_the_new_due_date(tmp_path):
         conn, "2026-0001", _settings(), tmp_path, None, new_due + timedelta(days=1)
     )
     assert second.name == "2026-0001_Erinnerung_2.pdf"
+
+
+def test_no_reminder_before_the_due_date(tmp_path):
+    conn = store.connect(tmp_path / "frits.db")
+    _overdue_invoice(conn)
+    with pytest.raises(BillingError, match="noch nicht fällig"):
+        create_reminder(conn, "2026-0001", _settings(), tmp_path, None, date(2026, 9, 15))
+
+
+def test_an_invoice_without_draft_can_still_be_cancelled(tmp_path):
+    from frits.billing import cancel
+
+    conn = store.connect(tmp_path / "frits.db")
+    _overdue_invoice(conn)
+    settings = Settings(
+        name="Fritz",
+        address="Musterweg 1, 10115 Berlin",
+        iban="DE02120300000000202051",
+        steuernummer="12/345/67890",
+    )
+    storno, pdf = cancel(conn, "2026-0001", settings, tmp_path / "r", date(2026, 10, 1))
+    row = conn.execute("SELECT net, gross FROM invoices WHERE number = ?", (storno,)).fetchone()
+    assert (row["net"], row["gross"]) == ("-100.00", "-100.00") and pdf.exists()
