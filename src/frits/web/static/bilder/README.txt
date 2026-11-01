@@ -12,3 +12,8 @@ app-icon (Symbol im Browser-Tab; das Mac-App-Symbol liegt in packaging/macos/ico
 Maries Originale (groß, PNG) liegen im Projektordner; hier sind verkleinerte WebP-Kopien.
 
 Die Steuer-Quest hat ihre eigenen Bilder in static/steuer/.
+
+Fritte als Haustier (Zimmer und Laden): ding-<name> ersetzt das Symbol des Dings, z.B. ding-teetasse.
+Namen: ding-teetasse, ding-ketchup, ding-pflanze, ding-buecher, ding-kerze, ding-uhr, ding-radio,
+ding-bild, ding-sessel, ding-katze, ding-muetze, ding-sonnenhut, ding-zylinder, ding-doktorhut, ding-krone
+(freigestellt, durchsichtiger Hintergrund; Hüte ohne Kopf, leicht von schräg oben)

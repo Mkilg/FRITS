@@ -1,0 +1,133 @@
+/* Fritte als Haustier: her little room, the Salzkörner and the shop.
+   Same paper-and-gouache look as the rest of FRITS. Calm by default:
+   she only breathes; "Verspielt" lets her hop when something new arrives. */
+
+/* ---------- the room ---------- */
+.zimmer {
+  position: relative; container-type: inline-size; overflow: hidden;
+  aspect-ratio: 16 / 7; border-radius: 3px; border: 1px solid var(--papier-schatten);
+  /* the wall: cream paper with faint moss stripes, morning light from the window */
+  background:
+    radial-gradient(ellipse at 15% 20%, rgba(255, 249, 228, .9), transparent 55%),
+    repeating-linear-gradient(90deg, rgba(163, 196, 102, .13) 0 2px, transparent 2px 34px),
+    linear-gradient(180deg, #f3e6c6, #ecdcb6);
+}
+/* the floor: oak planks */
+.zimmer::before {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 24%;
+  background:
+    linear-gradient(180deg, rgba(58, 36, 18, .35), transparent 18%),
+    repeating-linear-gradient(90deg, transparent 0 13%, rgba(58, 36, 18, .25) 13% 13.3%),
+    linear-gradient(180deg, var(--eiche-hell), var(--eiche));
+}
+.zimmer .fenster {
+  position: absolute; left: 7%; top: 12%; width: 20%; height: 42%;
+  border: 0.9cqw solid var(--eiche); border-radius: 2px;
+  background:
+    linear-gradient(90deg, transparent calc(50% - .35cqw), var(--eiche) calc(50% - .35cqw) calc(50% + .35cqw), transparent 0),
+    linear-gradient(0deg, transparent calc(50% - .35cqw), var(--eiche) calc(50% - .35cqw) calc(50% + .35cqw), transparent 0),
+    linear-gradient(180deg, #bcd3e0, #e9ecd8 70%, #f6e7c0);
+}
+.zimmer .fenster::after { /* the window sill */
+  content: ""; position: absolute; left: -12%; right: -12%; bottom: -1.9cqw; height: 1.2cqw;
+  background: var(--eiche-dunkel); border-radius: 2px;
+}
+.laune-doest .fenster { background:
+    linear-gradient(90deg, transparent calc(50% - .35cqw), var(--eiche) calc(50% - .35cqw) calc(50% + .35cqw), transparent 0),
+    linear-gradient(0deg, transparent calc(50% - .35cqw), var(--eiche) calc(50% - .35cqw) calc(50% + .35cqw), transparent 0),
+    linear-gradient(180deg, #4a6896, #8d8fae 70%, #e2b98a); }
+.zimmer .teppich {
+  position: absolute; left: 50%; bottom: 2%; width: 30%; height: 13%; transform: translateX(-50%);
+  border-radius: 50%; background: radial-gradient(ellipse, var(--terrakotta) 0 55%, var(--terrakotta-dunkel) 56% 62%, var(--terrakotta) 63%);
+  box-shadow: 0 .4cqw 0 rgba(58, 36, 18, .25);
+}
+
+.zimmer .ding {
+  position: absolute; transform: translateX(-50%); line-height: 1;
+  font-size: calc(var(--g, 2.4) * 2.3cqw);
+  filter: saturate(.8) drop-shadow(0 .3cqw .2cqw rgba(58, 36, 18, .25));
+}
+.zimmer .ding img { height: 1.2em; width: auto; display: block; }
+
+.fritte-figur {
+  position: absolute; left: 50%; bottom: 7%; height: 66%; transform: translateX(-50%);
+  transform-origin: 50% 100%;
+}
+.fritte-figur > img, .fritte-figur > svg, .fritte-figur > .fry-fallback {
+  height: 100%; width: auto; display: block; font-size: 20cqw;
+  filter: drop-shadow(0 .5cqw .4cqw rgba(58, 36, 18, .3));
+}
+.fritte-figur > svg { width: 22cqw; }
+/* The hat sits on the top end of the fry; where that is depends on the picture. */
+.fritte-figur .hut {
+  position: absolute; top: -3.4cqw; left: var(--hut-x, 50%); transform: translateX(-50%) rotate(var(--hut-dreh, 0deg));
+  font-size: 5.2cqw; line-height: 1;
+}
+.fritte-figur .hut img { height: 1.2em; width: auto; display: block; }
+.bild-welcome { --hut-x: 64%; --hut-dreh: 12deg; }
+.bild-thinking { --hut-x: 63%; --hut-dreh: 12deg; }
+.bild-done { --hut-x: 32%; --hut-dreh: 8deg; }
+.bild-feierabend { --hut-x: 72%; --hut-dreh: 16deg; }
+
+.fritte-figur .zzz { position: absolute; right: -22%; top: -2%; font-family: var(--hand); color: var(--tinte); font-size: 2.6cqw; }
+.zzz i { display: inline-block; font-style: normal; opacity: .35; animation: zzz 3.6s ease-in-out infinite; }
+.zzz i:nth-child(2) { font-size: 1.3em; animation-delay: .6s; }
+.zzz i:nth-child(3) { font-size: 1.6em; animation-delay: 1.2s; }
+@keyframes zzz { 0%, 100% { opacity: .35; transform: none; } 50% { opacity: 1; transform: translateY(-.6cqw); } }
+
+/* Breathing: calm in every mode, slower while she dozes. */
+.fritte-figur > img, .fritte-figur > svg { animation: atmen 4.5s ease-in-out infinite; transform-origin: 50% 100%; }
+.laune-doest .fritte-figur > img, .laune-doest .fritte-figur > svg { animation-duration: 7s; }
+@keyframes atmen { 0%, 100% { transform: none; } 50% { transform: scaleY(1.015) scaleX(.995); } }
+
+/* Something new: calm = it fades in. Verspielt = it pops in with a sparkle and she hops. */
+.zimmer .neu { animation: einblenden 1.2s ease-out; }
+@keyframes einblenden { from { opacity: 0; } to { opacity: 1; } }
+[data-effekte="verspielt"] .zimmer .ding.neu { animation: reinploppen .6s cubic-bezier(.2, 1.6, .4, 1); }
+[data-effekte="verspielt"] .fritte-figur .hut.neu { animation: hut-drauf .7s cubic-bezier(.2, 1.6, .4, 1); }
+@keyframes reinploppen { 0% { transform: translateX(-50%) scale(.2); opacity: 0; } 100% { transform: translateX(-50%) scale(1); opacity: 1; } }
+@keyframes hut-drauf { 0% { transform: translateX(-50%) translateY(-8cqw) rotate(-20deg); opacity: 0; } 100% { transform: translateX(-50%) rotate(var(--hut-dreh, 0deg)); opacity: 1; } }
+[data-effekte="verspielt"] .zimmer .neu::after {
+  content: ""; position: absolute; left: 50%; top: 50%; width: 1em; height: 1em; margin: -.5em 0 0 -.5em;
+  border-radius: 50%; border: .1em dashed var(--gold); animation: funkeln .8s ease-out .2s both;
+}
+[data-effekte="verspielt"] .zimmer:has(.neu) .fritte-figur > img,
+[data-effekte="verspielt"] .zimmer:has(.neu) .fritte-figur > svg { animation: hopsen .5s ease-in-out .4s 2; }
+
+@media (prefers-reduced-motion: reduce) {
+  .zimmer *, .zimmer *::after { animation: none !important; }
+}
+
+/* ---------- Fritte's corner on Heute ---------- */
+.fritte-ecke { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 1.2rem; align-items: center; }
+.fritte-ecke .ecke-zimmer { display: block; text-decoration: none; }
+.fritte-ecke .ecke-zimmer:hover .zimmer, .fritte-ecke .ecke-zimmer:focus-visible .zimmer { outline: 2px solid var(--ocker); outline-offset: 2px; }
+.fritte-ecke p { margin: 0.2rem 0 0.6rem; }
+.salz { font-size: 1.05rem; }
+.salz strong { font-family: var(--schrift); font-size: 1.3rem; color: var(--eiche-tief); }
+.salz .plus { margin-left: .4rem; padding: .1rem .5rem; border-radius: 999px; font-size: .85rem;
+  background: rgba(163, 196, 102, .3); color: var(--moos-dunkel); white-space: nowrap; }
+@media (max-width: 700px) { .fritte-ecke { grid-template-columns: 1fr; } }
+
+/* ---------- the Fritte page ---------- */
+.haus-leiste { display: flex; gap: 1.2rem; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-top: 1rem; }
+.haus-leiste .speech { flex: 1 1 22rem; margin: 0 0 0 10px; }
+.haus-zahlen { display: flex; flex-direction: column; align-items: flex-end; gap: .2rem; }
+.haus-zahlen .salz { margin: 0; }
+.wochen { display: flex; align-items: center; gap: .35rem; }
+.wochen .punkt { width: .8rem; height: .8rem; border-radius: 50%; border: 2px solid var(--moos); background: transparent; }
+.wochen .punkt.voll { background: var(--moos); }
+.punkte-liste { list-style: none; padding: 0; margin: 0 0 .5rem; max-width: 26rem; }
+.punkte-liste li { display: flex; justify-content: space-between; padding: .2rem 0; border-bottom: 1px dotted var(--papier-schatten); }
+.punkte-liste strong { color: var(--moos-dunkel); }
+
+.laden { display: grid; grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr)); gap: .8rem; }
+.ware { display: flex; flex-direction: column; align-items: flex-start; gap: .3rem; padding: .8rem;
+  background: var(--papier); border: 1px solid var(--line); border-radius: var(--radius); }
+.ware .ware-bild { font-size: 2.2rem; line-height: 1.1; filter: saturate(.8); }
+.ware .ware-bild img { height: 2.6rem; width: auto; display: block; }
+.ware .hint { font-size: .85rem; flex: 1; }
+.ware form { margin-top: auto; }
+.ware.gekauft { background: rgba(163, 196, 102, .14); }
+.ware .preis { margin-top: auto; color: var(--muted); }
+#huete button[aria-pressed="true"] { background: var(--ocker); }

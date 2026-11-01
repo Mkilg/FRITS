@@ -1,0 +1,17 @@
+{# Fritte's room. Needs f (haustier.Fritte); neu = id of something just bought. #}
+<div class="zimmer laune-{{ f.laune }}{{ ' ' ~ zimmer_klasse if zimmer_klasse }}" role="img" aria-label="Fritte in ihrem Zimmer. Sie ist {{ f.laune_name }}.">
+  <span class="fenster" aria-hidden="true"></span>
+  <span class="teppich" aria-hidden="true"></span>
+  {% for d in f.zimmer %}
+  <span class="ding{{ ' neu' if d.id == neu }}" style="left: {{ d.x }}%; bottom: {{ d.y }}%; --g: {{ d.groesse }};" title="{{ d.name }}">
+    {%- if picture('ding-' ~ d.id) %}<img src="{{ picture('ding-' ~ d.id) }}" alt="">{% else %}{{ d.zeichen }}{% endif -%}
+  </span>
+  {% endfor %}
+  <span class="fritte-figur bild-{{ f.bild }}">
+    {{ mascot(f.bild) }}
+    {% if f.hut %}<span class="hut{{ ' neu' if f.hut.id == neu }}" title="{{ f.hut.name }}">
+      {%- if picture('ding-' ~ f.hut.id) %}<img src="{{ picture('ding-' ~ f.hut.id) }}" alt="">{% else %}{{ f.hut.zeichen }}{% endif -%}
+    </span>{% endif %}
+    {% if f.laune == "doest" %}<span class="zzz" aria-hidden="true"><i>z</i><i>z</i><i>z</i></span>{% endif %}
+  </span>
+</div>
