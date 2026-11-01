@@ -37,6 +37,10 @@ jobs:
           mkdir -p "$RUNNER_TEMP/try"
           ditto -x -k dist/macos/FRITS-macOS.zip "$RUNNER_TEMP/try"
           ls -la "$RUNNER_TEMP/try/FRITS"
+          # License notices travel with the app, and no GPL HEIC encoder (pillow-heif) is inside.
+          grep -q "^- pi_heif " "$RUNNER_TEMP/try/FRITS/LIZENZEN.txt"
+          if grep -qi "^- pillow.heif " "$RUNNER_TEMP/try/FRITS/LIZENZEN.txt"; then exit 1; fi
+          grep -q "^- tesseract " "$RUNNER_TEMP/try/FRITS/LIZENZEN.txt"
 
       - name: Check it starts, with no internet and no outside Python
         run: |

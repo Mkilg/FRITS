@@ -21,6 +21,13 @@
   {% endif %}
 </section>
 
+<section class="card" id="hinweis">
+  <h2>Gut zu wissen</h2>
+  {% for absatz in about.hinweis %}<p>{{ absatz }}</p>
+  {% endfor %}
+  <p><a href="https://github.com/Mkilg/FRITS" target="_blank" rel="noopener noreferrer">Quellcode von FRITS</a> · MIT-Lizenz</p>
+</section>
+
 <section class="card accent" id="fehler">
   <h2>Fehler melden</h2>
   <p>Etwas klappt nicht oder sieht komisch aus? Dann schreib Marie kurz. FRITS öffnet dafür eine fertige E-Mail an {{ bug_address }} in deinem Mail-Programm. Du schreibst hinein, was passiert ist, und drückst selbst auf Senden.</p>
