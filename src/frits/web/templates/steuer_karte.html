@@ -32,6 +32,7 @@
         {% if ernte.rechnungen %}<li><b>{{ ernte.rechnungen | length }}</b> Rechnungen{% if ernte.neu.rechnungen %} <em>+{{ ernte.neu.rechnungen }} neu</em>{% endif %}</li>{% endif %}
         {% if ernte.belege %}<li><b>{{ ernte.belege | length }}</b> Ausgaben-Belege{% if ernte.neu.belege %} <em>+{{ ernte.neu.belege }} neu</em>{% endif %}</li>{% endif %}
         {% if ernte.euer %}<li>EÜR {{ jahr }}: Gewinn <b>{{ ernte.gewinn }}</b>{% if ernte.neu.euer %} <em>neu</em>{% endif %}</li>{% endif %}
+        {% if ernte.fuer_beraterin %}<li>Buchungsliste und Verfahrensdoku für die Beraterin{% if ernte.neu.buchungsliste or ernte.neu.verfahrensdoku %} <em>neu</em>{% endif %}</li>{% endif %}
       </ul>
       {% if not ernte_ziele %}
       <p class="muted">Im Fragebogen fehlt noch dein Betrieb. <a href="/steuer/{{ jahr }}/fragebogen?teil=2">Ergänzen</a></p>

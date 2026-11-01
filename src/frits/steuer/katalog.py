@@ -190,15 +190,20 @@ class Gebiet:
     name: str = ""  # eigener Name, z. B. "Lindenstraße" für Wohnung 1
 
     @property
-    def titel(self) -> str:
+    def kurztitel(self) -> str:
+        """Ohne eigenen Namen, z. B. "Gehöft 1": für das Schild auf der Insel."""
         titel = self.provinz.name
         if self.zeige_nummer:
             titel += f" {self.nummer}"
         if self.wappen:
             titel += f" ({self.wappen})"
-        if self.name:
-            titel += f" · {self.name}"  # "Gehöft 1 · Lindenstraße"
         return titel
+
+    @property
+    def titel(self) -> str:
+        if self.name:
+            return f"{self.kurztitel} · {self.name}"  # "Gehöft 1 · Lindenstraße"
+        return self.kurztitel
 
     @property
     def bereich(self) -> str:

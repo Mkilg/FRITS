@@ -942,8 +942,15 @@ def register_steuer(
             teile.append(f"{neu['rechnungen']} Rechnung{'en' if neu['rechnungen'] > 1 else ''}")
         if neu["belege"]:
             teile.append(f"{neu['belege']} Beleg{'e' if neu['belege'] > 1 else ''}")
+        extra = " und ".join(
+            n
+            for k, n in (("buchungsliste", "Buchungsliste"), ("verfahrensdoku", "Verfahrensdoku"))
+            if neu[k]
+        )
         if neu["euer"]:
-            teile.append("die EÜR")
+            teile.append("die EÜR" + (f" mit {extra}" if extra else ""))
+        elif extra:
+            teile.append(f"die {extra}")
         if teile:
             text = f"FRITS-Ernte eingebracht: {', '.join(teile)} → {ziele[gebiet_id].titel}"
             quest.notiere(c, jahr, "fund", text)
