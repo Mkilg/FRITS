@@ -25,18 +25,28 @@
     </ol>
 
     {% if teil == 1 %}
-    <div class="sq-felder">
-      <label class="field">Dein Name <input name="name" value="{{ profil.name }}"></label>
-      <label class="field">Familienstand
-        <select name="familienstand">
-          {% for key, text in familienstaende.items() %}<option value="{{ key }}" {% if profil.familienstand == key %}selected{% endif %}>{{ text }}</option>{% endfor %}
-        </select></label>
-      <label class="sq-kachel"><input type="checkbox" name="zusammen" {% if profil.zusammen %}checked{% endif %}>
-        <strong>Gemeinsame Erklärung</strong><span>Nur bei Ehe oder Lebenspartnerschaft: Ihr gebt zusammen ab. Dann bekommt jede Person ihr eigenes Wappen.</span></label>
-      <label class="field nur-zusammen">Name deiner Partnerin oder deines Partners <input name="partner" value="{{ profil.partner }}"></label>
-      <label class="field">Wie viele Kinder (mit Kindergeld)? <input type="number" name="kinder" min="0" max="20" value="{{ profil.kinder }}"></label>
-      <label class="field">E-Mail deiner Beraterin <input type="email" name="beraterin_email" value="{{ profil.beraterin_email }}"></label>
-      <label class="field">Bis wann möchte sie die Unterlagen? <input type="date" name="beraterin_termin" value="{{ profil.beraterin_termin }}"></label>
+    <div class="sq-felder" data-stapel>
+      <div class="sq-frage">
+        <label class="field sq-frage-gross">Wie heißt du? <input name="name" value="{{ profil.name }}" autocomplete="given-name"></label>
+      </div>
+      <div class="sq-frage">
+        <label class="field sq-frage-gross">Familienstand {{ jahr }}
+          <select name="familienstand">
+            {% for key, text in familienstaende.items() %}<option value="{{ key }}" {% if profil.familienstand == key %}selected{% endif %}>{{ text }}</option>{% endfor %}
+          </select></label>
+        <label class="sq-kachel nur-verheiratet"><input type="checkbox" name="zusammen" {% if profil.zusammen %}checked{% endif %}>
+          <strong>Gemeinsame Erklärung</strong><span>Ihr gebt zusammen ab. Dann bekommt jede Person ihr eigenes Wappen.</span></label>
+        <label class="field nur-zusammen">Name deiner Partnerin oder deines Partners <input name="partner" value="{{ profil.partner }}"></label>
+      </div>
+      <div class="sq-frage">
+        <label class="field sq-frage-gross">Wie viele Kinder mit Kindergeld?
+          <span class="sq-zaehler-feld">
+            <button type="button" class="sq-minus" data-schritt="-1" aria-label="Eins weniger">−</button>
+            <input type="number" name="kinder" min="0" max="20" value="{{ profil.kinder }}">
+            <button type="button" class="sq-plus" data-schritt="1" aria-label="Eins mehr">+</button>
+          </span></label>
+        <p class="muted">0 ist auch eine gute Antwort.</p>
+      </div>
     </div>
 
     {% elif teil == 2 %}
@@ -80,11 +90,9 @@
     <fieldset class="sq-kacheln">
       <legend>Was trifft auf {{ jahr }} zu?</legend>
       {% for key, text in haken.items() %}
-      {% if not key.startswith("kinder_") or profil.kinder %}
-      {% if key != "arbeit" or (profil.anzahl("angestellt")[0] + profil.anzahl("angestellt")[1]) %}
+      {% if profil.zeigt_haken(key) %}
       <label class="sq-kachel"><input type="checkbox" name="haken" value="{{ key }}" {% if key in profil.haken %}checked{% endif %}>
         <span>{{ text }}</span></label>
-      {% endif %}
       {% endif %}
       {% endfor %}
     </fieldset>

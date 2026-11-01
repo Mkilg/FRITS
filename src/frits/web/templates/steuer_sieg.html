@@ -50,6 +50,7 @@
     <form method="post" action="/steuer/{{ jahr }}/mail" class="sq-papier sq-brief">
       <input type="hidden" name="token" value="{{ token }}">
       <h2>2. Brief an deine Beraterin</h2>
+      <label>An <input type="email" name="an" value="{{ profil.beraterin_email }}" placeholder="E-Mail deiner Beraterin"></label>
       <label>Betreff <input name="betreff" value="{{ betreff }}"></label>
       <label class="sr-only" for="sq-mailtext">Text (alles änderbar)</label>
       <textarea id="sq-mailtext" name="text" rows="16">{{ mailtext }}</textarea>

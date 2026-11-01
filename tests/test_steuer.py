@@ -771,3 +771,68 @@ def test_reine_bonus_provinz_zaehlt_nicht_zu_den_siegeln():
     burg = next(p for p in staende if p.gebiet.id == "burg")
     assert burg.nur_bonus and burg.stand.siegel
     assert spiel.ressourcen(stuecke, staende).siegel == 0
+
+
+def test_journalisten_haken_nur_mit_freiberuf():
+    ohne = Profil(jahr=2025, haken=["ksk", "sender"])
+    assert not ohne.zeigt_haken("ksk") and not ohne.hat("ksk")
+    frei = Profil(jahr=2025, mengen={"freiberuflich": [1, 0]}, haken=["ksk", "sender"])
+    assert frei.zeigt_haken("ksk") and frei.hat("sender")
+    keys = {(g.id, s.key) for g in reich(frei) for s in g.stuecke}
+    assert ("werkstatt-1", "sender") in keys and ("burg", "ksk") in keys
+    assert ("werkstatt-1", "vgwort") not in keys  # Haken "verwertung" nicht gesetzt
+
+
+def test_neuer_katalogtext_kommt_auch_in_alte_quests(conn):
+    quest.start(conn, MARIE)
+    conn.execute("UPDATE steuer_stuecke SET hinweis = 'alt' WHERE gebiet = 'rathaus'")
+    quest.start(conn, MARIE)
+    hinweise = {s["hinweis"] for s in quest.stuecke(conn, MARIE.jahr, "rathaus")}
+    assert "alt" not in hinweise
+
+
+def test_dateien_lassen_sich_auf_den_eingangskorb_ziehen(client, ws):
+    fragebogen(client, teil1={"name": "Marie"})
+    karte = client.get("/steuer/2025").text
+    assert "/steuer/2025/lager/hochladen" in karte and "data-dropzone" in karte
+    assert client.get("/steuer/2025/lager/anzahl").json() == {"anzahl": 0}
+    dateien = [("files", ("bescheid.pdf", b"%PDF-1", "application/pdf"))] * 2
+    seite = post(client, "/steuer/2025/lager/hochladen", files=dateien)
+    assert "2 neue Zettel im Eingangskorb" in seite.text
+    namen = sorted(p.name for p in quest.lager_dateien(ws.root))
+    assert namen == ["bescheid (1).pdf", "bescheid.pdf"]
+    assert client.get("/steuer/2025/lager/anzahl").json() == {"anzahl": 2}
+    # Ein Pfad im Namen wird nie ein Pfad auf der Platte
+    post(client, "/steuer/2025/lager/hochladen", files=[("files", ("../../boese.txt", b"x"))])
+    assert (quest.lager(ws.root) / "boese.txt").is_file()
+    # Auch Bankexporte (CSV) dürfen in den Korb, und eingefügter Text wird ein Zettel
+    post(client, "/steuer/2025/lager/hochladen", files=[("files", ("konto.csv", b"a;b"))])
+    seite = post(client, "/steuer/2025/lager/hochladen", text="Mail vom Finanzamt: bitte Belege")
+    assert "1 neuer Zettel" in seite.text
+    namen = [p.name for p in quest.lager_dateien(ws.root)]
+    assert "konto.csv" in namen and any(n.startswith("eingefuegt-") for n in namen)
+
+
+def test_beraterin_steht_nicht_mehr_im_ersten_teil(client, ws):
+    seite = client.get("/steuer/2025/fragebogen").text
+    assert 'name="beraterin_email"' not in seite and "data-stapel" in seite
+    fragebogen(client, teil1={"name": "Marie"})
+    brief = client.get("/steuer/2025/beraterin").text
+    assert 'name="beraterin_email"' in brief
+    post(
+        client,
+        "/steuer/2025/beraterin/daten",
+        beraterin_email="b@example.org",
+        beraterin_termin="2026-03-12",
+    )
+    p = Profil.load(quest.profil_datei(ws.root, 2025))
+    assert p.beraterin_email == "b@example.org" and p.beraterin_termin == "2026-03-12"
+    assert "12. März 2026" in client.get("/steuer/2025").text
+    # Teil 1 erneut speichern löscht die Beraterin nicht
+    post(client, "/steuer/2025/fragebogen", teil="1", name="Marie K.")
+    post(client, "/steuer/2025/fragebogen", teil="3")
+    p = Profil.load(quest.profil_datei(ws.root, 2025))
+    assert p.beraterin_email == "b@example.org"
+    # Kaputtes Datum wird nicht gespeichert
+    post(client, "/steuer/2025/beraterin/daten", beraterin_termin="morgen")
+    assert Profil.load(quest.profil_datei(ws.root, 2025)).beraterin_termin == ""

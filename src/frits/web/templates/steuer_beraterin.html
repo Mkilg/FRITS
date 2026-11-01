@@ -21,6 +21,13 @@
       {% set stimmung = "done" if ergebnis else "thinking" %}{% include "_steuer_fritte.html" %}
       <p class="sq-sprechblase">{% if ergebnis %}{{ ergebnis | length }} Aufträge! Ich habe sie auf die passenden Provinzen gelegt.{% else %}Aufzählungen kann ich am besten lesen. Jeder Punkt wird ein Auftrag auf deiner Insel.{% endif %}</p>
     </div>
+    <form method="post" action="/steuer/{{ jahr }}/beraterin/daten" class="sq-papier sq-schief sq-beraterin-karte" style="--r: 0.8deg">
+      <input type="hidden" name="token" value="{{ token }}">
+      <h2>Deine Beraterin</h2>
+      <label class="field">E-Mail <input type="email" name="beraterin_email" value="{{ profil.beraterin_email }}" placeholder="name@kanzlei.de"></label>
+      <label class="field">Bis wann möchte sie die Unterlagen? <input type="date" name="beraterin_termin" value="{{ profil.beraterin_termin }}"></label>
+      <button class="quiet">Merken</button>
+    </form>
     {% if ergebnis %}
     <ul class="sq-auftraege">
       {% for e in ergebnis %}<li style="--i: {{ loop.index0 }}; --r: {{ [-1, 0.8, -0.5, 1.2][loop.index0 % 4] }}deg"><strong>{{ e.text }}</strong><br><span class="muted">{{ e.wo }} · {{ "neue Karte" if e.neu else "Karte markiert" }}</span></li>{% endfor %}
