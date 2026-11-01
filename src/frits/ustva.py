@@ -41,6 +41,13 @@ from frits.settings import Settings
 
 PERIODS = {"monat": "monatlich", "quartal": "vierteljährlich"}
 BASES = {"ist": "nach bezahlten Rechnungen (Ist)", "soll": "nach Leistungsdatum (Soll)"}
+
+
+def basis_of(settings: Settings) -> str:
+    """Ist only when Fritz chose it: without the tax office's approval, Soll is the law."""
+    return settings.vat_basis if settings.vat_basis in BASES else "soll"
+
+
 QUARTER_CODES = {1: 41, 2: 42, 3: 43, 4: 44}  # how ELSTER numbers the quarters
 
 
