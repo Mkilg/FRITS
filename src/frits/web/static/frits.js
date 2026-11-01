@@ -135,6 +135,11 @@
   function start() {
     if (playful() && !calmMotion()) document.querySelectorAll("[data-zaehlen]").forEach(countUp);
   }
+  // Sound switched off: forget the music that should carry on to the next page (frits-sound.js).
+  if (document.body.getAttribute("data-frits-sound") !== "on") {
+    try { sessionStorage.removeItem("frits-music"); } catch (e) { /* egal */ }
+  }
+
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
   else start();
 
