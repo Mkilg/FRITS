@@ -2,8 +2,7 @@
 {% block title %}{{ g.titel }} · Steuer-Quest{% endblock %}
 {% block head %}<link rel="stylesheet" href="/static/steuer.css"><script src="/static/steuer.js" defer></script>{% endblock %}
 {% block content %}
-{% set tisch = bild("tisch") %}
-<div class="sq sq-tisch" data-klang="{{ 'an' if klang else 'aus' }}" {% if tisch %}style="--tisch-bild: url({{ tisch }})"{% endif %}>
+<div class="sq sq-tisch" data-klang="{{ 'an' if klang else 'aus' }}"{% include "_steuer_stil.html" %}>
 {% include "_steuer_kopf.html" %}
 {% set zurueck = "/steuer/" ~ jahr ~ "/gebiet/" ~ g.id %}
 {% set schild = {"gesammelt": "Gesichert", "gibts_nicht": "Gibt's nicht", "fragen": "Frage"} %}

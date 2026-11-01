@@ -164,7 +164,7 @@
     abdruck.style.top = y + "px";
     var farbe = FARBE[form.getAttribute("data-farbe")];
     if (farbe) abdruck.style.color = farbe;
-    document.body.appendChild(abdruck);
+    tisch.appendChild(abdruck);
     funken(x, y, 16);
     setTimeout(function () { HTMLFormElement.prototype.submit.call(form); }, 480);
   }

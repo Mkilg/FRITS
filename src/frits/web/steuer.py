@@ -28,8 +28,41 @@ BILDER = resources.files("frits.web") / "static" / "steuer"
 
 def bild(name: str) -> str:
     """Adresse eines gemalten Bildes, oder "" wenn es (noch) fehlt. Dann malt CSS einen Ersatz."""
-    datei = BILDER / f"{name}.png"
-    return f"/static/steuer/{name}.png" if datei.is_file() else ""
+    for endung in ("webp", "png", "jpg"):
+        if (BILDER / f"{name}.{endung}").is_file():
+            return f"/static/steuer/{name}.{endung}"
+    return ""
+
+
+# Für Provinzen ohne eigenes Bild leihen wir uns ein passendes, leicht umgefärbt.
+LEIHGABEN = {
+    "rathaus": ("gilde", "hue-rotate(-28deg) saturate(1.05)"),
+    "kaserne": ("burg", "saturate(.7) brightness(.95)"),
+    "handelskontor": ("werkstatt", "hue-rotate(18deg)"),
+    "aussenposten": ("hafen", "hue-rotate(-14deg) saturate(.9)"),
+    "kontorhaus": ("gilde", "saturate(.75) brightness(1.04)"),
+    "ferienhaus": ("gehoeft", "hue-rotate(-18deg) brightness(1.05)"),
+    "schatzkammer": ("burg", "sepia(.25) saturate(1.2)"),
+    "jahrmarkt": ("werkstatt", "hue-rotate(-24deg) saturate(1.15)"),
+    "altenteil": ("gehoeft", "saturate(.7)"),
+    "brunnen": ("gehoeft", "hue-rotate(22deg) saturate(.9)"),
+    "dorf": ("gehoeft", "hue-rotate(10deg) saturate(1.1)"),
+}
+# Stufe 0 bis 3 auf die drei gemalten Bilder: Fundament, gebaut, blühend
+BILD_ZU_STUFE = {0: 1, 1: 2, 2: 2, 3: 3}
+
+
+def provinzbild(key: str, stufe: int) -> tuple[str, str]:
+    """(Adresse, CSS-Filter) des Bildes einer Provinz in dieser Stufe, oder ("", "")."""
+    eigenes = bild(f"{key}-{BILD_ZU_STUFE[stufe]}")
+    if eigenes:
+        return eigenes, ""
+    if key in LEIHGABEN:
+        andere, filter_ = LEIHGABEN[key]
+        geliehen = bild(f"{andere}-{BILD_ZU_STUFE[stufe]}")
+        if geliehen:
+            return geliehen, filter_
+    return "", ""
 
 
 def inselplan(anzahl: int) -> list[tuple[float, float]]:
@@ -53,6 +86,25 @@ def inselplan(anzahl: int) -> list[tuple[float, float]]:
             lagen.append(
                 (round(50 + rx * math.cos(winkel), 1), round(45 + ry * math.sin(winkel), 1))
             )
+    return lagen
+
+
+def wiesenplan(anzahl: int) -> list[tuple[float, float]]:
+    """Wie inselplan(), aber für die gemalte Insel: Reihen auf der Wiese, leicht versetzt
+    wie in einem Dorf, die hinteren Reihen etwas schmaler (Perspektive)."""
+    if anzahl <= 0:
+        return []
+    spalten = max(2, math.ceil(math.sqrt(anzahl * 1.6)))
+    reihen = math.ceil(anzahl / spalten)
+    abstand = min(100 / spalten, 30.0)
+    lagen = []
+    for i in range(anzahl):
+        reihe, spalte = divmod(i, spalten)
+        in_reihe = min(spalten, anzahl - reihe * spalten)
+        versatz = (abstand / 4 if reihe % 2 else 0) + (reihe / max(1, reihen - 1)) * 3
+        x = 50 + (spalte - (in_reihe - 1) / 2) * abstand + versatz
+        y = (reihe + 0.5) / reihen * 100
+        lagen.append((round(min(95.0, max(5.0, x)), 1), round(y, 1)))
     return lagen
 
 
@@ -107,7 +159,9 @@ def register_steuer(
 
     def seite(request: Request, name: str, **context):
         """Wie page(), plus was alle Quest-Seiten brauchen (Bilder, Klang)."""
-        return page(request, name, bild=bild, klang=settings().sound, **context)
+        return page(
+            request, name, bild=bild, provinzbild=provinzbild, klang=settings().sound, **context
+        )
 
     def lage(jahr: int):
         """Alles, was die Seiten über den Spielstand wissen müssen."""
@@ -204,7 +258,7 @@ def register_steuer(
             lager=lager,
             ernte=ernte.finden(conn(), ws, jahr, settings().tax_mode),
             ernte_ziele=ernte.ziele(daten["gebiete"]),
-            plan=inselplan(len(daten["provinzen"])),
+            plan=(wiesenplan if bild("insel") else inselplan)(len(daten["provinzen"])),
             fritte=stimmung,
             tipp=tipp,
             **daten,

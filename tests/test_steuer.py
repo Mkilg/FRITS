@@ -618,3 +618,16 @@ def test_seiten_rendern(client):
     assert client.get("/steuer/2025/gebiet/gibtsnicht").status_code == 404
     karte = client.get("/steuer/2025").text
     assert 'class="sq-insel' in karte and "Drachenhort" in karte
+
+
+def test_gemalte_bilder_und_leihgaben():
+    from frits.web.steuer import provinzbild, wiesenplan
+
+    assert provinzbild("werkstatt", 0) == ("/static/steuer/werkstatt-1.webp", "")
+    assert provinzbild("werkstatt", 3)[0] == "/static/steuer/werkstatt-3.webp"
+    bild, farbe = provinzbild("rathaus", 2)  # hat noch kein eigenes Bild: leiht sich eins
+    assert bild == "/static/steuer/gilde-2.webp" and farbe
+    for n in range(21):
+        lagen = wiesenplan(n)
+        assert len(set(lagen)) == n
+        assert all(5 <= x <= 95 and 0 < y < 100 for x, y in lagen)

@@ -1,10 +1,10 @@
 {# Eine Provinz als kleines Diorama. Erwartet: p (Provinzstand), jahr, bild(), optional lage=(x, y) #}
-{% set g = p.gebiet %}{% set stufe = p.stand.stufe %}{% set gemalt = bild(g.provinz.key ~ "-" ~ stufe) %}
+{% set g = p.gebiet %}{% set stufe = p.stand.stufe %}{% set gemalt, farbe = provinzbild(g.provinz.key, stufe) %}
 <a class="sq-parzelle stufe-{{ stufe }}{% if p.stand.siegel %} siegel{% endif %}" href="/steuer/{{ jahr }}/gebiet/{{ g.id }}" data-gebiet="{{ g.id }}" data-titel="{{ g.titel }}"
    {% if lage %}style="--x: {{ lage[0] }}%; --y: {{ lage[1] }}%; --zeile: {{ (lage[1] | int) }}"{% endif %}
    aria-label="{{ g.titel }}: {{ p.stand.erledigt }} von {{ p.stand.gesamt }}, {{ p.stufe_name }}">
   <span class="sq-diorama">
-    {% if gemalt %}<img src="{{ gemalt }}" alt="">{% else %}
+    {% if gemalt %}<img src="{{ gemalt }}" alt=""{% if farbe %} style="--farbe: {{ farbe }}" class="geliehen"{% endif %}>{% else %}
     <span class="sq-boden"></span>
     {% if g.provinz.key == "hafen" %}<span class="sq-wasser"></span>{% endif %}
     <span class="sq-haus haus-{{ g.provinz.key }}"><i class="pfahl"></i><i class="pfahl"></i><i class="kiste"></i><i class="baum"></i><i class="seite"></i><i class="wand"></i><i class="dachseite"></i><i class="dach"></i><i class="rauch"></i><i class="fahne"></i><i class="blumen"></i></span>

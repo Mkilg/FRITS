@@ -23,7 +23,9 @@ main:has(.sq-tisch) > .flash { max-width: 760px; margin: 0.8rem auto; position: 
 .sq-tisch {
   min-height: calc(100vh - 60px); padding: 1rem 1.4rem 2.5rem;
   background:
-    var(--tisch-bild, none) center / cover,
+    radial-gradient(ellipse at 50% 45%, transparent 30%, rgba(25, 12, 4, .5) 100%) fixed,
+    linear-gradient(rgba(40, 20, 6, .28), rgba(40, 20, 6, .28)) fixed,
+    var(--tisch-bild, none) center / cover no-repeat fixed,
     radial-gradient(ellipse at 22% 8%, rgba(255, 214, 150, .38), transparent 55%),
     radial-gradient(ellipse at 50% 120%, rgba(20, 10, 4, .55), transparent 60%),
     repeating-linear-gradient(92deg, rgba(0,0,0,.05) 0 2px, transparent 2px 9px, rgba(255,255,255,.035) 9px 11px, transparent 11px 23px),
@@ -36,6 +38,9 @@ main:has(.sq-tisch) > .flash { max-width: 760px; margin: 0.8rem auto; position: 
     radial-gradient(ellipse at 50% 50%, transparent 30%, rgba(10, 5, 2, .75) 90%),
     repeating-linear-gradient(90deg, #6d4526 0 180px, #66401f 180px 330px, #714829 330px 520px, #5f3c1f 520px 640px);
 }
+
+/* Schrift direkt auf dem Tisch: kräftiger Schatten, damit sie auf dem gemalten Holz lesbar bleibt */
+.sq-korb p, .sq-ding span:last-child, .sq .sq-rand-titel, .sq-zurueck, .sq-nah-insel h1, .sq-nah-insel .bereich, .sq-fusszeile, .sq-arena > p { text-shadow: 0 1px 2px rgba(0,0,0,.95), 0 0 10px rgba(20, 8, 2, .8); }
 
 /* ---------- Messingleiste (Ressourcen) ---------- */
 .sq-leiste {
@@ -52,7 +57,7 @@ main:has(.sq-tisch) > .flash { max-width: 760px; margin: 0.8rem auto; position: 
 .sq-marke i { width: 20px; height: 20px; display: inline-block; position: relative; flex: none; }
 .sq-marke.belege i { background: var(--papier); border: 1px solid #9c8a64; box-shadow: 3px -3px 0 -1px var(--papier), 3px -3px 0 0 #9c8a64; transform: rotate(-6deg); width: 15px; height: 19px; }
 .sq-marke.briefe i { background: linear-gradient(160deg, transparent 48%, #9cb0cc 49% 52%, transparent 53%), linear-gradient(20deg, transparent 48%, #9cb0cc 49% 52%, transparent 53%), #e3ebf5; border: 1px solid var(--tinte-hell); height: 14px; }
-.sq-marke.siegel i { border-radius: 50%; background: radial-gradient(circle at 40% 35%, #d9564d, var(--wachs) 60%, #7c1d18); box-shadow: 0 0 0 2px rgba(179, 48, 42, .35); }
+.sq-marke.siegel i { border-radius: 50%; background: var(--siegel-bild, radial-gradient(circle at 40% 35%, #d9564d, var(--wachs) 60%, #7c1d18)) center / contain no-repeat; }
 .sq-marke.fragen i { border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: var(--tinte-hell); width: 16px; height: 16px; }
 .sq-marke.gold i { border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff1b8, var(--gold) 45%, var(--ocker-dunkel)); border: 1px solid #7a5512; }
 .sq-zeitalter > span:last-child { white-space: nowrap; }
@@ -63,7 +68,7 @@ main:has(.sq-tisch) > .flash { max-width: 760px; margin: 0.8rem auto; position: 
 .sq-pop { animation: sq-pop .35s cubic-bezier(.2, 1.8, .4, 1); }
 
 /* ---------- Kartentisch-Raster ---------- */
-.sq-flaeche { max-width: 1280px; margin: 0 auto; display: grid; grid-template-columns: 220px minmax(0, 1fr) 270px; gap: 1.4rem; align-items: start; }
+.sq-flaeche { max-width: 1360px; margin: 0 auto; display: grid; grid-template-columns: 210px minmax(0, 1fr) 250px; gap: 1.4rem; align-items: start; }
 @media (max-width: 1080px) { .sq-flaeche { grid-template-columns: minmax(0, 1fr); } .sq-flaeche > .sq-rand { order: 2; } }
 
 /* Papier, Zettel und Pergament */
@@ -147,8 +152,18 @@ main:has(.sq-tisch) > .flash { max-width: 760px; margin: 0.8rem auto; position: 
     radial-gradient(ellipse at 50% 40%, var(--moos-hell), var(--moos) 55%, var(--moos-dunkel));
   box-shadow: inset 0 -14px 0 #8a5a2c, inset 0 -22px 18px rgba(40, 20, 5, .35), inset 0 10px 24px rgba(255, 255, 220, .35);
 }
+.sq-provinzen { position: absolute; inset: 0; }
+.sq-parzelle { scale: var(--massstab, 1); }
+/* Mit gemalter Insel: Wiese rechts neben Bergen und Fluss, dort stehen die Provinzen */
+.sq-insel.mit-bild { height: auto; aspect-ratio: 3 / 2; max-width: none; width: 108%; margin-left: -4%; }
 .sq-insel.mit-bild .sq-insel-fels { display: none; }
-.sq-insel.mit-bild .sq-insel-gras { box-shadow: none; background: var(--insel-bild) center / contain no-repeat; inset: 0; border-radius: 0; }
+.sq-insel.mit-bild .sq-insel-gras { box-shadow: none; background: var(--insel-bild) center / contain no-repeat; inset: 0; border-radius: 0; filter: drop-shadow(0 30px 30px rgba(20, 8, 2, .45)); }
+.sq-insel.mit-bild .sq-provinzen { left: 37%; right: 8%; top: 8%; bottom: 40%; }
+.sq-insel.mit-bild .sq-diorama img { width: 132px; max-height: 132px; }
+.sq-insel.mit-bild .sq-nebel { inset: 10px -4px 0; }
+.sq-insel.mit-bild .sq-schild { padding: 0.1rem 0.45rem 0.2rem; min-width: 0; }
+.sq-insel.mit-bild .sq-schild strong { font-size: 0.78rem; }
+.sq-insel.mit-bild ~ .sq-insel-schatten { display: none; }
 
 /* Provinzen (Parzellen) */
 .sq-parzelle {
@@ -160,7 +175,11 @@ main:has(.sq-tisch) > .flash { max-width: 760px; margin: 0.8rem auto; position: 
 .sq-parzelle.ziel { transform: scale(1.14); z-index: 60; }
 .sq-parzelle.ziel .sq-boden { box-shadow: 0 0 0 4px var(--gold), 0 0 30px 8px rgba(233, 189, 79, .8); }
 .sq-diorama { position: relative; width: 124px; height: 104px; display: block; }
-.sq-diorama img { position: absolute; inset: -8px; width: calc(100% + 16px); height: calc(100% + 16px); object-fit: contain; filter: drop-shadow(0 6px 4px rgba(30, 15, 0, .35)); }
+.sq-diorama img { position: absolute; left: 50%; bottom: -4px; width: 152px; height: auto; max-height: 150px; object-fit: contain; object-position: bottom; transform: translateX(-50%); filter: drop-shadow(0 6px 4px rgba(30, 15, 0, .35)); }
+.sq-diorama img.geliehen { filter: var(--farbe) drop-shadow(0 6px 4px rgba(30, 15, 0, .35)); }
+.stufe-0 .sq-diorama img { filter: saturate(.45) brightness(.92) drop-shadow(0 6px 4px rgba(30, 15, 0, .3)); }
+.stufe-1 .sq-diorama img:not(.geliehen) { filter: saturate(.8) drop-shadow(0 6px 4px rgba(30, 15, 0, .35)); }
+.siegel .sq-diorama img { filter: drop-shadow(0 0 10px rgba(255, 220, 120, .8)) drop-shadow(0 6px 4px rgba(30, 15, 0, .35)); }
 .sq-boden { position: absolute; left: 6px; right: 6px; bottom: 2px; height: 44px; border-radius: 50%; background: radial-gradient(ellipse at 50% 40%, #c9a46b, #9c7646); box-shadow: inset 0 -5px 0 rgba(70, 40, 15, .35); }
 .stufe-1 .sq-boden, .stufe-2 .sq-boden { background: radial-gradient(ellipse at 50% 40%, #b9d27a, #7fa04a); }
 .stufe-3 .sq-boden { background: radial-gradient(ellipse at 50% 40%, #cfe58e, #87ad4c); }
@@ -242,11 +261,12 @@ main:has(.sq-tisch) > .flash { max-width: 760px; margin: 0.8rem auto; position: 
 .sq-wappen { position: absolute; top: 14px; left: 8px; z-index: 3; width: 24px; height: 28px; background: var(--tinte); color: var(--creme); font: 700 0.75rem/24px var(--schrift); text-align: center; clip-path: polygon(0 0, 100% 0, 100% 62%, 50% 100%, 0 62%); }
 .sq-wappen.p2 { background: var(--terrakotta-dunkel); }
 .sq-muenze { position: absolute; top: 30px; right: 4px; z-index: 3; min-width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle at 35% 30%, #fff1b8, var(--gold) 45%, var(--ocker-dunkel)); border: 1px solid #7a5512; font: 700 0.72rem var(--schrift); color: #4a3208; }
-.sq-wachs { position: absolute; top: 52px; left: 6px; z-index: 3; width: 34px; height: 34px; border-radius: 47% 53% 50% 50%; background: radial-gradient(circle at 40% 35%, #e0625a, var(--wachs) 55%, #7c1d18); box-shadow: 0 3px 4px rgba(0,0,0,.35); display: grid; place-items: center; color: #ffd9c9; font: 700 0.7rem var(--schrift); animation: sq-stempel .5s cubic-bezier(.2, 1.6, .4, 1) both; }
+.sq-wachs { position: absolute; top: 52px; left: 6px; z-index: 3; width: 36px; height: 36px; border-radius: 47% 53% 50% 50%; background: var(--siegel-bild, radial-gradient(circle at 40% 35%, #e0625a, var(--wachs) 55%, #7c1d18)) center / contain no-repeat; box-shadow: 0 3px 4px rgba(0,0,0,.35); display: grid; place-items: center; color: #ffd9c9; font: 700 0.7rem var(--schrift); animation: sq-stempel .5s cubic-bezier(.2, 1.6, .4, 1) both; }
 
 /* Drachenhort am Inselrand */
 .sq-hort { position: absolute; right: 0; top: -0.5rem; z-index: 70; display: flex; flex-direction: column; align-items: center; text-decoration: none; color: var(--creme); }
-.sq-hort .sq-drache-klein { width: 112px; height: 96px; transition: transform .2s; }
+.sq-hort .sq-drache-klein { width: 128px; height: 116px; transition: transform .2s; display: block; }
+.sq-drache-klein img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 8px 6px rgba(0,0,0,.4)); }
 .sq-hort:hover .sq-drache-klein { transform: rotate(-4deg) scale(1.06); }
 .sq-hort .sq-schild { color: var(--tinte); }
 .sq-zzz { position: absolute; left: 6px; top: 0; font: 700 1rem var(--hand); color: var(--creme); animation: sq-zzz 2.6s ease-in-out infinite; }
@@ -270,6 +290,8 @@ main:has(.sq-tisch) > .flash { max-width: 760px; margin: 0.8rem auto; position: 
 .sq-fritte-platz { display: flex; flex-direction: column; align-items: flex-start; gap: 0.2rem; }
 .sq-fritte { width: 92px; height: 104px; position: relative; flex: none; }
 .sq-fritte svg, .sq-fritte img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 6px 5px rgba(0,0,0,.35)); }
+.sq-fritte:has(img) { width: 96px; height: 150px; }
+.sq-fb-kopf .sq-fritte:has(img) { width: 86px; height: 130px; }
 .sq-fritte.hut::before { content: ""; position: absolute; left: 30%; top: -4px; width: 40%; height: 16px; background: var(--eiche-tief); border-radius: 50% 50% 4px 4px; z-index: 2; box-shadow: 0 6px 0 -3px var(--eiche-dunkel); }
 .sq-fritte.hut::after { content: ""; position: absolute; left: 22%; top: 9px; width: 56%; height: 5px; background: var(--eiche-dunkel); border-radius: 50%; z-index: 2; }
 .sq-sprechblase {
@@ -392,6 +414,8 @@ main:has(.sq-tisch) > .flash { max-width: 760px; margin: 0.8rem auto; position: 
 
 /* Stempel-Animation über die ganze Seite (kurz, beim Ablegen) */
 .sq-stempel-flug { position: fixed; z-index: 1000; pointer-events: none; font: 900 2rem/1 var(--schrift); letter-spacing: .12em; color: #3e7a32; border: 5px solid currentColor; padding: 0.4rem 0.8rem; border-radius: 6px; transform: translate(-50%, -50%) rotate(-12deg); animation: sq-stempel .45s cubic-bezier(.2, 1.6, .4, 1) both; background: rgba(252, 246, 230, .4); }
+.sq-stempel-flug::before { content: ""; position: absolute; left: 50%; bottom: 60%; width: 70px; height: 82px; margin-left: -35px; background: var(--stempel-bild, none) center / contain no-repeat; transform: rotate(12deg); animation: sq-stempel-runter .45s ease-out both; }
+@keyframes sq-stempel-runter { 0% { transform: rotate(12deg) translateY(-60px); opacity: 0; } 50% { transform: rotate(12deg) translateY(10px); opacity: 1; } 100% { transform: rotate(12deg) translateY(-40px); opacity: 0; } }
 .sq-funke { position: fixed; z-index: 999; width: 8px; height: 8px; border-radius: 2px; pointer-events: none; animation: sq-funke .9s ease-out forwards; }
 
 /* Dialog: Wohin gehört der Zettel? */
@@ -409,7 +433,9 @@ main:has(.sq-tisch) > .flash { max-width: 760px; margin: 0.8rem auto; position: 
 .sq-arena { max-width: 980px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 0.8rem; text-align: center; color: var(--creme); }
 .sq-arena h1 { color: var(--creme); margin: 0; text-shadow: 0 2px 4px rgba(0,0,0,.6); }
 .sq-arena > p { margin: 0; color: #f3e3c0; }
-.sq-drache-gross { width: 300px; height: 230px; position: relative; }
+.sq-drache-gross { width: 320px; height: 300px; position: relative; }
+.frisch .sq-drache-gross img { animation: sq-rueckstoss .5s cubic-bezier(.2, 1.4, .4, 1); }
+@keyframes sq-rueckstoss { 0% { transform: translateX(26px) rotate(8deg) scale(.94); } 100% { transform: none; } }
 .sq-drache-gross img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 12px 10px rgba(0,0,0,.45)); }
 .sq-lp { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; max-width: 520px; list-style: none; margin: 0; padding: 0; }
 .sq-lp li { width: 16px; height: 20px; background: var(--papier); clip-path: polygon(0 0, 70% 0, 100% 28%, 100% 100%, 0 100%); box-shadow: inset 0 -3px 0 #d9c9a2; }

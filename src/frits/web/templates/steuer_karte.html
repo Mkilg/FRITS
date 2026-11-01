@@ -2,8 +2,8 @@
 {% block title %}Steuer-Quest {{ jahr }}{% endblock %}
 {% block head %}<link rel="stylesheet" href="/static/steuer.css"><script src="/static/steuer.js" defer></script>{% endblock %}
 {% block content %}
-{% set tisch = bild("tisch") %}{% set insel_bild = bild("insel") %}
-<div class="sq sq-tisch" data-klang="{{ 'an' if klang else 'aus' }}" {% if tisch %}style="--tisch-bild: url({{ tisch }})"{% endif %}>
+{% set insel_bild = bild("insel") %}
+<div class="sq sq-tisch" data-klang="{{ 'an' if klang else 'aus' }}"{% include "_steuer_stil.html" %}>
 {% include "_steuer_kopf.html" %}
 
 <div class="sq-flaeche">
@@ -51,7 +51,7 @@
   {# Mitte: die schwebende Insel #}
   <section class="sq-meer" aria-label="Deine Insel">
     {% set n = provinzen | length %}
-    <div class="sq-insel{% if insel_bild %} mit-bild{% endif %}" style="--hoehe: {{ 430 + [0, n - 6] | max * 22 }}px{% if insel_bild %}; --insel-bild: url({{ insel_bild }}){% endif %}">
+    <div class="sq-insel{% if insel_bild %} mit-bild{% endif %}" style="--hoehe: {{ 430 + [0, n - 6] | max * 22 }}px; --massstab: {{ 1 if n <= 8 else (0.82 if n <= 13 else 0.7) }}{% if insel_bild %}; --insel-bild: url({{ insel_bild }}){% endif %}">
       <div class="sq-insel-fels"></div>
       <div class="sq-insel-gras"></div>
       <div class="sq-provinzen">
