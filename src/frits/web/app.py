@@ -22,6 +22,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -29,16 +31,29 @@ from jinja2 import Environment, PackageLoader, select_autoescape
 from markupsafe import Markup
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from frits import __version__, about, emails, euer, expenses, haustier, setup, store, system
+from frits import (
+    __version__,
+    about,
+    emails,
+    euer,
+    expenses,
+    gutschriften,
+    haustier,
+    setup,
+    store,
+    system,
+    ustva,
+)
 from frits.billing import (
     CUSTOMER_TAX,
     DEFAULT_PATTERN,
-    VAT_RATES,
+    DOMESTIC_RATES,
     BillingError,
     Draft,
     approve,
     blockers,
     cancel,
+    copy_invoice,
     discard_draft,
     draft_totals,
     limit_check,
@@ -55,7 +70,15 @@ from frits.billing import (
     unit_price,
     valid_pattern,
 )
-from frits.customers import COUNTRIES, Customer, load_customers, note_id, save_note
+from frits.customers import (
+    COUNTRIES,
+    EU_COUNTRIES,
+    Customer,
+    load_customers,
+    note_id,
+    save_note,
+    vat_place,
+)
 from frits.ingest import SUPPORTED, IngestError, extract_text
 from frits.providers import KEY_ENV, ProviderError, get_api_key, make_provider, store_api_key
 from frits.quotes import accept_quote, create_quote, decline_quote, list_quotes
@@ -237,6 +260,8 @@ def _templates() -> Jinja2Templates:
     )
     env.filters.update(eur=lambda v: eur(Decimal(v)) if v not in (None, "") else "", qty=de_number)
     env.filters["de_date"] = de_date
+    env.filters["price_in"] = price_in
+    env.filters["elster"] = elster_amount
     env.globals.update(
         mascot=mascot_markup,
         units=UNITS,
@@ -330,9 +355,13 @@ def create_app(
             {"text": text, "kind": kind, "cue": cue, "stamp": stamp, "undo": bool(undo)}
         )
 
+    app.state.hinweise = []  # small notes other parts add to any page, e.g. Fritte's cards
+
     def page(request: Request, name: str, **context) -> HTMLResponse:
         current = settings()
         flashes, app.state.flashes = app.state.flashes, []
+        for hinweis in app.state.hinweise:
+            flashes += hinweis(request.url.path, current)
         context.update(
             request=request,
             token=app.state.token,
@@ -376,9 +405,13 @@ def create_app(
     @app.exception_handler(StarletteHTTPException)
     async def friendly_error(request: Request, exc: StarletteHTTPException):
         """Plain words instead of {"detail": "Not Found"}."""
+        ziel = (exc.headers or {}).get("Location")
+        if 300 <= exc.status_code < 400 and ziel:
+            return RedirectResponse(ziel, status_code=exc.status_code)
         if exc.status_code == 404:
-            titel, text = "Diese Seite gibt es nicht", (
-                "Vielleicht ist sie umgezogen, oder der Link war nicht ganz vollständig."
+            titel, text = (
+                "Diese Seite gibt es nicht",
+                ("Vielleicht ist sie umgezogen, oder der Link war nicht ganz vollständig."),
             )
         elif exc.status_code == 403:
             titel, text = "Das hat nicht geklappt", str(exc.detail)
@@ -386,6 +419,20 @@ def create_app(
             titel, text = "Das hat nicht geklappt", "Versuch es gleich noch einmal."
         response = page(request, "fehler.html", titel=titel, text=text)
         response.status_code = exc.status_code
+        return response
+
+    @app.exception_handler(RequestValidationError)
+    async def wrong_address(request: Request, exc: RequestValidationError):
+        """A typo in an address (e.g. /steuer/abc) is a missing page, not a JSON error."""
+        if request.method != "GET":
+            return await request_validation_exception_handler(request, exc)
+        response = page(
+            request,
+            "fehler.html",
+            titel="Diese Seite gibt es nicht",
+            text="Vielleicht ist sie umgezogen, oder der Link war nicht ganz vollständig.",
+        )
+        response.status_code = 404
         return response
 
     async def check_token(request: Request) -> None:
@@ -413,6 +460,11 @@ def create_app(
             moment = ("welcome", "Hallo! Bevor wir loslegen: Trag kurz deine Angaben ein.")
         elif drafts or check_me:
             moment = mascot_line("needs_you" if check_me else "draft_ready")
+            if not check_me and len(drafts) > 1:
+                moment = (
+                    moment[0],
+                    f"Deine {len(drafts)} Entwürfe sind fertig. Schau sie dir an, wenn es dir passt.",
+                )
         else:
             moment = mascot_line("welcome_back")
         return page(
@@ -595,7 +647,8 @@ def create_app(
             period=service_period(draft.lines),
             problems=problems,
             limit_warnings=limit_warnings,
-            vat_rates=VAT_RATES,
+            vat_rates=DOMESTIC_RATES,
+            draft_hints=_draft_hints(draft, customer_by(draft.customer_id)),
             customers=customers(),
             original=original,
             sent_text=job["sent_text"] if job else None,
@@ -659,7 +712,13 @@ def create_app(
 
     @app.get("/invoices", response_class=HTMLResponse)
     def invoices_page(request: Request):
-        return page(request, "invoices.html", invoices=list_invoices(db(), today()))
+        return page(
+            request,
+            "invoices.html",
+            invoices=list_invoices(db(), today()),
+            credits=gutschriften.listing(db()),
+            today_iso=today().isoformat(),
+        )
 
     @app.get("/invoices/{number}/pdf")
     def invoice_pdf(number: str):
@@ -667,13 +726,43 @@ def create_app(
         return _pdf(row["pdf_path"] if row else None, ws.invoices)
 
     @app.post("/invoices/{number}/paid", dependencies=guarded)
-    def invoice_paid(number: str):
+    async def invoice_paid(request: Request, number: str):
+        form = await request.form()
         try:
-            mark_paid(db(), number, today())
-            flash(f"Rechnung {number} ist bezahlt. Schön!", cue="done", stamp="Bezahlt")
+            paid = _paid_day(form.get("paid"), today())
+            row = (
+                db()
+                .execute("SELECT cancels, issue_date FROM invoices WHERE number = ?", (number,))
+                .fetchone()
+            )
+            mark_paid(db(), number, paid)
+            if row and row["cancels"]:
+                flash(f"Erstattung zu {row['cancels']} ist eingetragen.")
+            else:
+                flash(f"Rechnung {number} ist bezahlt. Schön!", cue="done", stamp="Bezahlt")
+            issued = date.fromisoformat(row["issue_date"]) if row else paid
+            if paid.year < issued.year:
+                flash(
+                    f"Das Zahldatum {paid:%d.%m.%Y} liegt vor der Rechnung, im Jahr {paid.year}. "
+                    f"So zählt das Geld in der EÜR {paid.year}. War das eine Vorauszahlung? "
+                    "Sonst bitte unter Rechnungen prüfen.",
+                    "error",
+                )
         except BillingError as exc:
             flash(str(exc), "error")
         return back("/invoices")
+
+    @app.post("/invoices/{number}/kopieren", dependencies=guarded)
+    def invoice_copy(number: str):
+        conn = db()
+        row = conn.execute("SELECT customer FROM invoices WHERE number = ?", (number,)).fetchone()
+        try:
+            draft_id = copy_invoice(conn, number, customer_by(row["customer"]) if row else None)
+        except BillingError as exc:
+            flash(str(exc), "error")
+            return back("/invoices")
+        flash(f"Neuer Entwurf mit den Positionen von {number}. Trag noch die Daten ein.")
+        return back(f"/drafts/{draft_id}")
 
     @app.post("/invoices/{number}/cancel", dependencies=guarded)
     def invoice_cancel(number: str):
@@ -866,7 +955,86 @@ def create_app(
         customer = customer_by(customer_id)
         if customer is None:
             raise HTTPException(404)
-        return page(request, "customer.html", customer=customer, back_to=None)
+        return page(
+            request,
+            "customer.html",
+            customer=customer,
+            back_to=None,
+            credits=gutschriften.listing(db(), customer_id=customer.id),
+            credit_rates=_credit_rates(customer),
+            today_iso=today().isoformat(),
+        )
+
+    def _credit_rates(customer: Customer) -> list[str]:
+        """Which VAT rates a Gutschrift from this customer can carry; [] means none asked."""
+        if settings().tax_mode != "regelbesteuerung" or customer.umsatzsteuer in (
+            "eu",
+            "drittland",
+        ):
+            return []
+        return ["19", "7", "0"]
+
+    @app.post("/customers/{customer_id}/gutschriften", dependencies=guarded)
+    async def credit_add(request: Request, customer_id: str):
+        customer = customer_by(customer_id)
+        if customer is None:
+            raise HTTPException(404)
+        form = await request.form()
+        url = f"/customers/{customer.id}#gutschriften"
+        try:
+            gross = parse_amount(str(form.get("gross", "")))
+            issued = date.fromisoformat(str(form.get("issue_date", "")))
+            paid = _paid_day(form.get("paid"), today()) if form.get("paid") else None
+            rates = _credit_rates(customer)
+            regel = settings().tax_mode == "regelbesteuerung"
+            rate = str(form.get("vat_rate", "19"))
+            if rates and rate not in rates:
+                raise BillingError("Bitte den Steuersatz von der Gutschrift wählen.")
+            gutschriften.add(
+                db(),
+                customer_id=customer.id,
+                customer=customer.display_name,
+                their_number=str(form.get("number", "")),
+                issue_date=issued,
+                gross=gross or Decimal(0),
+                vat_rate=Decimal(rate) if rates else (Decimal(0) if regel else None),
+                kind=customer.umsatzsteuer or "inland",
+                paid_date=paid,
+            )
+        except ValueError as exc:  # CreditError, a bad date
+            text = str(exc) if isinstance(exc, gutschriften.CreditError) else None
+            flash(text or "Bitte Datum und Betrag prüfen.", "error")
+            return back(url)
+        except BillingError as exc:
+            flash(str(exc), "error")
+            return back(url)
+        flash(
+            f"Gutschrift erfasst: {eur(gross)} von {customer.display_name}."
+            + (" Sie zählt ab dem Zahltag in der EÜR." if paid is None else ""),
+            cue="done",
+            stamp="Gebucht",
+        )
+        return back(url)
+
+    @app.post("/gutschriften/{credit_id}/bezahlt", dependencies=guarded)
+    async def credit_paid(request: Request, credit_id: int):
+        form = await request.form()
+        try:
+            gutschriften.mark_paid(db(), credit_id, _paid_day(form.get("paid"), today()))
+            flash("Zahlung eingetragen. Schön!", cue="done", stamp="Bezahlt")
+        except BillingError as exc:
+            flash(str(exc), "error")
+        return back(_local(form.get("back")))
+
+    @app.post("/gutschriften/{credit_id}/streichen", dependencies=guarded)
+    async def credit_strike(request: Request, credit_id: int):
+        form = await request.form()
+        if gutschriften.strike(db(), credit_id):
+            flash(
+                "Gutschrift gestrichen. Sie zählt nicht mehr, bleibt fürs Finanzamt aber im Archiv.",
+                undo={"kind": "gutschrift", "id": credit_id, "back": _local(form.get("back"))},
+            )
+        return back(_local(form.get("back")))
 
     @app.post("/customers", dependencies=guarded)
     async def customer_save(request: Request):
@@ -885,6 +1053,9 @@ def create_app(
         customer_id = existing or note_id(company or name)
         if not existing and (ws.customers / f"{customer_id}.md").exists():
             customer_id = f"{customer_id}-{secrets.token_hex(2)}"
+        land = str(form.get("land", "DE"))
+        land = land if land in COUNTRIES else "DE"
+        privat = form.get("privat") == "on"
         customer = Customer(
             id=Path(customer_id).name,
             name=name,
@@ -894,12 +1065,12 @@ def create_app(
             phone=str(form.get("phone", "")).strip() or None,
             hourly_rate=rate,
             aliases=tuple(a.strip() for a in str(form.get("aliases", "")).split(",") if a.strip()),
-            umsatzsteuer=where
-            if (where := str(form.get("umsatzsteuer", ""))) in CUSTOMER_TAX
-            else "",
-            ust_id=str(form.get("ust_id", "")).replace(" ", "").upper() or None,
-            land=land if (land := str(form.get("land", "DE"))) in COUNTRIES else "DE",
+            umsatzsteuer=vat_place(land, privat),
+            ust_id=_vat_id(form.get("ust_id"), land),
+            land=land,
             referenz=str(form.get("referenz", "")).strip() or None,
+            privat=privat,
+            gutschrift=form.get("gutschrift") == "on",
         )
         save_note(ws.customers, customer)
         flash(f"{customer.display_name} ist gespeichert.")
@@ -950,7 +1121,9 @@ def create_app(
             updated = settings_from_form(settings(), form)
         except (BillingError, ValueError) as exc:
             flash(
-                "Das Nummern-Schema braucht genau einen Zähler (NNN) und nur Buchstaben, Ziffern, "
+                str(exc)
+                if isinstance(exc, BillingError)
+                else "Das Nummern-Schema braucht genau einen Zähler (NNN) und nur Buchstaben, Ziffern, "
                 "- _ oder Punkt."
                 if "pattern" in str(exc)
                 else "Bitte nur Zahlen bei Preisen und Zahlungsziel.",
@@ -1095,12 +1268,29 @@ def create_app(
                 "error",
             )
             return back("/expenses")
+        twin = next(
+            (
+                e
+                for e in expenses.list_expenses(ws.db, year=expense.date.year)
+                if e.date == expense.date
+                and e.gross == expense.gross
+                and e.vendor.casefold().strip() == expense.vendor.casefold().strip()
+            ),
+            None,
+        )
         expenses.add_expense(ws.db, expense)
         flash(
             f"Ausgabe gespeichert: {eur(expense.gross)} bei {expense.vendor}.",
             cue="done",
             stamp="Gebucht",
         )
+        if twin:
+            flash(
+                "Eine Ausgabe mit demselben Tag, Laden und Betrag gab es schon. Wenn das "
+                "derselbe Beleg war, lösch die neue unten in der Liste. Zwei gleiche Tickets "
+                "dürfen natürlich bleiben.",
+                "error",
+            )
         return back(f"/expenses?year={year}")
 
     @app.post("/expenses/{expense_id}/delete", dependencies=guarded)
@@ -1108,8 +1298,9 @@ def create_app(
         gone = next((e for e in expenses.list_expenses(ws.db) if e.id == expense_id), None)
         if gone and expenses.delete_expense(ws.db, expense_id):
             flash(
-                f"Ausgabe gelöscht: {eur(gone.gross)} bei {gone.vendor}.",
-                undo={"kind": "expense", "expense": replace(gone, id=None)},
+                f"Ausgabe gelöscht: {eur(gone.gross)} bei {gone.vendor}."
+                " Sie zählt nicht mehr, bleibt fürs Finanzamt aber im Archiv.",
+                undo={"kind": "expense", "expense": gone},
             )
         return back(f"/expenses?year={gone.date.year}" if gone else "/expenses")
 
@@ -1119,9 +1310,13 @@ def create_app(
         last, app.state.undo = app.state.undo, None
         if last and last["kind"] == "expense":
             expense = last["expense"]
-            expenses.add_expense(ws.db, expense)
+            expenses.restore_expense(ws.db, expense.id)
             flash(f"Wieder da: {eur(expense.gross)} bei {expense.vendor}.")
             return back(f"/expenses?year={expense.date.year}")
+        if last and last["kind"] == "gutschrift":
+            gutschriften.restore(db(), last["id"])
+            flash("Die Gutschrift ist wieder da.")
+            return back(last["back"])
         if last and last["kind"] == "draft":
             db().execute(
                 "UPDATE drafts SET status = 'draft' WHERE id = ? AND status = 'discarded'",
@@ -1160,6 +1355,92 @@ def create_app(
         target.parent.mkdir(parents=True, exist_ok=True)
         (euer.write_csv if kind == "csv" else euer.write_pdf)(summary, target)
         return FileResponse(target, filename=target.name)
+
+    # ----- Umsatzsteuer-Voranmeldung -----
+
+    @app.get("/ustva", response_class=HTMLResponse)
+    def ustva_page(request: Request, year: int | None = None, nr: int | None = None):
+        current = settings()
+        period = current.vat_period if current.vat_period in ustva.PERIODS else "quartal"
+        basis = current.vat_basis if current.vat_basis in ustva.BASES else "ist"
+        if year is None or nr is None:
+            year, nr = ustva.current(today(), period)
+        try:
+            ustva.bounds(year, period, nr)
+        except ValueError:
+            year, nr = ustva.current(today(), period)
+        db()  # tables exist
+        meldung = ustva.voranmeldung(ws.db, current, year, nr, period, basis)
+        last = 4 if period == "quartal" else 12
+        prev = (year, nr - 1) if nr > 1 else (year - 1, last)
+        nxt = (year, nr + 1) if nr < last else (year + 1, 1)
+        booked = next(
+            (
+                e
+                for e in expenses.list_expenses(ws.db)
+                if e.category == expenses.VAT_PAYMENT and e.description == _vat_label(meldung)
+            ),
+            None,
+        )
+        return page(
+            request,
+            "ustva.html",
+            m=meldung,
+            prev=prev,
+            nxt=nxt,
+            period=period,
+            basis=basis,
+            periods=ustva.PERIODS,
+            bases=ustva.BASES,
+            booked=booked,
+            klein=current.tax_mode != "regelbesteuerung",
+            today_iso=today().isoformat(),
+        )
+
+    def _vat_label(meldung) -> str:
+        return f"USt-Voranmeldung {meldung.title}"
+
+    @app.post("/ustva/art", dependencies=guarded)
+    async def ustva_kind(request: Request):
+        form = await request.form()
+        period, basis = str(form.get("period", "")), str(form.get("basis", ""))
+        if period in ustva.PERIODS and basis in ustva.BASES:
+            replace(settings(), vat_period=period, vat_basis=basis).save(ws.settings_file)
+            flash("Gemerkt.")
+        return back("/ustva")
+
+    @app.post("/ustva/{year}/{nr}/bezahlt", dependencies=guarded)
+    async def ustva_paid(request: Request, year: int, nr: int):
+        form = await request.form()
+        current = settings()
+        try:
+            meldung = ustva.voranmeldung(
+                ws.db, current, year, nr, current.vat_period, current.vat_basis
+            )
+            paid = _paid_day(form.get("paid"), today())
+        except (ValueError, BillingError) as exc:
+            flash(str(exc), "error")
+            return back("/ustva")
+        if meldung.zahllast <= 0:
+            flash("Für diesen Zeitraum ist nichts zu zahlen.", "error")
+            return back(f"/ustva?year={year}&nr={nr}")
+        expenses.add_expense(
+            ws.db,
+            expenses.Expense(
+                date=paid,
+                vendor="Finanzamt",
+                description=_vat_label(meldung),
+                gross=meldung.zahllast,
+                vat_rate=None,
+                category=expenses.VAT_PAYMENT,
+            ),
+        )
+        flash(
+            f"Eingetragen: {eur(meldung.zahllast)} ans Finanzamt. Das zählt in der EÜR als Ausgabe.",
+            cue="done",
+            stamp="Gebucht",
+        )
+        return back(f"/ustva?year={year}&nr={nr}")
 
     # ----- Einrichtung -----
 
@@ -1241,7 +1522,9 @@ def create_app(
             updated = settings_from_form(current, form)
         except (BillingError, ValueError) as exc:
             flash(
-                "Das Nummern-Schema braucht genau einen Zähler (NNN)."
+                str(exc)
+                if isinstance(exc, BillingError)
+                else "Das Nummern-Schema braucht genau einen Zähler (NNN)."
                 if "pattern" in str(exc)
                 else "Bitte nur Zahlen bei Preisen.",
                 "error",
@@ -1315,7 +1598,9 @@ def create_app(
         conn = db()
         day = today().isoformat()
         made = conn.execute(
-            "SELECT COUNT(*) FROM invoices WHERE issue_date = ? AND cancels IS NULL", (day,)
+            "SELECT COUNT(*) FROM invoices WHERE issue_date = ? AND cancels IS NULL"
+            " AND number NOT IN (SELECT cancels FROM invoices WHERE cancels IS NOT NULL)",
+            (day,),
         ).fetchone()[0]
         read = conn.execute(
             "SELECT COUNT(*) FROM jobs WHERE substr(received, 1, 10) = ?", (day,)
@@ -1441,7 +1726,10 @@ def settings_from_form(current: Settings, form) -> Settings:
     if "price_name" in form:
         changes["prices"] = _price_rows(form)
     if "payment_days" in form:
-        changes["payment_days"] = int(str(form.get("payment_days") or 14))
+        days = int(str(form.get("payment_days") or 14))
+        if not 0 <= days <= 120:
+            raise BillingError("Das Zahlungsziel muss zwischen 0 und 120 Tagen liegen.")
+        changes["payment_days"] = days
     if "tax_mode" in form:
         changes["tax_mode"] = (
             "regelbesteuerung" if form.get("tax_mode") == "regelbesteuerung" else "kleinunternehmer"
@@ -1625,6 +1913,77 @@ def _apply_form(draft: Draft, form, customer_by, current: Settings) -> None:
     draft.lines = lines
     if form.get("questions_done") == "on":
         draft.questions = []
+
+
+def _paid_day(value, day: date) -> date:
+    """The payment date from the form; empty means today. Never in the future."""
+    text = str(value or "").strip()
+    if not text:
+        return day
+    try:
+        paid = date.fromisoformat(text)
+    except ValueError:
+        raise BillingError("Das Zahldatum verstehe ich nicht.") from None
+    if paid > day:
+        raise BillingError("Das Zahldatum liegt in der Zukunft.")
+    return paid
+
+
+def _local(url, default: str = "/invoices") -> str:
+    """A page of FRITS to go back to; anything else (another site) goes to the default."""
+    text = str(url or "")
+    safe = text.startswith("/") and not text.startswith(("//", "/\\"))
+    return text if safe else default
+
+
+def elster_amount(value, whole: bool = True) -> str:
+    """How ELSTER wants an amount typed: "1234" (whole euros) or "123,45", no dots."""
+    amount = Decimal(value)
+    if whole:
+        return str(int(amount))
+    return f"{amount:.2f}".replace(".", ",")
+
+
+def price_in(value) -> str:
+    """A price in an input field: "0,30" and "59,80", not "0,3"; more decimals stay."""
+    if value in (None, ""):
+        return ""
+    value = Decimal(value)
+    if value == value.quantize(Decimal("0.01")):
+        return f"{value:.2f}".replace(".", ",")
+    return de_number(value)
+
+
+def _draft_hints(draft: Draft, customer: Customer | None) -> list[str]:
+    """Things worth a second look before the number is fixed. They never block."""
+    hints = []
+    if customer and customer.gutschrift and draft.kind != "quote":
+        hints.append(
+            f"{customer.display_name} rechnet per Gutschrift ab. Stell dann keine eigene Rechnung, "
+            "sonst gibt es zwei Rechnungen über dieselbe Leistung (§ 14c UStG). Trag die "
+            "Gutschrift stattdessen beim Kunden ein, dann zählt das Geld trotzdem."
+        )
+    if customer and customer.privat and customer.land != "DE":
+        hints.append(
+            "Privatperson im Ausland: FRITS rechnet mit deutscher Umsatzsteuer. Bei manchen "
+            "Leistungen, etwa Nutzungsrechten an Privatleute außerhalb der EU, ist das anders. "
+            "Frag im Zweifel deine Steuerberatung."
+        )
+    for line in draft.lines:
+        if line.unit in ("pauschal", "Stk") and line.unit_price and 0 < line.unit_price < 10:
+            hints.append(
+                f"Sehr kleiner Preis bei „{line.description}“: {eur(line.unit_price)}. "
+                "Stimmt das? Tausend schreibst du als 1.400 oder 1400."
+            )
+    return hints
+
+
+def _vat_id(value, land: str) -> str | None:
+    """EU VAT IDs are written without spaces ("ATU12345678"); others stay as typed (Swiss UID)."""
+    text = " ".join(str(value or "").split())
+    if not text:
+        return None
+    return text.replace(" ", "").upper() if land in EU_COUNTRIES or land == "DE" else text
 
 
 def _one_line(value) -> str | None:

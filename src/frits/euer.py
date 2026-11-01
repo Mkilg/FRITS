@@ -14,7 +14,8 @@ Two tax modes:
   (gross) amount; VAT on receipts cannot be reclaimed and is simply part of the cost.
 * ``regelbesteuerung``: invoices include VAT. Net income and the VAT collected are
   separate lines, costs count net and the VAT paid on receipts is its own line
-  (Vorsteuer). VAT payments to the tax office are not tracked yet.
+  (Vorsteuer). Umsatzsteuer paid to the tax office after a Voranmeldung is an expense
+  of its own (category ``ust_finanzamt``, see frits.ustva).
 
 This is a helper, not tax advice: Fritz checks the numbers before filing.
 """
@@ -24,11 +25,13 @@ from __future__ import annotations
 import csv
 import sqlite3
 from dataclasses import dataclass, field
+from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 from typing import Literal
 
-from frits.expenses import CATEGORIES, CENT, list_expenses
+from frits import gutschriften
+from frits.expenses import CATEGORIES, CENT, VAT_PAYMENT, list_expenses
 
 TaxMode = Literal["kleinunternehmer", "regelbesteuerung"]
 TAX_MODES: tuple[str, ...] = ("kleinunternehmer", "regelbesteuerung")
@@ -82,7 +85,8 @@ class EuerSummary:
 
 
 def _paid_invoices(db_path: str | Path, year: int) -> list[tuple[Decimal, Decimal, Decimal]]:
-    """(net, vat, gross) of every invoice paid in ``year``. Unpaid invoices don't count yet."""
+    """(net, vat, gross) of every invoice and Gutschrift paid in ``year``. Unpaid ones don't
+    count yet."""
     conn = sqlite3.connect(db_path)
     try:
         exists = conn.execute(
@@ -96,9 +100,18 @@ def _paid_invoices(db_path: str | Path, year: int) -> list[tuple[Decimal, Decima
             " ORDER BY paid_date",
             (f"{year:04d}-01-01", f"{year + 1:04d}-01-01"),
         ).fetchall()
+        # Gutschriften the customer wrote count like paid invoices.
+        credits = gutschriften.listing(
+            conn, column="paid_date", start=date(year, 1, 1), end=date(year, 12, 31)
+        )
+        rows += [(c.net, c.vat, c.gross) for c in credits]
     finally:
         conn.close()
     return [(Decimal(net), Decimal(vat), Decimal(gross)) for net, vat, gross in rows]
+
+
+def _belongs_to_last_year(expense) -> bool:
+    return expense.category == VAT_PAYMENT and expense.date.month == 1 and expense.date.day <= 10
 
 
 def summarize(db_path: str | Path, year: int, tax_mode: TaxMode) -> EuerSummary:
@@ -123,7 +136,10 @@ def summarize(db_path: str | Path, year: int, tax_mode: TaxMode) -> EuerSummary:
 
     costs: dict[str, Decimal] = {c.euer_line: Decimal(0) for c in CATEGORIES.values()}
     vorsteuer = Decimal(0)
-    expenses = list_expenses(db_path, year=year)
+    expenses = [e for e in list_expenses(db_path, year=year) if not _belongs_to_last_year(e)]
+    # The Umsatzsteuer for December or the 4th quarter is due on 10 January. Paid by then,
+    # it counts for the old year (regelmäßig wiederkehrende Ausgabe, § 11 Abs. 2 Satz 2 EStG).
+    expenses += [e for e in list_expenses(db_path, year=year + 1) if _belongs_to_last_year(e)]
     for exp in expenses:
         cat = CATEGORIES[exp.category]
         base = exp.net if regel else exp.gross
@@ -134,7 +150,10 @@ def summarize(db_path: str | Path, year: int, tax_mode: TaxMode) -> EuerSummary:
         costs[LINE_VORSTEUER] = vorsteuer
 
     summary = EuerSummary(
-        year=year, tax_mode=tax_mode, invoice_count=len(invoices), expense_count=len(expenses)
+        year=year,
+        tax_mode=tax_mode,
+        invoice_count=sum(1 for _, _, gross in invoices if gross >= 0),  # not refunds
+        expense_count=len(expenses),
     )
     summary.lines += [EuerLine("income", label, amt) for label, amt in income.items()]
     summary.lines += [EuerLine("expense", label, amt) for label, amt in costs.items() if amt]

@@ -1,29 +1,48 @@
 {# Meldungen in der Quest: Belohnungen kommen als großer Moment (Dialog), alles andere als
-   kleine Zettel oben rechts, die von selbst verschwinden. So verrutscht nichts auf dem Tisch. #}
-{% set gross_arten = ["gruendung", "siegel", "zeitalter", "orden", "sieg"] if auftrag is defined else [] %}
+   kleine Zettel unten rechts, die von selbst verschwinden. So verrutscht nichts auf dem Tisch. #}
+{# Im Bosskampf führt nichts vom Drachen weg: dann sind nur Sieg und Erwachen ein großer Moment.
+   Das Tagwerk ist nie ein Dialog: Wer gerade drin ist, soll nicht hinausgebeten werden. #}
+{% set gross_arten = (["sieg", "erwachen"] if im_kampf is defined and im_kampf else ["gruendung", "siegel", "zeitalter", "orden", "sieg", "erwachen"]) if auftrag is defined else [] %}
 {% set grosse = flashes | selectattr("kind", "in", gross_arten) | selectattr("text") | list %}
+{% set grosse = (grosse | selectattr("kind", "equalto", "sieg") | list) + (grosse | selectattr("kind", "equalto", "erwachen") | list) + (grosse | rejectattr("kind", "in", ["sieg", "erwachen"]) | list) %}
 {% set kleine = flashes | rejectattr("kind", "in", gross_arten) | selectattr("text") | list %}
 {% if kleine %}
 <div class="sq-zettelchen" role="status">
-  {% for f in kleine %}<p class="sq-meldung {{ f.kind }}">{{ f.text }}<button type="button" class="sq-weg" aria-label="Schließen">×</button></p>{% endfor %}
+  {% for f in kleine %}<p class="sq-meldung {{ f.kind }}">{% if f.kind == "tagwerk" %}<span class="sq-tagwerk-ring" style="--anteil: 1" aria-hidden="true"><b>✓</b></span>{% endif %}{{ f.text }}{% if f.kind == "tagwerk" %} <a href="/">Für heute Schluss</a>{% endif %}<button type="button" class="sq-weg" aria-label="Schließen">×</button></p>{% endfor %}
 </div>
 {% endif %}
 {% if grosse %}
-<dialog class="sq-belohnung" data-belohnung>
+{% set erste = grosse[0].kind %}
+{% set silber_siegel = erste == "siegel" and grosse[0].text.startswith("Silber") %}
+<dialog class="sq-belohnung art-{{ erste }}{% if silber_siegel or (erste == 'sieg' and zweifel is defined and zweifel) %} silber{% endif %}" data-belohnung{% if finale is defined and finale %} data-spaet="1900"{% endif %}>
   <div class="sq-belohnung-licht" aria-hidden="true"></div>
+  {% if erste in ["erwachen", "sieg"] %}
+  {% set drachen_bild = bild("drache-besiegt" if erste == "sieg" else "drache-getroffen") %}
+  <div class="sq-belohnung-drache" aria-hidden="true">{% if drachen_bild %}<img src="{{ drachen_bild }}" alt="">{% else %}<span class="sq-origami {{ 'besiegt' if erste == 'sieg' else '' }}"><i class="schwanz"></i><i class="fluegel"></i><i class="koerper"></i><i class="kopf"></i><i class="siegel"></i></span>{% endif %}</div>
+  {% else %}
   {% set siegel_bild = bild("siegel") %}
   <div class="sq-belohnung-siegel" aria-hidden="true">{% if siegel_bild %}<img src="{{ siegel_bild }}" alt="">{% else %}✓{% endif %}</div>
-  <h2>{{ {"gruendung": "Dein Reich steht!", "siegel": "Gold-Siegel!", "zeitalter": "Neues Zeitalter!", "orden": "Neuer Orden!", "sieg": "Sieg!"}[grosse[0].kind] }}</h2>
+  {% endif %}
+  <h2>{{ {"gruendung": "Dein Reich steht!", "siegel": ("Silber-Siegel!" if silber_siegel else "Gold-Siegel!"), "zeitalter": "Neues Zeitalter!", "orden": "Neuer Orden!", "sieg": ("Silber-Sieg!" if zweifel is defined and zweifel else "Sieg!"), "erwachen": "Der Drache erwacht!"}[erste] }}</h2>
   <ul class="sq-beute">
-    {% for f in grosse %}<li class="{{ f.kind }}">{{ f.text.replace("Gold-Siegel! ", "") }}</li>{% endfor %}
+    {% for f in grosse %}<li class="{{ f.kind }}">{{ f.text.replace("Gold-Siegel! ", "").replace("Silber-Siegel! ", "") if loop.first else f.text }}</li>{% endfor %}
   </ul>
+  {% if erste not in ["erwachen", "sieg"] %}
   <div class="sq-naechster">
     <p class="sq-kicker">Nächster Auftrag</p>
     <p><strong>{{ auftrag.titel }}</strong><br>{{ auftrag.text }}</p>
   </div>
+  {% endif %}
   <form method="dialog" class="sq-belohnung-knoepfe">
+    {% if erste == "erwachen" %}
+    <a class="sq-siegelknopf" href="/steuer/{{ jahr }}/drache">Stell dich dem Drachen →</a>
+    <button class="quiet">Gleich</button>
+    {% elif erste == "sieg" %}
+    <a class="sq-siegelknopf" href="/steuer/{{ jahr }}/sieg">Zur Schatztruhe →</a>
+    {% else %}
     <a class="sq-siegelknopf" href="{{ auftrag.ziel if not auftrag.ziel.startswith('#') else '/steuer/' ~ jahr ~ auftrag.ziel }}">{{ auftrag.knopf }} →</a>
     <button class="quiet">Hier bleiben</button>
+    {% endif %}
   </form>
 </dialog>
 {% endif %}

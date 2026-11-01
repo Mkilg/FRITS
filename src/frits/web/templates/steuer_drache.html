@@ -3,8 +3,8 @@
 {% block head %}<link rel="stylesheet" href="/static/steuer.css"><script src="/static/steuer.js" defer></script>{% endblock %}
 {% block flashes %}{% endblock %}
 {% block content %}
-<div class="sq sq-tisch nacht{% if frisch %} frisch wackeln-{{ [combo.combo, 3] | min }}{% endif %}" data-klang="{{ 'an' if klang else 'aus' }}" {% if frisch %}data-treffer="{{ frisch }}" data-combo="{{ combo.combo }}"{% endif %}{% include "_steuer_stil.html" %}>
-{% include "_steuer_meldungen.html" %}
+<div class="sq sq-tisch nacht{% if frisch %} frisch wackeln-{{ [combo.combo, 3] | min }}{% endif %}{% if finale %} finale{% endif %}" data-klang="{{ 'an' if klang else 'aus' }}" {% if frisch %}data-treffer="{{ frisch }}" data-combo="{{ combo.combo }}"{% endif %}{% include "_steuer_stil.html" %}>
+{% set im_kampf = drache_wach and not drache.besiegt %}{% include "_steuer_meldungen.html" %}
 {% include "_steuer_kopf.html" %}
 {% if not drache_wach %}
 <section class="sq-arena sq-arena-schlaf">
@@ -17,11 +17,27 @@
     <p class="sq-arena-knopf"><a class="sq-siegelknopf" href="{{ auftrag.ziel if not auftrag.ziel.startswith('#') else '/steuer/' ~ jahr ~ auftrag.ziel }}">{{ auftrag.titel }} →</a></p>
   </div>
 </section>
+{% elif drache.besiegt %}
+{# Nach dem letzten Treffer: Der Drache faltet sich zur Schatztruhe (einmal als Film, danach still) #}
+{% set falt_drache, falt_truhe = bild("drache-getroffen"), bild("truhe") %}
+<section class="sq-arena sq-arena-sieg{% if finale %} finale{% endif %}">
+  <div class="sq-falten" aria-hidden="true">
+    {% if falt_drache and falt_truhe %}<img class="falt-drache" src="{{ falt_drache }}" alt=""><img class="falt-truhe" src="{{ falt_truhe }}" alt="">{% else %}{% include "_steuer_drache.html" %}{% endif %}
+  </div>
+  <div class="sq-papier sq-schief" style="--r: -0.6deg">
+    <p class="sq-kicker">{{ "Silber-Sieg" if zweifel else "Sieg" }}</p>
+    <h1>Der Drache ist besiegt!</h1>
+    <p>Er hat sich zu einer Schatztruhe gefaltet. Darin liegt alles, was deine Beraterin für {{ jahr }} braucht.</p>
+    {% if zweifel %}<p>{{ zweifel | length }} wichtige Unterlage{{ "n" if zweifel | length != 1 }} hast du als „Gibt's nicht“ gestempelt. In der Mail stehen sie unter „Bitte prüfen“.</p>{% endif %}
+    <p class="sq-arena-knopf"><a class="sq-siegelknopf" href="/steuer/{{ jahr }}/sieg">Zur Schatztruhe →</a></p>
+  </div>
+</section>
 {% else %}
+{% set schaden = 3 if drache.lp == 1 else (2 if drache.prozent <= 25 else (1 if drache.prozent <= 60 else 0)) %}
 <section class="sq-arena">
   <div class="sq-arena-boss">
-  <div class="sq-drache-gross">{% include "_steuer_drache.html" %}</div>
-  <h1>{% if drache.besiegt %}Der Drache ist besiegt!{% elif drache.lp == drache.max_lp %}Der Papierdrache erwacht!{% else %}Der Papierdrache {{ "taumelt" if drache.stimmung == "taumelt" else "wankt" }}!{% endif %}</h1>
+  <div class="sq-drache-gross schaden-{{ schaden }}">{% include "_steuer_drache.html" %}{% if schaden %}<span class="sq-risse" aria-hidden="true"></span>{% endif %}</div>
+  <h1>{% if drache.lp == 1 %}Nur noch eine Karte!{% elif not frisch %}Der Papierdrache ist wach!{% else %}Der Papierdrache {{ "taumelt" if drache.stimmung == "taumelt" else "wankt" }}!{% endif %}</h1>
   <p>Er hat nur noch die Karten, die du vorher nicht gefunden hast: {{ drache.lp }} von {{ drache.max_lp }}. Bonus-Schätze zählen nicht, die sind nur Extra-Gold.</p>
   {% if drache.max_lp <= 60 %}
   <ul class="sq-lp" aria-label="{{ drache.lp }} Lebenspunkte">{% for i in range(drache.max_lp) %}<li class="{{ '' if i < drache.lp else 'weg' }}"></li>{% endfor %}</ul>
@@ -39,7 +55,7 @@
   {% set k = drache.karte %}
   <div class="sq-wurf" id="karte">
     {% if drache.lp > 2 %}<span class="stapel zwei"></span>{% endif %}{% if drache.lp > 1 %}<span class="stapel"></span>{% endif %}
-    <article class="sq-karte" style="--r: -1.5deg">
+    <article class="sq-karte" style="--r: -1.5deg" data-stueck="{{ k.id }}">
       <div class="sq-etiketten">
         <span class="sq-etikett">{{ (gebiete | selectattr("id", "equalto", k.gebiet) | first).titel }}</span>
         {% if k.wunsch %}<span class="sq-etikett wunsch">Wunsch der Beraterin</span>{% endif %}
@@ -53,8 +69,12 @@
           <label class="fach">Datei geben: kritischer Treffer, doppelte Combo!<input type="file" name="datei" multiple></label>
         </div>
         <div class="reihe">
-          <button class="sq-siegelknopf" name="aktion" value="datei">Ist drin</button>
-          <button class="sq-stempelknopf grau" name="aktion" value="gibts_nicht"{% if kern(k.gebiet, k.key) %} data-rueckfrage="Wirklich keins? Nochmal klicken"{% endif %} title="Zählt als Treffer, die Serie hält">Gibt's nicht</button>
+          <button class="sq-siegelknopf" name="aktion" value="datei" data-datei-waehlen>Ist drin</button>
+          {% if fehlt_nie(k.gebiet, k.key) %}
+          <button class="sq-stempelknopf grau" name="aktion" value="fragen" title="Die hat jede:r. Deine Beraterin kennt sie oft schon.">Finde ich nicht</button>
+          {% else %}
+          <button class="sq-stempelknopf grau" name="aktion" value="gibts_nicht"{% if kern(k.gebiet, k.key) %} data-rueckfrage="{{ warum(k.gebiet, k.key) or ('„' ~ k.name ~ '“ hat fast jede:r in deiner Lage.') }} Findest du es nur gerade nicht? Dann frag lieber, das zählt genauso." data-rueckfrage-frage="Ich finde „{{ k.name }}“ nicht. Brauchst du das?"{% endif %} title="Zählt als Treffer, die Serie hält">Gibt's nicht</button>
+          {% endif %}
         </div>
         <div class="reihe">
           <input name="frage" placeholder="Frage an die Beraterin (darf leer bleiben)" aria-label="Frage an die Beraterin">
@@ -63,15 +83,29 @@
       </form>
     </article>
   </div>
-  {% else %}
-  <a class="button sq-siegelknopf" href="/steuer/{{ jahr }}/sieg">Zur Schatztruhe</a>
+  {% if lager %}
+  {# Balatro-Kern: Der Eingangskorb ist deine Hand. Ein Zettel, der passt, ist ein kritischer Treffer. #}
+  {% set hand = lager[:8] %}
+  <div class="sq-hand" aria-label="Deine Hand: Zettel aus dem Eingangskorb">
+    <p class="sq-hand-titel"><strong>Deine Hand:</strong> {{ lager | length }} Zettel aus dem Eingangskorb. Passt einer zu „{{ k.name }}“? Wirf ihn auf den Drachen!</p>
+    <form method="post" action="/steuer/{{ jahr }}/drache/schlag" class="sq-hand-faecher" data-stempel="TREFFER!">
+      <input type="hidden" name="token" value="{{ token }}">
+      <input type="hidden" name="stueck_id" value="{{ k.id }}">
+      <input type="hidden" name="aktion" value="zettel">
+      {% for f in hand %}{% set endung = f.suffix.lower().lstrip(".") %}
+      <button class="sq-handkarte" name="zettel" value="{{ f.name }}" data-name="{{ f.name }}" draggable="true" style="--i: {{ loop.index0 - (hand | length - 1) / 2 }}" title="„{{ f.name }}“ auf „{{ k.name }}“ werfen"><span class="art{% if endung in ['jpg', 'jpeg', 'png', 'heic'] %} bild{% endif %}">{{ (endung or "?")[:4] | upper }}</span><strong>{{ f.name }}</strong></button>
+      {% endfor %}
+    </form>
+    {% if lager | length > 8 %}<p class="sq-hand-titel">… und {{ lager | length - 8 }} weitere im Korb.</p>{% endif %}
+  </div>
+  {% endif %}
   {% endif %}
 </section>
 {% endif %}
 {% if not drache.besiegt %}
 <form method="post" action="/steuer/{{ jahr }}/drache/notausgang" class="sq-notausgang">
   <input type="hidden" name="token" value="{{ token }}">
-  <button>Frist drückt? Heute nur senden, der Drache wartet</button>
+  <button{% if gesamt.prozent < 80 %} data-rueckfrage="Dann geht heute alles, was du hast, an deine Beraterin. Was fehlt, steht als Liste in der Mail. Den Drachen kannst du später weiter bekämpfen." data-rueckfrage-ja="Ja, heute senden"{% endif %}>Frist drückt? Heute nur senden, der Drache wartet</button>
 </form>
 {% endif %}
 <p class="sq-fusszeile"><a href="/steuer/{{ jahr }}">← Zurück zur Insel</a></p>

@@ -24,9 +24,9 @@
           <button class="quiet" title="Einen Platz nach links">◀ links</button>
         </form>
         {% endif %}
-        <form method="post" action="/fritte/gewuerz/verkaufen" data-confirm="{{ g.name }} für {{ verkauf(g.preis) }} Salzkörner verkaufen?">
+        <form method="post" action="/fritte/gewuerz/verkaufen" data-confirm="{{ g.name }} für {{ verkauf(g) }} Salzkörner verkaufen?">
           <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="gewuerz" value="{{ g.id }}">
-          <button class="quiet">Verkaufen (+{{ verkauf(g.preis) }})</button>
+          <button class="quiet">Verkaufen (+{{ verkauf(g) }})</button>
         </form>
       </div>
     </div>
@@ -37,26 +37,33 @@
 
 <section class="card" id="markt">
   <h2>Markttag <span class="hint">neue Ware jeden Montag</span></h2>
-  {% if stufe.nummer < 3 %}<p class="hint">{{ "Seltene" if stufe.nummer < 2 else "Legendäre" }} Gewürze gibt es erst, wenn Frittes Haus weiter ausgebaut ist ({{ "Stube" if stufe.nummer < 2 else "Werkstatt" }}).</p>{% endif %}
+  {% if stufe.nummer < 3 and not ruf %}<p class="hint">{{ "Seltene" if stufe.nummer < 2 else "Legendäre" }} Gewürze gibt es erst, wenn Frittes Haus weiter ausgebaut ist ({{ "Stube" if stufe.nummer < 2 else "Werkstatt" }}).</p>{% endif %}
   <div class="markt">
     {% for g in markt %}
+    {% set kosten = preis(g) %}
+    {% set w = wirkung[g.id] %}
     <div class="ware gewuerz-ware selten-{{ g.seltenheit | replace('ö', 'oe') | replace('ä', 'ae') }}">
       {{ spiel.glas(g) }}
       <span class="seltenheit">{{ g.seltenheit }}</span>
       <span class="hint">{{ g.text }}</span>
+      {% if g.id not in im_regal and w[1] %}
+      <span class="wirkung{{ ' null' if not w[0] }}">{% if w[2] == "warten" %}Mit deinen {{ w[1] }} wartenden {{ "Karte" if w[1] == 1 else "Karten" }}{% else %}Beim letzten Kassensturz{% endif %}: {% if w[0] %}<strong>+{{ w[0] }}</strong> Salzkörner{% else %}kein Unterschied{% endif %}</span>
+      {% endif %}
       {% if g.id in im_regal %}
       <span class="badge ok">im Regal</span>
       {% elif regal | length >= plaetze %}
-      <span class="preis">{{ g.preis }} 🧂 <span class="hint">· Regal voll</span></span>
-      {% elif f.guthaben >= g.preis %}
+      <span class="preis">{{ kosten }} 🧂 <span class="hint">· Regal voll</span></span>
+      {% elif f.guthaben >= kosten %}
       <form method="post" action="/fritte/gewuerz/kaufen">
         <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="gewuerz" value="{{ g.id }}">
-        <button class="primary">Kaufen für {{ g.preis }} 🧂</button>
+        <button class="primary">Kaufen für {{ kosten }} 🧂</button>
       </form>
       {% else %}
-      <span class="preis">{{ g.preis }} 🧂 <span class="hint">· noch {{ g.preis - f.guthaben }}</span></span>
+      <span class="preis">{{ kosten }} 🧂 <span class="hint">· noch {{ kosten - f.guthaben }}</span></span>
       {% endif %}
     </div>
+    {% else %}
+    <p class="hint">Alles, was diese Woche auf dem Markt war, steht schon in Frittes Regal.</p>
     {% endfor %}
   </div>
   <form method="post" action="/fritte/markt/wuerfeln" class="wuerfeln">
@@ -97,7 +104,7 @@
     {% for d in huete %}
     <form method="post" action="/fritte/hut">
       <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="ding" value="{{ d.id }}">
-      <button aria-pressed="{{ 'true' if f.hut and f.hut.id == d.id else 'false' }}">{{ d.zeichen }} {{ "Absetzen" if f.hut and f.hut.id == d.id else d.name ~ " aufsetzen" }}</button>
+      <button aria-pressed="{{ 'true' if f.hut and f.hut.id == d.id else 'false' }}">{{ d.zeichen }} {{ d.name }} {{ "absetzen" if f.hut and f.hut.id == d.id else "aufsetzen" }}</button>
     </form>
     {% endfor %}
   </div>
@@ -107,7 +114,7 @@
 <section class="card" id="kassenbuch">
   <details>
     <summary><h2>Frittes Kassenbuch</h2></summary>
-    <p class="hint">Fritte führt auch Buch: Jedes Salzkorn, das reinkommt oder rausgeht, steht hier in einer Zeile. Genau so funktioniert ein echtes Kassenbuch.</p>
+    <p class="hint">Fritte führt auch Buch: Jedes Salzkorn, das reinkommt oder rausgeht, steht hier in einer Zeile. So ähnlich führt man ein Kassenbuch. Fritte macht das nur zum Spaß; wer kein Bargeld kassiert, braucht keins.</p>
     <table class="kassenbuch">
       <thead><tr><th>Tag</th><th>Was</th><th class="amount">Salzkörner</th></tr></thead>
       <tbody>

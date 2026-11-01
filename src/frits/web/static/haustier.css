@@ -23,19 +23,38 @@
 .zimmer .fenster {
   position: absolute; left: 7%; top: 12%; width: 20%; height: 42%;
   border: 0.9cqw solid var(--eiche); border-radius: 2px;
+  background: linear-gradient(180deg, #bcd3e0, #e9ecd8 70%, #f6e7c0);
+}
+.zimmer .fenster::before { /* the window bars, over whatever is outside */
+  content: ""; position: absolute; inset: 0; z-index: 2;
   background:
     linear-gradient(90deg, transparent calc(50% - .35cqw), var(--eiche) calc(50% - .35cqw) calc(50% + .35cqw), transparent 0),
-    linear-gradient(0deg, transparent calc(50% - .35cqw), var(--eiche) calc(50% - .35cqw) calc(50% + .35cqw), transparent 0),
-    linear-gradient(180deg, #bcd3e0, #e9ecd8 70%, #f6e7c0);
+    linear-gradient(0deg, transparent calc(50% - .35cqw), var(--eiche) calc(50% - .35cqw) calc(50% + .35cqw), transparent 0);
 }
 .zimmer .fenster::after { /* the window sill */
-  content: ""; position: absolute; left: -12%; right: -12%; bottom: -1.9cqw; height: 1.2cqw;
+  content: ""; position: absolute; left: -12%; right: -12%; bottom: -1.9cqw; height: 1.2cqw; z-index: 2;
   background: var(--eiche-dunkel); border-radius: 2px;
 }
-.laune-doest .fenster { background:
-    linear-gradient(90deg, transparent calc(50% - .35cqw), var(--eiche) calc(50% - .35cqw) calc(50% + .35cqw), transparent 0),
-    linear-gradient(0deg, transparent calc(50% - .35cqw), var(--eiche) calc(50% - .35cqw) calc(50% + .35cqw), transparent 0),
-    linear-gradient(180deg, #4a6896, #8d8fae 70%, #e2b98a); }
+.zimmer .aussicht { position: absolute; inset: 0; }
+.laune-doest .fenster { background: linear-gradient(180deg, #4a6896, #8d8fae 70%, #e2b98a); }
+/* what Fritte sees outside, in each of her places */
+.ort-2 .aussicht { background: /* the harbour: sea, a sail */
+  linear-gradient(160deg, transparent 54%, #f6ecd2 54% 58%, transparent 58%) 70% 40% / 30% 40% no-repeat,
+  linear-gradient(180deg, transparent 52%, #6d97b8 52% 70%, #4a6896 70%); }
+.ort-3 .aussicht { background: /* mountains with snow */
+  linear-gradient(135deg, transparent 49%, #8d8fae 50%) 0 100% / 50% 60% no-repeat,
+  linear-gradient(225deg, transparent 49%, #8d8fae 50%) 50% 100% / 50% 60% no-repeat,
+  linear-gradient(135deg, transparent 49%, #6f7f96 50%) 40% 100% / 60% 80% no-repeat,
+  linear-gradient(225deg, transparent 49%, #6f7f96 50%) 100% 100% / 60% 80% no-repeat; }
+.ort-4 .aussicht { background: /* old town roofs */
+  linear-gradient(135deg, transparent 49%, var(--terrakotta) 50%) 0 100% / 34% 55% no-repeat,
+  linear-gradient(225deg, transparent 49%, var(--terrakotta-dunkel) 50%) 34% 100% / 34% 55% no-repeat,
+  linear-gradient(135deg, transparent 49%, var(--terrakotta) 50%) 68% 100% / 34% 45% no-repeat,
+  linear-gradient(180deg, transparent 78%, #c9b28a 78%); }
+.ort-5 .aussicht { background: /* the lake and a jetty */
+  linear-gradient(180deg, transparent 60%, var(--eiche) 60% 64%, transparent 64%) 0 0 / 55% 100% no-repeat,
+  radial-gradient(ellipse at 50% 100%, var(--moos) 0 25%, transparent 26%),
+  linear-gradient(180deg, transparent 50%, #9cc0c9 50%); }
 .zimmer .teppich {
   position: absolute; left: 50%; bottom: 2%; width: 30%; height: 13%; transform: translateX(-50%);
   border-radius: 50%; background: radial-gradient(ellipse, var(--terrakotta) 0 55%, var(--terrakotta-dunkel) 56% 62%, var(--terrakotta) 63%);
@@ -69,7 +88,7 @@
 .bild-done { --hut-x: 32%; --hut-dreh: 8deg; }
 .bild-feierabend { --hut-x: 72%; --hut-dreh: 16deg; }
 
-.fritte-figur .zzz { position: absolute; right: -22%; top: -2%; font-family: var(--hand); color: var(--tinte); font-size: 2.6cqw; }
+.fritte-figur .zzz { position: absolute; right: -48%; top: -10%; font-family: var(--hand); color: var(--tinte); font-size: 2.6cqw; }
 .zzz i { display: inline-block; font-style: normal; opacity: .35; animation: zzz 3.6s ease-in-out infinite; }
 .zzz i:nth-child(2) { font-size: 1.3em; animation-delay: .6s; }
 .zzz i:nth-child(3) { font-size: 1.6em; animation-delay: 1.2s; }
@@ -162,10 +181,11 @@ button.gross { font-size: 1.1rem; padding: .7rem 1.6rem; }
 .art-erinnerung { --karte-farbe: var(--wachs); }
 .art-feierabend { --karte-farbe: var(--tinte); }
 .karte-art { font-family: var(--schrift); font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.karte-art.lang { letter-spacing: .02em; font-size: .7rem; }
 .karte-bild { display: grid; place-items: center; height: 4.2rem; font-size: 2.4rem; }
 .karte-bild img { max-height: 4.2rem; max-width: 100%; object-fit: contain; }
 .karte-titel { font-family: var(--schrift); font-size: .92rem; line-height: 1.2; color: var(--eiche-tief); }
-.karte-detail { font-size: .78rem; color: var(--muted); line-height: 1.25; overflow-wrap: anywhere; }
+.karte-detail { font-size: .78rem; color: var(--muted); line-height: 1.25; overflow-wrap: break-word; hyphens: auto; }
 .karte-marken { display: flex; flex-wrap: wrap; gap: .2rem; }
 .marke { font-size: .68rem; padding: 0 .4rem; border-radius: 999px; background: rgba(163, 196, 102, .35); color: var(--moos-dunkel); }
 .karte-koerner {
@@ -315,14 +335,18 @@ details[open] > summary::before { content: "▾ "; }
 .zimmer .lampe { position: absolute; left: 40%; top: 0; width: 2px; height: 16%; background: var(--eiche-tief); }
 .zimmer .lampe::after { content: ""; position: absolute; left: -2.3cqw; top: 100%; width: 4.6cqw; height: 2.4cqw;
   border-radius: 50% 50% 0 0; background: var(--ocker); box-shadow: 0 2.2cqw 4cqw rgba(255, 220, 140, .65); }
-.zimmer .werkbank { position: absolute; left: 66%; bottom: 23%; width: 24%; height: 3%; background: var(--eiche-dunkel); border-radius: 2px; }
+.zimmer .werkbank { position: absolute; left: 61%; bottom: 23%; width: 23%; height: 3%; background: var(--eiche-dunkel); border-radius: 2px; }
 .zimmer .werkbank::before, .zimmer .werkbank::after { content: ""; position: absolute; top: 100%; width: 6%; height: 4cqw; background: var(--eiche-tief); }
 .zimmer .werkbank::before { left: 4%; }
 .zimmer .werkbank::after { right: 4%; }
-.zimmer .werkbank i { position: absolute; bottom: 260%; font-style: normal; font-size: 2.4cqw; filter: saturate(.7); }
+/* a pegboard on the wall, so the tools hang from something */
+.zimmer .werkzeugwand { position: absolute; left: 8%; right: 8%; bottom: 180%; height: 7cqw; border-radius: 2px;
+  background: radial-gradient(circle, rgba(58, 36, 18, .35) 0 .18cqw, transparent .22cqw) 0 0 / 1.2cqw 1.2cqw, #d8b98a;
+  border: .25cqw solid var(--eiche); }
+.zimmer .werkbank i { position: absolute; top: 12%; font-style: normal; font-size: 2.4cqw; filter: saturate(.7); }
 .zimmer .werkbank i:nth-child(1) { left: 10%; transform: rotate(-20deg); }
 .zimmer .werkbank i:nth-child(2) { left: 42%; }
-.zimmer .werkbank i:nth-child(3) { left: 74%; transform: rotate(10deg); }
+.zimmer .werkbank i:nth-child(3) { left: 72%; transform: rotate(10deg); }
 .zimmer .garten { position: absolute; inset: 0; background:
   radial-gradient(ellipse at 30% 105%, var(--moos) 0 45%, transparent 46%),
   radial-gradient(ellipse at 85% 110%, var(--moos-hell) 0 50%, transparent 51%),
@@ -376,3 +400,74 @@ details[open] > summary::before { content: "▾ "; }
 .sticker-tag { font-size: .72rem; color: var(--moos-dunkel); }
 .ks-sticker .sticker-rund { width: 2.8rem; height: 2.8rem; font-size: 1.4rem; background: radial-gradient(circle at 35% 30%, #fff6d8, var(--gold)); border-color: var(--ocker-dunkel); }
 .laeuft .ks-sticker:not(.da) { visibility: hidden; }
+
+/* the Frittenbude: Fritte now works from a market stall with an awning and a counter */
+.zimmer.stufe-5 { background:
+    linear-gradient(180deg, transparent 62%, var(--eiche) 62%, var(--eiche-dunkel) 76%),
+    repeating-linear-gradient(90deg, rgba(91, 57, 29, .18) 0 2px, transparent 2px 9%),
+    linear-gradient(180deg, #e7c68f, #d9b27a); }
+.zimmer.stufe-5::before { background: /* cobblestones instead of planks */
+    radial-gradient(ellipse at 50% 50%, rgba(255, 255, 255, .18) 0 40%, transparent 42%) 0 0 / 4cqw 2.4cqw,
+    linear-gradient(180deg, rgba(58, 36, 18, .3), transparent 20%),
+    linear-gradient(180deg, #a59a86, #8b806d); }
+.zimmer .markise { position: absolute; left: 0; right: 0; top: 0; height: 11%; z-index: 3;
+  background: repeating-linear-gradient(90deg, var(--terrakotta) 0 6%, var(--creme) 6% 12%);
+  -webkit-mask: radial-gradient(circle at 50% 100%, transparent 0 1.6cqw, #000 1.7cqw) 0 0 / 6% 100%, linear-gradient(#000 0 60%, transparent 60%);
+  mask: radial-gradient(circle at 50% 100%, transparent 0 1.6cqw, #000 1.7cqw) 0 0 / 6% 100%, linear-gradient(#000 0 60%, transparent 60%);
+  box-shadow: 0 .6cqw .6cqw rgba(58, 36, 18, .2); }
+.zimmer.stufe-5 .girlande { top: 11%; height: 6%; }
+/* the counter runs along the back wall, behind Fritte and her things */
+.zimmer .theke { position: absolute; left: 0; right: 0; bottom: 22%; height: 9%; z-index: 0;
+  background: linear-gradient(180deg, var(--eiche-hell) 0 22%, var(--eiche) 22%),
+    repeating-linear-gradient(90deg, transparent 0 9%, rgba(58, 36, 18, .25) 9% 9.3%); }
+/* the shop sign hangs from the awning */
+.zimmer .theke-schild { position: absolute; left: 83%; bottom: 575%; transform: translateX(-50%) rotate(-2deg); white-space: nowrap; z-index: 4;
+  padding: .2cqw 1cqw; background: var(--gold); color: var(--eiche-tief); font-family: var(--schrift); font-weight: 700; font-size: 1.6cqw;
+  border: .25cqw solid var(--eiche-tief); border-radius: 2px; }
+/* the cups of reached season goals */
+.zimmer .pokalbrett { position: absolute; left: 31%; bottom: 55%; display: flex; gap: .3cqw; padding: 0 .6cqw;
+  border-bottom: .9cqw solid var(--eiche-dunkel); font-size: 2.6cqw; line-height: 1; }
+.zimmer .pokalbrett i { font-style: normal; filter: drop-shadow(0 .2cqw .2cqw rgba(58, 36, 18, .3)); }
+
+/* ---------- seasons, the house's places, the shop preview ---------- */
+.saison h2 .hint, .frittes-haus h2 .hint { font-weight: normal; font-size: .85rem; margin-left: .4rem; }
+.saison-thema { margin: .2rem 0 .6rem; font-weight: 600; color: var(--eiche-tief); }
+.saison-ziel .balken { height: .9rem; border-radius: 99px; background: var(--creme); border: 1px solid var(--papier-schatten); overflow: hidden; }
+.saison-ziel .balken span { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--ocker), var(--gold)); }
+.saison-ziel p { margin: .5rem 0 0; }
+.landkarte { list-style: none; padding: 0; margin: 1rem 0 0; display: flex; flex-wrap: wrap; gap: .4rem; }
+.landkarte li { padding: .3rem .7rem; border-radius: 99px; border: 1px dashed var(--papier-schatten); color: var(--muted); font-size: .9rem; }
+.landkarte li.fertig { border-style: solid; border-color: var(--moos); background: rgba(163, 196, 102, .2); color: var(--ink); }
+.landkarte li.jetzt { border-style: solid; border-color: var(--ocker-dunkel); background: rgba(233, 189, 79, .25); color: var(--ink); font-weight: 600; }
+.vorschau-zeile { margin: .6rem 0; }
+.willkommen-spiel { display: flex; gap: .9rem; align-items: center; margin-bottom: .8rem; padding: .7rem 1rem; border-radius: 6px;
+  background: linear-gradient(90deg, rgba(233, 189, 79, .3), rgba(233, 189, 79, .08)); border: 2px solid var(--gold); }
+.willkommen-spiel p { margin: 0; }
+.wirkung { font-size: .85rem; color: var(--moos-dunkel); }
+.wirkung.null { color: var(--muted); }
+.ks-ausbau.mit-zimmer { align-items: center; }
+.ks-zimmer { flex: 0 0 min(22rem, 45%); }
+.ks-zimmer .zimmer { border-radius: 4px; }
+.ks-saison .sticker-rund { width: 2.8rem; height: 2.8rem; font-size: 1.4rem; background: radial-gradient(circle at 35% 30%, #fff6d8, var(--gold)); border-color: var(--ocker-dunkel); }
+.laeuft .ks-saison:not(.da) { visibility: hidden; }
+.art-steuer { --karte-farbe: var(--moos-dunkel); }
+.art-steuerjahr { --karte-farbe: var(--gold); }
+.art-start { --karte-farbe: var(--ocker-dunkel); }
+.karte-titel { overflow-wrap: break-word; hyphens: auto; }
+.marke.saison-marke { background: var(--gold); }
+/* small windows (e.g. 1280×720): the table and the buttons stay above the fold */
+@media (max-height: 820px) {
+  .kassensturz-show .ks-karten .spielkarte { width: 6.4rem; min-height: 8.6rem; }
+  .kassensturz-show .ks-karten .karte-bild { height: 2.6rem; }
+  .kassensturz-show .ks-karten .karte-bild img { max-height: 2.6rem; }
+  .kassensturz-show .ks-regal .gewuerzglas { width: 3.8rem; }
+  .kassensturz-show .ks-regal .glas-koerper { height: 4rem; }
+}
+
+/* short windows: the buttons stay in reach while the show runs */
+@media (max-height: 820px) {
+  .kassensturz-show .ks-aktionen { position: sticky; bottom: 0; z-index: 5; padding: .5rem 0;
+    background: linear-gradient(180deg, transparent, var(--bg) 35%); }
+  .kassensturz-show .ks-karten .spielkarte { width: 5.9rem; min-height: 7.6rem; }
+  .kassensturz-show .ks-karten .karte-detail { display: none; }
+}

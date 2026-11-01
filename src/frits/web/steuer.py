@@ -7,6 +7,7 @@ Wie überall in FRITS: Jeder Knopf, der etwas ändert, ist ein POST mit dem gehe
 from __future__ import annotations
 
 import math
+import re
 import shutil
 from collections.abc import Callable
 from datetime import date
@@ -19,7 +20,17 @@ from fastapi.responses import HTMLResponse, Response
 from frits import store, system
 from frits.settings import Workspace
 from frits.steuer import beraterin, ernte, quest, spiel, truhe
-from frits.steuer.katalog import FAMILIENSTAND, HAKEN, Profil, fragen, gebiet, ist_kern, reich
+from frits.steuer.katalog import (
+    FAMILIENSTAND,
+    HAKEN,
+    Profil,
+    fehlt_nie,
+    fragen,
+    gebiet,
+    ist_kern,
+    reich,
+    warum,
+)
 
 AKTIONEN = {"gibts_nicht", "fragen", "offen"}
 MAX_LAGER = 30 * 1024 * 1024  # wie beim Eingang von FRITS
@@ -134,10 +145,23 @@ def schoenes_datum(iso: str) -> str:
     return f"{d.day}. {MONATE[d.month - 1]} {d.year}"
 
 
+def textname(text: str) -> str:
+    """Ein eingefügter Text heißt nach seinen ersten Wörtern, damit man drei Zettel unterscheiden kann."""
+    woerter = re.findall(r"[^\W_][\w.-]*", text)[:6]
+    name = " ".join(woerter)[:48].strip(" .-")
+    return f"{name or 'Eingefügter Text'}.txt"
+
+
 def fritte_tipp(daten: dict, lager: list) -> tuple[str, str]:
     """Was Fritte, die Kartografin, gerade sagt: (Stimmung, Satz)."""
     if daten["drache"].besiegt and daten["stuecke"]:
         return "done", "Der Drache ist besiegt! Die Schatztruhe wartet auf dich."
+    if daten["auftrag"].art == "drache":
+        lp = daten["drache"].lp
+        return (
+            "welcome",
+            f"Der Drache ist wach und hat noch {lp} Karte{'n' if lp != 1 else ''}. Ich komm mit!",
+        )
     if lager:
         n = len(lager)
         if n == 1:
@@ -181,6 +205,9 @@ def register_steuer(
     app.state.steuer_combo = {}
     app.state.steuer_notausgang = set()
     app.state.steuer_passwort = {}
+    app.state.steuer_finale = (
+        set()
+    )  # Jahre, deren Drache gerade gefallen ist: Falt-Animation zeigen
 
     def conn():
         return quest.ensure_schema(store.connect(ws.db))
@@ -191,7 +218,8 @@ def register_steuer(
     def profil_oder_404(jahr: int) -> Profil:
         p = profil(jahr)
         if p is None:
-            raise HTTPException(404, "Für dieses Jahr gibt es noch keinen Fragebogen.")
+            # Kein JSON-Fehler: freundlich zum Anfang der Quest für dieses Jahr
+            raise HTTPException(303, headers={"Location": f"/steuer/{jahr}/intro"})
         return p
 
     def seite(request: Request, name: str, **context):
@@ -203,6 +231,8 @@ def register_steuer(
             provinzbild=provinzbild,
             klang=settings().sound,
             kern=ist_kern,
+            fehlt_nie=fehlt_nie,
+            warum=warum,
             datum=schoenes_datum,
             **context,
         )
@@ -233,6 +263,8 @@ def register_steuer(
         erfolge = spiel.erfolge(alle, staende, vergleich, quest.hat_notiz(c, jahr, "brief"))
         drache = spiel.drache(alle)
         zettel = len(quest.lager_dateien(ws.root))
+        zweifel = spiel.zweifel(alle)
+        wach = spiel.drache_wach(alle) or jahr in app.state.steuer_notausgang
         return {
             "jahr": jahr,
             "profil": p,
@@ -241,11 +273,13 @@ def register_steuer(
             "provinzen": staende,
             "gesamt": gesamt,
             "ressourcen": spiel.ressourcen(alle, staende),
-            "zeitalter": spiel.zeitalter(gesamt.anteil),
+            "zeitalter": spiel.zeitalter(gesamt.anteil, silber=bool(zweifel)),
             "naechstes": spiel.naechstes_zeitalter(gesamt.anteil),
             "drache": drache,
-            "drache_wach": spiel.drache_wach(alle) or jahr in app.state.steuer_notausgang,
-            "auftrag": spiel.auftrag(jahr, staende, drache, zettel, alle),
+            "drache_wach": wach,
+            "auftrag": spiel.auftrag(jahr, staende, drache, zettel, alle, wach),
+            "tagwerk": spiel.tagwerk(alle, date.today()),
+            "zweifel": zweifel,
             "burg_fehlt": not any(g.provinz.key == "burg" for g in gebiete),
             "jahre": quest_jahre(),
             "vergleich": vergleich,
@@ -253,23 +287,84 @@ def register_steuer(
             "chronik": quest.chronik(c, jahr),
         }
 
-    def belohnen(jahr: int, vorher: dict) -> None:
-        """Nach jeder Änderung: neue Siegel, neues Zeitalter und neue Erfolge feiern."""
+    def belohnen(jahr: int, vorher: dict, ferne: bool = True) -> bool:
+        """Nach jeder Änderung: neue Siegel, neues Zeitalter, neue Orden und den Sieg feiern.
+
+        Jedes Fest gibt es nur einmal: Wer einen Stempel zurücknimmt und neu setzt, bekommt
+        beim zweiten Mal höchstens einen kleinen Zettel. Gibt True zurück, wenn der Drache
+        gerade gefallen ist; dann geht es immer zur Drachenseite und ihrem Falt-Moment,
+        egal ob der letzte Treffer im Kampf oder in einer Provinz kam (ferne=True).
+        """
         nachher = lage(jahr)
         c = conn()
         alt_siegel = {p.gebiet.id for p in vorher["provinzen"] if p.stand.siegel}
         for p in nachher["provinzen"]:
             if p.stand.siegel and p.gebiet.id not in alt_siegel:
-                text = f"Gold-Siegel! {p.gebiet.titel} ist komplett."
+                titel = p.gebiet.titel
+                schon = quest.hat_notiz(
+                    c, jahr, "siegel", f"Gold-Siegel! {titel} ist komplett."
+                ) or quest.hat_notiz(c, jahr, "siegel", f"Silber-Siegel! {titel} ist komplett.")
+                text = f"{'Silber' if p.silber else 'Gold'}-Siegel! {titel} ist komplett."
+                if schon:
+                    flash(f"{titel} ist wieder komplett.", "beute")  # kein zweites Fest
+                    continue
                 quest.notiere(c, jahr, "siegel", text)
+                if p.silber:
+                    text += " Deine Beraterin prüft noch etwas."
                 flash(text, "siegel", cue="done")
+        drache_vorher, drache_nachher = vorher["drache"], nachher["drache"]
+        sieg = drache_nachher.besiegt and not drache_vorher.besiegt and bool(nachher["stuecke"])
+        if nachher["drache_wach"] and not vorher["drache_wach"] and not drache_nachher.besiegt:
+            lp = drache_nachher.lp
+            text = f"Er hat nur noch {lp} Karte{'n' if lp != 1 else ''}. Jetzt bist du stark genug."
+            if quest.hat_notiz(c, jahr, "erwachen"):
+                flash(f"Der Drache ist wieder wach. {text}", "treffer")  # kein zweites Fest
+            else:
+                quest.notiere(c, jahr, "erwachen", "Der Papierdrache ist erwacht")
+                flash(text, "erwachen", cue="done")
+        elif (
+            ferne
+            and not sieg
+            and vorher["drache_wach"]
+            and drache_nachher.lp < drache_vorher.lp
+            and not drache_nachher.besiegt
+        ):
+            lp = drache_nachher.lp
+            flash(
+                f"Treffer aus der Ferne! Der Drache hat noch {lp} Karte{'n' if lp != 1 else ''}.",
+                "treffer",
+            )
+        heute, ziel = nachher["tagwerk"]
+        if vorher["tagwerk"][0] < ziel <= heute and not sieg:
+            quest.notiere(c, jahr, "tagwerk", "Tagwerk geschafft")
+            flash(
+                f"Tagwerk geschafft: {ziel} Karten heute. Mehr muss nicht sein, aber du darfst.",
+                "tagwerk",
+            )
         if nachher["zeitalter"][0] > vorher["zeitalter"][0]:
-            text = f"Aufstieg ins {nachher['zeitalter'][1]}!"
-            quest.notiere(c, jahr, "zeitalter", text)
-            flash(text, "zeitalter", cue="done")
+            text = spiel.aufstieg(nachher["zeitalter"][1]) + "!"
+            if not quest.hat_notiz(c, jahr, "zeitalter", text):
+                quest.notiere(c, jahr, "zeitalter", text)
+                flash(text, "zeitalter", cue="done")
         for e in spiel.neue_erfolge(vorher["erfolge"], nachher["erfolge"]):
+            if quest.hat_notiz(c, jahr, "erfolg", e.name):
+                continue  # den Orden gab es schon einmal
             quest.notiere(c, jahr, "erfolg", e.name)
             flash(f"Neuer Orden: {e.name}. {e.beschreibung}", "orden")
+        if sieg:
+            quest.notiere(c, jahr, "sieg", "Der Papierdrache ist besiegt")
+            app.state.steuer_combo.pop(jahr, None)
+            app.state.steuer_finale.add(jahr)
+            if nachher["zweifel"]:
+                flash(
+                    "Der Drache faltet sich zur Schatztruhe. Ein paar wichtige Unterlagen"
+                    " soll deine Beraterin noch prüfen, darum Silber.",
+                    "sieg",
+                    "sent",
+                )
+            else:
+                flash("Der Drache faltet sich zu einer Schatztruhe zusammen.", "sieg", "sent")
+        return sieg
 
     def stueck_im_jahr(jahr: int, stueck_id: int) -> dict:
         try:
@@ -367,14 +462,16 @@ def register_steuer(
         if profil(jahr) is not None:
             return back(f"/steuer/{jahr}")
         weg, weg_text = ausweg(jahr)
+        # Wer schon angefangen hat, sieht nicht den ganzen Film noch einmal
+        angefangen = jahr in app.state.steuer_entwurf or entwurf_datei(jahr).exists()
         return seite(
             request,
             "steuer_intro.html",
             jahr=jahr,
             ausweg=weg,
             ausweg_text=weg_text,
-            kurz=bool(quest_jahre()),
-            angefangen=jahr in app.state.steuer_entwurf or entwurf_datei(jahr).exists(),
+            kurz=bool(quest_jahre()) or angefangen,
+            angefangen=angefangen,
         )
 
     @app.get("/steuer/{jahr}/fragebogen", response_class=HTMLResponse)
@@ -487,6 +584,8 @@ def register_steuer(
         aktion = str(form.get("status", ""))
         if aktion not in AKTIONEN:
             raise HTTPException(400)
+        if aktion == "gibts_nicht" and fehlt_nie(s["gebiet"], s["key"]):
+            aktion = "fragen"  # die Steuer-ID hat jede:r, also wird daraus eine Frage
         vorher = lage(jahr)
         frage = str(form.get("frage") or "").strip() if aktion == "fragen" else ""
         quest.setze_status(conn(), stueck_id, aktion, frage)
@@ -494,7 +593,8 @@ def register_steuer(
             flash(f"Notiert: {s['name']} gibt es dieses Jahr nicht. Zählt trotzdem!", "beute")
         elif aktion == "fragen":
             flash("Kommt auf die Fragenliste für deine Beraterin. Fragen ist klug.", "beute")
-        belohnen(jahr, vorher)
+        if belohnen(jahr, vorher):
+            return back(f"/steuer/{jahr}/drache")
         return back(str(form.get("back") or f"/steuer/{jahr}/gebiet/{s['gebiet']}"))
 
     @app.post("/steuer/{jahr}/stueck/{stueck_id}/datei", dependencies=guarded)
@@ -513,7 +613,8 @@ def register_steuer(
             )
         else:
             flash("Diese Datei hattest du schon gesammelt. Doppelt zählt nicht, aber gut gemerkt!")
-        belohnen(jahr, vorher)
+        if belohnen(jahr, vorher):
+            return back(f"/steuer/{jahr}/drache")
         return back(str(form.get("back") or f"/steuer/{jahr}/gebiet/{s['gebiet']}"))
 
     @app.post("/steuer/{jahr}/lager/zuordnen", dependencies=guarded)
@@ -536,8 +637,11 @@ def register_steuer(
             quest.notiere(c, jahr, "fund", f"{s['name']}: {name}")
             flash(f"+1 Beleg! {name} → {s['name']}", "beute", "done")
         else:
-            flash(f"{name} war schon gesammelt, ich habe die doppelte Kopie weggeräumt.")
-        belohnen(jahr, vorher)
+            flash(
+                f"{name} liegt schon bei „{fund.stueck['name']}“. Die doppelte Kopie habe ich weggeräumt."
+            )
+        if belohnen(jahr, vorher):
+            return back(f"/steuer/{jahr}/drache")
         return back(str(form.get("back") or f"/steuer/{jahr}"))
 
     @app.post("/steuer/{jahr}/datei/{datei_id}/entfernen", dependencies=guarded)
@@ -570,9 +674,13 @@ def register_steuer(
             gelegt.append(ziel.name)
         text = str(form.get("text") or "").strip()
         if text:
-            from frits.web.app import _save_text  # beim Einfügen von Text: eine .txt im Lager
-
-            gelegt.append(_save_text(text[:200_000], ablage, "eingefuegt").name)
+            name = textname(text)
+            ziel, n = ablage / name, 1
+            while ziel.exists():
+                ziel = ablage / f"{Path(name).stem} ({n}).txt"
+                n += 1
+            ziel.write_text(text[:200_000].replace("\r\n", "\n") + "\n", encoding="utf-8")
+            gelegt.append(ziel.name)
         if gelegt:
             n = len(gelegt)
             flash(
@@ -626,7 +734,8 @@ def register_steuer(
             flash(text + "!", "beute", "done")
         else:
             flash("Aus FRITS ist schon alles da. Nichts doppelt.")
-        belohnen(jahr, daten)
+        if belohnen(jahr, daten):
+            return back(f"/steuer/{jahr}/drache")
         return back(f"/steuer/{jahr}")
 
     # ----- Mail der Beraterin -----
@@ -672,13 +781,25 @@ def register_steuer(
         daten = lage(jahr)
         combo = dict(app.state.steuer_combo.get(jahr, {"combo": 0, "ruf": spiel.RUFE[0]}))
         frisch = app.state.steuer_combo.get(jahr, {}).pop("frisch", False)
-        return seite(request, "steuer_drache.html", combo=combo, frisch=frisch, **daten)
+        finale = jahr in app.state.steuer_finale and daten["drache"].besiegt
+        app.state.steuer_finale.discard(jahr)
+        return seite(
+            request,
+            "steuer_drache.html",
+            combo=combo,
+            frisch=frisch,
+            finale=finale,
+            lager=quest.lager_dateien(ws.root),
+            **daten,
+        )
 
     @app.post("/steuer/{jahr}/drache/schlag", dependencies=guarded)
     async def drache_schlag(request: Request, jahr: int):
         form = await request.form()
         s = stueck_im_jahr(jahr, int(str(form.get("stueck_id") or 0)))
         aktion = str(form.get("aktion") or "")
+        if aktion == "gibts_nicht" and fehlt_nie(s["gebiet"], s["key"]):
+            aktion = "fragen"
         vorher = lage(jahr)
         if not vorher["drache_wach"]:
             flash("Der Drache schläft noch. Bau erst deine Provinzen auf.")
@@ -692,6 +813,23 @@ def register_steuer(
             kritisch = await hochladen(jahr, s["id"], uploads) > 0
             if not kritisch:
                 quest.setze_status(conn(), s["id"], "gesammelt")
+        elif aktion == "zettel":
+            # Ein Zettel aus der Hand (dem Eingangskorb) direkt auf den Drachen geworfen
+            name = Path(str(form.get("zettel") or "")).name
+            quelle = quest.lager(ws.root) / name
+            if not name or not quelle.is_file():
+                flash("Den Zettel finde ich nicht mehr im Eingangskorb.")
+                return back(f"/steuer/{jahr}/drache#karte")
+            c = conn()
+            fund = quest.sammeln(c, ws.root, s["id"], quelle, verschieben=True)
+            if not fund.neu:
+                flash(
+                    f"{name} liegt schon bei „{fund.stueck['name']}“. Doppelt zählt nicht,"
+                    " die Kopie habe ich weggeräumt."
+                )
+                return back(f"/steuer/{jahr}/drache#karte")
+            quest.notiere(c, jahr, "fund", f"{s['name']}: {name}")
+            kritisch = True
         elif aktion in ("gibts_nicht", "fragen"):
             frage = str(form.get("frage") or "").strip() if aktion == "fragen" else ""
             quest.setze_status(conn(), s["id"], aktion, frage)
@@ -705,12 +843,8 @@ def register_steuer(
             "frisch": "kritisch" if kritisch else "treffer",
         }
         quest.notiere(conn(), jahr, "treffer", f"{s['name']} ({ruf})")
-        belohnen(jahr, vorher)
-        if spiel.drache(quest.stuecke(conn(), jahr)).besiegt:
-            quest.notiere(conn(), jahr, "sieg", "Der Papierdrache ist besiegt")
-            app.state.steuer_combo.pop(jahr, None)
-            flash("SIEG! Der Drache faltet sich zu einer Schatztruhe zusammen.", "sieg", "sent")
-            return back(f"/steuer/{jahr}/sieg")
+        if belohnen(jahr, vorher, ferne=False):
+            return back(f"/steuer/{jahr}/drache")  # der Falt-Moment
         return back(f"/steuer/{jahr}/drache#karte")
 
     @app.post("/steuer/{jahr}/drache/notausgang", dependencies=guarded)

@@ -566,10 +566,18 @@ def test_ganze_quest_im_browser(client, ws):
         page = post(
             client, "/steuer/2025/drache/schlag", stueck_id=str(karte["id"]), aktion="gibts_nicht"
         )
-        if "SIEG!" not in page.text:
+        if spiel.drache(quest.stuecke(conn, 2025)).lp:
             assert 'data-treffer="treffer"' in page.text  # die Seite wackelt nach dem Treffer
-    assert "SIEG!" in page.text
-    assert "Goldenes Zeitalter!" in page.text
+    # Der letzte Treffer: Der Drache faltet sich auf seiner Seite, dann geht es zur Truhe
+    assert str(page.url).endswith("/drache")
+    assert "sq-arena-sieg finale" in page.text and 'data-spaet="1900"' in page.text
+    assert "Silber-Sieg!" in page.text
+    nochmal = client.get("/steuer/2025/drache").text  # der Film läuft nur einmal
+    assert "sq-arena-sieg" in nochmal and "sq-arena-sieg finale" not in nochmal
+    # Wichtige Unterlagen als "Gibt's nicht": Sieg ja, aber Silber und "Bitte prüfen"
+    page = client.get("/steuer/2025/sieg")
+    assert "Bitte prüfen" in page.text
+    assert 'class="sq-sieg-titel silber"' in page.text
 
     page = post(client, "/steuer/2025/truhe")
     assert "Passwort:" in page.text
@@ -744,8 +752,23 @@ def test_siegel_kommt_als_belohnung_mit_naechstem_auftrag(client, ws):
             status="gibts_nicht",
             back="/steuer/2025/gebiet/rathaus",
         )
-    assert "data-belohnung" in page.text and "Gold-Siegel!" in page.text
-    assert "Nächster Auftrag" in page.text and "Versiegle Werkstatt" in page.text
+    # Mit dem Rathaus ist das Reich bei 50 %: Der Drache erwacht, das Siegel feiert mit
+    assert "data-belohnung" in page.text and "Der Drache erwacht!" in page.text
+    assert "Rathaus ist komplett." in page.text and "Stell dich dem Drachen" in page.text
+    # Beim Erwachen lockt nichts weg vom Drachen: kein "Nächster Auftrag: Provinz …"
+    assert "Nächster Auftrag" not in page.text
+    # Ab jetzt ist der Drache der Auftrag, mit Leuchtfeuer auf dem Hort
+    karte = client.get("/steuer/2025").text
+    assert "Besiege den Papierdrachen" in karte and "sq-hort wach auftragsziel" in karte
+    # Stempel zurücknehmen und neu stempeln: kein zweites Fest
+    briefe = next(
+        s
+        for s in quest.stuecke(quest.ensure_schema(store.connect(ws.db)), 2025, "rathaus")
+        if s["key"] == "briefe"
+    )
+    post(client, f"/steuer/2025/stueck/{briefe['id']}/status", status="offen")
+    page = post(client, f"/steuer/2025/stueck/{briefe['id']}/status", status="gibts_nicht")
+    assert "Rathaus ist wieder komplett." in page.text and "Gold-Siegel!" not in page.text
 
 
 def test_gibts_nicht_haelt_die_serie_zaehlt_aber_nicht_hoch():
@@ -810,7 +833,7 @@ def test_dateien_lassen_sich_auf_den_eingangskorb_ziehen(client, ws):
     seite = post(client, "/steuer/2025/lager/hochladen", text="Mail vom Finanzamt: bitte Belege")
     assert "1 neuer Zettel" in seite.text
     namen = [p.name for p in quest.lager_dateien(ws.root)]
-    assert "konto.csv" in namen and any(n.startswith("eingefuegt-") for n in namen)
+    assert "konto.csv" in namen and "Mail vom Finanzamt bitte Belege.txt" in namen
 
 
 def test_beraterin_steht_nicht_mehr_im_ersten_teil(client, ws):
@@ -836,3 +859,146 @@ def test_beraterin_steht_nicht_mehr_im_ersten_teil(client, ws):
     # Kaputtes Datum wird nicht gespeichert
     post(client, "/steuer/2025/beraterin/daten", beraterin_termin="morgen")
     assert Profil.load(quest.profil_datei(ws.root, 2025)).beraterin_termin == ""
+
+
+def test_tagwerk_feiert_drei_karten_am_tag(client, ws):
+    fragebogen(client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1"})
+    conn = store.connect(ws.db)
+    karte = client.get("/steuer/2025").text
+    assert "Tagwerk heute" in karte and "0/3" in karte
+    offen = [s for s in quest.stuecke(conn, 2025) if s["status"] == "offen"]
+    seite = None
+    # "Gibt's nicht" zählt nicht fürs Tagwerk, sonst wäre Wegstempeln der schnellste Weg
+    nicht = next(s for s in offen if not ist_kern(s["gebiet"], s["key"]))
+    post(client, f"/steuer/2025/stueck/{nicht['id']}/status", status="gibts_nicht")
+    assert spiel.tagwerk(quest.stuecke(conn, 2025), date.today())[0] == 0
+    for s in [s for s in offen if s["id"] != nicht["id"]][:3]:
+        seite = post(client, f"/steuer/2025/stueck/{s['id']}/status", status="fragen")
+    # Ein kleiner Zettel statt eines Vollbilds, das einen hinausbittet
+    assert "Tagwerk geschafft: 3 Karten heute" in seite.text and "Für heute Schluss" in seite.text
+    assert "Tagwerk geschafft!" not in seite.text
+    assert "Tagwerk geschafft" in client.get("/steuer/2025").text
+    heute, ziel = spiel.tagwerk(quest.stuecke(conn, 2025), date.today())
+    assert heute == 3 and ziel == 3
+
+
+def test_steuer_id_gibt_es_immer_und_kernunterlagen_kommen_zum_pruefen(client, ws):
+    fragebogen(client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    rathaus = client.get("/steuer/2025/gebiet/rathaus").text
+    assert "Finde ich nicht" in rathaus
+    sid = next(s for s in quest.stuecke(conn, 2025, "rathaus") if s["key"] == "steuer-id")
+    post(client, f"/steuer/2025/stueck/{sid['id']}/status", status="gibts_nicht")
+    assert quest.stueck(conn, sid["id"])["status"] == "fragen"  # nie "gibt's nicht"
+    werkstatt = client.get("/steuer/2025/gebiet/werkstatt-1").text
+    # Echte Rückfrage mit einem Grund pro Unterlage, und "Dann frag ich lieber" als Vorschlag
+    assert "Ohne Belege zählen deine Ausgaben nicht" in werkstatt
+    assert "FRITS rechnet sie aus deinen Rechnungen" in werkstatt
+    assert 'data-rueckfrage-frage="Ich finde' in werkstatt
+    belege = next(s for s in quest.stuecke(conn, 2025) if s["key"] == "belege")
+    quest.setze_status(conn, belege["id"], "gibts_nicht")
+    assert [s["key"] for s in spiel.zweifel(quest.stuecke(conn, 2025))] == ["belege"]
+    p = Profil.load(quest.profil_datei(ws.root, 2025))
+    _betreff, text = truhe.mail(p, reich(p), quest.stuecke(conn, 2025))
+    assert "Bitte prüfen" in text and "Belege und Quittungen" in text.split("Bitte prüfen")[1]
+
+
+def _bis_wach(conn, jahr=2025):
+    """Stempelt Karten per Datenbank, bis der Drache gerade erwacht ist."""
+    offen = [s for s in spiel.pflicht(quest.stuecke(conn, jahr)) if s["status"] == "offen"]
+    while not spiel.drache_wach(quest.stuecke(conn, jahr)):
+        quest.setze_status(conn, offen.pop(0)["id"], "gesammelt")
+
+
+def test_drache_faellt_auch_aus_der_ferne_und_der_sieg_kommt_immer(client, ws):
+    # Lena (Runde 1c): Wer nach dem Erwachen in den Provinzen weiterstempelt, tötete den
+    # Drachen nebenbei, und es gab nie einen Sieg. Jetzt: Treffer aus der Ferne, und der
+    # letzte Treffer führt immer zur Drachenseite mit dem Falt-Moment.
+    fragebogen(client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    _bis_wach(conn)
+    rest = [s for s in spiel.pflicht(quest.stuecke(conn, 2025)) if s["status"] == "offen"]
+    assert len(rest) >= 2
+    seite = post(client, f"/steuer/2025/stueck/{rest[0]['id']}/status", status="fragen")
+    assert "Treffer aus der Ferne!" in seite.text
+    for s in rest[1:]:
+        seite = post(client, f"/steuer/2025/stueck/{s['id']}/status", status="fragen")
+    assert str(seite.url).endswith("/steuer/2025/drache")
+    assert "sq-arena-sieg finale" in seite.text and "Sieg!" in seite.text
+    assert "Zur Schatztruhe" in seite.text
+    assert quest.hat_notiz(conn, 2025, "sieg")
+
+
+def test_eingangskorb_ist_die_hand_im_drachenkampf(client, ws):
+    fragebogen(client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    _bis_wach(conn)
+    quest.lager(ws.root).mkdir(parents=True, exist_ok=True)
+    (quest.lager(ws.root) / "kontoauszug.pdf").write_bytes(b"%PDF-1 konto")
+    seite = client.get("/steuer/2025/drache").text
+    assert 'class="sq-hand"' in seite and 'value="kontoauszug.pdf"' in seite
+    karte = spiel.drache(quest.stuecke(conn, 2025)).karte
+    seite = post(
+        client,
+        "/steuer/2025/drache/schlag",
+        stueck_id=str(karte["id"]),
+        aktion="zettel",
+        zettel="kontoauszug.pdf",
+    )
+    assert 'data-treffer="kritisch"' in seite.text
+    assert quest.stueck(conn, karte["id"])["status"] == "gesammelt"
+    assert not (quest.lager(ws.root) / "kontoauszug.pdf").exists()
+    # Ein Zettel, den es nicht (mehr) gibt, trifft nicht
+    seite = post(
+        client,
+        "/steuer/2025/drache/schlag",
+        stueck_id=str(spiel.drache(quest.stuecke(conn, 2025)).karte["id"]),
+        aktion="zettel",
+        zettel="../weg.pdf",
+    )
+    assert "finde ich nicht mehr" in seite.text
+
+
+def test_silber_ist_ehrlich_und_feste_gibt_es_nur_einmal(client, ws):
+    assert spiel.aufstieg("Goldenes Zeitalter") == "Aufstieg ins Goldene Zeitalter"
+    assert spiel.aufstieg("Zeitalter der Ordnung") == "Aufstieg ins Zeitalter der Ordnung"
+    assert spiel.zeitalter(1.0, silber=True)[1] == "Silbernes Zeitalter"
+    fragebogen(client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    werkstatt = [s for s in quest.stuecke(conn, 2025) if s["gebiet"] == "werkstatt-1"]
+    belege = next(s for s in werkstatt if s["key"] == "belege")
+    post(client, f"/steuer/2025/stueck/{belege['id']}/status", status="gibts_nicht")
+    seite = None
+    for s in werkstatt:
+        if s["id"] != belege["id"] and s["art"] != "bonus":
+            seite = post(client, f"/steuer/2025/stueck/{s['id']}/status", status="fragen")
+    assert (
+        "Silber-Siegel! Werkstatt ist komplett." in seite.text and "Gold-Siegel" not in seite.text
+    )
+    assert "siegel silber" in client.get("/steuer/2025").text  # das Wachssiegel auf der Insel
+    # Zurücknehmen und neu stempeln: kein zweites großes Fest
+    letzte = next(s for s in reversed(werkstatt) if s["art"] != "bonus")
+    post(client, f"/steuer/2025/stueck/{letzte['id']}/status", status="offen")
+    seite = post(client, f"/steuer/2025/stueck/{letzte['id']}/status", status="fragen")
+    assert "ist wieder komplett" in seite.text and "data-belohnung" not in seite.text
+    # Mit "Bitte prüfen" heißt das letzte Zeitalter Silber
+    for s in quest.stuecke(conn, 2025):
+        if s["status"] == "offen" and s["art"] != "bonus":
+            quest.setze_status(conn, s["id"], "fragen")
+    assert "Silbernes Zeitalter" in client.get("/steuer/2025").text
+
+
+def test_falsche_adressen_sind_freundlich(client, ws):
+    seite = client.get("/steuer/abc")
+    assert seite.status_code == 404 and "Diese Seite gibt es nicht" in seite.text
+    seite = client.get("/steuer/1999/drache", follow_redirects=False)
+    assert seite.status_code == 303 and seite.headers["location"] == "/steuer/1999/intro"
+
+
+def test_eingefuegter_text_heisst_nach_seinen_ersten_woertern():
+    from frits.web.steuer import textname
+
+    assert textname("Sehr geehrter Herr Espenlaub, bitte senden Sie …") == (
+        "Sehr geehrter Herr Espenlaub bitte senden.txt"
+    )
+    assert textname("  …  ") == "Eingefügter Text.txt"

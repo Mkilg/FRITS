@@ -189,7 +189,7 @@
   var TYP = "text/x-sq-zettel";
   var gezogen = null;
   document.addEventListener("dragstart", function (e) {
-    var zettel = e.target.closest && e.target.closest(".sq-zettel");
+    var zettel = e.target.closest && e.target.closest(".sq-zettel, .sq-handkarte");
     if (!zettel) return;
     gezogen = zettel.getAttribute("data-name");
     // Nur unser eigener Typ, kein text/plain: sonst hält der Einwurf den Zettel für eingefügten Text
@@ -258,6 +258,12 @@
     e.preventDefault();
     t.classList.remove("ziel");
     var name = e.dataTransfer.getData(TYP);
+    // Drachenseite: ein Zettel aus der Hand auf die Karte des Drachen geworfen
+    var hand = document.querySelector(".sq-hand form");
+    if (name && hand && t.hasAttribute("data-stueck")) {
+      var karte = Array.prototype.find.call(hand.querySelectorAll("button[name=zettel]"), function (b) { return b.value === name; });
+      if (karte) { stempeln(hand, e.clientX, e.clientY, karte); return; }
+    }
     if (name && t.hasAttribute("data-gebiet")) {
       dialogOeffnen(name, t.getAttribute("data-gebiet"), t.getAttribute("data-titel"));
       return;
@@ -272,7 +278,8 @@
       var input = t.querySelector("input[type=file]");
       if (!input) return;
       input.files = e.dataTransfer.files;
-      stempeln(input.form, e.clientX, e.clientY);
+      // Im Drachenkampf braucht der Schlag die Aktion "datei"
+      stempeln(input.form, e.clientX, e.clientY, input.form.querySelector("[data-datei-waehlen]"));
     }
   });
 
@@ -293,7 +300,18 @@
   // Der große Moment: Siegel, neues Zeitalter, Orden. Ein Dialog mit Licht, Konfetti und Fanfare,
   // und gleich darunter der nächste Auftrag (so weiß man immer, wie es weitergeht).
   var belohnung = document.querySelector("dialog[data-belohnung]");
-  if (belohnung && belohnung.showModal) {
+  // Nach dem letzten Treffer erst den Drachen falten lassen, dann feiern
+  var spaet = belohnung ? parseInt(belohnung.getAttribute("data-spaet"), 10) || 0 : 0;
+  if (ruhig) spaet = Math.min(spaet, 300);
+  if (spaet && document.querySelector(".finale")) {
+    for (var k = 0; k < 5; k++) ton(196 * Math.pow(2, k / 5), 0.18, "sawtooth", 0.035, k * 0.22);
+  }
+  if (belohnung && belohnung.showModal) setTimeout(feiern, spaet);
+  else if (document.querySelector(".sq-meldung.beute, .sq-meldung.treffer")) {
+    ton(784, 0.12, "triangle", 0.08);
+    ton(1047, 0.2, "triangle", 0.08, 0.09);
+  }
+  function feiern() {
     belohnung.showModal();
     var los = belohnung.querySelector(".sq-siegelknopf");
     if (los) los.focus();
@@ -305,9 +323,6 @@
     if (!ruhig) setTimeout(konfetti, 250);
     fanfare();
     belohnung.addEventListener("click", function (e) { if (e.target === belohnung) belohnung.close(); });
-  } else if (document.querySelector(".sq-meldung.beute")) {
-    ton(784, 0.12, "triangle", 0.08);
-    ton(1047, 0.2, "triangle", 0.08, 0.09);
   }
 
   // Kleine Meldungen: verschwinden nach ein paar Sekunden von selbst
@@ -430,22 +445,77 @@
   }
 })();
 
-// Wichtige Karten (z. B. Steuer-ID): "Gibt's nicht" braucht einen zweiten Klick
+// Wichtige Karten: "Gibt's nicht" fragt einmal mit Begründung nach. Die Frage erscheint als
+// Sprechblase über dem Knopf (nichts verrutscht), und der empfohlene Weg ist der Hauptknopf:
+// "Dann frag ich lieber". Wer wirklich sicher ist, bestätigt mit dem leisen Knopf daneben.
 (function () {
-  document.addEventListener("click", function (e) {
-    var knopf = e.target.closest("[data-rueckfrage]");
-    if (!knopf) return;
-    if (knopf.classList.contains("rueckfrage")) return; // zweiter Klick: abschicken
-    e.preventDefault();
-    knopf.dataset.vorher = knopf.textContent;
-    knopf.textContent = knopf.dataset.rueckfrage;
+  function schliessen() {
+    document.querySelectorAll(".sq-rueckfrage-blase").forEach(function (b) { b.remove(); });
+    document.querySelectorAll(".rueckfrage-offen").forEach(function (k) { k.classList.remove("rueckfrage-offen"); });
+  }
+  function abschicken(knopf) {
     knopf.classList.add("rueckfrage");
-    setTimeout(function () {
-      if (!knopf.isConnected) return;
-      knopf.textContent = knopf.dataset.vorher;
-      knopf.classList.remove("rueckfrage");
-    }, 5000);
+    if (knopf.form && knopf.form.requestSubmit) knopf.form.requestSubmit(knopf);
+    else knopf.click();
+  }
+  document.addEventListener("click", function (e) {
+    if (e.target.closest(".sq-rueckfrage-blase")) return;
+    var knopf = e.target.closest("[data-rueckfrage]");
+    if (!knopf) { schliessen(); return; }
+    if (knopf.classList.contains("rueckfrage")) return; // schon bestätigt: abschicken lassen
+    e.preventDefault();
+    if (knopf.classList.contains("rueckfrage-offen")) { schliessen(); return; }
+    schliessen();
+    knopf.classList.add("rueckfrage-offen");
+    var karte = knopf.closest(".sq-karte");
+    var fragen = karte && karte.querySelector("button[value=fragen]");
+    var blase = document.createElement("div");
+    blase.className = "sq-rueckfrage-blase";
+    blase.setAttribute("role", "alertdialog");
+    var text = document.createElement("p");
+    text.textContent = knopf.getAttribute("data-rueckfrage");
+    blase.appendChild(text);
+    var reihe = document.createElement("div");
+    reihe.className = "knoepfe";
+    var ja = document.createElement("button");
+    ja.type = "button";
+    if (fragen) {
+      var lieber = document.createElement("button");
+      lieber.type = "button";
+      lieber.className = "sq-siegelknopf";
+      lieber.textContent = "Dann frag ich lieber";
+      lieber.addEventListener("click", function () {
+        var feld = fragen.form.querySelector("input[name=frage]");
+        if (feld && !feld.value) feld.value = knopf.getAttribute("data-rueckfrage-frage") || "";
+        schliessen();
+        fragen.form.requestSubmit ? fragen.form.requestSubmit(fragen) : fragen.click();
+      });
+      reihe.appendChild(lieber);
+      ja.className = "quiet";
+      ja.textContent = "Gibt's wirklich nicht";
+    } else {
+      ja.className = "sq-siegelknopf";
+      ja.textContent = knopf.getAttribute("data-rueckfrage-ja") || "Ja, gibt's wirklich nicht";
+      var nein = document.createElement("button");
+      nein.type = "button";
+      nein.className = "quiet";
+      nein.textContent = "Doch nicht";
+      nein.addEventListener("click", schliessen);
+      reihe.appendChild(ja);
+      reihe.appendChild(nein);
+    }
+    ja.addEventListener("click", function () { schliessen(); abschicken(knopf); });
+    if (fragen) reihe.appendChild(ja);
+    blase.appendChild(reihe);
+    var ort = knopf.parentNode;
+    ort.classList.add("sq-rueckfrage-ort");
+    ort.appendChild(blase);
+    // Oben kein Platz? Dann klappt die Blase nach unten auf
+    var r = blase.getBoundingClientRect();
+    if (r.top < 8) blase.classList.add("unten");
+    (reihe.querySelector(".sq-siegelknopf") || ja).focus();
   });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") schliessen(); });
 })();
 
 // Zurück aus dem Finder: Liegen neue Dateien im Lager, holt die Karte sie als Zettel in den Korb
@@ -519,4 +589,59 @@
     if (feld && document.activeElement !== feld) setTimeout(function () { feld.focus({ preventScroll: true }); }, 250);
   }
   zeige(0);
+})();
+
+// Orden-Erklärung: am rechten Rand nach links aufklappen, damit nichts abgeschnitten wird
+(function () {
+  function ausrichten(e) {
+    var li = e.target.closest && e.target.closest(".sq-orden li");
+    if (!li) return;
+    var r = li.getBoundingClientRect();
+    li.classList.toggle("rechts", r.left + 220 > document.documentElement.clientWidth - 8);
+  }
+  document.addEventListener("mouseover", ausrichten);
+  document.addEventListener("focusin", ausrichten);
+})();
+
+// "Ist drin" ohne gewählte Datei: gleich die Dateiauswahl öffnen statt einen Klick zu verschenken
+(function () {
+  document.addEventListener("click", function (e) {
+    var knopf = e.target.closest("[data-datei-waehlen]");
+    if (!knopf) return;
+    var feld = knopf.form && knopf.form.querySelector("input[type=file]");
+    if (!feld || (feld.files && feld.files.length)) return;
+    e.preventDefault();
+    feld.addEventListener("change", function () {
+      if (!feld.files.length) return;
+      var aktion = document.createElement("input");
+      aktion.type = "hidden"; aktion.name = "aktion"; aktion.value = "datei";
+      knopf.form.appendChild(aktion);
+      knopf.form.submit();
+    }, { once: true });
+    feld.click();
+  });
+})();
+
+// Eine angefangene Frage an die Beraterin geht beim Neuladen nicht verloren
+(function () {
+  var felder = document.querySelectorAll(".sq input[name=frage]");
+  if (!felder.length) return;
+  var speicher = null;
+  try { speicher = window.localStorage; } catch (e) { return; }
+  felder.forEach(function (feld) {
+    var form = feld.form;
+    var schluessel = "frits-frage:" + (form && form.action || location.pathname);
+    try {
+      var alt = speicher.getItem(schluessel);
+      if (alt && !feld.value) {
+        feld.value = alt;
+        var auf = feld.closest("details");
+        if (auf) auf.open = true;
+      }
+    } catch (e) {}
+    feld.addEventListener("input", function () {
+      try { feld.value ? speicher.setItem(schluessel, feld.value) : speicher.removeItem(schluessel); } catch (e) {}
+    });
+    if (form) form.addEventListener("submit", function () { try { speicher.removeItem(schluessel); } catch (e) {} });
+  });
 })();

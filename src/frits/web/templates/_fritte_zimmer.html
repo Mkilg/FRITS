@@ -1,9 +1,11 @@
 {# Fritte's room. Needs f (haustier.Fritte); neu = id of something just bought. #}
-<div class="zimmer laune-{{ f.laune }} stufe-{{ f.stufe }}{{ ' im-bau' if f.bau }}{{ ' ' ~ zimmer_klasse if zimmer_klasse }}" role="img" aria-label="Fritte in ihrem Zimmer. Sie ist {{ f.laune_name }}.">
-  {% if f.stufe >= 5 %}<span class="girlande" aria-hidden="true"></span>{% endif %}
-  <span class="fenster" aria-hidden="true">{% if f.stufe >= 4 %}<span class="garten"></span>{% endif %}</span>
+<div class="zimmer laune-{{ f.laune }} stufe-{{ f.stufe }} ort-{{ f.ort }}{{ ' im-bau' if f.bau }}{{ ' ' ~ zimmer_klasse if zimmer_klasse }}" role="img" aria-label="Fritte in ihrem Zimmer. Sie ist {{ f.laune_name }}.">
+  {% if f.stufe >= 5 %}<span class="markise" aria-hidden="true"></span><span class="girlande" aria-hidden="true"></span>{% endif %}
+  <span class="fenster" aria-hidden="true"><span class="aussicht"></span>{% if f.stufe >= 4 %}<span class="garten"></span>{% endif %}</span>
   {% if f.stufe >= 2 %}<span class="vorhang links" aria-hidden="true"></span><span class="vorhang rechts" aria-hidden="true"></span><span class="lampe" aria-hidden="true"></span>{% endif %}
-  {% if f.stufe >= 3 %}<span class="werkbank" aria-hidden="true"><i>🔨</i><i>🪚</i><i>📐</i></span>{% endif %}
+  {% if f.stufe >= 5 %}<span class="theke" aria-hidden="true"><span class="theke-schild">Frittenbude</span></span>{% endif %}
+  {% if f.stufe >= 3 %}<span class="werkbank" aria-hidden="true"><span class="werkzeugwand"><i>🔨</i><i>🪚</i><i>📐</i></span></span>{% endif %}
+  {% if f.pokale %}<span class="pokalbrett" aria-hidden="true">{% for p in f.pokale[-6:] %}<i title="{{ p }}">🏆</i>{% endfor %}</span>{% endif %}
   <span class="teppich" aria-hidden="true"></span>
   {% for d in f.zimmer %}
   <span class="ding{{ ' neu' if d.id == neu }}" style="left: {{ d.x }}%; bottom: {{ d.y }}%; --g: {{ d.groesse }};" title="{{ d.name }}">

@@ -14,6 +14,7 @@
   {% for c in customers %}
   <li class="card"><a href="/customers/{{ c.id }}">
     <strong>{{ c.display_name }}</strong>
+    {% if c.land and c.land != "DE" %}<span class="badge muted" title="Kunde im Ausland">{{ countries.get(c.land, c.land) }}</span>{% endif %}
     {% if c.company %}<span>{{ c.name }}</span>{% endif %}
     <span class="muted">{{ c.address or "Adresse fehlt" }}</span>
     {% if c.hourly_rate %}<span class="muted">{{ c.hourly_rate | eur }} pro Stunde</span>{% endif %}

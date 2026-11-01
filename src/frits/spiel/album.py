@@ -12,7 +12,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
 
-from frits.spiel import ausbau, stand
+from frits.spiel import ausbau, saison, stand
 
 
 @dataclass(frozen=True)
@@ -40,13 +40,14 @@ ERFOLGE: tuple[Erfolg, ...] = (
            lambda f: f["bester"] >= 100),
     Erfolg("fuenfhundert", "Goldene Fritte", "🏆", "500 Salzkörner in einem einzigen Kassensturz.",
            lambda f: f["bester"] >= 500),
-    Erfolg("zeitnah", "Beleg-Profi", "🧾", "Zehn Belege innerhalb von zehn Tagen eingetragen.",
+    Erfolg("zeitnah", "Beleg-Profi", "📎",
+           "Zehn Belege innerhalb von zehn Tagen nach dem Eingang eingetragen.",
            lambda f: _zaehle("ausgabe", "zeitnah")(f) >= 10),
     Erfolg("frisch", "Frisch geschrieben", "✍️",
-           "Zehn Rechnungen höchstens eine Woche nach der Arbeit geschrieben.",
+           "Zehn Rechnungen höchstens eine Woche nach dem Eingang der Notiz geschrieben.",
            lambda f: _zaehle("rechnung", "frisch")(f) >= 10),
-    Erfolg("puenktlich", "Gute Kundschaft", "🤝", "Fünf Zahlungen kamen vor dem Zahlungsziel.",
-           lambda f: _zaehle("bezahlt", "puenktlich")(f) >= 5),
+    Erfolg("puenktlich", "Gute Kundschaft", "🤝", "Zehn Zahlungen sind eingegangen.",
+           lambda f: _zaehle("bezahlt")(f) >= 10),
     Erfolg("ritual", "Feierabend-Ritual", "🌙", "Zehnmal bewusst Feierabend gemacht.",
            lambda f: _zaehle("feierabend")(f) >= 10),
     Erfolg("rhythmus", "Guter Rhythmus", "🎵", "In vier Wochen hintereinander Papierkram gemacht.",
@@ -65,9 +66,24 @@ ERFOLGE: tuple[Erfolg, ...] = (
            lambda f: f["stufe"] >= 3),
     Erfolg("hof", "Hof mit Garten", "🌻", "Frittes Haus zum Hof mit Garten ausgebaut.",
            lambda f: f["stufe"] >= 4),
-    Erfolg("bude", "Frittenbude am Markt", "🎪", "Frittes Haus ganz ausgebaut.",
+    Erfolg("bude", "Die Frittenbude", "🎪", "Frittes Haus ganz ausgebaut.",
            lambda f: f["stufe"] >= 5),
+    Erfolg("nachhaken", "Freundlich nachgehakt", "✉️",
+           "Eine Zahlung kam nach einer freundlichen Erinnerung.",
+           lambda f: _zaehle("bezahlt", "nach_erinnerung")(f) >= 1),
+    Erfolg("pokal", "Saisonziel", "🏆", "Zum ersten Mal ein Saisonziel erreicht.",
+           lambda f: f["pokale"] >= 1),
+    Erfolg("jahreszeiten", "Vier Jahreszeiten", "🍂", "Vier Saisonziele erreicht.",
+           lambda f: f["pokale"] >= 4),
+    Erfolg("drache", "Drache besiegt", "🐉",
+           "Ein ganzes Steuerjahr in der Steuer-Quest geschafft.",
+           lambda f: _zaehle("steuerjahr")(f) >= 1),
+    Erfolg("umzug", "Zweite Bude", "⚓", "Eine Frittenbude an einem neuen Ort eröffnet.",
+           lambda f: f["ort"] >= 2),
+    Erfolg("weltreise", "Weit herumgekommen", "🗺️", "An allen fünf Orten eine Bude eröffnet.",
+           lambda f: f["ort"] >= 5),
 )  # fmt: skip
+AUSBAU_STICKER = ("stube", "werkstatt", "hof", "bude")
 
 
 def _fakten(conn, heute: date) -> dict:
@@ -96,7 +112,9 @@ def _fakten(conn, heute: date) -> dict:
         "legendaer": any(g.seltenheit == "legendär" for g in regal),
         "dinge": sum(1 for d in dinge if haustier.DINGE[d].art == "zimmer"),
         "huete": sum(1 for d in dinge if haustier.DINGE[d].art == "hut"),
-        "stufe": ausbau.stufe(conn).nummer,
+        "stufe": max(ausbau.stufe(conn).nummer, len(ausbau.STUFEN) if ausbau.ruf(conn) else 0),
+        "ort": ausbau.ort(conn).nummer,
+        "pokale": len(saison.pokale(conn)),
     }
 
 

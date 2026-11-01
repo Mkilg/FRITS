@@ -12,8 +12,9 @@ keine verlorenen Punkte und immer einen Notausgang.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date
 
-from frits.steuer.katalog import Gebiet
+from frits.steuer.katalog import Gebiet, ist_kern
 
 ERLEDIGT = ("gesammelt", "gibts_nicht", "fragen")
 
@@ -97,6 +98,11 @@ class Provinzstand:
         return bool(self.stuecke) and all(ist_bonus(s) for s in self.stuecke)
 
     @property
+    def silber(self) -> bool:
+        """Komplett, aber eine wichtige Unterlage ist als "Gibt's nicht" gestempelt: Silber statt Gold."""
+        return self.stand.siegel and bool(zweifel(self.stuecke))
+
+    @property
     def schaetze(self) -> int:
         """Gefundene Bonus-Schätze."""
         return sum(1 for s in self.stuecke if ist_bonus(s) and s["status"] == "gesammelt")
@@ -116,14 +122,34 @@ def gesamtstand(stuecke: list[dict]) -> Stand:
     return stand(pflicht(stuecke))
 
 
-def zeitalter(anteil: float) -> tuple[int, str, str]:
-    """(Nummer, Name, Satz) des aktuellen Zeitalters."""
+SILBER = (
+    "Silbernes Zeitalter",
+    "Alles beisammen. Ein paar wichtige Unterlagen prüft noch deine Beraterin.",
+)
+
+
+def zeitalter(anteil: float, silber: bool = False) -> tuple[int, str, str]:
+    """(Nummer, Name, Satz) des aktuellen Zeitalters.
+
+    Mit silber=True (wichtige Unterlagen als "Gibt's nicht" gestempelt) heißt das letzte
+    Zeitalter ehrlich "Silbernes Zeitalter" statt "Goldenes Zeitalter".
+    """
     nummer = 0
     for i, (ab, _name, _satz) in enumerate(ZEITALTER):
         if anteil >= ab:
             nummer = i
     _ab, name, satz = ZEITALTER[nummer]
+    if silber and nummer == len(ZEITALTER) - 1:
+        name, satz = SILBER
     return nummer, name, satz
+
+
+def aufstieg(name: str) -> str:
+    """ "Aufstieg ins Goldene Zeitalter" (nicht "ins Goldenes"): das Adjektiv nach "ins" beugen."""
+    erstes, _, rest = name.partition(" ")
+    if erstes.endswith("es") and rest == "Zeitalter":
+        name = f"{erstes[:-1]} {rest}"
+    return f"Aufstieg ins {name}"
 
 
 def naechstes_zeitalter(anteil: float) -> tuple[str, int] | None:
@@ -232,12 +258,29 @@ def drache_wach(stuecke: list[dict]) -> bool:
 # ---------- Erfolge ----------
 
 
+ORDEN_ZEICHEN = {
+    "erster-fund": "1",
+    "sammlerin": "25",
+    "erste-ernte": "❦",
+    "brieftaube": "✉\ufe0e",
+    "gedaechtnis": "↺",
+    "schatzsucherin": "◆",
+    "mutig-gefragt": "?",
+    "drachenbaendigerin": "♛\ufe0e",
+}
+
+
 @dataclass(frozen=True)
 class Erfolg:
     key: str
     name: str
     beschreibung: str
     erreicht: bool
+
+    @property
+    def zeichen(self) -> str:
+        """Ein eigenes Zeichen pro Orden, damit keine zwei gleich aussehen."""
+        return ORDEN_ZEICHEN.get(self.key, self.name[:1])
 
 
 def erfolge(
@@ -302,9 +345,18 @@ class Auftrag:
 
 
 def auftrag(
-    jahr: int, staende: list[Provinzstand], drache_: Drache, zettel: int, stuecke: list[dict]
+    jahr: int,
+    staende: list[Provinzstand],
+    drache_: Drache,
+    zettel: int,
+    stuecke: list[dict],
+    drache_wach: bool = False,
 ) -> Auftrag:
-    """Genau ein klarer nächster Schritt, mit Belohnung."""
+    """Genau ein klarer nächster Schritt, mit Belohnung.
+
+    Reihenfolge: Beute abholen, Eingangskorb leeren, dann der wache Drache (der Bosskampf
+    ist ab dem Erwachen das Ziel, sonst verpasst man ihn), sonst die nächste Provinz.
+    """
     basis = f"/steuer/{jahr}"
     if drache_.besiegt and stuecke:
         return Auftrag(
@@ -313,7 +365,7 @@ def auftrag(
             "Der Drache ist besiegt. Pack die Schatztruhe für deine Beraterin.",
             "Zur Schatztruhe",
             f"{basis}/sieg",
-            ("Goldenes Zeitalter",),
+            ("Mail an die Beraterin",),
         )
     if zettel:
         return Auftrag(
@@ -329,6 +381,22 @@ def auftrag(
             ("+1 Beleg pro Zettel",),
             erledigt=0,
             gesamt=zettel,
+        )
+    if drache_wach and drache_.lp and stuecke:
+        lp = drache_.lp
+        return Auftrag(
+            "drache",
+            "Besiege den Papierdrachen",
+            (
+                "Er hat nur noch eine Karte. Ein letzter Treffer!"
+                if lp == 1
+                else f"Er hat noch {lp} Karten. Jede Antwort ist ein Treffer, auch eine Frage."
+            ),
+            "Zum Drachenhort",
+            f"{basis}/drache",
+            ("Sieg", "Schatztruhe"),
+            erledigt=drache_.max_lp - lp,
+            gesamt=drache_.max_lp,
         )
     offen = [p for p in staende if not p.stand.siegel]
     if not offen:
@@ -346,7 +414,7 @@ def auftrag(
     danach_anteil = (gesamt.erledigt + ziel.stand.offen) / gesamt.gesamt if gesamt.gesamt else 1
     belohnungen = ["Gold-Siegel"]
     if zeitalter(danach_anteil)[0] > jetzt:
-        belohnungen.append(f"Aufstieg ins {zeitalter(danach_anteil)[1]}")
+        belohnungen.append(aufstieg(zeitalter(danach_anteil)[1]))
     if not any(p.stand.siegel for p in staende):
         belohnungen.append("Orden „Erste Ernte“")
     rest = ziel.stand.offen
@@ -362,3 +430,28 @@ def auftrag(
         erledigt=ziel.stand.erledigt,
         gesamt=ziel.stand.gesamt,
     )
+
+
+# ---------- Tagwerk: ein kleines, festes Tagesziel (Slow Productivity statt Marathon) ----------
+
+TAGWERK = 3
+
+
+def tagwerk(stuecke: list[dict], heute: date, ziel: int = TAGWERK) -> tuple[int, int]:
+    """(heute erledigte Karten, Tagesziel).
+
+    Es zählen nur echte Fortschritte: eine Datei oder eine Frage an die Beraterin.
+    "Gibt's nicht" zählt nicht, sonst wäre Wegstempeln der schnellste Weg zum Tagwerk.
+    """
+    tag = heute.isoformat()
+    n = sum(
+        1
+        for s in stuecke
+        if s["status"] in ("gesammelt", "fragen") and str(s.get("geaendert") or "")[:10] == tag
+    )
+    return n, ziel
+
+
+def zweifel(stuecke: list[dict]) -> list[dict]:
+    """Wichtige Unterlagen, die als "Gibt's nicht" gestempelt sind: die soll die Beraterin prüfen."""
+    return [s for s in stuecke if s["status"] == "gibts_nicht" and ist_kern(s["gebiet"], s["key"])]

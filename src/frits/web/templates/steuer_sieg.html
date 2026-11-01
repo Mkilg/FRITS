@@ -7,7 +7,7 @@
 <div class="sq sq-tisch" data-klang="{{ 'an' if klang else 'aus' }}" {% if drache.besiegt %}data-konfetti{% endif %}{% include "_steuer_stil.html" %}>
 {% include "_steuer_meldungen.html" %}
 {% include "_steuer_kopf.html" %}
-<h1 class="sq-sieg-titel">{% if drache.besiegt %}Goldenes Zeitalter!{% else %}Bereit zum Senden{% endif %}</h1>
+<h1 class="sq-sieg-titel{% if drache.besiegt and zweifel %} silber{% endif %}">{% if drache.besiegt and zweifel %}Silber-Sieg!{% elif drache.besiegt %}Goldenes Zeitalter!{% else %}Bereit zum Senden{% endif %}</h1>
 <div class="sq-sieg">
   <aside class="sq-rand">
     <div class="sq-truhe">{% if truhe_bild %}<img src="{{ truhe_bild }}" alt="Schatztruhe">{% else %}<span class="glanz"></span><span class="kasten"></span><span class="deckel"></span>{% endif %}</div>
@@ -15,16 +15,23 @@
       <h2>Deine Ausbeute</h2>
       <dl class="sq-statistik">
         <dt>Dokumente gesichert</dt><dd data-zaehler="sieg-belege" data-von="0">{{ ressourcen.belege }}</dd>
-        <dt>Gold-Siegel</dt><dd><span data-zaehler="sieg-siegel" data-von="0">{{ ressourcen.siegel }}</span> / {{ provinzen | rejectattr("nur_bonus") | list | length }}</dd>
+        <dt>Siegel</dt><dd><span data-zaehler="sieg-siegel" data-von="0">{{ ressourcen.siegel }}</span> / {{ provinzen | rejectattr("nur_bonus") | list | length }}</dd>
         <dt>Bonus-Schätze</dt><dd data-zaehler="sieg-gold" data-von="0">{{ ressourcen.gold }}</dd>
         <dt>Aufträge der Beraterin</dt><dd>{{ ressourcen.briefe }}</dd>
         <dt>Fragen an sie</dt><dd>{{ ressourcen.fragen }}</dd>
       </dl>
     </section>
-    <ul class="sq-orden" aria-label="Orden">{% for e in erfolge if e.erreicht %}<li tabindex="0" aria-label="{{ e.name }}: {{ e.beschreibung }}">{{ e.name[:1] }}<span class="sq-orden-info" aria-hidden="true"><strong>{{ e.name }}</strong>{{ e.beschreibung }}</span></li>{% endfor %}</ul>
+    <ul class="sq-orden" aria-label="Orden">{% for e in erfolge if e.erreicht %}<li tabindex="0" aria-label="{{ e.name }}: {{ e.beschreibung }}"><span class="sq-orden-zeichen" aria-hidden="true">{{ e.zeichen }}</span><span class="sq-orden-info" aria-hidden="true"><strong>{{ e.name }}</strong>{{ e.beschreibung }}</span></li>{% endfor %}</ul>
   </aside>
 
   <div class="sq-rand">
+    {% if zweifel %}
+    <section class="sq-papier sq-pruefen">
+      <h2>Bitte prüfen</h2>
+      <p>Diese Unterlagen hat fast jede:r in deiner Lage. Du hast sie als „Gibt's nicht“ gestempelt. Deine Beraterin sieht das in der Mail. Findest du sie doch noch, wird aus Silber Gold.</p>
+      <ul>{% for s in zweifel %}<li><a href="/steuer/{{ jahr }}/gebiet/{{ s.gebiet }}">{{ s.name }}</a></li>{% endfor %}</ul>
+    </section>
+    {% endif %}
     <section class="sq-papier">
       <h2>1. Truhe packen</h2>
       {% if zip_pfad %}

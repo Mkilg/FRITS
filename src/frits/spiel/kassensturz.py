@@ -16,11 +16,11 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 
 from frits import store
-from frits.spiel import album, ausbau, stand
+from frits.spiel import album, ausbau, saison, stand
 from frits.spiel.gewuerze import NACH_ID, Gewuerz
 
-ZEITNAH_TAGE = 10  # GoBD: enter non-cash bookings within about ten days
-FRISCH_TAGE = 7  # invoice written within a week of the work
+ZEITNAH_TAGE = 10  # GoBD: record bookings promptly; here: receipt entered within 10 days of arrival
+FRISCH_TAGE = 7  # invoice written within a week of the note coming in
 GRUND_PLAETZE = 3  # spice shelf places before the house is built out
 
 
@@ -74,22 +74,50 @@ def _storniert(conn, number: str) -> bool:
     return bool(stand.rows(conn, "SELECT 1 FROM invoices WHERE cancels = ?", (number,)))
 
 
-def _leistungstag(conn, draft_id) -> date | None:
-    rows = stand.rows(conn, "SELECT data FROM drafts WHERE id = ?", (draft_id,))
-    if not rows:
-        return None
-    try:
-        lines = json.loads(rows[0][0]).get("lines", [])
-    except (ValueError, AttributeError):
-        return None
-    days = [d for d in (_tag(line.get("date")) for line in lines) if d]
-    return max(days) if days else None
+def _eingang(conn, draft_id) -> date | None:
+    """When the note or email about the work arrived in the inbox. Set by FRITS, never
+    typed. An invoice typed by hand has no such moment, so it is never "frisch"."""
+    r = stand.rows(
+        conn,
+        "SELECT j.received FROM drafts d JOIN jobs j ON j.id = d.job_id WHERE d.id = ?",
+        (draft_id,),
+    )
+    return _tag(r[0][0]) if r else None
 
 
-def _karte(conn, schluessel: str, art: str, gesehen: str) -> Karte | None:
-    """The card with what the spices need to know, or None if the paperwork is gone."""
+def _karte(conn, schluessel: str, art: str, gesehen: str, ausgaben=None) -> Karte | None:
+    """The card with what the spices need to know, or None if the paperwork is gone.
+
+    The facts the spices look at ("frisch", "zeitnah", "pünktlich") come from dates FRITS
+    records by itself, or from the payment the customer made. None of them gets better by
+    typing a different date, so the game never makes a wrong date attractive."""
     key = schluessel.split(":", 1)[1]
     base = stand.GRUND.get(art, 0)
+    if art == "korrektur":
+        echt = _karte(conn, schluessel, schluessel.split(":", 1)[0], gesehen, ausgaben)
+        if echt is None:
+            return None
+        return Karte(
+            schluessel, art, f"{echt.titel} (Korrektur)",
+            "ersetzt eine gestrichene Gutschrift, darum ohne Körner"
+            if key.startswith(stand.GS) else "ersetzt eine stornierte Rechnung, darum ohne Körner",
+            0, {},
+        )  # fmt: skip
+    if art in ("rechnung", "bezahlt") and key.startswith(stand.GS):
+        c = stand.gutschriften(conn).get(key)
+        if c is None or (art == "bezahlt" and not c.paid_date):
+            return None
+        if art == "rechnung":
+            return Karte(
+                schluessel, art, f"Gutschrift {c.their_number}",
+                f"{c.customer} · {_euro(c.gross)}", base, {"frisch": False},
+            )  # fmt: skip
+        # Like any payment: the day is typed, so it never makes the card worth more.
+        return Karte(
+            schluessel, art, "Zahlung eingegangen",
+            f"Gutschrift {c.their_number} · {c.customer} · {_euro(c.gross)}", base,
+            {"puenktlich": False, "nach_erinnerung": False},
+        )  # fmt: skip
     if art == "rechnung":
         r = stand.rows(
             conn,
@@ -100,8 +128,8 @@ def _karte(conn, schluessel: str, art: str, gesehen: str) -> Karte | None:
         if not r or _storniert(conn, key):
             return None
         customer, issue, gross, draft_id = r[0]
-        work, written = _leistungstag(conn, draft_id), _tag(issue)
-        frisch = bool(work and written and 0 <= (written - work).days <= FRISCH_TAGE)
+        came, written = _eingang(conn, draft_id), _tag(issue)
+        frisch = bool(came and written and 0 <= (written - came).days <= FRISCH_TAGE)
         return Karte(
             schluessel, art, f"Rechnung {key}", f"{customer} · {_euro(gross)}", base,
             {"frisch": frisch},
@@ -118,32 +146,53 @@ def _karte(conn, schluessel: str, art: str, gesehen: str) -> Karte | None:
         customer, paid, due, gross = r[0]
         paid_day, due_day = _tag(paid), _tag(due)
         puenktlich = bool(paid_day and due_day and paid_day <= due_day)
+        erinnert = any(
+            paid_day and (_tag(c) or paid_day) <= paid_day
+            for (c,) in stand.rows(
+                conn, "SELECT created FROM reminders WHERE invoice_number = ?", (key,)
+            )
+        )
         return Karte(
             schluessel, art, "Zahlung eingegangen", f"{key} · {customer} · {_euro(gross)}", base,
-            {"puenktlich": puenktlich},
+            {"puenktlich": puenktlich, "nach_erinnerung": erinnert},
         )  # fmt: skip
     if art == "angebot":
-        r = stand.rows(conn, "SELECT created FROM quotes WHERE number = ?", (key,))
-        if not r:
-            return None
-        return Karte(schluessel, art, f"Angebot {key}", "geschrieben", base, {})
-    if art == "erinnerung":
         r = stand.rows(
-            conn, "SELECT invoice_number, level FROM reminders WHERE id = ?", (int(key),)
+            conn,
+            "SELECT created FROM quotes WHERE number = ?"
+            " AND (status = 'accepted' OR draft_id IS NOT NULL)",
+            (key,),
         )
         if not r:
             return None
+        return Karte(schluessel, art, f"Angebot {key}", "angenommen", base, {})
+    if art == "erinnerung":
+        if not key.isdigit():
+            return None
+        r = stand.rows(
+            conn, "SELECT invoice_number, level FROM reminders WHERE id = ?", (int(key),)
+        )
+        if not r or _storniert(conn, r[0][0]):
+            return None
         return Karte(
-            schluessel, art, "Zahlungserinnerung", f"Rechnung {r[0][0]} · Stufe {r[0][1]}", base,
-            {},
-        )  # fmt: skip
+            schluessel, art, "Erinnerung", f"Rechnung {r[0][0]} · Stufe {r[0][1]}", base, {}
+        )
     if art == "ausgabe":
-        r = stand.rows(conn, "SELECT date, vendor, gross FROM expenses WHERE id = ?", (int(key),))
+        rid = (ausgaben if ausgaben is not None else stand.ausgaben(conn)).get(schluessel)
+        if rid is None:
+            return None
+        r = stand.rows(
+            conn,
+            "SELECT e.vendor, e.gross, (SELECT MIN(j.received) FROM jobs j"
+            " WHERE j.filename = e.source_file) FROM expenses e"
+            " WHERE e.id = ? AND e.struck IS NULL",
+            (rid,),
+        )
         if not r:
             return None
-        paid, vendor, gross = r[0]
-        paid_day, seen = _tag(paid), _tag(gesehen)
-        zeitnah = bool(paid_day and seen and -1 <= (seen - paid_day).days <= ZEITNAH_TAGE)
+        vendor, gross, came = r[0]
+        came_day, seen = _tag(came), _tag(gesehen)
+        zeitnah = bool(came_day and seen and 0 <= (seen - came_day).days <= ZEITNAH_TAGE)
         return Karte(
             schluessel, art, "Ausgabe", f"{vendor} · {_euro(gross)}", base, {"zeitnah": zeitnah}
         )
@@ -152,6 +201,25 @@ def _karte(conn, schluessel: str, art: str, gesehen: str) -> Karte | None:
         return Karte(
             schluessel, art, "Feierabend", day.strftime("%d.%m.%Y") if day else key, base, {}
         )
+    if art == "steuer":
+        r = stand.rows(
+            conn,
+            "SELECT name, jahr FROM steuer_stuecke WHERE id = ? AND status = 'gesammelt'",
+            (key,),
+        )
+        if not r:
+            return None
+        return Karte(schluessel, art, "Steuer-Unterlage", f"{r[0][0]} · {r[0][1]}", base, {})
+    if art == "steuerjahr":
+        r = stand.rows(conn, "SELECT 1 FROM steuer_chronik WHERE jahr = ? AND art = 'sieg'", (key,))
+        if not r:
+            return None
+        return Karte(schluessel, art, f"Steuerjahr {key}", "Der Drache ist besiegt!", base, {})
+    if art == "start":
+        return Karte(
+            schluessel, art, "Fritte zieht ein", "Willkommen! Dazu +1 Würze", base,
+            {"plus_wuerze": 1.0},
+        )  # fmt: skip
     return None
 
 
@@ -160,11 +228,12 @@ def offene_karten(conn: sqlite3.Connection) -> list[Karte]:
     drop out for good: undoing work never earns anything."""
     stand.vorbereiten(conn)
     karten, weg = [], []
+    ausgaben = stand.ausgaben(conn)
     for schluessel, art, gesehen in conn.execute(
         "SELECT schluessel, art, gesehen FROM spiel_karten"
         " WHERE kassensturz IS NULL AND art != 'pflege' ORDER BY gesehen, rowid"
     ).fetchall():
-        karte = _karte(conn, schluessel, art, gesehen)
+        karte = _karte(conn, schluessel, art, gesehen, ausgaben)
         if karte is None:
             weg.append(schluessel)
         else:
@@ -180,7 +249,7 @@ def offene_karten(conn: sqlite3.Connection) -> list[Karte]:
 
 
 def plaetze(conn) -> int:
-    return GRUND_PLAETZE + ausbau.stufe(conn).plaetze
+    return GRUND_PLAETZE + ausbau.extra_plaetze(conn)
 
 
 def regal(conn) -> list[Gewuerz]:
@@ -229,6 +298,13 @@ def berechnen(karten: list[dict], gewuerze: list[Gewuerz], umfeld: dict) -> dict
                     {"typ": "gewuerz", "karte": i, "gewuerz": g.id, "plus": extra,
                      "koerner": koerner, "wuerze": wuerze}
                 )  # fmt: skip
+    for i, karte in enumerate(karten):  # e.g. Fritte's move-in card brings Würze itself
+        if karte.get("plus_wuerze"):
+            wuerze = round(wuerze + karte["plus_wuerze"], 2)
+            schritte.append(
+                {"typ": "plus", "gewuerz": "", "karte": i, "plus": karte["plus_wuerze"],
+                 "koerner": koerner, "wuerze": wuerze}
+            )  # fmt: skip
     for g in gewuerze:
         if g.plus_wuerze:
             plus = g.plus_wuerze(karten, umfeld)
@@ -258,13 +334,30 @@ def berechnen(karten: list[dict], gewuerze: list[Gewuerz], umfeld: dict) -> dict
 
 def vorschau(conn, heute: date, aufgeraeumt: bool) -> tuple[list[Karte], dict]:
     karten = offene_karten(conn)
-    umfeld = {
+    for k in karten:  # the season's theme (of the day the card came): one kind brings double
+        if k.art == saison.THEMEN[saison.quartal(_tag(gesehen_von(conn, k)) or heute)[0]][0]:
+            k.koerner *= 2
+            k.fakten["saison"] = True
+    return karten, berechnen(
+        [k.als_dict() for k in karten], regal(conn), umfeld(conn, heute, aufgeraeumt)
+    )
+
+
+def gesehen_von(conn, karte: Karte) -> str:
+    r = conn.execute(
+        "SELECT gesehen FROM spiel_karten WHERE schluessel = ?", (karte.schluessel,)
+    ).fetchone()
+    return r[0] if r else ""
+
+
+def umfeld(conn, heute: date, aufgeraeumt: bool) -> dict:
+    """What the spices may look at besides the cards."""
+    return {
         "rhythmus_wochen": rhythmus_wochen(conn, heute),
         "aufgeraeumt": aufgeraeumt,
         "reife": reife(conn),
-        "grundwuerze": ausbau.stufe(conn).grundwuerze,
+        "grundwuerze": ausbau.grundwuerze(conn),
     }
-    return karten, berechnen([k.als_dict() for k in karten], regal(conn), umfeld)
 
 
 def durchfuehren(conn: sqlite3.Connection, heute: date, aufgeraeumt: bool) -> int:
@@ -295,22 +388,38 @@ def durchfuehren(conn: sqlite3.Connection, heute: date, aufgeraeumt: bool) -> in
             [(nummer, k.schluessel) for k in karten],
         )
         n = len(karten)
+        if any(k.art == "start" for k in karten):  # the welcome round is a present
+            stand.setze(conn, "willkommen_ks", str(nummer))
         stand.buche(
             conn, heute.isoformat(), ergebnis["summe"], "kassensturz",
             f"Kassensturz Nr. {nummer}: {n} {'Karte' if n == 1 else 'Karten'}",
         )  # fmt: skip
-        for g in shelf:
-            key = f"reife:{g.id}"
-            stand.setze(conn, key, str(int(stand.einstellung(conn, key, "0")) + 1))
+        woche = stand.woche(heute)
+        for g in shelf:  # spices mature once a week with a Kassensturz, not per round
+            if stand.einstellung(conn, f"reifewoche:{g.id}") != woche:
+                stand.setze(conn, f"reifewoche:{g.id}", woche)
+                key = f"reife:{g.id}"
+                stand.setze(conn, key, str(int(stand.einstellung(conn, key, "0")) + 1))
         fertig = ausbau.fertigstellen(conn)
         if fertig:
-            record["ausbau"] = {"name": fertig.name, "zeichen": fertig.zeichen, "text": fertig.text}
+            record["ausbau"] = {
+                "name": fertig.name, "zeichen": fertig.zeichen,
+                "text": ausbau.stufen_text(conn, fertig),
+            }  # fmt: skip
+        geschafft = saison.pruefen(conn, heute)
+        if geschafft:
+            record["saison"] = {
+                "name": geschafft.name, "ziel": geschafft.ziel, "erreicht": geschafft.erreicht,
+                "bonus": geschafft.ziel // saison.BONUS_ANTEIL,
+            }  # fmt: skip
         neu = album.neue(conn, heute)
+        if fertig:  # the house banner already says it; the sticker is in the album anyway
+            neu = [e for e in neu if e.id not in album.AUSBAU_STICKER]
         if neu:
             record["erfolge"] = [
                 {"name": e.name, "zeichen": e.zeichen, "text": e.text} for e in neu
             ]
-        if fertig or neu:
+        if fertig or neu or geschafft:
             conn.execute(
                 "UPDATE spiel_kassenstuerze SET ergebnis = ? WHERE id = ?",
                 (json.dumps(record, ensure_ascii=False), nummer),
@@ -326,12 +435,17 @@ def laden(conn, nummer: int) -> dict | None:
     if row is None:
         return None
     data = {"nummer": nummer, "tag": row[0], **json.loads(row[2]), "summe": row[1]}
-    pro_karte = [0] * len(data.get("karten", []))
-    for step in data.get("schritte", []):
-        if step["typ"] in ("karte", "gewuerz") and step["karte"] < len(pro_karte):
-            pro_karte[step["karte"]] += step["plus"]
-    data["pro_karte"] = pro_karte
+    data["pro_karte"] = pro_karte(data, len(data.get("karten", [])))
     return data
+
+
+def pro_karte(ergebnis: dict, n: int) -> list[int]:
+    """Körner per card, spices included (what the card shows in the show)."""
+    summen = [0] * n
+    for step in ergebnis.get("schritte", []):
+        if step["typ"] in ("karte", "gewuerz") and step["karte"] < n:
+            summen[step["karte"]] += step["plus"]
+    return summen
 
 
 def chronik(conn, limit: int = 12) -> list[dict]:

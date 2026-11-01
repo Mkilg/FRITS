@@ -15,5 +15,11 @@
     {% for b in auftrag.belohnungen %}<li>{{ b }}</li>{% endfor %}
   </ul>
   {% endif %}
+  {% if tagwerk is defined %}{% set heute, tagesziel = tagwerk %}
+  <p class="sq-tagwerk{% if heute >= tagesziel %} geschafft{% endif %}" title="Tagwerk: {{ tagesziel }} Karten am Tag reichen. Langsam und stetig gewinnt.">
+    <span class="sq-tagwerk-ring" style="--anteil: {{ [heute / tagesziel, 1] | min }}"><b>{{ [heute, tagesziel] | min }}/{{ tagesziel }}</b></span>
+    <span>{% if heute >= tagesziel %}Tagwerk geschafft{% else %}Tagwerk heute{% endif %}</span>
+  </p>
+  {% endif %}
   <a class="sq-siegelknopf" href="{{ ziel }}">{{ auftrag.knopf }} →</a>
 </section>

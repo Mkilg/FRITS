@@ -21,7 +21,7 @@ frage = "immer"
 anlage = "Hauptvordruck (ESt 1 A)"
 woerter = ["finanzamt", "bescheid", "vorauszahlung", "steuer-id", "identifikationsnummer", "steuernummer"]
 stuecke = [
-  { key = "steuer-id", kern = true, name = "Steuer-ID", hinweis = "Steht auf jedem Steuerbescheid und auf der Lohnsteuerbescheinigung." },
+  { key = "steuer-id", kern = true, fehlt_nie = true, name = "Steuer-ID", hinweis = "Steht auf jedem Steuerbescheid und auf der Lohnsteuerbescheinigung." },
   { key = "bescheid", name = "Letzter Steuerbescheid", hinweis = "Der Bescheid vom Vorjahr hilft der Beraterin beim Vergleich." },
   { key = "vorauszahlungen", name = "Vorauszahlungsbescheide", hinweis = "Nur wenn du Steuern vorab zahlst." },
   { key = "briefe", name = "Weitere Briefe vom Finanzamt", hinweis = "Alles, was das Finanzamt dieses Jahr geschickt hat." },
@@ -38,7 +38,7 @@ person = true
 anlage = "Anlage N"
 woerter = ["lohnsteuer", "gehalt", "arbeitgeber", "lohn", "arbeit", "pendeln", "homeoffice"]
 stuecke = [
-  { key = "lohnsteuerbescheinigung", kern = true, name = "Lohnsteuerbescheinigung", hinweis = "Schickt der Arbeitgeber meist bis Ende Februar." },
+  { key = "lohnsteuerbescheinigung", kern = true, warum = "Jeder Arbeitgeber muss sie dir schicken und meldet sie auch selbst ans Finanzamt.", name = "Lohnsteuerbescheinigung", hinweis = "Schickt der Arbeitgeber meist bis Ende Februar." },
   { key = "arbeitsmittel", name = "Arbeitsmittel", hinweis = "Laptop, Fachbücher, Werkzeug, Berufskleidung.", art = "bonus", wenn = "arbeit" },
   { key = "fahrten", name = "Fahrten zur Arbeit und Homeoffice-Tage", hinweis = "Kilometer einfach und Zahl der Tage reicht.", art = "bonus", wenn = "arbeit" },
   { key = "fortbildung", name = "Fortbildung", hinweis = "Kurse, Seminare, Prüfungsgebühren.", art = "bonus", wenn = "arbeit" },
@@ -55,10 +55,10 @@ person = true
 anlage = "Anlage S, Anlage EÜR und AVEÜR"
 woerter = ["rechnung", "beleg", "geschäftskonto", "fahrt", "arbeitszimmer", "einnahmen", "ausgaben", "eür", "umsatzsteuer", "freiberuf"]
 stuecke = [
-  { key = "ausgangsrechnungen", kern = true, name = "Ausgangsrechnungen", hinweis = "Schreibst du mit FRITS? Dann holt die FRITS-Ernte auf dem Kartentisch sie automatisch." },
-  { key = "euer", name = "EÜR-Übersicht", hinweis = "Einnahmen minus Ausgaben. FRITS rechnet sie aus deinen Rechnungen und Ausgaben aus." },
-  { key = "belege", kern = true, name = "Belege und Quittungen", hinweis = "Alles, was du fürs Geschäft bezahlt hast. Ausgaben aus FRITS kommen mit der FRITS-Ernte." },
-  { key = "kontoauszuege", kern = true, name = "Kontoauszüge Geschäftskonto", hinweis = "Am einfachsten als Jahres-Export aus dem Online-Banking." },
+  { key = "ausgangsrechnungen", kern = true, warum = "Ohne deine Rechnungen kann deine Beraterin die Einnahmen nicht belegen. Schreibst du mit FRITS, holt die FRITS-Ernte sie.", name = "Ausgangsrechnungen", hinweis = "Schreibst du mit FRITS? Dann holt die FRITS-Ernte auf dem Kartentisch sie automatisch." },
+  { key = "euer", kern = true, warum = "Die musst du nicht selbst machen: FRITS rechnet sie aus deinen Rechnungen und Ausgaben (FRITS-Ernte auf der Insel).", name = "EÜR-Übersicht", hinweis = "Einnahmen minus Ausgaben. FRITS rechnet sie aus deinen Rechnungen und Ausgaben aus." },
+  { key = "belege", kern = true, warum = "Ohne Belege zählen deine Ausgaben nicht, und du zahlst mehr Steuern als nötig.", name = "Belege und Quittungen", hinweis = "Alles, was du fürs Geschäft bezahlt hast. Ausgaben aus FRITS kommen mit der FRITS-Ernte." },
+  { key = "kontoauszuege", kern = true, warum = "Deine Beraterin gleicht die Einnahmen mit dem Konto ab. Ein Jahres-Export aus dem Online-Banking reicht.", name = "Kontoauszüge Geschäftskonto", hinweis = "Am einfachsten als Jahres-Export aus dem Online-Banking." },
   { key = "umsatzsteuer", name = "Umsatzsteuer-Meldungen des Jahres", hinweis = "Voranmeldungen und, falls schon da, die Jahreserklärung. 7 % gilt für Texte und Beiträge mit Nutzungsrechten, 19 % z. B. für Moderation und Beratung.", wenn = "umsatzsteuer" },
   { key = "sender", name = "Honorarabrechnungen der Sender", hinweis = "Jahresübersicht oder alle Abrechnungen. Hat ein Sender Lohnsteuer abgezogen, gibt es eine Lohnsteuerbescheinigung: Zähl ihn dann bei „Angestellt“ mit.", wenn = "sender" },
   { key = "vgwort", name = "Ausschüttungen VG Wort, VG Bild-Kunst oder GVL", hinweis = "Die Abrechnungen des Jahres. Sie zählen als Einnahmen deines Geschäfts.", wenn = "verwertung" },
@@ -82,10 +82,10 @@ person = true
 anlage = "Anlage G, Anlage EÜR und AVEÜR"
 woerter = ["gewerbe", "laden", "shop", "waren", "inventur", "gewerbesteuer", "handel"]
 stuecke = [
-  { key = "ausgangsrechnungen", kern = true, name = "Rechnungen und Kassenberichte", hinweis = "Alle Einnahmen des Betriebs." },
-  { key = "belege", kern = true, name = "Einkaufsbelege", hinweis = "Waren, Material, Miete, Werbung." },
-  { key = "euer", name = "EÜR-Übersicht", hinweis = "Einnahmen minus Ausgaben. FRITS rechnet sie aus deinen Rechnungen und Ausgaben aus." },
-  { key = "kontoauszuege", kern = true, name = "Kontoauszüge Geschäftskonto", hinweis = "Jahres-Export aus dem Online-Banking." },
+  { key = "ausgangsrechnungen", kern = true, warum = "Ohne Rechnungen und Kassenberichte lassen sich die Einnahmen nicht belegen.", name = "Rechnungen und Kassenberichte", hinweis = "Alle Einnahmen des Betriebs." },
+  { key = "belege", kern = true, warum = "Ohne Einkaufsbelege zählen deine Ausgaben nicht, und du zahlst mehr Steuern als nötig.", name = "Einkaufsbelege", hinweis = "Waren, Material, Miete, Werbung." },
+  { key = "euer", kern = true, warum = "Die musst du nicht selbst machen: FRITS rechnet sie aus deinen Rechnungen und Ausgaben (FRITS-Ernte auf der Insel).", name = "EÜR-Übersicht", hinweis = "Einnahmen minus Ausgaben. FRITS rechnet sie aus deinen Rechnungen und Ausgaben aus." },
+  { key = "kontoauszuege", kern = true, warum = "Deine Beraterin gleicht die Einnahmen mit dem Konto ab. Ein Jahres-Export aus dem Online-Banking reicht.", name = "Kontoauszüge Geschäftskonto", hinweis = "Jahres-Export aus dem Online-Banking." },
   { key = "warenbestand", name = "Warenbestand zum Jahresende", hinweis = "Eine einfache Liste reicht oft." },
   { key = "umsatzsteuer", name = "Umsatzsteuer-Meldungen des Jahres", hinweis = "Nur wenn du Umsatzsteuer ausweist.", wenn = "umsatzsteuer" },
   { key = "gewerbesteuer", name = "Gewerbesteuer-Bescheid", hinweis = "Von der Gemeinde, falls es einen gab." },
@@ -102,9 +102,9 @@ person = true
 anlage = "eigene Erklärung der Gesellschaft (ESt 1 B), privat nur dein Anteil"
 woerter = ["gbr", "gesellschaft", "gesellschafter", "gesellschaftsvertrag", "gemeinsam", "partner", "gewinnverteilung"]
 stuecke = [
-  { key = "rechnungen", kern = true, name = "Rechnungen der Gesellschaft", hinweis = "Alles, was die Gesellschaft geschrieben hat." },
-  { key = "belege", kern = true, name = "Belege der Gesellschaft", hinweis = "Ausgaben, die die Gesellschaft bezahlt hat." },
-  { key = "konto", kern = true, name = "Kontoauszüge Gesellschaftskonto", hinweis = "Jahres-Export des gemeinsamen Kontos." },
+  { key = "rechnungen", kern = true, warum = "Ohne die Rechnungen der Gesellschaft lassen sich ihre Einnahmen nicht belegen.", name = "Rechnungen der Gesellschaft", hinweis = "Alles, was die Gesellschaft geschrieben hat." },
+  { key = "belege", kern = true, warum = "Ohne Belege zählen die Ausgaben der Gesellschaft nicht.", name = "Belege der Gesellschaft", hinweis = "Ausgaben, die die Gesellschaft bezahlt hat." },
+  { key = "konto", kern = true, warum = "Deine Beraterin gleicht die Einnahmen mit dem Konto der Gesellschaft ab.", name = "Kontoauszüge Gesellschaftskonto", hinweis = "Jahres-Export des gemeinsamen Kontos." },
   { key = "vertrag", name = "Gesellschaftsvertrag und Änderungen", hinweis = "Vor allem, wenn sich dieses Jahr etwas geändert hat." },
   { key = "verteilung", name = "Gewinnverteilung", hinweis = "Wer bekommt welchen Anteil." },
   { key = "eigene-kosten", name = "Eigene Kosten für die Gesellschaft", hinweis = "Was du privat für die Gesellschaft bezahlt hast.", art = "bonus" },
@@ -133,8 +133,8 @@ zaehlbar = true
 anlage = "Anlage V (eine pro Wohnung)"
 woerter = ["miete", "mieter", "wohnung", "nebenkosten", "hausgeld", "grundsteuer", "darlehen", "zins", "handwerker", "gebäude", "hausverwaltung", "vermietung"]
 stuecke = [
-  { key = "mieteinnahmen", kern = true, name = "Mieteinnahmen", hinweis = "Kontoauszug oder Liste der Mietzahlungen." },
-  { key = "mietvertrag", kern = true, name = "Mietvertrag bei Mieterwechsel", hinweis = "Nur wenn sich dieses Jahr etwas geändert hat." },
+  { key = "mieteinnahmen", kern = true, warum = "Mieteinnahmen gehören immer in die Steuererklärung, auch kleine.", name = "Mieteinnahmen", hinweis = "Kontoauszug oder Liste der Mietzahlungen." },
+  { key = "mietvertrag", name = "Mietvertrag bei Mieterwechsel", hinweis = "Nur wenn sich dieses Jahr etwas geändert hat." },
   { key = "nebenkosten", name = "Nebenkosten- oder Hausgeldabrechnung", hinweis = "Kommt von der Hausverwaltung." },
   { key = "grundsteuer", name = "Grundsteuerbescheid", hinweis = "Kommt meist zum Jahresanfang per Post." },
   { key = "zinsen", name = "Zinsbescheinigung Kredit", hinweis = "Von der Bank, falls die Wohnung finanziert ist." },
@@ -152,8 +152,8 @@ zaehlbar = true
 anlage = "Anlage V"
 woerter = ["büro", "laden", "gewerbefläche", "gewerbemiete", "praxis", "mieter", "umsatzsteuer"]
 stuecke = [
-  { key = "mieteinnahmen", kern = true, name = "Mieteinnahmen", hinweis = "Kontoauszug oder Liste der Mietzahlungen." },
-  { key = "mietvertrag", kern = true, name = "Mietvertrag", hinweis = "Wichtig, falls mit Umsatzsteuer vermietet wird." },
+  { key = "mieteinnahmen", kern = true, warum = "Mieteinnahmen gehören immer in die Steuererklärung, auch kleine.", name = "Mieteinnahmen", hinweis = "Kontoauszug oder Liste der Mietzahlungen." },
+  { key = "mietvertrag", name = "Mietvertrag", hinweis = "Wichtig, falls mit Umsatzsteuer vermietet wird." },
   { key = "nebenkosten", name = "Nebenkostenabrechnung", hinweis = "Kommt von der Hausverwaltung." },
   { key = "grundsteuer", name = "Grundsteuerbescheid", hinweis = "Kommt meist zum Jahresanfang per Post." },
   { key = "zinsen", name = "Zinsbescheinigung Kredit", hinweis = "Falls finanziert." },
@@ -170,7 +170,7 @@ zaehlbar = true
 anlage = "Anlage V und V-FeWo"
 woerter = ["ferienwohnung", "airbnb", "booking", "gäste", "belegung", "kurtaxe", "kurzzeit"]
 stuecke = [
-  { key = "einnahmen", kern = true, name = "Einnahmen der Plattformen", hinweis = "Jahresübersicht von Airbnb, Booking & Co." },
+  { key = "einnahmen", kern = true, warum = "Jede Vermietung bringt Einnahmen. Airbnb und Co. melden sie inzwischen sogar selbst ans Finanzamt.", name = "Einnahmen der Plattformen", hinweis = "Jahresübersicht von Airbnb, Booking & Co." },
   { key = "belegung", name = "Belegungskalender", hinweis = "Vermietete Tage, eigene Nutzung, Leerstand." },
   { key = "nebenkosten", name = "Nebenkosten", hinweis = "Strom, Wasser, Reinigung, Hausgeld." },
   { key = "grundsteuer", name = "Grundsteuerbescheid", hinweis = "Kommt meist zum Jahresanfang per Post." },
@@ -188,7 +188,7 @@ zaehlbar = true
 anlage = "Anlage KAP"
 woerter = ["depot", "steuerbescheinigung", "kapitalerträge", "dividende", "zinsen", "bank", "fonds"]
 stuecke = [
-  { key = "steuerbescheinigung", kern = true, name = "Jahressteuerbescheinigung", hinweis = "Stellt die Bank im Frühjahr ins Online-Postfach." },
+  { key = "steuerbescheinigung", kern = true, warum = "Deutsche Banken stellen sie meist im Frühjahr ins Online-Postfach, auch bei kleinen Beträgen.", name = "Jahressteuerbescheinigung", hinweis = "Stellt die Bank im Frühjahr ins Online-Postfach." },
   { key = "verluste", name = "Verlustbescheinigung", hinweis = "Nur wenn die Bank Verluste bescheinigt.", art = "bonus" },
 ]
 
@@ -201,7 +201,7 @@ zaehlbar = true
 anlage = "Anlage KAP, KAP-INV und AUS"
 woerter = ["depot", "dividende", "quellensteuer", "broker", "1099", "aktien", "verkauf", "ausland", "us", "activity"]
 stuecke = [
-  { key = "jahresuebersicht", kern = true, name = "Jahresübersicht des Depots", hinweis = "Eine deutsche Steuerbescheinigung gibt es hier nicht." },
+  { key = "jahresuebersicht", kern = true, warum = "Ausländische Depots schicken keine deutsche Steuerbescheinigung. Die Jahresübersicht ist dann der einzige Beleg.", name = "Jahresübersicht des Depots", hinweis = "Eine deutsche Steuerbescheinigung gibt es hier nicht." },
   { key = "dividenden", name = "Dividenden-Liste", hinweis = "Alle Ausschüttungen des Jahres." },
   { key = "quellensteuer", name = "Einbehaltene Quellensteuer", hinweis = "Steht oft in der Jahresübersicht." },
   { key = "verkaeufe", name = "Verkäufe mit Gewinn oder Verlust", hinweis = "Nur wenn du etwas verkauft hast." },
@@ -230,7 +230,7 @@ person = true
 anlage = "Anlage R, R-AV/bAV (Riester, Betriebsrente) und R-AUS"
 woerter = ["rente", "rentenbezugsmitteilung", "pension", "betriebsrente"]
 stuecke = [
-  { key = "rentenbezug", kern = true, name = "Rentenbezugsmitteilung", hinweis = "Kommt von der Rentenversicherung oder der Kasse." },
+  { key = "rentenbezug", kern = true, warum = "Die Rente wird ohnehin ans Finanzamt gemeldet. Die Bescheinigung dazu bekommst du von der Rentenkasse.", name = "Rentenbezugsmitteilung", hinweis = "Kommt von der Rentenversicherung oder der Kasse." },
   { key = "betriebsrente", name = "Leistungsmitteilung Riester oder Betriebsrente", hinweis = "Nur wenn du so eine Rente bekommst. Kommt vom Anbieter." },
 ]
 
@@ -243,7 +243,7 @@ person = true
 anlage = "Hauptvordruck oder Anlage N (steuerfrei, muss aber angegeben werden)"
 woerter = ["elterngeld", "krankengeld", "arbeitslosengeld", "kurzarbeit", "mutterschaftsgeld"]
 stuecke = [
-  { key = "bescheinigung", kern = true, name = "Bescheinigung über die Leistung", hinweis = "Schickt die Stelle, die gezahlt hat." },
+  { key = "bescheinigung", kern = true, warum = "Die Stelle, die gezahlt hat, schickt sie meist von selbst, z. B. Arbeitsagentur oder Krankenkasse.", name = "Bescheinigung über die Leistung", hinweis = "Schickt die Stelle, die gezahlt hat." },
 ]
 
 [[provinz]]
