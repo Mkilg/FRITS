@@ -1,7 +1,10 @@
 """E-Rechnung (ZUGFeRD / Factur-X, EN 16931) inside every invoice PDF."""
 
 from datetime import date
+from pathlib import Path
 from decimal import Decimal
+
+import pytest
 
 from facturx import get_xml_from_pdf, xml_check_xsd
 from lxml import etree
@@ -41,12 +44,42 @@ def _draft(*lines, **customer) -> Draft:
     )
 
 
-def _xml(tmp_path, settings, draft):
+SCHEMATRON = Path(__file__).parent / "fixtures" / "en16931" / "EN16931-CII-validation.xslt"
+SVRL = {"svrl": "http://purl.oclc.org/dsdl/svrl"}
+
+
+@pytest.fixture(scope="module")
+def business_rules():
+    """The official EN 16931 business rules (compiled Schematron), run with Saxon."""
+    from saxonche import PySaxonProcessor
+
+    processor = PySaxonProcessor(license=False)
+    compiled = processor.new_xslt30_processor().compile_stylesheet(stylesheet_file=str(SCHEMATRON))
+
+    def broken(xml: bytes) -> list[str]:
+        document = processor.parse_xml(xml_text=xml.decode("utf-8"))
+        report = etree.fromstring(compiled.transform_to_string(xdm_node=document).encode())
+        return [
+            f"{node.get('id')}: {' '.join(node.itertext()).strip()}"
+            for node in report.iterfind(".//svrl:failed-assert", SVRL)
+            if node.get("flag") == "fatal"
+        ]
+
+    return broken
+
+
+def _check(xml: bytes, rules) -> None:
+    assert xml_check_xsd(xml, flavor="factur-x", level="en16931")
+    if rules is not None:
+        assert rules(xml) == []
+
+
+def _xml(tmp_path, settings, draft, rules=None):
     conn = store.connect(tmp_path / "frits.db")
     number, pdf = approve(conn, new_draft(conn, draft), settings, tmp_path / "r", DAY)
     name, xml = get_xml_from_pdf(pdf.read_bytes(), check_xsd=False)
     assert name == "factur-x.xml"
-    assert xml_check_xsd(xml, flavor="factur-x", level="en16931")
+    _check(xml, rules)
     return conn, number, pdf, etree.fromstring(xml)
 
 
@@ -60,8 +93,8 @@ def _one(tree, path):
     return found[0]
 
 
-def test_kleinunternehmer_invoice_carries_valid_xml(tmp_path):
-    _, number, pdf, tree = _xml(tmp_path, _settings(), _draft())
+def test_kleinunternehmer_invoice_carries_valid_xml(tmp_path, business_rules):
+    _, number, pdf, tree = _xml(tmp_path, _settings(), _draft(), business_rules)
     assert _one(tree, ".//ram:GuidelineSpecifiedDocumentContextParameter/ram:ID").endswith("2017")
     assert _one(tree, "rsm:ExchangedDocument/ram:ID") == number
     assert _one(tree, ".//ram:IssueDateTime/udt:DateTimeString") == "20261102"
@@ -83,7 +116,7 @@ def test_kleinunternehmer_invoice_carries_valid_xml(tmp_path):
     assert "/OutputIntents" in root and "/AF" in root
 
 
-def test_mixed_rates_and_sums_add_up(tmp_path):
+def test_mixed_rates_and_sums_add_up(tmp_path, business_rules):
     draft = _draft(
         Line("Moderation", "2026-10-03", Decimal(1), "pauschal", Decimal(500)),
         Line(
@@ -96,7 +129,7 @@ def test_mixed_rates_and_sums_add_up(tmp_path):
         ),
     )
     settings = _settings(tax_mode="regelbesteuerung", ust_id="DE123456789")
-    _, _, _, tree = _xml(tmp_path, settings, draft)
+    _, _, _, tree = _xml(tmp_path, settings, draft, business_rules)
     head = ".//ram:ApplicableHeaderTradeSettlement/ram:ApplicableTradeTax/"
     assert _all(tree, head + "ram:CategoryCode") == ["S", "S"]
     assert _all(tree, head + "ram:RateApplicablePercent") == ["19", "7"]
@@ -113,7 +146,7 @@ def test_mixed_rates_and_sums_add_up(tmp_path):
     ]
 
 
-def test_reverse_charge_and_outside_the_eu(tmp_path):
+def test_reverse_charge_and_outside_the_eu(tmp_path, business_rules):
     settings = _settings(tax_mode="regelbesteuerung", ust_id="DE123456789")
     eu = _draft(
         customer_tax="eu",
@@ -121,7 +154,7 @@ def test_reverse_charge_and_outside_the_eu(tmp_path):
         customer_country="AT",
         address="Funkgasse 3, 1010 Wien",
     )
-    _, _, _, tree = _xml(tmp_path / "eu", settings, eu)
+    _, _, _, tree = _xml(tmp_path / "eu", settings, eu, business_rules)
     assert _one(tree, ".//ram:ApplicableHeaderTradeSettlement//ram:CategoryCode") == "AE"
     assert _one(tree, ".//ram:BuyerTradeParty//ram:CountryID") == "AT"
     assert _one(tree, ".//ram:BuyerTradeParty/ram:SpecifiedTaxRegistration/ram:ID") == "ATU12345678"
@@ -132,7 +165,7 @@ def test_reverse_charge_and_outside_the_eu(tmp_path):
         customer_reference="PO-4711",
         address="Funkweg 2, 8000 Zürich",
     )
-    _, _, _, tree = _xml(tmp_path / "ch", settings, ch)
+    _, _, _, tree = _xml(tmp_path / "ch", settings, ch, business_rules)
     assert _one(tree, ".//ram:ApplicableHeaderTradeSettlement//ram:CategoryCode") == "O"
     assert _one(tree, ".//ram:BuyerReference") == "PO-4711"
     # BR-O-02: no VAT IDs with category O, only the Steuernummer
@@ -141,12 +174,12 @@ def test_reverse_charge_and_outside_the_eu(tmp_path):
     ]
 
 
-def test_storno_points_to_the_original(tmp_path):
-    conn, number, _, _ = _xml(tmp_path, _settings(), _draft())
+def test_storno_points_to_the_original(tmp_path, business_rules):
+    conn, number, _, _ = _xml(tmp_path, _settings(), _draft(), business_rules)
     _, pdf = cancel(conn, number, _settings(), tmp_path / "r", DAY)
     _, xml = get_xml_from_pdf(pdf.read_bytes(), check_xsd=False)
     tree = etree.fromstring(xml)
-    assert xml_check_xsd(xml, flavor="factur-x", level="en16931")
+    _check(xml, business_rules)
     assert _one(tree, ".//ram:InvoiceReferencedDocument/ram:IssuerAssignedID") == number
     assert _one(tree, ".//ram:GrandTotalAmount") == "-160.00"
 

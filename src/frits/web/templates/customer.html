@@ -25,18 +25,17 @@
   <label class="field">Andere Schreibweisen, mit Komma getrennt <input name="aliases" value="{{ customer.aliases | join(', ') if customer else '' }}" placeholder="z. B. Frau M., Bäckerei S."></label>
   <p class="hint">Andere Schreibweisen helfen beim Schwärzen: Auch „Frau M.“ wird dann zum Platzhalter.</p>
   <label class="field">Referenz auf jeder Rechnung (falls der Kunde eine verlangt, z. B. Bestellnummer oder Leitweg-ID) <input name="referenz" value="{{ customer.referenz or '' if customer else '' }}"></label>
-  {% set where = customer.umsatzsteuer if customer else "" %}
-  <details class="abroad" {{ "open" if where }}>
-    <summary>Kunde im Ausland?</summary>
-    <label class="field">Wo sitzt der Kunde?
-      <select name="umsatzsteuer">{% for key, label in customer_tax.items() %}<option value="{{ key }}" {{ "selected" if key == where }}>{{ label }}</option>{% endfor %}</select>
-    </label>
+  {% set land = customer.land if customer else "DE" %}
+  <details class="abroad" {{ "open" if land != "DE" or (customer and customer.gutschrift) }}>
+    <summary>Kunde im Ausland oder mit Gutschrift?</summary>
     <label class="field">Land
-      {% set land = customer.land if customer else "DE" %}
       <select name="land">{% for code, label in countries.items() %}<option value="{{ code }}" {{ "selected" if code == land }}>{{ label }}</option>{% endfor %}{% if land not in countries %}<option value="{{ land }}" selected>{{ land }}</option>{% endif %}</select>
     </label>
-    <label class="field">USt-IdNr des Kunden (bei Firmen in der EU Pflicht) <input name="ust_id" value="{{ customer.ust_id or '' if customer else '' }}" placeholder="z. B. ATU12345678"></label>
-    <p class="hint">Mit Regelbesteuerung schreibt FRITS dann keine deutsche Umsatzsteuer auf die Rechnung, sondern den passenden Hinweis (Reverse Charge oder Leistungsort im Ausland). Als Kleinunternehmer ändert sich nichts. Bei Kunden in der EU musst du die Umsätze außerdem in der Zusammenfassenden Meldung angeben.</p>
+    <label class="choice"><input type="checkbox" name="privat" {{ "checked" if customer and customer.privat }}> Privatperson, keine Firma</label>
+    <label class="field">USt-IdNr oder UID des Kunden (bei Firmen in der EU Pflicht) <input name="ust_id" value="{{ customer.ust_id or '' if customer else '' }}" placeholder="z. B. ATU12345678 oder CHE-123.456.789 MWST"></label>
+    <p class="hint">Bei einer Firma im Ausland schreibt FRITS mit Regelbesteuerung keine deutsche Umsatzsteuer auf die Rechnung, sondern den passenden Hinweis: in der EU Reverse Charge (dann gehören die Umsätze auch in die Zusammenfassende Meldung), außerhalb der EU „nicht im Inland steuerbar“. Bei Privatpersonen bleibt es bei deutscher Umsatzsteuer; frag bei Privatleuten im Ausland im Zweifel deine Steuerberatung. Als Kleinunternehmer ändert sich nichts.</p>
+    <label class="choice"><input type="checkbox" name="gutschrift" {{ "checked" if customer and customer.gutschrift }}> Dieser Kunde rechnet selbst ab und schickt mir eine Gutschrift (Honorarabrechnung)</label>
+    <p class="hint">Viele Sender machen das so. Dann schreibst du keine eigene Rechnung, sonst gibt es zwei Rechnungen über dieselbe Leistung und du schuldest die Umsatzsteuer womöglich doppelt (§ 14c UStG). FRITS warnt dich dann bei Entwürfen für diesen Kunden.</p>
   </details>
   <div class="row actions"><button class="primary">Speichern</button></div>
 </form>

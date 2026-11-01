@@ -48,6 +48,7 @@ def render_invoice(
     due: date | None,
     cancels: str | None = None,
     cancels_date: date | None = None,
+    original_paid: bool = False,
 ) -> Path:
     title = f"Stornorechnung zu {cancels}" if cancels else "Rechnung"
     facts = [("Rechnungsnummer", number), ("Rechnungsdatum", _de(issued))]
@@ -58,6 +59,15 @@ def render_invoice(
     if draft.customer_reference:
         facts.append(("Ihre Referenz", draft.customer_reference))
     closing = []
+    if cancels and original_paid:
+        closing.append(
+            f"Die Rechnung {cancels} ist damit aufgehoben. Den bereits gezahlten Betrag "
+            "erstatte ich Ihnen auf Ihr Konto."
+        )
+    elif cancels:
+        closing.append(
+            f"Die Rechnung {cancels} ist damit vollständig aufgehoben. Bitte nicht zahlen."
+        )
     if due and not cancels:
         closing.append(
             f"Bitte überweisen Sie den Betrag bis zum {_de(due)} auf das unten genannte Konto "
@@ -104,6 +114,17 @@ def render_quote(
         f"Dieses Angebot gilt bis zum {_de(valid_until)}. Ich freue mich auf Ihren Auftrag.",
     ]
     return _document(path, "Angebot", facts, draft, sums, settings, closing)
+
+
+def _customer_lines(draft: Draft) -> str | None:
+    """The address, plus the country in capitals for customers abroad, as the post wants it."""
+    from frits.customers import COUNTRIES
+
+    address = draft.customer_address or ""
+    country = draft.customer_country or "DE"
+    if country != "DE":
+        address = f"{address}, {COUNTRIES.get(country, country).upper()}".strip(", ")
+    return address or None
 
 
 def render_reminder(
@@ -221,10 +242,12 @@ def _document(
     settings: Settings,
     closing: list[str],
 ) -> Path:
-    pdf = _start(settings, draft.customer_name, draft.customer_address)
+    pdf = _start(settings, draft.customer_name, _customer_lines(draft))
     width = pdf.epw
-    if draft.customer_ust_id and draft.customer_tax in ("eu", "drittland"):
+    if draft.customer_ust_id and draft.customer_tax == "eu":
         facts = [*facts, ("USt-IdNr. Kunde", draft.customer_ust_id)]
+    elif draft.customer_ust_id and draft.customer_tax == "drittland":
+        facts = [*facts, ("UID / Steuernr. Kunde", draft.customer_ust_id)]
 
     pdf.set_font("DejaVu", "B", 16)
     pdf.cell(0, 9, title, new_x="LMARGIN", new_y="NEXT")
@@ -235,10 +258,20 @@ def _document(
     pdf.ln(6)
 
     # Line items
-    cols = [width * 0.50, width * 0.14, width * 0.16, width * 0.20]
+    # Several VAT rates: a small column shows which line has which (as the review page does).
+    mixed = len(sums.groups) > 1
+    cols = [
+        width * x for x in ((0.44, 0.13, 0.15, 0.10, 0.18) if mixed else (0.50, 0.14, 0.16, 0.20))
+    ]
+    heads = (
+        ("Leistung", "Menge", "Einzelpreis", "USt", "Betrag")
+        if mixed
+        else ("Leistung", "Menge", "Einzelpreis", "Betrag")
+    )
+    standard = sums.vat_rate if sums.vat_rate is not None else Decimal(0)
     pdf.set_font("DejaVu", "B", 10)
-    for text, w, align in zip(("Leistung", "Menge", "Einzelpreis", "Betrag"), cols, "LRRR"):
-        pdf.cell(w, 8, text, border="B", align=align)
+    for text, w in zip(heads, cols, strict=True):
+        pdf.cell(w, 8, text, border="B", align="L" if text == "Leistung" else "R")
     pdf.ln()
     pdf.set_font("DejaVu", size=10)
     for line in draft.lines:
@@ -253,14 +286,17 @@ def _document(
         pdf.set_xy(pdf.l_margin + cols[0], top)
         pdf.cell(cols[1], 6, f"{qty(line.quantity)} {line.unit}", align="R")
         pdf.cell(cols[2], 6, eur(line.unit_price), align="R")
-        pdf.cell(cols[3], 6, eur(line.net), align="R")
+        if mixed:
+            rate = standard if line.vat_rate is None else line.vat_rate
+            pdf.cell(cols[3], 6, f"{qty(rate)} %", align="R")
+        pdf.cell(cols[-1], 6, eur(line.net), align="R")
         pdf.set_xy(pdf.l_margin, top + height)
     pdf.ln(2)
 
     def total_row(label: str, value: Decimal, bold: bool = False) -> None:
         pdf.set_font("DejaVu", "B" if bold else "", 10)
-        pdf.cell(sum(cols[:3]), 7, label, align="R")
-        pdf.cell(cols[3], 7, eur(value), align="R", new_x="LMARGIN", new_y="NEXT")
+        pdf.cell(sum(cols[:-1]), 7, label, align="R")
+        pdf.cell(cols[-1], 7, eur(value), align="R", new_x="LMARGIN", new_y="NEXT")
 
     if sums.vat_rate is not None:
         if len(sums.groups) > 1:  # several rates: net and VAT per rate (§ 14 Abs. 4 Nr. 7, 8)
