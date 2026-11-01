@@ -26,6 +26,8 @@ class Customer:
     ust_id: str | None = None
     land: str = "DE"  # ISO 3166 country code
     referenz: str | None = None  # Leitweg-ID or order number to quote on every invoice
+    privat: bool = False  # a private person, not a business: German VAT rules stay
+    gutschrift: bool = False  # the customer bills itself (Gutschrift), Fritz writes no invoice
 
     @property
     def display_name(self) -> str:
@@ -55,6 +57,8 @@ def parse_note(path: Path) -> Customer | None:
         ust_id=_opt(meta.get("ust_id")),
         land=_country(meta.get("land")),
         referenz=_opt(meta.get("referenz")),
+        privat=bool(meta.get("privat")),
+        gutschrift=bool(meta.get("gutschrift")),
     )
 
 
@@ -100,6 +104,10 @@ def save_note(folder: Path, customer: Customer) -> Path:
         meta["land"] = customer.land
     if customer.referenz:
         meta["referenz"] = customer.referenz
+    if customer.privat:
+        meta["privat"] = True
+    if customer.gutschrift:
+        meta["gutschrift"] = True
     front = yaml.safe_dump(meta, allow_unicode=True, sort_keys=False)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(f"---\n{front}---\n{body}", encoding="utf-8")
@@ -125,7 +133,50 @@ COUNTRIES = {
     "GB": "Vereinigtes Königreich",
     "NO": "Norwegen",
     "US": "USA",
+    "FI": "Finnland",
+    "PT": "Portugal",
+    "LI": "Liechtenstein",
 }
+
+
+EU_COUNTRIES = {
+    "AT",
+    "BE",
+    "BG",
+    "CY",
+    "CZ",
+    "DK",
+    "EE",
+    "ES",
+    "FI",
+    "FR",
+    "GR",
+    "HR",
+    "HU",
+    "IE",
+    "IT",
+    "LT",
+    "LU",
+    "LV",
+    "MT",
+    "NL",
+    "PL",
+    "PT",
+    "RO",
+    "SE",
+    "SI",
+    "SK",
+}  # without DE
+
+
+def vat_place(land: str, privat: bool) -> str:
+    """Where the customer sits for VAT, from the country: "" Germany, "eu" or "drittland".
+
+    Private persons keep "": for them German VAT is the normal case (§ 3a Abs. 1 UStG),
+    and the exceptions are a question for the tax adviser."""
+    if privat or land == "DE":
+        return ""
+    return "eu" if land in EU_COUNTRIES else "drittland"
 
 
 def _country(value: object) -> str:

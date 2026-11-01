@@ -124,8 +124,53 @@ def test_an_existing_pdf_is_never_overwritten(tmp_path):
     conn = store.connect(tmp_path / "frits.db")
     folder = tmp_path / "rechnungen"
     folder.mkdir()
-    (folder / "2026-0001_GmbH.pdf").write_bytes(b"Fritz's own file")
+    (folder / "2026-0001_Sender-GmbH.pdf").write_bytes(b"Fritz's own file")
     with pytest.raises(BillingError, match="überschreibt"):
         approve(conn, new_draft(conn, _draft()), _settings(), folder, DAY)
-    assert (folder / "2026-0001_GmbH.pdf").read_bytes() == b"Fritz's own file"
+    assert (folder / "2026-0001_Sender-GmbH.pdf").read_bytes() == b"Fritz's own file"
     assert conn.execute("SELECT COUNT(*) FROM invoices").fetchone()[0] == 0
+
+
+def test_german_thousands_dot_is_read_as_thousands():
+    from frits.billing import parse_amount
+
+    assert parse_amount("1.400") == Decimal(1400)
+    assert parse_amount("2.500.000") == Decimal(2_500_000)
+    assert parse_amount("1.400,50") == Decimal("1400.50")
+    assert parse_amount("40.50") == Decimal("40.50")
+    assert parse_amount("0.3") == Decimal("0.3")
+
+
+def test_paid_date_and_refund_after_storno(tmp_path):
+    from frits.billing import list_invoices, mark_paid
+
+    conn, number, _ = _issue(tmp_path, _settings())
+    mark_paid(conn, number, date(2026, 11, 20))
+    storno, pdf = cancel(conn, number, _settings(), tmp_path / "rechnungen", DAY)
+    assert "erstatte ich" in " ".join(extract_text(pdf).text.split())
+    mark_paid(conn, storno, date(2026, 11, 25))  # money went back
+    status = {row["number"]: row["status"] for row in list_invoices(conn, DAY)}
+    assert status == {number: "storniert", storno: "erstattet"}
+
+
+def test_unpaid_storno_cannot_be_refunded_and_says_do_not_pay(tmp_path):
+    from frits.billing import mark_paid
+
+    conn, number, _ = _issue(tmp_path, _settings())
+    storno, pdf = cancel(conn, number, _settings(), tmp_path / "rechnungen", DAY)
+    assert "Bitte nicht zahlen" in " ".join(extract_text(pdf).text.split())
+    with pytest.raises(BillingError, match="nie bezahlt"):
+        mark_paid(conn, storno, DAY)
+
+
+def test_pdf_names_keep_the_whole_customer_name(tmp_path):
+    _, _, pdf = _issue(tmp_path, _settings())
+    assert pdf.name == "2026-0001_Sender-GmbH.pdf"
+
+
+def test_domestic_zero_rate_is_blocked():
+    draft = _draft(
+        Line("Vortrag", "2026-10-03", Decimal(1), "pauschal", Decimal(300), vat_rate=Decimal(0))
+    )
+    problems = blockers(draft, _settings(tax_mode="regelbesteuerung"))
+    assert any("0 %" in p for p in problems)

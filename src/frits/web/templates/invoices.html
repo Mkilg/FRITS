@@ -20,6 +20,7 @@
       {% elif i.status == "überfällig" %}<span class="badge late">fällig seit {{ i.due_date | de_date }}</span>
       {% elif i.status == "storniert" %}<span class="badge muted">storniert ({{ i.cancelled_by }})</span>
       {% elif i.status == "storno" %}<span class="badge muted">Storno zu {{ i.cancels }}</span>
+      {% elif i.status == "erstattet" %}<span class="badge muted">Storno zu {{ i.cancels }}, erstattet am {{ i.paid_date | de_date }}</span>
       {% else %}<span class="badge todo">offen bis {{ i.due_date | de_date }}</span>{% endif %}
       {% if i.emailed %}<small class="muted">an Mail übergeben {{ i.emailed | de_date }}</small>{% endif %}
       {% if i.reminders %}<small class="muted">{{ i.reminders }}× erinnert</small>{% endif %}
@@ -27,10 +28,13 @@
     <td class="actions">
       {% if i.status in ("offen", "überfällig") %}
       <form method="post" action="/invoices/{{ i.number }}/email"><input type="hidden" name="token" value="{{ token }}"><button class="tiny">In Mail öffnen</button></form>
-      <form method="post" action="/invoices/{{ i.number }}/paid"><input type="hidden" name="token" value="{{ token }}"><button class="tiny">Bezahlt</button></form>
+      <form method="post" action="/invoices/{{ i.number }}/paid" class="paid-form"><input type="hidden" name="token" value="{{ token }}"><button class="tiny">Bezahlt am</button> <input type="date" name="paid" value="{{ today_iso }}" max="{{ today_iso }}" aria-label="Zahlungseingang am" title="Der Tag, an dem das Geld auf dem Konto war. Er entscheidet, in welches Jahr die Einnahme gehört."></form>
       {% if i.status == "überfällig" %}
       <form method="post" action="/invoices/{{ i.number }}/remind"><input type="hidden" name="token" value="{{ token }}"><button class="tiny">Erinnerung</button></form>
       {% endif %}
+      {% endif %}
+      {% if i.status == "storno" and i.original_paid %}
+      <form method="post" action="/invoices/{{ i.number }}/paid" class="paid-form"><input type="hidden" name="token" value="{{ token }}"><button class="tiny">Erstattet am</button> <input type="date" name="paid" value="{{ today_iso }}" max="{{ today_iso }}" aria-label="Zurücküberwiesen am"></form>
       {% endif %}
       {% if i.status in ("offen", "überfällig", "bezahlt") %}
       <form method="post" action="/invoices/{{ i.number }}/cancel" data-confirm="Rechnung {{ i.number }} stornieren? Es entsteht eine Stornorechnung mit eigener Nummer. Nichts wird gelöscht."><input type="hidden" name="token" value="{{ token }}"><button class="tiny quiet danger">Stornieren</button></form>
