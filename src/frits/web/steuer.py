@@ -626,7 +626,11 @@ def register_steuer(
                 # Der größte Treffer des Kampfes soll man sehen, auch wenn der Sieg ihn verdrängt
                 flash(f"Letzter Treffer: {basis} × {faktor} = +{basis * faktor} Gold.", "sieg")
             if goldjahr and fritte_truhe(c, jahr, silber=bool(nachher["zweifel"])):
-                flash("Fritte hat eine Truhe für dich bekommen. Sie wartet auf Heute.", "sieg")
+                flash(
+                    "Fritte hat eine Truhe für dich bekommen. Sie wartet bei Fritte.",
+                    "sieg",
+                    link=("/fritte#truhen", "Zu Fritte"),
+                )
         return sieg
 
     def fritte_truhe(c, jahr: int, silber: bool) -> bool:

@@ -27,7 +27,7 @@
   {% endif %}
   <h2>{{ {"gruendung": "Dein Reich steht!", "siegel": ("Silber-Siegel!" if silber_siegel else "Gold-Siegel!"), "zeitalter": "Neues Zeitalter!", "orden": "Neuer Orden!", "sieg": ("Silber-Sieg!" if zweifel is defined and zweifel else "Sieg!"), "erwachen": "Der Drache erwacht!", "gold": "Aus Silber wird Gold!"}[erste] }}</h2>
   <ul class="sq-beute">
-    {% for f in grosse %}<li class="{{ f.kind }}" style="--i: {{ loop.index0 }}">{{ f.text.replace("Gold-Siegel! ", "").replace("Silber-Siegel! ", "").replace("Aus Silber wird Gold! ", "") if loop.first else f.text }}</li>{% endfor %}
+    {% for f in grosse %}<li class="{{ f.kind }}" style="--i: {{ loop.index0 }}">{{ f.text.replace("Gold-Siegel! ", "").replace("Silber-Siegel! ", "").replace("Aus Silber wird Gold! ", "") if loop.first else f.text }}{% if f.link %} <a href="{{ f.link }}">{{ f.link_text }}</a>{% endif %}</li>{% endfor %}
   </ul>
   {% if erste not in ["erwachen", "sieg"] %}
   <div class="sq-naechster">

@@ -2250,7 +2250,8 @@ def test_runde_18_drachensieg_gibt_fritte_eine_truhe(client, ws, monkeypatch):
     k = spiel.drache(quest.stuecke(conn, 2025)).karte
     seite = post(client, "/steuer/2025/drache/schlag", stueck_id=str(k["id"]), aktion="fragen")
     assert gegeben == [("drachensieg:2025", "selten", "Der Drache 2025 ist besiegt!")]
-    assert "Fritte hat eine Truhe für dich bekommen" in seite.text
+    assert "Fritte hat eine Truhe für dich bekommen. Sie wartet bei Fritte." in seite.text
+    assert 'href="/fritte#truhen"' in seite.text
 
 
 def test_runde_18_sieg_ohne_fritte_truhen_bricht_nicht(client, ws, monkeypatch):
