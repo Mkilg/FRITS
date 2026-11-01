@@ -31,7 +31,7 @@
   </nav>
   <div class="top-actions">
     {% if sounds %}
-    <button type="button" class="quiet" data-frits-music="{{ music }}" data-label-playing="♪ Musik läuft" aria-pressed="false" title="{{ 'Abenteuer-Musik für die Steuer-Quest' if nav.startswith('/steuer') else 'Musik: ' ~ (moods[settings.music].title if settings.music in moods else 'Entspannt') ~ '. Die Stimmung wählst du in den Einstellungen' }}. Nochmal klicken schaltet sie aus.">♪ Musik</button>
+    <button type="button" class="quiet" data-frits-music="{{ music }}" data-frits-music-main data-label-playing="♪ Musik läuft" aria-pressed="false" title="{{ 'Abenteuer-Musik für die Steuer-Quest' if nav.startswith('/steuer') else 'Musik: ' ~ (moods[settings.music].title if settings.music in moods else 'Entspannt') ~ '. Die Stimmung wählst du in den Einstellungen' }}. Nochmal klicken schaltet sie aus.">♪ Musik</button>
     {% endif %}
     <form method="post" action="/sound">
       <input type="hidden" name="token" value="{{ token }}">
