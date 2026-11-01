@@ -10,7 +10,8 @@
  * Buttons without any JavaScript:  <button data-frits-cue="done">, <button data-frits-music="morgen">
  *
  * Cues: done, sent, shutdown, focus.  Tracks: morgen, buero-block.
- * Music fades in and out slowly and never starts by itself.
+ * Music fades in and out slowly and never starts by itself. Once started, it carries on
+ * across page changes in the same tab until it is switched off.
  */
 (function () {
   "use strict";
@@ -52,25 +53,43 @@
     if (p && p.catch) p.catch(function () {});
   }
 
+  // Every click in FRITS loads a new page, which would cut the music off each time.
+  // So FRITS remembers in this browser tab which track plays and where, and carries on
+  // after the page change. Pressing ♪ Musik again, switching sound off or Feierabend
+  // ends that wish. sessionStorage is forgotten when the tab closes.
+  var WISH = "frits-music";
+  function saveWish(track, time) {
+    try {
+      if (track) sessionStorage.setItem(WISH, JSON.stringify({ track: track, time: time || 0 }));
+      else sessionStorage.removeItem(WISH);
+    } catch (e) { /* private window: music just doesn't carry over */ }
+  }
+  function loadWish() {
+    try { return JSON.parse(sessionStorage.getItem(WISH) || "null"); } catch (e) { return null; }
+  }
+
   var music = {
     audio: null,
     track: null,
-    play: function (name) {
+    play: function (name, from, fadeMs) {
       if (!enabled()) return;
       if (this.audio && this.track === name) return;
-      this.stop();
+      this.stop(true);
       var a = new Audio(base() + "music/" + name + ".mp3");
       a.loop = true;
       a.volume = 0;
+      if (from) a.currentTime = from;
       this.audio = a;
       this.track = name;
+      saveWish(name, from);
       var p = a.play();
-      if (p && p.catch) p.catch(function () {});
-      fade(a, MUSIC_VOLUME, FADE_MS);
+      if (p && p.catch) p.catch(function () { waitForClick(a); });
+      fade(a, MUSIC_VOLUME, fadeMs || FADE_MS);
       body().dispatchEvent(new CustomEvent("frits-music", { bubbles: true, detail: { playing: name } }));
     },
-    stop: function () {
+    stop: function (switching) {
       var a = this.audio;
+      if (!switching) saveWish(null);
       if (!a) return;
       this.audio = null;
       this.track = null;
@@ -82,6 +101,33 @@
     },
     playing: function () { return this.track; }
   };
+
+  // Some browsers (Safari) only allow sound after a click on this very page.
+  // Then the music waits quietly and starts with the first click or key press.
+  function waitForClick(a) {
+    function go() {
+      document.removeEventListener("pointerdown", go, true);
+      document.removeEventListener("keydown", go, true);
+      if (music.audio === a) { var p = a.play(); if (p && p.catch) p.catch(function () {}); }
+    }
+    document.addEventListener("pointerdown", go, true);
+    document.addEventListener("keydown", go, true);
+  }
+
+  window.addEventListener("pagehide", function () {
+    if (music.audio) saveWish(music.track, music.audio.currentTime);
+  });
+
+  function resume() {
+    var wish = loadWish();
+    if (!wish || !wish.track || !enabled()) return;
+    if (document.querySelector(".feierabend-page")) { saveWish(null); return; }
+    // The page's own music button decides: the Steuer-Quest switches to its adventure track,
+    // and leaving it switches back to the chosen mood.
+    var main = document.querySelector("[data-frits-music-main]");
+    var track = main ? main.getAttribute("data-frits-music") : wish.track;
+    music.play(track, track === wish.track ? wish.time : 0, 800);
+  }
 
   function setEnabled(on) {
     body().setAttribute("data-frits-sound", on ? "on" : "off");
@@ -114,6 +160,9 @@
     var d = e.detail;
     cue(typeof d === "string" ? d : d && (d.value || d.name));
   });
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", resume);
+  else resume();
 
   window.FritsSound = { cue: cue, music: music, setEnabled: setEnabled, enabled: enabled };
 })();
