@@ -212,6 +212,15 @@ def _karte(conn, schluessel: str, art: str, gesehen: str, ausgaben=None) -> Kart
         return Karte(
             schluessel, art, "Feierabend", day.strftime("%d.%m.%Y") if day else key, base, {}
         )
+    if art == "aufgabe":
+        r = stand.rows(
+            conn,
+            "SELECT text FROM aufgaben WHERE id = ? AND erledigt IS NOT NULL",
+            (int(key) if key.isdigit() else -1,),
+        )
+        if not r:
+            return None
+        return Karte(schluessel, art, "Abgehakt", r[0][0], base, {})
     if art == "steuer":
         r = stand.rows(
             conn,

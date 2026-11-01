@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from frits.spiel import ausbau, saison, stand
+from frits.spiel.gewuerze import NUR_KLICKS
 
 
 @dataclass(frozen=True)
@@ -50,6 +51,8 @@ ERFOLGE: tuple[Erfolg, ...] = (
            lambda f: _zaehle("bezahlt")(f) >= 10),
     Erfolg("ritual", "Feierabend-Ritual", "🌙", "Zehnmal bewusst Feierabend gemacht.",
            lambda f: _zaehle("feierabend")(f) >= 10),
+    Erfolg("abgehakt", "Abgehakt", "✅", "Zwanzig Punkte von deiner Liste abgehakt.",
+           lambda f: _zaehle("aufgabe")(f) >= 20),
     Erfolg("rhythmus", "Guter Rhythmus", "🎵", "In vier Wochen hintereinander Papierkram gemacht.",
            lambda f: f["rhythmus"] >= 4),
     Erfolg("regal", "Volles Regal", "🫙", "Jeden Platz im Gewürzregal gefüllt.",
@@ -98,7 +101,7 @@ def _fakten(conn, heute: date) -> dict:
         bester = max(bester, int(summe))
         these = json.loads(ergebnis).get("karten", [])
         karten += these
-        meiste_arten = max(meiste_arten, len({k["art"] for k in these}))
+        meiste_arten = max(meiste_arten, len({k["art"] for k in these} - NUR_KLICKS))
     regal = kassensturz.regal(conn)
     dinge = [d for d in stand.besitz(conn, "ding") if d in haustier.DINGE]
     return {

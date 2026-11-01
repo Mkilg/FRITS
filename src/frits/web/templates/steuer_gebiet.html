@@ -73,6 +73,16 @@
         <label class="fach">{{ "Noch eine Datei dazulegen" if s.status == "gesammelt" else "Datei hierher ziehen oder auswählen" }}<input type="file" name="datei" multiple></label>
         <button class="sq-stempelknopf gruen sq-ohne-js">Sichern</button>
       </form>
+      {% set beispiel = angabe(s.gebiet, s.key) %}
+      {% if beispiel and s.status != "gesammelt" %}
+      <form method="post" action="/steuer/{{ jahr }}/stueck/{{ s.id }}/angabe" class="sq-angabe" data-stempel="NOTIERT">
+        <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back" value="{{ zurueck }}">
+        <label>Oder einfach eintippen, ohne Dokument
+          <textarea name="text" rows="2" maxlength="2000" placeholder="{{ beispiel }}">{% if s.key == "steuer-id" and steuernummer %}Steuernummer: {{ steuernummer }}
+Steuer-ID: {% endif %}</textarea></label>
+        <button class="sq-stempelknopf gruen">Notieren</button>
+      </form>
+      {% endif %}
       {% if s.status != "gesammelt" %}
       <div class="sq-aktionen">
         {% if s.status == "offen" %}
@@ -99,8 +109,10 @@
           <summary>Lieber fragen …</summary>
           <form method="post" action="/steuer/{{ jahr }}/stueck/{{ s.id }}/status" data-stempel="FRAGE" data-farbe="blau">
             <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back" value="{{ zurueck }}">
-            <input name="frage" placeholder="Deine Frage (darf leer bleiben)" aria-label="Frage an die Beraterin">
-            <button class="sq-stempelknopf" name="status" value="fragen">Fragen</button>
+            <p class="sq-frage-hinweis">Deine Frage kommt in die Mail an deine Beraterin. Die schickst du am Ende selbst ab.</p>
+            <input name="frage" placeholder="Deine Frage an die Beraterin (darf leer bleiben)" aria-label="Frage an die Beraterin">
+            <button class="sq-stempelknopf" name="status" value="fragen">In die Mail aufnehmen</button>
+            <a class="sq-frage-ki" href="/notfall">Erst selbst die KI fragen? Zum freien Chat →</a>
           </form>
         </details>
         {% else %}

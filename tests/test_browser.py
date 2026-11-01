@@ -50,8 +50,13 @@ def test_any_host_header_is_this_tab(app):
 
 
 def test_redirects_stay_inside_the_frame(app):
-    answer = get(app, "/sound", method="POST", body=b"token=falsch",
-                 headers=[("content-type", "application/x-www-form-urlencoded")])
+    answer = get(
+        app,
+        "/sound",
+        method="POST",
+        body=b"token=falsch",
+        headers=[("content-type", "application/x-www-form-urlencoded")],
+    )
     assert answer["status"] in (303, 403)
     location = dict(answer["headers"]).get("location")
     if location:
@@ -124,16 +129,22 @@ def test_missing_model_stops_redaction_instead_of_sending_half():
             return json.dumps({"error": "kein Internet"})
 
     with pytest.raises(RuntimeError, match="nichts an eine KI"):
-        redact("Frau Berger, 3 Std.", [Customer(id="b", name="Martina Berger")],
-               runtime.BrowserNER(Broken()))
+        redact(
+            "Frau Berger, 3 Std.",
+            [Customer(id="b", name="Martina Berger")],
+            runtime.BrowserNER(Broken()),
+        )
 
 
 def test_doc_from_entities_ignores_bad_spans():
-    doc = runtime.doc_from_entities("Hallo Berger", [
-        {"start": 6, "end": 12, "label": "PER"},
-        {"start": 0, "end": 99, "label": "PER"},
-        {"start": 0, "end": 5, "label": "DATE"},
-    ])
+    doc = runtime.doc_from_entities(
+        "Hallo Berger",
+        [
+            {"start": 6, "end": 12, "label": "PER"},
+            {"start": 0, "end": 99, "label": "PER"},
+            {"start": 0, "end": 5, "label": "DATE"},
+        ],
+    )
     assert len(doc.ents) == 1
     assert (doc.ents[0].text, doc.ents[0].label_, doc.ents[0].start_char) == ("Berger", "PER", 6)
     (token,) = doc.ents[0]

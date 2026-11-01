@@ -101,10 +101,20 @@
           {% endif %}
         </div>
         <div class="reihe">
-          <input name="frage" placeholder="Frage an die Beraterin (darf leer bleiben)" aria-label="Frage an die Beraterin">
+          <input name="frage" placeholder="Frage an die Beraterin, kommt in deine Mail (darf leer bleiben)" aria-label="Frage an die Beraterin, kommt in die Mail an sie">
           <button class="sq-stempelknopf" name="aktion" value="fragen">Lieber fragen</button>
         </div>
       </form>
+      {% set beispiel = angabe(k.gebiet, k.key) %}
+      {% if beispiel %}
+      <form method="post" action="/steuer/{{ jahr }}/stueck/{{ k.id }}/angabe" class="sq-angabe" data-stempel="TREFFER!">
+        <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back" value="/steuer/{{ jahr }}/drache">
+        <label>Oder eintippen, ohne Dokument
+          <textarea name="text" rows="2" maxlength="2000" placeholder="{{ beispiel }}">{% if k.key == "steuer-id" and steuernummer %}Steuernummer: {{ steuernummer }}
+Steuer-ID: {% endif %}</textarea></label>
+        <button class="sq-stempelknopf gruen">Notieren</button>
+      </form>
+      {% endif %}
     </article>
     </div>
   </div>

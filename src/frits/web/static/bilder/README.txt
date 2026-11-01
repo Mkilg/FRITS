@@ -5,7 +5,7 @@ fritte-willkommen, fritte-nachdenken, fritte-fertig, fritte-achtung, fritte-feie
 schreibtisch-tag (Hintergrund), feierabend-tisch (Hintergrund beim Feierabend)
 stempel-rund (Bezahlt, Gebucht, Angenommen), stempel-oval (Fertig)
 symbol-eingang, symbol-entwuerfe, symbol-rechnungen, symbol-angebote, symbol-ausgaben,
-symbol-kunden, symbol-einstellungen, symbol-steuer
+symbol-kunden, symbol-einstellungen, symbol-steuer, symbol-liste (Deine Liste auf „Heute“ und die Abgehakt-Karte)
 leer-eingang (wenn nichts im Eingang liegt), rueckblick-buendel (beim Feierabend)
 app-icon (Symbol im Browser-Tab; das Mac-App-Symbol liegt in packaging/macos/icon.png)
 

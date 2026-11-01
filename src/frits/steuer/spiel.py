@@ -11,6 +11,7 @@ keine verlorenen Punkte und immer einen Notausgang.
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass, field
 from datetime import date
@@ -158,6 +159,22 @@ def naechstes_zeitalter(anteil: float) -> tuple[str, int] | None:
     for ab, name, _satz in ZEITALTER:
         if anteil < ab:
             return name, max(1, round((ab - anteil) * 100))
+    return None
+
+
+# Was das nächste Zeitalter bringt: steht im Zeitalter-Zettel oben in der Leiste
+ZEITALTER_BRINGT = {
+    "Zeitalter der Ordnung": "Dann wacht der Papierdrache auf, und der Endkampf beginnt.",
+    "Goldenes Zeitalter": "Dann ist alles beisammen, und die Schatztruhe für deine Beraterin ist fertig.",
+}
+
+
+def weg_zum_zeitalter(stand: Stand) -> tuple[str, int, str] | None:
+    """(Name, wie viele Karten noch fehlen, was es bringt) für das nächste Zeitalter."""
+    for ab, name, _satz in ZEITALTER:
+        if stand.anteil < ab:
+            karten = max(1, math.ceil(ab * stand.gesamt - 1e-9) - stand.erledigt)
+            return name, karten, ZEITALTER_BRINGT.get(name, "")
     return None
 
 

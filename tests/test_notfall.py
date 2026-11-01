@@ -232,3 +232,20 @@ def test_answers_are_escaped_but_bold_stays():
     html = str(notfall.leicht("Bis **30.11.** zahlen <script>alert(1)</script>"))
     assert "<strong>30.11.</strong>" in html
     assert "<script>" not in html
+
+
+def test_a_steuer_beleg_opens_a_chat_already_redacted(client, ai, tmp_path):
+    """ "Mit KI besprechen" im Belegbuch: der Beleg kommt geschwärzt in einen neuen Chat."""
+    beleg = tmp_path / "Nebenkosten.txt"
+    beleg.write_text(BRIEF, encoding="utf-8")
+    key, problems = client.app_state.notfall_mit_datei(beleg, "Nebenkosten.txt")
+    assert key and problems == []
+    page = client.get(f"/notfall/{key}")
+    assert "Das sieht Claude" in page.text and "Nebenkosten.txt" in page.text
+    assert not ai.sent  # nothing goes out until a question is asked
+    g = client.app_state.notfall[key]
+    assert all(s not in g.docs[0].redacted for s in ("Gartenweg", "DE89"))
+    leer = tmp_path / "leer.txt"
+    leer.write_text("   ", encoding="utf-8")
+    key, problems = client.app_state.notfall_mit_datei(leer, "leer.txt")
+    assert key is None and problems[0].startswith("leer.txt: ")

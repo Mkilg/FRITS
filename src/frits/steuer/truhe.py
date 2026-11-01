@@ -2,7 +2,8 @@
 
 Du wählst, wie die Truhe verschlossen wird:
 - mit Passwort (empfohlen): AES-256. Das Passwort steht NICHT in der Mail; es geht
-  getrennt an die Beraterin (z. B. per SMS).
+  getrennt an die Beraterin (z. B. per SMS). Außen sieht man nur "Unterlagen-<jahr>.zip",
+  die echten Dateinamen liegen im inneren Zip.
 - ohne Passwort: ein normales Zip, das sich überall per Doppelklick öffnet. Dafür kann
   jeder es lesen, der die Mail in die Hände bekommt.
 Abgeschickt wird nichts von FRITS selbst: Die Mail öffnet sich im Mail-Programm, und du
@@ -116,10 +117,18 @@ _WOERTER = [
 ]
 
 
+# Für die Code-Blöcke: ohne 0/O, 1/I/L, damit beim Abtippen nichts verwechselt wird
+_ZEICHEN = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+
+
 def passwort() -> str:
-    """Z. B. "Wiese-Anker-Eule-Kahn-Moos-47": rund 40 Bit Zufall, trotzdem leicht vorzulesen."""
-    teile = [secrets.choice(_WOERTER).capitalize() for _ in range(5)]
-    return "-".join(teile) + f"-{secrets.randbelow(90) + 10}"
+    """Z. B. "Wiese-Anker-Eule-Kahn-Moos-K7PM-4XQR": 5 Wörter (rund 32 Bit) und zwei Blöcke
+    aus je 4 Zeichen (rund 40 Bit), zusammen über 70 Bit Zufall. Das hält auch, wenn eine
+    Truhe verloren geht: Zip-AES bremst Rateversuche kaum, also muss das Passwort selbst
+    lang sein. Trotzdem lässt es sich vorlesen und von Hand abschreiben."""
+    woerter = [secrets.choice(_WOERTER).capitalize() for _ in range(5)]
+    bloecke = ["".join(secrets.choice(_ZEICHEN) for _ in range(4)) for _ in range(2)]
+    return "-".join(woerter + bloecke)
 
 
 _STATUS_TEXT = {
@@ -177,7 +186,8 @@ def inhaltsverzeichnis(
     return "\n".join(zeilen)
 
 
-def _ordnername(nr: int, g: Gebiet) -> str:
+def ordnername(nr: int, g: Gebiet) -> str:
+    """Der Ordner dieses Gebiets im Zip, z. B. \"03 Selbstständig\"."""
     return f"{nr:02d} {g.bereich.replace('/', '-').replace(' · ', ' ')}"
 
 
@@ -192,20 +202,47 @@ def packen(
 ) -> Path:
     """Baut das Zip: ein Ordner pro Gebiet, dazu das Inhaltsverzeichnis.
 
-    Ohne Kennwort (None) wird es ein normales Zip ohne Verschlüsselung."""
+    Ohne Kennwort (None) wird es ein normales Zip ohne Verschlüsselung.
+    Mit Kennwort liegt das Zip noch einmal in einem verschlossenen Zip. Zip-AES verschlüsselt
+    nur den Inhalt, nicht die Dateinamen; so steht außen nur "Unterlagen-<jahr>.zip" und
+    niemand liest "Lohnsteuerbescheinigung" oder Ordnernamen ohne das Passwort."""
     ziel = Path(ziel)
     ziel.parent.mkdir(parents=True, exist_ok=True)
-    ordner_von = {g.id: _ordnername(nr, g) for nr, g in enumerate(gebiete, start=1)}
-    gebiet_von = {s["id"]: s["gebiet"] for s in stuecke}
     tmp = ziel.with_suffix(".zip.tmp")
-    if kennwort:
-        zf = pyzipper.AESZipFile(
-            tmp, "w", compression=pyzipper.ZIP_DEFLATED, encryption=pyzipper.WZ_AES
-        )
-        zf.setpassword(kennwort.encode("utf-8"))
-    else:
-        zf = zipfile.ZipFile(tmp, "w", compression=zipfile.ZIP_DEFLATED)
-    with zf:
+    if not kennwort:
+        _packe_unterlagen(tmp, profil, gebiete, stuecke, dateien, verweise)
+        tmp.replace(ziel)
+        return ziel
+    innen = ziel.with_suffix(".innen.tmp")
+    try:
+        _packe_unterlagen(innen, profil, gebiete, stuecke, dateien, verweise)
+        with pyzipper.AESZipFile(
+            tmp, "w", compression=pyzipper.ZIP_STORED, encryption=pyzipper.WZ_AES
+        ) as zf:
+            zf.setpassword(kennwort.encode("utf-8"))
+            zf.write(innen, innen_name(profil.jahr))
+    finally:
+        innen.unlink(missing_ok=True)
+    tmp.replace(ziel)
+    return ziel
+
+
+def innen_name(jahr: int) -> str:
+    """Der einzige Name, den man außen an einer verschlossenen Truhe sieht."""
+    return f"Unterlagen-{jahr}.zip"
+
+
+def _packe_unterlagen(
+    ziel: Path,
+    profil: Profil,
+    gebiete: list[Gebiet],
+    stuecke: list[dict],
+    dateien: list[dict],
+    verweise: list[dict] | None,
+) -> None:
+    ordner_von = {g.id: ordnername(nr, g) for nr, g in enumerate(gebiete, start=1)}
+    gebiet_von = {s["id"]: s["gebiet"] for s in stuecke}
+    with zipfile.ZipFile(ziel, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         zf.writestr(
             "00 Inhaltsverzeichnis.txt",
             inhaltsverzeichnis(profil, gebiete, stuecke, dateien, verweise).encode("utf-8"),
@@ -216,8 +253,6 @@ def packen(
             if gebiet not in ordner_von or not pfad.is_file():
                 continue
             zf.write(pfad, f"{ordner_von[gebiet]}/{pfad.name}")
-    tmp.replace(ziel)
-    return ziel
 
 
 def verschluesselt(pfad: Path) -> bool:
@@ -310,7 +345,12 @@ def mail(
         for s in stuecke
         if s["status"] == "fragen" and s["frage"] == MACHT_BERATERIN
     ]
-    fragen = [s for s in stuecke if s["status"] == "fragen" and s["frage"] != MACHT_BERATERIN]
+    # Auch eine Frage zu einem Beleg, der schon da ist, kommt in die Mail
+    fragen = [
+        s
+        for s in stuecke
+        if s["frage"] != MACHT_BERATERIN and (s["status"] == "fragen" or s["frage"])
+    ]
     # Was sie sich gewünscht hat, geht nie verloren, auch auf Bonus-Karten
     von_ihr = [(wo(s), s["name"]) for s in stuecke if s["status"] == "offen" and s.get("wunsch")]
     offen = [
@@ -324,7 +364,8 @@ def mail(
         zeilen[-1] += f" Das Passwort schicke ich {dir_} getrennt."
         zeilen.append(
             "Die Datei ist mit AES verschlüsselt; falls sie sich nicht per Doppelklick "
-            "öffnen lässt, klappt es mit 7-Zip."
+            "öffnen lässt, klappt es mit 7-Zip. Darin liegt noch ein Zip mit den "
+            "Unterlagen, das sich dann ohne Passwort öffnet."
         )
     zeilen.append("")
     if dabei:

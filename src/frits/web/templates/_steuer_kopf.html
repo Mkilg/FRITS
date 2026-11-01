@@ -2,15 +2,28 @@
 <header class="sq-leiste" data-jahr="{{ jahr }}">
   <a class="sq-titel" href="/steuer/{{ jahr }}">Steuer-Quest <span>{{ jahr }}</span></a>
   <ul class="sq-marken">
-    <li class="sq-marke belege" title="Gesicherte Dokumente"><i></i><b data-zaehler="belege">{{ ressourcen.belege }}</b> Belege</li>
+    <li class="sq-marke belege"><a href="/steuer/{{ jahr }}/belege" title="Gesicherte Dokumente. Hier geht es zum Belegbuch: alles ansehen, Fragen dazu stellen."><i></i><b data-zaehler="belege">{{ ressourcen.belege }}</b> Belege</a></li>
     <li class="sq-marke briefe" title="Wünsche deiner Beraterin"><i></i><b data-zaehler="briefe">{{ ressourcen.briefe }}</b> Briefe</li>
     <li class="sq-marke siegel" title="Komplette Provinzen"><i></i><b data-zaehler="siegel">{{ ressourcen.siegel }}</b> Siegel</li>
     <li class="sq-marke fragen" title="Fragen an deine Beraterin"><i></i><b data-zaehler="fragen">{{ ressourcen.fragen }}</b> Fragen</li>
     <li class="sq-marke gold"><a href="/steuer/{{ jahr }}/markt" title="Dein Gold. Auf dem Hafenmarkt baust du damit deine Insel aus."><i></i><b data-zaehler="gold">{{ ressourcen.gold }}</b> Gold</a></li>
   </ul>
-  <div class="sq-zeitalter" title="{{ zeitalter[2] }}">
+  <details class="sq-zeitalter">
+    <summary title="Was bringt das nächste Zeitalter?">
     <span>{{ zeitalter[1] }}</span>
     <span class="sq-band" role="progressbar" aria-label="Fortschritt" aria-valuenow="{{ gesamt.prozent }}" aria-valuemin="0" aria-valuemax="100"><span style="width: {{ gesamt.prozent }}%"></span></span>
     <span><b data-zaehler="prozent">{{ gesamt.prozent }}</b> %</span>
-  </div>
+    <span class="sq-zeitalter-info" aria-hidden="true">?</span>
+    </summary>
+    <div class="sq-zeitalter-zettel">
+      <p><strong>{{ zeitalter[1] }}.</strong> {{ zeitalter[2] }}</p>
+      {% if weg is defined and weg %}
+      <p>Nächstes: <strong>{{ weg[0] }}</strong>, noch <strong>{{ weg[1] }} Karte{{ "n" if weg[1] != 1 }}</strong>. {{ weg[2] }}</p>
+      {% elif drache is defined and not drache.besiegt %}
+      <p>Fast geschafft: Erst wenn der Drache besiegt ist, beginnt das Goldene Zeitalter.</p>
+      {% endif %}
+      <p class="muted">Jede beantwortete Karte zählt: eine Datei, eine Angabe, „Gibt's nicht“ oder eine Frage an die Beraterin. Bonus-Schätze zählen nicht mit, sie bringen Gold.</p>
+      <p class="muted">Bisher: {{ gesamt.erledigt }} von {{ gesamt.gesamt }} Karten.</p>
+    </div>
+  </details>
 </header>

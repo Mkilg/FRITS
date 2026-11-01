@@ -16,7 +16,8 @@ from importlib import resources
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, UploadFile
-from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
+from starlette.concurrency import run_in_threadpool
 
 from frits import store, system
 from frits.settings import Workspace
@@ -26,6 +27,7 @@ from frits.steuer.katalog import (
     HAKEN,
     MACHT_BERATERIN,
     Profil,
+    angabe,
     fehlt_nie,
     fragen,
     gebiet,
@@ -202,6 +204,58 @@ def fritte_tipp(daten: dict, lager: list) -> tuple[str, str]:
     return "done", "Alle Provinzen tragen ein Siegel. Der Drache zittert schon."
 
 
+# Was der Browser direkt zeigen darf. Alles andere (auch HTML oder SVG) wird nur heruntergeladen.
+ZEIGBAR = {
+    ".pdf": "application/pdf",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+    ".heic": "image/heic",
+    ".txt": "text/plain; charset=utf-8",
+    ".csv": "text/plain; charset=utf-8",
+}
+VORSCHAUBILD = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
+
+
+def groesse_text(bytes_: int) -> str:
+    if bytes_ < 1024 * 1024:
+        return f"{max(1, round(bytes_ / 1024))} KB" if bytes_ else "0 KB"
+    return f"{bytes_ / (1024 * 1024):.1f} MB".replace(".", ",")
+
+
+def beleg_info(d: dict) -> dict:
+    """Eine Datei fürs Belegbuch: was für eine Art, wie groß, bei Angaben der Text selbst."""
+    pfad = Path(d["pfad"])
+    endung = pfad.suffix.lower()
+    original = d.get("original") or pfad.name
+    groesse = pfad.stat().st_size if pfad.is_file() else 0
+    art = "datei"
+    text = ""
+    if endung == ".txt" and original.startswith("Angabe ") and pfad.is_file():
+        art = "angabe"
+        roh = pfad.read_text(encoding="utf-8", errors="replace")
+        text = roh.split("\n\n", 1)[-1].strip()[:600]
+    elif endung in VORSCHAUBILD:
+        art = "bild"
+    elif endung == ".pdf":
+        art = "pdf"
+    elif endung in (".txt", ".csv"):
+        art = "text"
+    return {
+        **d,
+        "name": pfad.name,
+        "original": original,
+        "art": art,
+        "text": text,
+        "groesse": groesse,
+        "groesse_text": groesse_text(groesse),
+        "zeigbar": endung in ZEIGBAR,
+        "da": pfad.is_file(),
+    }
+
+
 def register_steuer(
     app: FastAPI,
     *,
@@ -246,6 +300,8 @@ def register_steuer(
             fehlt_nie=fehlt_nie,
             warum=warum,
             macht_beraterin=macht_beraterin,
+            angabe=angabe,
+            steuernummer=settings().steuernummer,
             MACHT_BERATERIN=MACHT_BERATERIN,
             datum=schoenes_datum,
             vermute=spiel.vermute,
@@ -300,6 +356,7 @@ def register_steuer(
                 silber=bool(zweifel),
             ),
             "naechstes": spiel.naechstes_zeitalter(gesamt.anteil),
+            "weg": spiel.weg_zum_zeitalter(gesamt),
             "drache": drache,
             "drache_wach": wach,
             "auftrag": spiel.auftrag(jahr, staende, drache, zettel, alle, wach),
@@ -757,6 +814,34 @@ def register_steuer(
             return back(f"/steuer/{jahr}/drache")
         return back(str(form.get("back") or f"/steuer/{jahr}/gebiet/{s['gebiet']}"))
 
+    @app.post("/steuer/{jahr}/stueck/{stueck_id}/angabe", dependencies=guarded)
+    async def angabe_eintippen(request: Request, jahr: int, stueck_id: int):
+        """Eintippen statt hochladen: "14 km einfach, 120 Tage". Die Angabe wird eine kleine
+        Textdatei bei der Karte, kommt so ins Zip und ins Inhaltsverzeichnis."""
+        form = await request.form()
+        s = stueck_im_jahr(jahr, stueck_id)
+        zurueck = str(form.get("back") or f"/steuer/{jahr}/gebiet/{s['gebiet']}")
+        text = str(form.get("text") or "").strip()[:2000]
+        if not text:
+            flash("Tipp kurz ein, was du weißt. Ein Stichwort reicht.")
+            return back(zurueck)
+        vorher = lage(jahr)
+        ablage = quest.lager(ws.root)
+        ablage.mkdir(parents=True, exist_ok=True)
+        original = f"Angabe {s['name']}.txt"
+        tmp = ablage / f".angabe-{s['id']}.txt"
+        tmp.write_text(f"{s['name']}\n\n{text}\n", encoding="utf-8")
+        c = conn()
+        fund = quest.sammeln(c, ws.root, s["id"], tmp, original=original, verschieben=True)
+        if fund.neu:
+            quest.notiere(c, jahr, "fund", f"{s['name']}: eingetippt")
+            flash(f"+1 Angabe! {s['name']} ist notiert und kommt so in die Truhe.", "beute", "done")
+        else:
+            flash("Genau diese Angabe liegt schon bei der Karte.")
+        if belohnen(jahr, vorher):
+            return back(f"/steuer/{jahr}/drache")
+        return back(zurueck)
+
     @app.post("/steuer/{jahr}/stueck/{stueck_id}/datei", dependencies=guarded)
     async def datei_hochladen(request: Request, jahr: int, stueck_id: int):
         form = await request.form()
@@ -859,6 +944,123 @@ def register_steuer(
             flash(f"Der Drache hat wieder {lp} Karte{'n' if lp != 1 else ''}.", "treffer")
         belohnen(jahr, vorher, ferne=False)
         return back(str(form.get("back") or f"/steuer/{jahr}"))
+
+    # ----- Belegbuch: alles, was schon da ist, an einem Ort -----
+
+    def datei_pfad(jahr: int, datei_id: int) -> tuple[dict, Path]:
+        """Die Datei zu dieser Nummer, nur wenn sie wirklich im Quest-Ordner dieses Jahres liegt."""
+        d = quest.datei(conn(), jahr, datei_id)
+        if d is None:
+            raise HTTPException(404)
+        pfad = Path(d["pfad"]).resolve()
+        if not pfad.is_file() or quest.ordner(ws.root, jahr).resolve() not in pfad.parents:
+            raise HTTPException(404)
+        return d, pfad
+
+    @app.get("/steuer/{jahr}/belege", response_class=HTMLResponse)
+    def belegbuch(request: Request, jahr: int):
+        daten = lage(jahr)
+        c = conn()
+        nach_stueck: dict[int, list[dict]] = {}
+        for d in quest.dateien(c, jahr):
+            nach_stueck.setdefault(d["stueck_id"], []).append(beleg_info(d))
+        mit: dict[int, list[dict]] = {}
+        for v in quest.verweise(c, jahr):
+            v["bei_titel"] = titel_von(jahr, v["bei_gebiet"])
+            mit.setdefault(v["stueck_id"], []).append(v)
+        provinzen = []
+        for nr, g in enumerate(daten["gebiete"], start=1):
+            karten = [
+                {**s, "dateien": nach_stueck.get(s["id"], []), "mit": mit.get(s["id"], [])}
+                for s in daten["stuecke"]
+                if s["gebiet"] == g.id
+            ]
+            provinzen.append(
+                {
+                    "g": g,
+                    "ordner": truhe.ordnername(nr, g),
+                    "karten": karten,
+                    "anzahl": sum(len(k["dateien"]) for k in karten),
+                    "leer": [
+                        k
+                        for k in karten
+                        if k["status"] == "offen" and k["art"] != "bonus" and not k["mit"]
+                    ],
+                }
+            )
+        alle = [d for p in provinzen for k in p["karten"] for d in k["dateien"]]
+        zahlen = None
+        try:
+            from frits import euer
+
+            summe = euer.summarize(ws.db, jahr, settings().tax_mode)
+            if summe.invoice_count or summe.expense_count or summe.credit_count:
+                zahlen = summe
+        except Exception:  # noqa: BLE001 - die Zahlen sind ein Extra, das Belegbuch geht auch ohne
+            zahlen = None
+        return seite(
+            request,
+            "steuer_belege.html",
+            belegprovinzen=provinzen,
+            summen={
+                "belege": sum(1 for d in alle if d["art"] != "angabe"),
+                "angaben": sum(1 for d in alle if d["art"] == "angabe"),
+                "groesse": groesse_text(sum(d["groesse"] for d in alle)),
+                "leer": sum(len(p["leer"]) for p in provinzen),
+                "fragen": sum(
+                    1
+                    for s in daten["stuecke"]
+                    if s["frage"] != MACHT_BERATERIN and (s["status"] == "fragen" or s["frage"])
+                ),
+            },
+            korb=quest.lager_dateien(ws.root),
+            zahlen=zahlen,
+            **daten,
+        )
+
+    @app.get("/steuer/{jahr}/datei/{datei_id}")
+    def datei_zeigen(jahr: int, datei_id: int):
+        """Zeigt einen Beleg im Browser. Nur Bilder, PDFs und Text werden direkt gezeigt,
+        alles andere wird heruntergeladen (so kann keine Datei als Webseite laufen)."""
+        d, pfad = datei_pfad(jahr, datei_id)
+        typ = ZEIGBAR.get(pfad.suffix.lower())
+        name = d["original"] or pfad.name
+        return FileResponse(
+            pfad,
+            media_type=typ or "application/octet-stream",
+            filename=name,
+            content_disposition_type="inline" if typ else "attachment",
+            headers={"X-Content-Type-Options": "nosniff"},
+        )
+
+    @app.post("/steuer/{jahr}/datei/{datei_id}/ki", dependencies=guarded)
+    async def datei_mit_ki(jahr: int, datei_id: int):
+        """Öffnet den freien Chat mit diesem Beleg: hier gelesen und geschwärzt.
+        Raus geht erst etwas, wenn du dort eine Frage stellst."""
+        d, pfad = datei_pfad(jahr, datei_id)
+        mit_datei = getattr(app.state, "notfall_mit_datei", None)
+        if mit_datei is None:
+            flash("Der Chat mit der KI ist gerade nicht da.")
+            return back(f"/steuer/{jahr}/belege")
+        key, probleme = await run_in_threadpool(mit_datei, pfad, d["original"] or pfad.name)
+        for p in probleme:
+            flash(p, "error")
+        if key:
+            return back(f"/notfall/{key}#unterlagen")
+        return back(f"/steuer/{jahr}/belege#karte-{d['stueck_id']}")
+
+    @app.post("/steuer/{jahr}/stueck/{stueck_id}/frage", dependencies=guarded)
+    async def frage_merken(request: Request, jahr: int, stueck_id: int):
+        """Eine Frage zu einer Karte, ohne den Stempel zu ändern. Sie kommt in die Mail."""
+        form = await request.form()
+        s = stueck_im_jahr(jahr, stueck_id)
+        text = str(form.get("frage") or "").strip()
+        quest.setze_frage(conn(), stueck_id, text)
+        if text:
+            flash(f"Notiert. Deine Frage zu {s['name']} kommt in die Mail an deine Beraterin.")
+        else:
+            flash(f"Die Frage zu {s['name']} ist gelöscht.")
+        return back(str(form.get("back") or f"/steuer/{jahr}/belege#karte-{stueck_id}"))
 
     @app.post("/steuer/{jahr}/gebiet/{gebiet_id}/name", dependencies=guarded)
     async def gebiet_name(request: Request, jahr: int, gebiet_id: str):
