@@ -49,6 +49,12 @@
       {% if s.status in schild %}<span class="sq-abdruck {{ s.status }}">{{ "Macht die Beraterin" if s.frage == MACHT_BERATERIN else schild[s.status] }}</span>{% endif %}
       <h3>{{ s.name }}</h3>
       {% if s.hinweis %}<p class="hinweis">{{ s.hinweis }}</p>{% endif %}
+      {% if s.wunsch %}
+      <form method="post" action="/steuer/{{ jahr }}/stueck/{{ s.id }}/wunsch-weg" class="sq-wunsch-weg">
+        <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back" value="{{ zurueck }}">
+        <button class="quiet" title="FRITS hat eine Zeile ihrer Mail falsch zugeordnet">Hat sie gar nicht gewünscht? {{ "Karte entfernen" if s.herkunft == "beraterin" and s.status == "offen" else "Markierung entfernen" }}</button>
+      </form>
+      {% endif %}
       {% if s.frage == MACHT_BERATERIN %}<p class="hinweis"><strong>Macht deine Beraterin, wie immer.</strong></p>{% elif s.frage %}<p class="hinweis"><strong>Deine Frage:</strong> {{ s.frage }}</p>{% endif %}
       {% if s.datei_liste or s.verweis_liste %}
       <ul class="sq-dateien">

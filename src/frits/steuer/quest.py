@@ -300,21 +300,27 @@ def _root(conn: sqlite3.Connection) -> Path | None:
 
 
 def heile_pfad(conn: sqlite3.Connection, pfad: str) -> str:
-    """Gespeicherte Pfade sind absolut. Wurde der FRITS-Ordner verschoben oder aus einer
-    Sicherung zurückgeholt, zeigen sie ins Leere. Dann gilt der Teil ab "steuer/<jahr>"
-    im jetzigen Ordner."""
+    """Gespeicherte Pfade sind absolut. Wurde der FRITS-Ordner verschoben, kopiert oder aus
+    einer Sicherung zurückgeholt, gilt immer der Teil ab "steuer/<jahr>" im JETZIGEN Ordner
+    (dem neben frits.db), auch wenn der alte Ordner noch da ist. Ein Pfad außerhalb des
+    jetzigen Ordners wird nie benutzt: Sonst würde eine Kopie die Dateien des Originals
+    zeigen, verschieben oder in die Truhe packen."""
     alt = Path(pfad)
-    if alt.exists():
-        return pfad
-    teile = alt.parts
     root = _root(conn)
     if root is None:
         return pfad
+    teile = alt.parts
     for i in range(len(teile) - 2, -1, -1):
         if teile[i] == "steuer" and re.fullmatch(r"\d{4}", teile[i + 1]):
-            neu = root.joinpath(*teile[i:])
-            return str(neu) if neu.exists() else pfad
-    return pfad
+            return str(root.joinpath(*teile[i:]))
+    return pfad if _liegt_in(alt, root) else str(root / "steuer" / "fehlt" / alt.name)
+
+
+def _liegt_in(pfad: Path, root: Path) -> bool:
+    try:
+        return pfad.resolve().is_relative_to(root.resolve())
+    except OSError:
+        return False
 
 
 def _geheilt(conn: sqlite3.Connection, row) -> dict:
@@ -330,6 +336,27 @@ def datei(conn: sqlite3.Connection, jahr: int, datei_id: int) -> dict | None:
         "SELECT * FROM steuer_dateien WHERE id = ? AND jahr = ?", (datei_id, jahr)
     ).fetchone()
     return _geheilt(conn, row) if row else None
+
+
+def wunsch_weg(conn: sqlite3.Connection, stueck_id: int) -> str:
+    """Falsch gelesen: Das hat die Beraterin gar nicht gewünscht. Eine Katalog-Karte verliert
+    nur die Markierung; eine Karte, die erst aus ihrer Mail entstand, verschwindet, solange
+    nichts darauf liegt. Gibt "markierung" oder "karte" zurück."""
+    s = stueck(conn, stueck_id)
+    leer = (
+        not _anzahl_dateien(conn, stueck_id)
+        and not conn.execute(
+            "SELECT 1 FROM steuer_verweise WHERE stueck_id = ?", (stueck_id,)
+        ).fetchone()
+    )
+    with transaction(conn):
+        if s["herkunft"] == "beraterin" and leer:
+            conn.execute("DELETE FROM steuer_stuecke WHERE id = ?", (stueck_id,))
+            return "karte"
+        conn.execute(
+            "UPDATE steuer_stuecke SET wunsch = 0, geaendert = ? WHERE id = ?", (_now(), stueck_id)
+        )
+    return "markierung"
 
 
 def markiere_wunsch(conn: sqlite3.Connection, stueck_id: int) -> None:

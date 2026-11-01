@@ -70,9 +70,14 @@ class Ernte:
 
     @property
     def gewinn(self) -> str:
+        """Der Betrag ohne Vorzeichen; ob Gewinn oder Verlust, sagt gewinn_wort."""
         if self.euer is None:
             return ""
-        return euer._euro(self.euer.profit) + " €"
+        return euer._euro(abs(self.euer.profit)) + " €"
+
+    @property
+    def gewinn_wort(self) -> str:
+        return "Verlust" if self.euer is not None and self.euer.profit < 0 else "Gewinn"
 
 
 def ziele(gebiete: list[Gebiet]) -> list[Gebiet]:
