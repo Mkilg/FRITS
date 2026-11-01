@@ -27,7 +27,7 @@ from fastapi.templating import Jinja2Templates
 from jinja2 import Environment, PackageLoader, select_autoescape
 from markupsafe import Markup
 
-from frits import emails, euer, expenses, setup, store, system
+from frits import __version__, about, emails, euer, expenses, setup, store, system
 from frits.billing import (
     BillingError,
     Draft,
@@ -1008,6 +1008,29 @@ def create_app(
     @app.get("/mailto")
     def mailto_page(request: Request):
         return page(request, "mailto.html", link=getattr(app.state, "mailto", ""))
+
+    @app.get("/ueber")
+    def about_page(request: Request):
+        return page(
+            request,
+            "ueber.html",
+            about=about.ABOUT,
+            placeholder=about.is_placeholder,
+            bug_address=about.BUG_ADDRESS,
+            version=__version__,
+            computer=about.system_info(),
+        )
+
+    @app.post("/ueber/fehler", dependencies=guarded)
+    def about_bug_report(request: Request):
+        subject, body = about.bug_email()
+        result = system.compose_email(about.BUG_ADDRESS, subject, body, None)
+        if not result.opened:
+            return page(request, "mailto.html", link=result.mailto, attachment=False)
+        flash(
+            "Die Fehler-Mail ist in Mail geöffnet. Schreib kurz, was passiert ist, und drück auf Senden."
+        )
+        return back("/ueber")
 
     from frits.web.steuer import register_steuer
 
