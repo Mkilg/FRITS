@@ -92,6 +92,11 @@ class Provinzstand:
         return STUFEN[self.stand.stufe]
 
     @property
+    def nur_bonus(self) -> bool:
+        """Eine Provinz nur aus Schätzen (z. B. die Burg) ist Extra, nie Pflicht."""
+        return bool(self.stuecke) and all(ist_bonus(s) for s in self.stuecke)
+
+    @property
     def schaetze(self) -> int:
         """Gefundene Bonus-Schätze."""
         return sum(1 for s in self.stuecke if ist_bonus(s) and s["status"] == "gesammelt")
@@ -142,7 +147,7 @@ def ressourcen(stuecke: list[dict], provinzstaende: list[Provinzstand]) -> Resso
     return Ressourcen(
         belege=sum(s.get("dateien", 0) for s in stuecke),
         briefe=sum(1 for s in stuecke if s["wunsch"]),
-        siegel=sum(1 for p in provinzstaende if p.stand.siegel),
+        siegel=sum(1 for p in provinzstaende if p.stand.siegel and not p.nur_bonus),
         fragen=sum(1 for s in stuecke if s["status"] == "fragen"),
         gold=sum(1 for s in stuecke if ist_bonus(s) and s["status"] == "gesammelt"),
     )
@@ -204,13 +209,24 @@ def drache(stuecke: list[dict]) -> Drache:
     return Drache(lp=len(karten), max_lp=len(pflichten), karten=karten)
 
 
-def treffer(combo: int, kritisch: bool) -> tuple[int, str]:
-    """Neue Combo-Zahl und der passende Ruf. Kritische Treffer zählen doppelt."""
+def treffer(combo: int, kritisch: bool, zaehlt: bool = True) -> tuple[int, str]:
+    """Neue Combo-Zahl und der passende Ruf. Kritische Treffer (eine Datei) zählen doppelt.
+
+    "Gibt's nicht" zählt nicht für die Serie (zaehlt=False): Die Serie hält, wächst aber nicht.
+    Sonst wäre Wegstempeln der schnellste Weg zum Sieg, und genau das soll das Spiel nicht belohnen.
+    """
+    if not zaehlt:
+        return combo, "Notiert. Die Serie hält."
     neu = combo + (2 if kritisch else 1)
     ruf = RUFE[min(neu, len(RUFE) - 1)]
     if kritisch:
         ruf = "Kritischer Treffer! " + ruf
     return neu, ruf
+
+
+def drache_wach(stuecke: list[dict]) -> bool:
+    """Der Drache wacht erst im Zeitalter der Ordnung auf: Erst wird gebaut, dann gekämpft."""
+    return gesamtstand(stuecke).anteil >= ZEITALTER[1][0]
 
 
 # ---------- Erfolge ----------
@@ -263,3 +279,86 @@ def erfolge(
 def neue_erfolge(vorher: list[Erfolg], nachher: list[Erfolg]) -> list[Erfolg]:
     alt = {e.key for e in vorher if e.erreicht}
     return [e for e in nachher if e.erreicht and e.key not in alt]
+
+
+# ---------- Der nächste Auftrag ----------
+# Gute Spiele lassen dich nie raten, was als Nächstes kommt: Es gibt immer genau einen
+# klaren Auftrag (Zelda, Stardew Valley), er ist klein genug für die nächsten Minuten,
+# und die Belohnung steht schon dabei. Am liebsten der Auftrag, der fast fertig ist:
+# Je näher das Ziel, desto mehr Lust hat man (Zeigarnik und "goal gradient").
+
+
+@dataclass(frozen=True)
+class Auftrag:
+    art: str  # korb | provinz | sieg | start
+    titel: str
+    text: str
+    knopf: str
+    ziel: str  # Adresse, zu der der Knopf führt
+    belohnungen: tuple[str, ...] = ()
+    gebiet_id: str = ""
+    erledigt: int = 0
+    gesamt: int = 0
+
+
+def auftrag(
+    jahr: int, staende: list[Provinzstand], drache_: Drache, zettel: int, stuecke: list[dict]
+) -> Auftrag:
+    """Genau ein klarer nächster Schritt, mit Belohnung."""
+    basis = f"/steuer/{jahr}"
+    if drache_.besiegt and stuecke:
+        return Auftrag(
+            "sieg",
+            "Hol dir deine Beute",
+            "Der Drache ist besiegt. Pack die Schatztruhe für deine Beraterin.",
+            "Zur Schatztruhe",
+            f"{basis}/sieg",
+            ("Goldenes Zeitalter",),
+        )
+    if zettel:
+        return Auftrag(
+            "korb",
+            "Sortiere den Eingangskorb",
+            (
+                "Ein Zettel wartet. Zieh ihn auf seine Provinz."
+                if zettel == 1
+                else f"{zettel} Zettel warten. Zieh jeden auf seine Provinz."
+            ),
+            "Ersten Zettel ansehen",
+            "#sq-korb",
+            ("+1 Beleg pro Zettel",),
+            erledigt=0,
+            gesamt=zettel,
+        )
+    offen = [p for p in staende if not p.stand.siegel]
+    if not offen:
+        return Auftrag(
+            "sieg",
+            "Stell dich dem Drachen",
+            "Alle Provinzen tragen ihr Siegel.",
+            "Zum Drachenhort",
+            f"{basis}/drache",
+        )
+    # Angefangene Provinzen zuerst, dann die mit den wenigsten offenen Karten.
+    ziel = min(offen, key=lambda p: (p.stand.erledigt == 0, p.stand.offen))
+    gesamt = gesamtstand(stuecke)
+    jetzt = zeitalter(gesamt.anteil)[0]
+    danach_anteil = (gesamt.erledigt + ziel.stand.offen) / gesamt.gesamt if gesamt.gesamt else 1
+    belohnungen = ["Gold-Siegel"]
+    if zeitalter(danach_anteil)[0] > jetzt:
+        belohnungen.append(f"Aufstieg ins {zeitalter(danach_anteil)[1]}")
+    if not any(p.stand.siegel for p in staende):
+        belohnungen.append("Orden „Erste Ernte“")
+    rest = ziel.stand.offen
+    karten = "eine Karte" if rest == 1 else f"{rest} Karten"
+    return Auftrag(
+        "provinz",
+        f"Versiegle {ziel.gebiet.titel}",
+        f"Noch {karten}. Leg ab, was du hast. Was es nicht gibt, stempelst du einfach ab.",
+        "Los geht's",
+        f"{basis}/gebiet/{ziel.gebiet.id}",
+        tuple(belohnungen),
+        gebiet_id=ziel.gebiet.id,
+        erledigt=ziel.stand.erledigt,
+        gesamt=ziel.stand.gesamt,
+    )

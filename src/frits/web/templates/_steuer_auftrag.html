@@ -1,0 +1,19 @@
+{# Der Auftrag: immer genau ein klarer nächster Schritt, mit Belohnung. Erwartet: auftrag, jahr #}
+{% set ziel = auftrag.ziel if not auftrag.ziel.startswith("#") else auftrag.ziel %}
+<section class="sq-auftrag art-{{ auftrag.art }}" aria-label="Dein Auftrag">
+  <span class="sq-auftrag-siegel" aria-hidden="true">!</span>
+  <div class="sq-auftrag-text">
+    <p class="sq-kicker">Dein Auftrag</p>
+    <h2>{{ auftrag.titel }}</h2>
+    <p>{{ auftrag.text }}</p>
+    {% if auftrag.gesamt and auftrag.art == "provinz" %}
+    <span class="sq-auftrag-perlen" aria-label="{{ auftrag.erledigt }} von {{ auftrag.gesamt }}">{% for i in range(auftrag.gesamt) %}<i class="{{ 'voll' if i < auftrag.erledigt }}"></i>{% endfor %}</span>
+    {% endif %}
+  </div>
+  {% if auftrag.belohnungen %}
+  <ul class="sq-auftrag-lohn" aria-label="Belohnung">
+    {% for b in auftrag.belohnungen %}<li>{{ b }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+  <a class="sq-siegelknopf" href="{{ ziel }}">{{ auftrag.knopf }} →</a>
+</section>

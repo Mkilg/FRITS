@@ -5,8 +5,16 @@ import pytest
 from frits.mascot import MOODS, _lines, line, mascot_svg, step
 
 SETUP_STEPS = [
-    "welcome", "choose_ai", "store_key", "business_details", "tax_status",
-    "redaction_test", "trick_document", "permissions", "first_invoice", "done",
+    "welcome",
+    "choose_ai",
+    "store_key",
+    "business_details",
+    "tax_status",
+    "redaction_test",
+    "trick_document",
+    "permissions",
+    "first_invoice",
+    "done",
 ]
 
 

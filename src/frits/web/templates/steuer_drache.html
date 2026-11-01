@@ -1,10 +1,25 @@
 {% extends "base.html" %}
 {% block title %}Papierdrache · Steuer-Quest{% endblock %}
 {% block head %}<link rel="stylesheet" href="/static/steuer.css"><script src="/static/steuer.js" defer></script>{% endblock %}
+{% block flashes %}{% endblock %}
 {% block content %}
 <div class="sq sq-tisch nacht{% if frisch %} frisch wackeln-{{ [combo.combo, 3] | min }}{% endif %}" data-klang="{{ 'an' if klang else 'aus' }}" {% if frisch %}data-treffer="{{ frisch }}" data-combo="{{ combo.combo }}"{% endif %}{% include "_steuer_stil.html" %}>
+{% include "_steuer_meldungen.html" %}
 {% include "_steuer_kopf.html" %}
+{% if not drache_wach %}
+<section class="sq-arena sq-arena-schlaf">
+  <div class="sq-drache-gross">{% set drache_pose = "schlaeft" %}{% include "_steuer_drache.html" %}</div>
+  <div class="sq-papier sq-schief" style="--r: -0.6deg">
+    <h1>Der Papierdrache schläft noch</h1>
+    <p>Er wacht im <strong>Zeitalter der Ordnung</strong> auf, bei 40&nbsp;%. Du bist bei {{ gesamt.prozent }}&nbsp;%.{% if naechstes %} Noch {{ naechstes[1] }}&nbsp;%.{% endif %}</p>
+    <p>Bis dahin baust du deine Provinzen auf. Jede Karte, die du dort erledigst, hat der Drache später nicht mehr.</p>
+    <span class="sq-band" style="width: 100%"><span style="width: {{ [gesamt.prozent * 100 // 40, 100] | min }}%"></span></span>
+    <p class="sq-arena-knopf"><a class="sq-siegelknopf" href="{{ auftrag.ziel if not auftrag.ziel.startswith('#') else '/steuer/' ~ jahr ~ auftrag.ziel }}">{{ auftrag.titel }} →</a></p>
+  </div>
+</section>
+{% else %}
 <section class="sq-arena">
+  <div class="sq-arena-boss">
   <div class="sq-drache-gross">{% include "_steuer_drache.html" %}</div>
   <h1>{% if drache.besiegt %}Der Drache ist besiegt!{% elif drache.lp == drache.max_lp %}Der Papierdrache erwacht!{% else %}Der Papierdrache {{ "taumelt" if drache.stimmung == "taumelt" else "wankt" }}!{% endif %}</h1>
   <p>Er hat nur noch die Karten, die du vorher nicht gefunden hast: {{ drache.lp }} von {{ drache.max_lp }}. Bonus-Schätze zählen nicht, die sind nur Extra-Gold.</p>
@@ -14,6 +29,7 @@
   <span class="sq-band rot" style="width: 320px"><span style="width: {{ drache.prozent }}%"></span></span>
   {% endif %}
   <span class="sq-lp-zahl"><b data-zaehler="lp">{{ drache.lp }}</b> Lebenspunkte</span>
+  </div>
 
   {% if combo.combo %}
   <div class="sq-combo" aria-live="polite"><span class="mult">×{{ combo.combo }}</span><span class="ruf">{{ combo.ruf }}</span></div>
@@ -21,7 +37,7 @@
 
   {% if drache.karte %}
   {% set k = drache.karte %}
-  <div class="sq-wurf">
+  <div class="sq-wurf" id="karte">
     {% if drache.lp > 2 %}<span class="stapel zwei"></span>{% endif %}{% if drache.lp > 1 %}<span class="stapel"></span>{% endif %}
     <article class="sq-karte" style="--r: -1.5deg">
       <div class="sq-etiketten">
@@ -38,7 +54,7 @@
         </div>
         <div class="reihe">
           <button class="sq-siegelknopf" name="aktion" value="datei">Ist drin</button>
-          <button class="sq-stempelknopf grau" name="aktion" value="gibts_nicht">Gibt's nicht</button>
+          <button class="sq-stempelknopf grau" name="aktion" value="gibts_nicht"{% if kern(k.gebiet, k.key) %} data-rueckfrage="Wirklich keins? Nochmal klicken"{% endif %} title="Zählt als Treffer, die Serie hält">Gibt's nicht</button>
         </div>
         <div class="reihe">
           <input name="frage" placeholder="Frage an die Beraterin (darf leer bleiben)" aria-label="Frage an die Beraterin">
@@ -51,6 +67,7 @@
   <a class="button sq-siegelknopf" href="/steuer/{{ jahr }}/sieg">Zur Schatztruhe</a>
   {% endif %}
 </section>
+{% endif %}
 {% if not drache.besiegt %}
 <form method="post" action="/steuer/{{ jahr }}/drache/notausgang" class="sq-notausgang">
   <input type="hidden" name="token" value="{{ token }}">

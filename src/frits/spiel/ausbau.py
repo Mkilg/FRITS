@@ -62,7 +62,9 @@ def ausbauen(conn, heute) -> Stufe:
     stand.vorbereiten(conn)
     with store.transaction(conn):
         if im_bau(conn):
-            raise stand.SpielFehler("Es wird schon gebaut. Der nächste Kassensturz macht es fertig.")
+            raise stand.SpielFehler(
+                "Es wird schon gebaut. Der nächste Kassensturz macht es fertig."
+            )
         ziel = naechste(conn)
         if ziel is None:
             raise stand.SpielFehler("Frittes Haus ist fertig ausgebaut. Mehr geht nicht.")

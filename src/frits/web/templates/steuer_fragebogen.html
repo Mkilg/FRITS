@@ -1,26 +1,28 @@
 {% extends "base.html" %}
 {% block title %}Reich gründen · Steuer-Quest{% endblock %}
 {% block head %}<link rel="stylesheet" href="/static/steuer.css"><script src="/static/steuer.js" defer></script>{% endblock %}
+{% block flashes %}{% endblock %}
 {% block content %}
 <div class="sq sq-tisch" data-klang="{{ 'an' if klang else 'aus' }}"{% include "_steuer_stil.html" %}>
+{% include "_steuer_meldungen.html" %}
 <section class="sq-pergament sq-fragebogen">
   <header class="sq-fb-kopf">
     {% set stimmung = "welcome" %}{% include "_steuer_fritte.html" %}
     <div>
-      <p class="sq-kicker">Steuer-Quest {{ jahr }} · Teil {{ teil }} von 3</p>
-      <h1>{% if teil == 1 %}Wer lebt in deinem Reich?{% elif teil == 2 %}Woher kommt dein Geld?{% else %}Welche Schätze liegen am Wegesrand?{% endif %}</h1>
-      <p class="sq-sprechblase">{% if teil == 1 %}„Erzähl mir kurz von dir. Falsche Antworten gibt es nicht, alles lässt sich später ändern.“{% elif teil == 2 %}„Jede Einnahme wird eine Provinz auf deiner Insel. Gib an, wie viele es sind.“{% else %}„Diese Ausgaben können Steuern sparen. Sie sind freiwillige Bonus-Schätze und blockieren nie deinen Sieg.“{% endif %}</p>
+      <p class="sq-kicker">Steuer-Quest {{ jahr }} · Teil {{ teil }} von 3 <a class="sq-fb-ausweg" href="{{ ausweg }}">{{ ausweg_text }}</a></p>
+      <h1>{% if teil == 1 %}Wer lebt in deinem Reich?{% elif teil == 2 %}Welche Provinzen hat deine Insel?{% else %}Welche Schätze liegen am Wegesrand?{% endif %}</h1>
+      <p class="sq-sprechblase">{% if teil == 1 %}„Erzähl mir kurz von dir. Falsche Antworten gibt es nicht, alles lässt sich später ändern.“{% elif teil == 2 %}„Woher kam {{ jahr }} dein Geld? Tipp alles an, was passt. Jede Karte wird eine Provinz auf deiner Insel.“{% else %}„Diese Ausgaben können Steuern sparen. Sie sind freiwillige Bonus-Schätze und blockieren nie deinen Sieg.“{% endif %}</p>
     </div>
   </header>
-  <ol class="sq-schritte" aria-label="Fortschritt">
-    {% for n, t in [(1, "Menschen"), (2, "Einnahmen"), (3, "Schätze")] %}
-    <li class="{{ 'jetzt' if n == teil else ('fertig' if n < teil else '') }}">{% if n < teil %}<a href="?teil={{ n }}">{{ t }}</a>{% else %}{{ t }}{% endif %}</li>
-    {% endfor %}
-  </ol>
 
-  <form method="post" action="/steuer/{{ jahr }}/fragebogen">
+  <form method="post" action="/steuer/{{ jahr }}/fragebogen" data-merken>
     <input type="hidden" name="token" value="{{ token }}">
     <input type="hidden" name="teil" value="{{ teil }}">
+    <ol class="sq-schritte" aria-label="Fortschritt">
+      {% for n, t in [(1, "Dein Wappen"), (2, "Deine Provinzen"), (3, "Schatzsuche")] %}
+      <li class="{{ 'jetzt' if n == teil else ('fertig' if n < teil else '') }}">{% if n != teil %}<button type="submit" name="weiter" value="{{ n }}" formnovalidate>{{ t }}</button>{% else %}<span aria-current="step">{{ t }}</span>{% endif %}</li>
+      {% endfor %}
+    </ol>
 
     {% if teil == 1 %}
     <div class="sq-felder">
@@ -31,35 +33,41 @@
         </select></label>
       <label class="sq-kachel"><input type="checkbox" name="zusammen" {% if profil.zusammen %}checked{% endif %}>
         <strong>Gemeinsame Erklärung</strong><span>Nur bei Ehe oder Lebenspartnerschaft: Ihr gebt zusammen ab. Dann bekommt jede Person ihr eigenes Wappen.</span></label>
-      <label class="field">Name deiner Partnerin oder deines Partners <input name="partner" value="{{ profil.partner }}"></label>
+      <label class="field nur-zusammen">Name deiner Partnerin oder deines Partners <input name="partner" value="{{ profil.partner }}"></label>
       <label class="field">Wie viele Kinder (mit Kindergeld)? <input type="number" name="kinder" min="0" max="20" value="{{ profil.kinder }}"></label>
       <label class="field">E-Mail deiner Beraterin <input type="email" name="beraterin_email" value="{{ profil.beraterin_email }}"></label>
       <label class="field">Bis wann möchte sie die Unterlagen? <input type="date" name="beraterin_termin" value="{{ profil.beraterin_termin }}"></label>
     </div>
 
     {% elif teil == 2 %}
-    <div class="sq-einnahmen">
-      <div class="sq-einnahme sq-einnahme-kopf" aria-hidden="true">
-        <span></span><span>{{ profil.personen[0] }}</span>{% if profil.zusammen %}<span>{{ profil.personen[1] }}</span>{% endif %}
-      </div>
+    <div class="sq-provinzwahl">
       {% for prov in provinz_fragen %}
       {% set werte = profil.anzahl(prov.frage) %}
-      <div class="sq-einnahme">
-        <span><strong>{{ prov.bereich }}</strong><br><span class="muted">wird zu: {{ prov.name }}{% if prov.anlage %} · {{ prov.anlage }}{% endif %}</span></span>
+      {% set gemalt, farbe = provinzbild(prov.key, 3) %}
+      <div class="sq-wahlkarte{% if (werte[0] + werte[1]) %} gewaehlt{% endif %}" data-wahlkarte>
+        <span class="sq-wahlbild">{% if gemalt %}<img src="{{ gemalt }}" alt=""{% if farbe %} style="--farbe: {{ farbe }}" class="geliehen"{% endif %}>{% endif %}</span>
+        <strong>{{ prov.bereich }}</strong>
+        <span class="muted">wird zu: {{ prov.name }}</span>
         {% for person in range(2 if (profil.zusammen and prov.person) else 1) %}
         {% set wert = werte[person] if prov.person else (werte[0] + werte[1]) %}
-        <label>
-          <span class="sr-only">{{ prov.bereich }}{% if profil.zusammen and prov.person %} ({{ profil.personen[person] }}){% endif %}</span>
+        <label class="sq-wahl">
+          {% if profil.zusammen and prov.person %}<span>{{ profil.personen[person] }}</span>{% else %}<span class="sr-only">{{ prov.bereich }}</span>{% endif %}
           {% if prov.zaehlbar %}
-          <input type="number" name="m_{{ prov.frage }}_{{ person }}" min="0" max="20" value="{{ wert }}" aria-label="Anzahl">
+          <span class="sq-zaehler-feld">
+            <button type="button" class="sq-minus" data-schritt="-1" aria-label="Eins weniger">−</button>
+            <input type="number" name="m_{{ prov.frage }}_{{ person }}" min="0" max="20" value="{{ wert }}" aria-label="Wie viele: {{ prov.bereich }}">
+            <button type="button" class="sq-plus" data-schritt="1" aria-label="Eins mehr">+</button>
+          </span>
           {% else %}
-          <input type="checkbox" name="m_{{ prov.frage }}_{{ person }}" {% if wert %}checked{% endif %}>
+          <input type="checkbox" name="m_{{ prov.frage }}_{{ person }}" {% if wert %}checked{% endif %}> <span>Ja</span>
           {% endif %}
         </label>
         {% endfor %}
       </div>
       {% endfor %}
-      <p class="muted">Zahlen: Wie viele Arbeitgeber, Firmen, Wohnungen, Depots … Leer oder 0 heißt: gibt es nicht. Persönliches (Rathaus) ist immer dabei{% if profil.kinder %}, das Dorf für deine Kinder auch{% endif %}. Die Burg kommt mit den Schätzen in Teil 3.</p>
+    </div>
+    <div class="sq-einnahmen">
+      <p class="muted">Bei Zahlen: Wie viele Arbeitgeber, Firmen, Wohnungen, Depots … 0 heißt: gibt es nicht. Das Rathaus (Persönliches) ist immer dabei{% if profil.kinder %}, das Dorf für deine Kinder auch{% endif %}. Die Burg kommt mit der Schatzsuche in Teil 3.</p>
       <label class="field">Meldest du unterm Jahr Umsatzsteuer?
         <select name="umsatzsteuer">
           {% for v, t in [("keine", "Nein"), ("monatlich", "Ja, jeden Monat"), ("quartal", "Ja, jedes Quartal")] %}
@@ -83,8 +91,9 @@
     {% endif %}
 
     <div class="sq-fb-fuss">
-      {% if teil > 1 %}<a href="?teil={{ teil - 1 }}">Zurück</a>{% else %}<span></span>{% endif %}
-      <button class="sq-siegelknopf">{% if teil < 3 %}Weiter{% else %}Reich gründen{% endif %}</button>
+      {% if teil > 1 %}<button type="submit" class="quiet" name="weiter" value="{{ teil - 1 }}" formnovalidate>← Zurück</button>{% else %}<a class="quiet" href="{{ ausweg }}">{{ ausweg_text }}</a>{% endif %}
+      <span class="sq-gemerkt" data-gemerkt aria-live="polite"></span>
+      <button class="sq-siegelknopf">{% if teil < 3 %}Weiter{% else %}Reich gründen!{% endif %}</button>
     </div>
   </form>
 </section>

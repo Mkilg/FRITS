@@ -14,12 +14,12 @@ from importlib import resources
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, UploadFile
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 
 from frits import store, system
 from frits.settings import Workspace
 from frits.steuer import beraterin, ernte, quest, spiel, truhe
-from frits.steuer.katalog import FAMILIENSTAND, HAKEN, Profil, fragen, gebiet, reich
+from frits.steuer.katalog import FAMILIENSTAND, HAKEN, Profil, fragen, gebiet, ist_kern, reich
 
 AKTIONEN = {"gibts_nicht", "fragen", "offen"}
 
@@ -108,6 +108,31 @@ def wiesenplan(anzahl: int) -> list[tuple[float, float]]:
     return lagen
 
 
+MONATE = (
+    "Januar",
+    "Februar",
+    "März",
+    "April",
+    "Mai",
+    "Juni",
+    "Juli",
+    "August",
+    "September",
+    "Oktober",
+    "November",
+    "Dezember",
+)
+
+
+def schoenes_datum(iso: str) -> str:
+    """ "2026-12-15" wird zu "15. Dezember 2026"; alles andere bleibt, wie es ist."""
+    try:
+        d = date.fromisoformat(str(iso))
+    except ValueError:
+        return str(iso)
+    return f"{d.day}. {MONATE[d.month - 1]} {d.year}"
+
+
 def fritte_tipp(daten: dict, lager: list) -> tuple[str, str]:
     """Was Fritte, die Kartografin, gerade sagt: (Stimmung, Satz)."""
     if daten["drache"].besiegt and daten["stuecke"]:
@@ -121,12 +146,19 @@ def fritte_tipp(daten: dict, lager: list) -> tuple[str, str]:
         name = fehlt_vorjahr[0]["name"]
         satz = f"Letztes Jahr hattest du schon „{name}“. Schau mal, ob es wieder da ist."
         return "thinking", satz
-    offen = [p for p in daten["provinzen"] if not p.stand.siegel]
-    if offen:
-        naechste = min(offen, key=lambda p: (p.stand.offen, p.gebiet.id))
-        rest = naechste.stand.offen
-        fehlt = "fehlt" if rest == 1 else "fehlen"
-        return "welcome", f"Wie wär's mit {naechste.gebiet.titel}? Da {fehlt} nur noch {rest}."
+    auftrag = daten["auftrag"]
+    if auftrag.art == "provinz":
+        if auftrag.erledigt:
+            return (
+                "welcome",
+                "Du bist mittendrin! Ich hab dir den Weg mit dem Leuchtfeuer markiert.",
+            )
+        if not any(p.stand.erledigt for p in daten["provinzen"]):
+            return (
+                "welcome",
+                "Ich hab dir die erste Provinz markiert. Klick auf das Leuchtfeuer, ich zeig dir alles.",
+            )
+        return "welcome", "Weiter geht's! Folge dem Leuchtfeuer zur nächsten Provinz."
     return "done", "Alle Provinzen tragen ein Siegel. Der Drache zittert schon."
 
 
@@ -160,8 +192,29 @@ def register_steuer(
     def seite(request: Request, name: str, **context):
         """Wie page(), plus was alle Quest-Seiten brauchen (Bilder, Klang)."""
         return page(
-            request, name, bild=bild, provinzbild=provinzbild, klang=settings().sound, **context
+            request,
+            name,
+            bild=bild,
+            provinzbild=provinzbild,
+            klang=settings().sound,
+            kern=ist_kern,
+            datum=schoenes_datum,
+            **context,
         )
+
+    def quest_jahre() -> list[int]:
+        """Die Jahre, für die es schon eine Quest (einen Fragebogen) gibt."""
+        basis = ws.root / "steuer"
+        if not basis.is_dir():
+            return []
+        return sorted(
+            int(d.name)
+            for d in basis.iterdir()
+            if d.name.isdigit() and (d / "fragebogen.toml").exists()
+        )
+
+    def entwurf_datei(jahr: int) -> Path:
+        return quest.ordner(ws.root, jahr) / ".frits" / "fragebogen-entwurf.toml"
 
     def lage(jahr: int):
         """Alles, was die Seiten über den Spielstand wissen müssen."""
@@ -173,6 +226,8 @@ def register_steuer(
         gesamt = spiel.gesamtstand(alle)
         vergleich = quest.vergleich(c, jahr)
         erfolge = spiel.erfolge(alle, staende, vergleich, quest.hat_notiz(c, jahr, "brief"))
+        drache = spiel.drache(alle)
+        zettel = len(quest.lager_dateien(ws.root))
         return {
             "jahr": jahr,
             "profil": p,
@@ -183,7 +238,11 @@ def register_steuer(
             "ressourcen": spiel.ressourcen(alle, staende),
             "zeitalter": spiel.zeitalter(gesamt.anteil),
             "naechstes": spiel.naechstes_zeitalter(gesamt.anteil),
-            "drache": spiel.drache(alle),
+            "drache": drache,
+            "drache_wach": spiel.drache_wach(alle) or jahr in app.state.steuer_notausgang,
+            "auftrag": spiel.auftrag(jahr, staende, drache, zettel, alle),
+            "burg_fehlt": not any(g.provinz.key == "burg" for g in gebiete),
+            "jahre": quest_jahre(),
             "vergleich": vergleich,
             "erfolge": erfolge,
             "chronik": quest.chronik(c, jahr),
@@ -205,7 +264,7 @@ def register_steuer(
             flash(text, "zeitalter", cue="done")
         for e in spiel.neue_erfolge(vorher["erfolge"], nachher["erfolge"]):
             quest.notiere(c, jahr, "erfolg", e.name)
-            flash(f"Erfolg freigeschaltet: {e.name}. {e.beschreibung}", "erfolg")
+            flash(f"Neuer Orden: {e.name}. {e.beschreibung}", "orden")
 
     def stueck_im_jahr(jahr: int, stueck_id: int) -> dict:
         try:
@@ -248,7 +307,7 @@ def register_steuer(
     @app.get("/steuer/{jahr}", response_class=HTMLResponse)
     def karte(request: Request, jahr: int):
         if profil(jahr) is None:
-            return back(f"/steuer/{jahr}/fragebogen")
+            return back(f"/steuer/{jahr}/intro")
         daten = lage(jahr)
         lager = quest.lager_dateien(ws.root)
         stimmung, tipp = fritte_tipp(daten, lager)
@@ -258,7 +317,9 @@ def register_steuer(
             lager=lager,
             ernte=ernte.finden(conn(), ws, jahr, settings().tax_mode),
             ernte_ziele=ernte.ziele(daten["gebiete"]),
-            plan=(wiesenplan if bild("insel") else inselplan)(len(daten["provinzen"])),
+            plan=(wiesenplan if bild("insel") else inselplan)(
+                len(daten["provinzen"]) + (1 if daten["burg_fehlt"] else 0)
+            ),
             fritte=stimmung,
             tipp=tipp,
             **daten,
@@ -274,7 +335,7 @@ def register_steuer(
         """Der Fragebogen, wie er gerade ausgefüllt wird (Vorlage: dieses Jahr oder das Vorjahr)."""
         p = app.state.steuer_entwurf.get(jahr)
         if p is None:
-            p = profil(jahr) or profil(jahr - 1)
+            p = Profil.load(entwurf_datei(jahr)) or profil(jahr) or profil(jahr - 1)
             if p is None:
                 p = Profil(jahr=jahr, name=settings().name)
                 # Hat FRITS in dem Jahr Rechnungen geschrieben, gibt es sicher einen Betrieb.
@@ -288,13 +349,41 @@ def register_steuer(
 
     app.state.steuer_entwurf = {}
 
+    def ausweg(jahr: int) -> tuple[str, str]:
+        """Wohin "Abbrechen" führt: zur nächsten Quest, die es schon gibt, sonst nach Hause."""
+        andere = [j for j in quest_jahre() if j != jahr]
+        if andere:
+            ziel = min(andere, key=lambda j: (abs(j - jahr), -j))
+            return f"/steuer/{ziel}", f"Zurück zu {ziel}"
+        return "/", "Abbrechen"
+
+    @app.get("/steuer/{jahr}/intro", response_class=HTMLResponse)
+    def intro(request: Request, jahr: int):
+        if profil(jahr) is not None:
+            return back(f"/steuer/{jahr}")
+        weg, weg_text = ausweg(jahr)
+        return seite(
+            request,
+            "steuer_intro.html",
+            jahr=jahr,
+            ausweg=weg,
+            ausweg_text=weg_text,
+            kurz=bool(quest_jahre()),
+            angefangen=jahr in app.state.steuer_entwurf or entwurf_datei(jahr).exists(),
+        )
+
     @app.get("/steuer/{jahr}/fragebogen", response_class=HTMLResponse)
     def fragebogen(request: Request, jahr: int, teil: int = 1):
         teil = teil if teil in (1, 2, 3) else 1
         p = entwurf(jahr)
+        weg, weg_text = ausweg(jahr)
+        if profil(jahr) is not None:
+            weg, weg_text = f"/steuer/{jahr}", "Zurück zur Insel"
         return seite(
             request,
             "steuer_fragebogen.html",
+            ausweg=weg,
+            ausweg_text=weg_text,
             jahr=jahr,
             profil=p,
             teil=teil,
@@ -330,17 +419,30 @@ def register_steuer(
             p.umsatzsteuer = ust if ust in ("keine", "monatlich", "quartal") else "keine"
         else:
             p.haken = [h for h in form.getlist("haken") if h in HAKEN]
+        if form.get("merken"):
+            # Zwischenspeichern beim Tippen: nichts geht verloren, auch nicht beim Tab-Wechsel.
+            p.save(entwurf_datei(jahr))
+            return Response(status_code=204)
+        ziel = str(form.get("weiter") or "")
+        if ziel.isdigit() and int(ziel) in (1, 2, 3) and int(ziel) != teil:
+            p.save(entwurf_datei(jahr))
+            return back(f"/steuer/{jahr}/fragebogen?teil={ziel}")
         if teil < 3:
+            p.save(entwurf_datei(jahr))
             return back(f"/steuer/{jahr}/fragebogen?teil={teil + 1}")
 
         app.state.steuer_entwurf.pop(jahr, None)
+        entwurf_datei(jahr).unlink(missing_ok=True)
         neu = profil(jahr) is None
         p.save(quest.profil_datei(ws.root, jahr))
         gebiete = quest.start(conn(), p)
         quest.lager(ws.root).mkdir(parents=True, exist_ok=True)
         if neu:
             quest.notiere(conn(), jahr, "start", f"Reich gegründet mit {len(gebiete)} Provinzen")
-            flash(f"Dein Reich steht: {len(gebiete)} Provinzen warten auf dich.", "erfolg")
+            flash(
+                f"Deine Insel hat {len(gebiete)} Provinzen. Fritte hat dir den Weg markiert.",
+                "gruendung",
+            )
         else:
             flash("Fragebogen gespeichert. Die Karte ist aktualisiert.")
         return back(f"/steuer/{jahr}")
@@ -351,7 +453,8 @@ def register_steuer(
     def provinz(request: Request, jahr: int, gebiet_id: str):
         g = gebiet(profil_oder_404(jahr), gebiet_id)
         if g is None:
-            raise HTTPException(404)
+            flash("Diese Provinz gibt es auf deiner Insel nicht (mehr).", "hinweis")
+            return back(f"/steuer/{jahr}")
         daten = lage(jahr)
         c = conn()
         eigene = [s for s in daten["stuecke"] if s["gebiet"] == g.id]
@@ -525,6 +628,9 @@ def register_steuer(
         s = stueck_im_jahr(jahr, int(str(form.get("stueck_id") or 0)))
         aktion = str(form.get("aktion") or "")
         vorher = lage(jahr)
+        if not vorher["drache_wach"]:
+            flash("Der Drache schläft noch. Bau erst deine Provinzen auf.")
+            return back(f"/steuer/{jahr}/drache")
         kritisch = False
         if aktion == "datei":
             uploads = [f for f in form.getlist("datei") if hasattr(f, "filename") and f.filename]
@@ -540,7 +646,7 @@ def register_steuer(
         else:
             raise HTTPException(400)
         alt = app.state.steuer_combo.get(jahr, {"combo": 0})
-        combo, ruf = spiel.treffer(alt["combo"], kritisch)
+        combo, ruf = spiel.treffer(alt["combo"], kritisch, zaehlt=aktion != "gibts_nicht")
         app.state.steuer_combo[jahr] = {
             "combo": combo,
             "ruf": ruf,
@@ -553,7 +659,7 @@ def register_steuer(
             app.state.steuer_combo.pop(jahr, None)
             flash("SIEG! Der Drache faltet sich zu einer Schatztruhe zusammen.", "sieg", "sent")
             return back(f"/steuer/{jahr}/sieg")
-        return back(f"/steuer/{jahr}/drache")
+        return back(f"/steuer/{jahr}/drache#karte")
 
     @app.post("/steuer/{jahr}/drache/notausgang", dependencies=guarded)
     def notausgang(jahr: int):

@@ -1,8 +1,10 @@
 {% extends "base.html" %}
 {% block title %}{{ g.titel }} · Steuer-Quest{% endblock %}
 {% block head %}<link rel="stylesheet" href="/static/steuer.css"><script src="/static/steuer.js" defer></script>{% endblock %}
+{% block flashes %}{% endblock %}
 {% block content %}
 <div class="sq sq-tisch" data-klang="{{ 'an' if klang else 'aus' }}"{% include "_steuer_stil.html" %}>
+{% include "_steuer_meldungen.html" %}
 {% include "_steuer_kopf.html" %}
 {% set zurueck = "/steuer/" ~ jahr ~ "/gebiet/" ~ g.id %}
 {% set schild = {"gesammelt": "Gesichert", "gibts_nicht": "Gibt's nicht", "fragen": "Frage"} %}
@@ -27,10 +29,12 @@
   </aside>
 
   {# Mitte: die Akte, eine Papierkarte pro Sammelstück #}
+  {% set erste_offen = eigene | selectattr("status", "equalto", "offen") | rejectattr("art", "equalto", "bonus") | first %}
   <ul class="sq-akte" aria-label="Sammelstücke">
     {% for s in eigene %}
-    <li class="sq-karte status-{{ s.status }}{% if s.art == 'bonus' %} bonus{% endif %}" style="--r: {{ [-1.2, 0.8, -0.4, 1.1, -0.9][loop.index0 % 5] }}deg" data-stueck="{{ s.id }}">
+    <li class="sq-karte status-{{ s.status }}{% if s.art == 'bonus' %} bonus{% endif %}{% if erste_offen and s.id == erste_offen.id %} als-naechstes{% endif %}" style="--r: {{ [-1.2, 0.8, -0.4, 1.1, -0.9][loop.index0 % 5] }}deg" data-stueck="{{ s.id }}">
       <div class="sq-etiketten">
+        {% if erste_offen and s.id == erste_offen.id %}<span class="sq-etikett start">Fang hier an</span>{% endif %}
         {% if s.art == "bonus" %}<span class="sq-etikett schatz" title="Freiwillig. Kann Steuern sparen, blockiert nie deinen Sieg.">Bonus-Schatz</span>{% endif %}
         {% if s.wunsch %}<span class="sq-etikett wunsch">Wunsch der Beraterin</span>{% endif %}
         {% if s.herkunft == "vorjahr" %}<span class="sq-etikett vorjahr">wie letztes Jahr</span>{% endif %}
@@ -60,7 +64,7 @@
         {% if s.status == "offen" %}
         <form method="post" action="/steuer/{{ jahr }}/stueck/{{ s.id }}/status" data-stempel="GIBT'S NICHT" data-farbe="grau">
           <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back" value="{{ zurueck }}">
-          <button class="sq-stempelknopf grau" name="status" value="gibts_nicht">Gibt's nicht</button>
+          <button class="sq-stempelknopf grau" name="status" value="gibts_nicht"{% if kern(s.gebiet, s.key) %} data-rueckfrage="Wirklich keins? Nochmal klicken"{% endif %}>Gibt's nicht</button>
         </form>
         <details>
           <summary>Lieber fragen …</summary>

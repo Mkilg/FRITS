@@ -290,13 +290,160 @@
     konfetti();
     fanfare();
   }
-  if (document.querySelector(".flash.siegel, .flash.zeitalter, .flash.sieg")) {
-    var f = document.querySelector(".flash.siegel, .flash.zeitalter, .flash.sieg");
-    var p = mitte(f);
-    funken(p[0], p[1], 30);
+  // Der große Moment: Siegel, neues Zeitalter, Orden. Ein Dialog mit Licht, Konfetti und Fanfare,
+  // und gleich darunter der nächste Auftrag (so weiß man immer, wie es weitergeht).
+  var belohnung = document.querySelector("dialog[data-belohnung]");
+  if (belohnung && belohnung.showModal) {
+    belohnung.showModal();
+    var los = belohnung.querySelector(".sq-siegelknopf");
+    if (los) los.focus();
+    setTimeout(function () {
+      var s = belohnung.querySelector(".sq-belohnung-siegel");
+      if (s) { var w = mitte(s); funken(w[0], w[1], 34); }
+      stempelTon();
+    }, 380);
+    if (!ruhig) setTimeout(konfetti, 250);
     fanfare();
-  } else if (document.querySelector(".flash.beute")) {
+    belohnung.addEventListener("click", function (e) { if (e.target === belohnung) belohnung.close(); });
+  } else if (document.querySelector(".sq-meldung.beute")) {
     ton(784, 0.12, "triangle", 0.08);
     ton(1047, 0.2, "triangle", 0.08, 0.09);
   }
+
+  // Kleine Meldungen: verschwinden nach ein paar Sekunden von selbst
+  Array.prototype.forEach.call(document.querySelectorAll(".sq-meldung"), function (m, i) {
+    function weg() { m.classList.add("weg"); setTimeout(function () { m.remove(); }, 420); }
+    var knopf = m.querySelector(".sq-weg");
+    if (knopf) knopf.addEventListener("click", weg);
+    if (!m.classList.contains("warn") && !m.classList.contains("fehler")) setTimeout(weg, 5200 + i * 900);
+  });
+
+  // Auftrag "Eingangskorb": zum Korb springen und den ersten Zettel aufklappen
+  Array.prototype.forEach.call(document.querySelectorAll('a[href="#sq-korb"]'), function (a) {
+    a.addEventListener("click", function (e) {
+      var korb = document.getElementById("sq-korb");
+      if (!korb) return;
+      e.preventDefault();
+      korb.scrollIntoView({ behavior: ruhig ? "auto" : "smooth", block: "center" });
+      var erster = korb.querySelector("details.sq-zettel");
+      if (erster) { erster.open = true; var w = mitte(erster); funken(w[0], w[1], 12); }
+    });
+  });
+
+  // ---------- Intro: Szene für Szene, wie ein kleiner Film ----------
+  var intro = document.querySelector("[data-intro]");
+  if (intro && !intro.classList.contains("kurz")) {
+    var szenen = intro.querySelectorAll(".sq-szene");
+    var punkte = intro.querySelectorAll(".sq-intro-punkte li");
+    var jetzt = -1;
+    var zeige = function (n) {
+      if (n >= szenen.length) return;
+      jetzt = n;
+      Array.prototype.forEach.call(szenen, function (sz, i) { sz.classList.toggle("jetzt", i === n); });
+      Array.prototype.forEach.call(punkte, function (pt, i) { pt.classList.toggle("an", i <= n); });
+      intro.classList.toggle("am-ende", n === szenen.length - 1);
+      ton(392 * Math.pow(2, n / 6), 0.25, "triangle", 0.06);
+      if (n === szenen.length - 1) {
+        var knopf = intro.querySelector(".sq-siegelknopf");
+        if (knopf) knopf.focus();
+      }
+    };
+    zeige(0);
+    var weiter = intro.querySelector("[data-intro-weiter]");
+    if (weiter) weiter.addEventListener("click", function () { zeige(jetzt + 1); });
+    var skip = intro.querySelector("[data-intro-skip]");
+    if (skip) skip.addEventListener("click", function (e) { e.preventDefault(); zeige(szenen.length - 1); });
+    intro.addEventListener("click", function (e) {
+      if (e.target.closest("a, button")) return;
+      zeige(jetzt + 1);
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === " " || e.key === "ArrowRight" || e.key === "Enter") {
+        if (jetzt < szenen.length - 1) { e.preventDefault(); zeige(jetzt + 1); }
+      }
+    });
+  }
+
+  // ---------- Fragebogen: Karten antippen, Zähler, und alles sofort merken ----------
+  var bogen = document.querySelector("form[data-merken]");
+  if (bogen) {
+    var gemerkt = bogen.querySelector("[data-gemerkt]");
+    var karteAuffrischen = function (karte) {
+      var an = false;
+      Array.prototype.forEach.call(karte.querySelectorAll("input"), function (inp) {
+        if (inp.type === "checkbox" ? inp.checked : parseInt(inp.value, 10) > 0) an = true;
+      });
+      if (an && !karte.classList.contains("gewaehlt")) {
+        karte.classList.add("gewaehlt");
+        var w = mitte(karte.querySelector(".sq-wahlbild") || karte);
+        funken(w[0], w[1], 10);
+        ton(660, 0.12, "triangle", 0.07);
+        ton(990, 0.16, "triangle", 0.06, 0.07);
+      } else if (!an) {
+        karte.classList.remove("gewaehlt");
+      }
+    };
+    Array.prototype.forEach.call(bogen.querySelectorAll("[data-wahlkarte]"), function (karte) {
+      karte.addEventListener("click", function (e) {
+        var schritt = e.target.closest("[data-schritt]");
+        if (schritt) {
+          var feld = schritt.parentNode.querySelector("input");
+          var wert = Math.max(0, Math.min(20, (parseInt(feld.value, 10) || 0) + parseInt(schritt.getAttribute("data-schritt"), 10)));
+          feld.value = wert;
+          feld.dispatchEvent(new Event("change", { bubbles: true }));
+          return;
+        }
+        // Tippen auf die Karte selbst schaltet sie an oder aus
+        if (e.target.closest("input, label, button")) return;
+        var ja = karte.querySelector("input[type=checkbox]");
+        var zahl = karte.querySelector("input[type=number]");
+        if (ja) { ja.checked = !ja.checked; ja.dispatchEvent(new Event("change", { bubbles: true })); }
+        else if (zahl) { zahl.value = parseInt(zahl.value, 10) > 0 ? 0 : 1; zahl.dispatchEvent(new Event("change", { bubbles: true })); }
+      });
+      karte.addEventListener("change", function () { karteAuffrischen(karte); });
+    });
+
+    var uhr = null;
+    var merken = function (sofort) {
+      var daten = new FormData(bogen);
+      daten.append("merken", "1");
+      if (sofort && navigator.sendBeacon) { navigator.sendBeacon(bogen.action, daten); return; }
+      fetch(bogen.action, { method: "POST", body: daten, credentials: "same-origin", keepalive: true })
+        .then(function (r) {
+          if (r.ok && gemerkt) {
+            gemerkt.textContent = "✓ gemerkt";
+            gemerkt.classList.add("da");
+            setTimeout(function () { gemerkt.classList.remove("da"); }, 1600);
+          }
+        })
+        .catch(function () {});
+    };
+    var spaeter = function () { clearTimeout(uhr); uhr = setTimeout(function () { uhr = null; merken(false); }, 500); };
+    bogen.addEventListener("input", spaeter);
+    bogen.addEventListener("change", spaeter);
+    // Tab wechseln oder Seite verlassen: sofort sichern
+    var abschicken = false;
+    bogen.addEventListener("submit", function () { abschicken = true; });
+    var gleichSichern = function () { if (uhr && !abschicken) { clearTimeout(uhr); uhr = null; merken(true); } };
+    document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden") gleichSichern(); });
+    window.addEventListener("pagehide", gleichSichern);
+  }
+})();
+
+// Wichtige Karten (z. B. Steuer-ID): "Gibt's nicht" braucht einen zweiten Klick
+(function () {
+  document.addEventListener("click", function (e) {
+    var knopf = e.target.closest("[data-rueckfrage]");
+    if (!knopf) return;
+    if (knopf.classList.contains("rueckfrage")) return; // zweiter Klick: abschicken
+    e.preventDefault();
+    knopf.dataset.vorher = knopf.textContent;
+    knopf.textContent = knopf.dataset.rueckfrage;
+    knopf.classList.add("rueckfrage");
+    setTimeout(function () {
+      if (!knopf.isConnected) return;
+      knopf.textContent = knopf.dataset.vorher;
+      knopf.classList.remove("rueckfrage");
+    }, 5000);
+  });
 })();

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Steuer-Quest {{ jahr }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/steuer.css"><script src="/static/steuer.js" defer></script>{% endblock %}
+{% block flashes %}{% endblock %}
+{% block content %}
+{% set insel = bild("insel") %}{% set drache = bild("drache-schlaeft") %}{% set fritte = bild("fritte-ruhig") %}{% set truhe = bild("truhe") %}
+<div class="sq sq-tisch sq-intro{% if kurz %} kurz{% endif %}" data-klang="{{ 'an' if klang else 'aus' }}" data-intro{% include "_steuer_stil.html" %}>
+{% include "_steuer_meldungen.html" %}
+  <div class="sq-intro-buehne">
+    {% if not kurz %}
+    <section class="sq-szene" data-szene="1">
+      <div class="sq-szene-bild insel">{% if insel %}<img src="{{ insel }}" alt="">{% endif %}<span class="sq-intro-nebel"></span></div>
+      <p class="sq-erzaehler">Über deinem Schreibtisch schwebt eine kleine Insel.<br><strong>Das ist dein Reich für das Steuerjahr {{ jahr }}.</strong></p>
+    </section>
+    <section class="sq-szene" data-szene="2">
+      <div class="sq-szene-bild drache">
+        {% if drache %}<img src="{{ drache }}" alt="">{% endif %}
+        {% for dx, dy in [(-250, -90), (230, -110), (-300, 40), (280, 30), (-190, 120), (200, 125), (-90, -140), (110, -150), (0, 150)] %}<span class="sq-flugzettel" style="--i: {{ loop.index0 }}; --dx: {{ dx }}px; --dy: {{ dy }}px; --dreh: {{ (loop.index0 * 47) % 360 - 180 }}deg"></span>{% endfor %}
+      </div>
+      <p class="sq-erzaehler">Aber ein <strong>Papierdrache</strong> hat all deine Unterlagen darüber verstreut.<br>Bescheide, Belege, Briefe … überall.</p>
+    </section>
+    <section class="sq-szene" data-szene="3">
+      <div class="sq-szene-bild wachsen">
+        {% if fritte %}<img class="fritte" src="{{ fritte }}" alt="">{% endif %}
+        {% for n in (1, 2, 3) %}{% set haus = bild("werkstatt-" ~ n) %}{% if haus %}<img class="haus stufe{{ n }}" src="{{ haus }}" alt="">{% endif %}{% endfor %}
+      </div>
+      <p class="sq-erzaehler">„Ich bin <strong>Fritte</strong>, deine Kartografin. Für jedes Dokument, das du findest, wächst eine Provinz.<br>Was es nicht gibt, stempelst du einfach ab. Das zählt auch!“</p>
+    </section>
+    <section class="sq-szene" data-szene="4">
+      <div class="sq-szene-bild truhe">{% if truhe %}<img src="{{ truhe }}" alt="">{% endif %}<span class="sq-intro-glanz"></span></div>
+      <p class="sq-erzaehler">Am Ende faltet sich der Drache zur <strong>Schatztruhe</strong>.<br>Die schickst du deiner Beraterin. Fertig für {{ jahr }}!</p>
+    </section>
+    {% endif %}
+    <section class="sq-szene sq-szene-start" data-szene="{{ 1 if kurz else 5 }}">
+      <div class="sq-szene-bild insel klein">{% if insel %}<img src="{{ insel }}" alt="">{% endif %}</div>
+      {% if kurz %}
+      <h1 class="sq-intro-titel">Neue Insel für {{ jahr }}?</h1>
+      <p class="sq-erzaehler">Für {{ jahr }} gibt es noch keine Quest. Drei kurze Fragen, dann steht deine Insel.</p>
+      {% else %}
+      <h1 class="sq-intro-titel">Steuer-Quest {{ jahr }}</h1>
+      <p class="sq-erzaehler">Drei kurze Fragen, dann steht deine Insel. Dauert etwa zwei Minuten.</p>
+      {% endif %}
+      <p class="sq-intro-knoepfe">
+        <a class="sq-siegelknopf gross" href="/steuer/{{ jahr }}/fragebogen">{{ "Weiter, wo ich war" if angefangen else "Mein Reich gründen" }} →</a>
+        <a class="sq-intro-zurueck" href="{{ ausweg }}">{{ ausweg_text }}</a>
+      </p>
+    </section>
+  </div>
+  {% if not kurz %}
+  <p class="sq-intro-steuer">
+    <button type="button" class="sq-intro-weiter" data-intro-weiter>Weiter <kbd>Leertaste</kbd></button>
+    <a href="#" class="sq-intro-skip" data-intro-skip>Intro überspringen</a>
+    <a href="{{ ausweg }}" class="sq-intro-skip">{{ ausweg_text }}</a>
+  </p>
+  <ol class="sq-intro-punkte" aria-hidden="true">{% for n in range(5) %}<li></li>{% endfor %}</ol>
+  {% endif %}
+</div>
+{% endblock %}
