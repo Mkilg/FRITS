@@ -67,6 +67,7 @@ GRUND = {
     "erinnerung": 1,  # a friendly payment reminder
     "ausgabe": 1,
     "feierabend": 1,  # the shutdown ritual, once a day
+    "aufgabe": 1,  # a point ticked off "Deine Liste", three a day
     "steuer": 1,  # a piece collected in the Steuer-Quest
     "steuerjahr": 25,  # the whole tax year done: the big one, once a year
     "start": 3,  # Fritte moves in (only once, in the first Kassensturz)
@@ -79,6 +80,7 @@ ARTEN_TEXT = {
     "erinnerung": "Zahlungserinnerung",
     "ausgabe": "Ausgabe eingetragen",
     "feierabend": "Feierabend gemacht (einmal am Tag)",
+    "aufgabe": "Punkt auf deiner Liste abgehakt (drei am Tag)",
     "steuer": "Steuer-Unterlage gesammelt",
     "steuerjahr": "Steuerjahr in der Steuer-Quest geschafft",
 }
@@ -543,7 +545,7 @@ def pflegetage(conn, heute: date) -> set[date]:
         (
             "SELECT gesehen FROM spiel_karten"
             " WHERE (kassensturz IS NULL OR kassensturz != 0)"
-            " AND art NOT IN ('start', 'feierabend')"  # a click alone is no paperwork
+            " AND art NOT IN ('start', 'feierabend', 'aufgabe')"  # a click is no paperwork
         ),
     ):
         for (value,) in rows(conn, sql):
