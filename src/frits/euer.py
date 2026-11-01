@@ -25,10 +25,12 @@ from __future__ import annotations
 import csv
 import sqlite3
 from dataclasses import dataclass, field
+from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 from typing import Literal
 
+from frits import gutschriften
 from frits.expenses import CATEGORIES, CENT, VAT_PAYMENT, list_expenses
 
 TaxMode = Literal["kleinunternehmer", "regelbesteuerung"]
@@ -83,7 +85,8 @@ class EuerSummary:
 
 
 def _paid_invoices(db_path: str | Path, year: int) -> list[tuple[Decimal, Decimal, Decimal]]:
-    """(net, vat, gross) of every invoice paid in ``year``. Unpaid invoices don't count yet."""
+    """(net, vat, gross) of every invoice and Gutschrift paid in ``year``. Unpaid ones don't
+    count yet."""
     conn = sqlite3.connect(db_path)
     try:
         exists = conn.execute(
@@ -97,6 +100,11 @@ def _paid_invoices(db_path: str | Path, year: int) -> list[tuple[Decimal, Decima
             " ORDER BY paid_date",
             (f"{year:04d}-01-01", f"{year + 1:04d}-01-01"),
         ).fetchall()
+        # Gutschriften the customer wrote count like paid invoices.
+        credits = gutschriften.listing(
+            conn, column="paid_date", start=date(year, 1, 1), end=date(year, 12, 31)
+        )
+        rows += [(c.net, c.vat, c.gross) for c in credits]
     finally:
         conn.close()
     return [(Decimal(net), Decimal(vat), Decimal(gross)) for net, vat, gross in rows]

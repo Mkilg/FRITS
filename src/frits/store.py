@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
-from frits import expenses
+from frits import expenses, gutschriften
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS jobs (
@@ -100,6 +100,7 @@ def connect(path: Path) -> sqlite3.Connection:
     conn.execute("PRAGMA foreign_keys = ON")
     conn.executescript(SCHEMA)
     expenses.prepare(conn)
+    gutschriften.prepare(conn)
     return conn
 
 
