@@ -1,0 +1,47 @@
+/* Notfall-Chat: the documents, the conversation, the question. Uses the shared FRITS colours. */
+.notfall .card { margin-bottom: 1rem; }
+.notfall .hello h1 { margin: 0 0 0.4rem; }
+.notfall .kopf { display: flex; justify-content: space-between; align-items: baseline; gap: 0.6rem; }
+
+ol.schritte { padding-left: 1.3rem; margin: 0.4rem 0; }
+ol.schritte li { margin: 0.4rem 0; }
+
+/* Documents */
+ul.dokumente { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.5rem; }
+ul.dokumente > li { border: 1px solid var(--line); border-radius: 8px; background: #fffdf6; padding: 0.3rem 0.8rem; }
+ul.dokumente summary { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 0.3rem 0; color: var(--ink); }
+ul.dokumente .dok-name { font-weight: 600; overflow-wrap: anywhere; }
+ul.dokumente .compare { margin-top: 0.4rem; }
+ul.dokumente pre { max-height: 22rem; overflow: auto; margin: 0; overflow-wrap: anywhere; }
+.notfall pre.redacted { background: #f3f0ff; }
+.notfall pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.werkzeuge { display: grid; gap: 0.2rem; margin-top: 0.4rem; }
+.werkzeuge > details > summary { margin-top: 0.4rem; }
+table.legende td { padding: 0.2rem 0.6rem 0.2rem 0; vertical-align: top; overflow-wrap: anywhere; }
+.noch-eins .einwurf { margin-top: 0.4rem; }
+
+/* The conversation */
+.verlauf { display: grid; gap: 0.8rem; margin: 0 0 1rem; }
+.blase { padding: 0.8rem 1rem; border-radius: 14px; border: 1px solid var(--papier-schatten);
+  box-shadow: var(--karten-schatten); max-width: 52rem; }
+.blase header { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 0.3rem; }
+.blase header .kopieren { margin-left: auto; }
+.blase .text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.blase.du { background: #eef3e4; border-color: #cbdab0; justify-self: end; margin-left: 3rem; }
+.blase.ki { background: var(--papierkarte); justify-self: start; margin-right: 3rem; }
+.blase details.raus summary { font-size: 0.85rem; margin-top: 0.5rem; }
+.blase details.raus pre { font-size: 0.82rem; max-height: 18rem; overflow: auto; padding: 0.6rem; border-radius: 6px; }
+
+/* The question */
+.vorschlaege { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.2rem 0 0.8rem; }
+button.chip { border-radius: 999px; background: var(--papier); border: 1px solid var(--papier-schatten);
+  font-size: 0.9rem; padding: 0.35rem 0.85rem; text-align: left; }
+button.chip:hover { background: var(--creme); border-color: var(--ocker); }
+.geht-raus { background: var(--warn-bg); border-left: 3px solid var(--ocker); padding: 0.45rem 0.7rem; border-radius: 4px; font-size: 0.92rem; }
+details.alles summary { margin: 0; }
+details.alles h3 { margin-top: 1rem; }
+
+@media (max-width: 700px) {
+  .blase.du { margin-left: 0.8rem; }
+  .blase.ki { margin-right: 0.8rem; }
+}
