@@ -129,7 +129,7 @@
 
       {% if editable %}
       <div class="row actions">
-        <button name="action" value="save">Speichern</button>
+        <button name="action" value="save" title="Kurzbefehl: ⌘S">Speichern</button>
         {% if is_quote %}
         <button class="primary" name="action" value="quote">Angebot erstellen</button>
         {% else %}
@@ -140,7 +140,7 @@
       {% endif %}
     </form>
     {% if editable %}
-    <form method="post" action="/drafts/{{ row.id }}/discard" class="discard" data-confirm="Entwurf verwerfen? Es wird keine Nummer verbraucht.">
+    <form method="post" action="/drafts/{{ row.id }}/discard" class="discard">
       <input type="hidden" name="token" value="{{ token }}">
       <button class="quiet danger">Entwurf verwerfen</button>
     </form>

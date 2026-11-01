@@ -12,6 +12,15 @@
 <body data-effekte="{{ settings.effects }}"{% if sounds %} data-frits-sound="on" data-frits-sound-base="{{ sounds }}"{% endif %}>
 <header class="top">
   <a class="brand" href="/"><span class="brand-fry">{{ mascot("welcome") }}</span><span>FRITS</span></a>
+  {% if nav.startswith("/setup") and not settings.setup_done %}
+  {# During the first setup: nothing to wander off to, just a calm way out #}
+  <div class="top-actions">
+    <form method="post" action="/setup-spaeter">
+      <input type="hidden" name="token" value="{{ token }}">
+      <button class="quiet">Später einrichten</button>
+    </form>
+  </div>
+  {% else %}
   {# Everyday places in the row; the rest behind "Mehr", so the row stays one line #}
   {% set more = [("/lernen", "KI-Werkstatt"), ("/settings", "Einstellungen"), ("/ueber", "Über FRITS")] %}
   {% set ns = namespace(here=false) %}
@@ -43,11 +52,12 @@
       <button class="feierabend">Feierabend</button>
     </form>
   </div>
+  {% endif %}
 </header>
 <main>
   {% block flashes %}
   {% for f in flashes %}{% if f.text %}
-  <div class="flash {{ f.kind }}{{ ' mit-stempel' if f.stamp }}" role="status">{{ f.text }}{% if f.stamp %} <span class="stempel stempel-{{ f.stamp | lower }}" aria-hidden="true">{{ f.stamp }}</span>{% endif %}</div>
+  <div class="flash {{ f.kind }}{{ ' mit-stempel' if f.stamp }}" role="status">{{ f.text }}{% if f.stamp %} <span class="stempel stempel-{{ f.stamp | lower }}" aria-hidden="true">{{ f.stamp }}</span>{% endif %}{% if f.undo %} <form method="post" action="/rueckgaengig" class="rueckgaengig"><input type="hidden" name="token" value="{{ token }}"><button class="tiny">Rückgängig</button></form>{% endif %}</div>
   {% endif %}{% endfor %}
   {% endblock %}
   {% block content %}{% endblock %}

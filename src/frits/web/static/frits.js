@@ -155,6 +155,16 @@
     box.form.requestSubmit ? box.form.requestSubmit() : box.form.submit();
   });
 
+  // ⌘S (Strg+S) saves the form that has a "Speichern" button, e.g. a draft, instead of
+  // making the browser save the web page as a file.
+  document.addEventListener("keydown", function (e) {
+    if (!(e.metaKey || e.ctrlKey) || e.altKey || (e.key !== "s" && e.key !== "S")) return;
+    var save = document.querySelector("form button[name=action][value=save]");
+    if (!save) return;
+    e.preventDefault();
+    save.click();
+  });
+
   function zoneOf(e) { return e.target.closest && e.target.closest("[data-dropzone]"); }
   function hatDateien(e) {
     var types = Array.prototype.slice.call((e.dataTransfer && e.dataTransfer.types) || []);
@@ -183,6 +193,8 @@
   });
   document.addEventListener("drop", function (e) {
     if (!document.querySelector("[data-dropzone]")) return;
+    // Places with their own drag & drop (e.g. the Steuer-Quest cards) handle it themselves.
+    if (e.defaultPrevented || (e.target.closest && e.target.closest("[data-eigenes-ziehen]"))) { dragEnde(); return; }
     var files = dateienAus(e.dataTransfer);
     // Text dragged into a text field lands there, as everywhere else.
     if (!files.length && e.target.closest && e.target.closest("textarea, input:not([type=file])")) { dragEnde(); return; }
