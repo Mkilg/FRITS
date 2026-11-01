@@ -314,3 +314,28 @@ def test_pasted_booking_reads_paid_day_and_shop():
     assert found["gross"] == "89,90" and found["date"] == "2026-10-20"
     assert found["vendor"] == "Deutsche Bahn"
     assert beleg.guess_vendor("From: Rechnung <noreply@adobe.com>") == "Adobe"
+
+
+def test_books_and_tickets_without_printed_rate_get_seven_percent():
+    """Tester (Lena): a Fachbuch was proposed with 19 %. Books, newspapers and bus or train
+    tickets carry 7 % (§ 12 Abs. 2 Nr. 1, 10 UStG with Anlage 2)."""
+    day = date(2026, 11, 2)
+    book = beleg.guess("Thalia\nFachbuch Steuerrecht 2026\nSumme 39,90 EUR\n", day)
+    assert book["vat_rate"] == "0.07" and "bitte kurz prüfen" in book["vat_hint"]
+    assert beleg.guess("Fahrschein Berlin AB\n3,80 EUR\n", day)["vat_rate"] == "0.07"
+    # A rate printed on the receipt always wins, and "Buchung" is not a book.
+    assert (
+        beleg.guess("Buchhandlung\nKalender\nMwSt 19 %\nSumme 12,00\n", day)["vat_rate"] == "0.19"
+    )
+    assert "vat_hint" not in beleg.guess("Buchhandlung\nMwSt 19 %\nSumme 12,00\n", day)
+    assert "vat_rate" not in beleg.guess("Buchung Nr. 4711\nSumme 12,00\n", day)
+    assert "vat_rate" not in beleg.guess("Buchhaltung Meier\nSumme 12,00\n", day)
+
+
+def test_receipt_without_a_date_leaves_the_date_empty(client):
+    """Tester (Lena): no date found, yet today's date stood in the field as if read."""
+    page = send(client, "/expenses/beleg", text="Thalia\nFachbuch Steuerrecht\nSumme 39,90 EUR")
+    assert "Nicht gefunden habe ich das Datum" in page.text
+    field = re.search(r'<input type="date" name="date"[^>]*>', page.text).group(0)
+    assert 'value=""' in field and "autofocus" in field
+    assert '<option value="0.07" selected' in page.text

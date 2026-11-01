@@ -141,14 +141,28 @@ _ABROAD = re.compile(
 )
 
 
+# Things that carry 7 % (§ 12 Abs. 2 UStG with Anlage 2): books, e-books, newspapers and
+# magazines (Nr. 1, 14), and bus and train tickets (Nr. 10). Used only when the receipt
+# prints no rate itself, so "MwSt 19 %" on it always wins.
+_RATE = re.compile(r"(?<![\d,.])(19|7)(?:[,.]0{1,2})?\s*%")
+_REDUCED = re.compile(
+    r"\b(fach|hör)?(buch|bücher|buecher)\b|\bfachliteratur|\be-?books?\b|\bzeitschrift|"
+    r"\bzeitung|\bbuchhandlung|\bfahrkarte|\bfahrschein|\bdeutsche bahn\b|\bdb (fernverkehr|regio)\b"
+    r"|\bdeutschlandticket",
+    re.IGNORECASE,
+)
+
+
 def guess_vat(text: str) -> str | None:
     """ "0.07" or "0.19" when the receipt names exactly one of them; "" for a receipt from
     abroad, whose VAT FRITS must not count as Vorsteuer."""
     if _ABROAD.search(text):
         return ""
     rates = set()
-    for m in re.finditer(r"(?<![\d,.])(19|7)(?:[,.]0{1,2})?\s*%", text):
+    for m in _RATE.finditer(text):
         rates.add("0.19" if m.group(1) == "19" else "0.07")
+    if not rates and _REDUCED.search(text):
+        return "0.07"
     return rates.pop() if len(rates) == 1 else None
 
 
@@ -238,6 +252,11 @@ def guess(text: str, today: date) -> dict[str, str]:
         "vat_rate": guess_vat(text),
         "category": guess_category(text),
     }
+    if found["vat_rate"] == "0.07" and not _RATE.search(text):
+        found["vat_hint"] = (
+            "7 % vorgeschlagen, weil es nach Buch, Zeitschrift oder Fahrkarte aussieht. "
+            "Auf dem Beleg steht keine Steuer, bitte kurz prüfen."
+        )
     return {
         key: value for key, value in found.items() if value or (key == "vat_rate" and value == "")
     }
