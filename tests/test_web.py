@@ -556,6 +556,8 @@ def test_about_page_and_bug_report_without_personal_data(client, mails):
     assert page.status_code == 200
     assert "Über FRITS" in page.text and "Fehler melden" in page.text
     assert 'aria-current="page"' in page.text
+    assert "nicht-kommerzielles Projekt" in page.text and "ARD KI-Podcast" in page.text
+    assert "Platzhalter" not in page.text
 
     page = post(client, "/ueber/fehler")
     assert "Fehler-Mail ist in Mail geöffnet" in page.text
