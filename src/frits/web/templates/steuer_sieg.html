@@ -15,7 +15,7 @@
       <h2>Deine Ausbeute</h2>
       <dl class="sq-statistik">
         <dt>Dokumente gesichert</dt><dd data-zaehler="sieg-belege" data-von="0">{{ ressourcen.belege }}</dd>
-        <dt>Gold-Siegel</dt><dd><span data-zaehler="sieg-siegel" data-von="0">{{ ressourcen.siegel }}</span> / {{ provinzen | rejectattr("nur_bonus") | list | length }}</dd>
+        <dt>Siegel</dt><dd><span data-zaehler="sieg-siegel" data-von="0">{{ ressourcen.siegel }}</span> / {{ provinzen | rejectattr("nur_bonus") | list | length }}</dd>
         <dt>Bonus-Schätze</dt><dd data-zaehler="sieg-gold" data-von="0">{{ ressourcen.gold }}</dd>
         <dt>Aufträge der Beraterin</dt><dd>{{ ressourcen.briefe }}</dd>
         <dt>Fragen an sie</dt><dd>{{ ressourcen.fragen }}</dd>

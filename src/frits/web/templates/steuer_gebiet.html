@@ -71,7 +71,7 @@
         {% else %}
         <form method="post" action="/steuer/{{ jahr }}/stueck/{{ s.id }}/status" data-stempel="GIBT'S NICHT" data-farbe="grau">
           <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back" value="{{ zurueck }}">
-          <button class="sq-stempelknopf grau" name="status" value="gibts_nicht"{% if kern(s.gebiet, s.key) %} data-rueckfrage="„{{ s.name }}“ hat fast jede:r in deiner Lage. Findest du es nur gerade nicht? Dann lieber fragen, das zählt genauso."{% endif %}>Gibt's nicht</button>
+          <button class="sq-stempelknopf grau" name="status" value="gibts_nicht"{% if kern(s.gebiet, s.key) %} data-rueckfrage="{{ warum(s.gebiet, s.key) or ('„' ~ s.name ~ '“ hat fast jede:r in deiner Lage.') }} Findest du es nur gerade nicht? Dann frag lieber, das zählt genauso." data-rueckfrage-frage="Ich finde „{{ s.name }}“ nicht. Brauchst du das?"{% endif %}>Gibt's nicht</button>
         </form>
         {% endif %}
         <details>

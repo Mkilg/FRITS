@@ -22,6 +22,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -399,6 +401,9 @@ def create_app(
     @app.exception_handler(StarletteHTTPException)
     async def friendly_error(request: Request, exc: StarletteHTTPException):
         """Plain words instead of {"detail": "Not Found"}."""
+        ziel = (exc.headers or {}).get("Location")
+        if 300 <= exc.status_code < 400 and ziel:
+            return RedirectResponse(ziel, status_code=exc.status_code)
         if exc.status_code == 404:
             titel, text = (
                 "Diese Seite gibt es nicht",
@@ -410,6 +415,20 @@ def create_app(
             titel, text = "Das hat nicht geklappt", "Versuch es gleich noch einmal."
         response = page(request, "fehler.html", titel=titel, text=text)
         response.status_code = exc.status_code
+        return response
+
+    @app.exception_handler(RequestValidationError)
+    async def wrong_address(request: Request, exc: RequestValidationError):
+        """A typo in an address (e.g. /steuer/abc) is a missing page, not a JSON error."""
+        if request.method != "GET":
+            return await request_validation_exception_handler(request, exc)
+        response = page(
+            request,
+            "fehler.html",
+            titel="Diese Seite gibt es nicht",
+            text="Vielleicht ist sie umgezogen, oder der Link war nicht ganz vollständig.",
+        )
+        response.status_code = 404
         return response
 
     async def check_token(request: Request) -> None:
