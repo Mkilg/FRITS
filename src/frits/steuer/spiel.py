@@ -16,7 +16,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import date
 
-from frits.steuer.katalog import Gebiet, ist_kern, katalog
+from frits.steuer.katalog import MACHT_BERATERIN, Gebiet, ist_kern, katalog
 
 ERLEDIGT = ("gesammelt", "gibts_nicht", "fragen")
 
@@ -193,7 +193,12 @@ def ressourcen(stuecke: list[dict], provinzstaende: list[Provinzstand]) -> Resso
         belege=sum(s.get("dateien", 0) for s in stuecke),
         briefe=sum(1 for s in stuecke if s["wunsch"]),
         siegel=sum(1 for p in provinzstaende if p.stand.siegel and not p.nur_bonus),
-        fragen=sum(1 for s in stuecke if s["status"] == "fragen"),
+        # "Macht meine Beraterin" ist keine Frage; eine Frage zu einem Beleg schon
+        fragen=sum(
+            1
+            for s in stuecke
+            if s.get("frage", "") != MACHT_BERATERIN and (s["status"] == "fragen" or s.get("frage"))
+        ),
         schaetze=sum(1 for s in stuecke if ist_bonus(s) and s["status"] == "gesammelt"),
     )
 
@@ -249,14 +254,22 @@ class Drache:
         return self.karten[0] if self.karten else None
 
 
+def echter_beleg(s: dict) -> bool:
+    """Liegt bei dieser Karte ein echtes Dokument? Eine eingetippte Angabe zählt als Antwort,
+    aber nicht als Beleg: Der Drache und der Orden "Erster Fund" wollen eine echte Datei."""
+    if s["status"] != "gesammelt":
+        return False
+    # Ohne Zählung (gesammelt von Hand gesetzt, z. B. in Tests) gilt die Karte als echt;
+    # sonst zählt sie nur, wenn außer Angaben etwas da ist
+    return bool(s.get("belege", 1)) or not s.get("dateien", 0)
+
+
 def drache(stuecke: list[dict]) -> Drache:
     pflichten = pflicht(stuecke)
     karten = [s for s in pflichten if s["status"] == "offen"]
     # Wünsche der Beraterin zuerst, die sind ihr wichtig.
     karten.sort(key=lambda s: (-s["wunsch"], s["id"]))
-    will_beleg = (
-        bool(pflichten) and not karten and not any(s["status"] == "gesammelt" for s in stuecke)
-    )
+    will_beleg = bool(pflichten) and not karten and not any(echter_beleg(s) for s in stuecke)
     lp = 1 if will_beleg else len(karten)
     return Drache(lp=lp, max_lp=max(len(pflichten), lp), karten=karten, will_beleg=will_beleg)
 
@@ -319,7 +332,12 @@ def erfolge(
     gesamt = gesamtstand(stuecke)
     vorjahr_ok = bool(vergleich) and all(v["jetzt"] in ERLEDIGT for v in vergleich)
     return [
-        Erfolg("erster-fund", "Erster Fund", "Das erste Dokument ist gesichert.", r.belege >= 1),
+        Erfolg(
+            "erster-fund",
+            "Erster Fund",
+            "Das erste Dokument ist gesichert.",
+            any(echter_beleg(s) for s in stuecke),
+        ),
         Erfolg("sammlerin", "Sammlerin", "25 Dokumente gesichert.", r.belege >= 25),
         Erfolg("erste-ernte", "Erste Ernte", "Eine Provinz ist komplett.", r.siegel >= 1),
         Erfolg("brieftaube", "Brieftaube", "Eine Mail der Beraterin übersetzt.", brief_gelesen),
@@ -797,7 +815,47 @@ def _woerter(text: str) -> set[str]:
     }
 
 
+# Wörter, die in vielen Dateinamen stehen und wenig sagen: Sie zählen beim Raten nur schwach.
+# Sonst landet "KSK_Jahresbescheinigung" bei "Umsatzsteuer-Meldungen des Jahres" und
+# "Rechnung_Laptop" bei den Ausgangsrechnungen.
+_SCHWACH = {
+    "jahres",
+    "jahr",
+    "rechnung",
+    "rechnungen",
+    "bescheinigung",
+    "bescheid",
+    "liste",
+    "uebersicht",
+    "nachweis",
+    "abrechnung",
+    "konto",
+    "beleg",
+    "belege",
+    "steuer",
+    "unterlagen",
+}
+STARK = 3  # ab so vielen Punkten traut sich FRITS eine Karte vorzuschlagen
+
+
 def _naehe(a: str, b: str) -> int:
+    wert = _naehe_roh(a, b)
+    if wert and (a in _SCHWACH or b in _SCHWACH or _anfang_schwach(a, b)):
+        return min(wert, 2)
+    return wert
+
+
+def _anfang_schwach(a: str, b: str) -> bool:
+    """ "jahresbescheinigung" und "jahresuebersicht" teilen nur das schwache "jahres"."""
+    gemeinsam = 0
+    for x, y in zip(a, b):
+        if x != y:
+            break
+        gemeinsam += 1
+    return a != b and any(a[:gemeinsam] == w for w in _SCHWACH) and gemeinsam < min(len(a), len(b))
+
+
+def _naehe_roh(a: str, b: str) -> int:
     if a == b:
         return len(a) + 2
     kurz, lang = sorted((a, b), key=len)
@@ -853,15 +911,17 @@ def ahnung(dateiname: str, stuecke: list[dict]) -> Ahnung:
             continue
         # Die Provinz zählt nur mit Wörtern, die nicht schon die Karte erklärt haben:
         # "GbR_Rechnung" gehört zur Gilde, auch wenn "Rechnung" ein Werkstatt-Wort ist
-        rest = [provinz_wort[s["gebiet"]][a] for a, t in treffer.items() if not t]
-        wert = wert * 2 + (1 if s["status"] == "offen" else 0) + max(rest, default=0)
+        rest = max((provinz_wort[s["gebiet"]][a] for a, t in treffer.items() if not t), default=0)
+        if wert < STARK and rest < STARK:
+            continue  # nur schwache Wörter: lieber nur die Provinz vorschlagen
+        wert = wert * 2 + (1 if s["status"] == "offen" else 0) + rest
         if wert > punkte:
             beste, punkte = s, wert
     if beste is not None:
         return Ahnung(beste, beste["gebiet"])
     wert = {gid: max(w.values()) for gid, w in provinz_wort.items()}
     gid = max(wert, key=wert.__getitem__, default=None)
-    if gid is not None and wert[gid]:
+    if gid is not None and wert[gid] >= STARK:
         return Ahnung(None, gid)
     return Ahnung()
 

@@ -356,7 +356,7 @@
     }
     var knopf = m.querySelector(".sq-weg");
     if (knopf) knopf.addEventListener("click", weg);
-    if (!m.classList.contains("warn") && !m.classList.contains("fehler")) setTimeout(weg, 4200);
+    if (!m.classList.contains("warn") && !m.classList.contains("fehler") && !m.querySelector(".sq-meldung-aktion")) setTimeout(weg, 4200);
   }
   meldungen.forEach(function (m, i) { if (i > 0) m.classList.add("wartet"); });
   zeigeMeldung(0);
@@ -576,7 +576,7 @@
     // Handkarten: Blase nach unten, damit sie Kartentitel und Kopfleiste nicht verdeckt.
     // Sonst nach oben; ist dort kein Platz, klappt sie nach unten auf.
     var r = blase.getBoundingClientRect();
-    if (knopf.classList.contains("sq-handkarte") || r.top < 8) blase.classList.add("unten");
+    if (knopf.classList.contains("sq-handkarte") || knopf.closest(".sq-arena, .sq-schnell") || r.top < 8) blase.classList.add("unten");
     (reihe.querySelector(".sq-siegelknopf") || ja).focus();
   });
   document.addEventListener("keydown", function (e) { if (e.key === "Escape") schliessen(); });
@@ -822,4 +822,24 @@
       }
     });
   });
+})();
+
+// Nach "Ja, passt" oder "Stempeln" im Korb an derselben Stelle weitermachen, statt oben
+// zu landen: die Position merken und nach dem Neuladen wiederherstellen.
+(function () {
+  var SCHLUESSEL = "sq-weiter-bei";
+  try {
+    var gemerkt = JSON.parse(sessionStorage.getItem(SCHLUESSEL) || "null");
+    sessionStorage.removeItem(SCHLUESSEL);
+    if (gemerkt && gemerkt.pfad === location.pathname && !location.hash && Date.now() - gemerkt.zeit < 30000) {
+      window.addEventListener("load", function () { window.scrollTo(0, gemerkt.y); });
+    }
+  } catch (e) { /* ohne Speicher geht es auch, nur eben oben */ }
+  document.addEventListener("submit", function (e) {
+    var form = e.target;
+    if (!form.closest || !form.closest("#sq-korb, .sq-akte, .sq-buch")) return;
+    try {
+      sessionStorage.setItem(SCHLUESSEL, JSON.stringify({ pfad: location.pathname, y: window.scrollY, zeit: Date.now() }));
+    } catch (err) { /* egal */ }
+  }, true);
 })();

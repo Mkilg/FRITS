@@ -199,10 +199,23 @@ def _vom_vorjahr(conn: sqlite3.Connection, jahr: int, ids: set[str]) -> None:
         )
 
 
+# Eine eingetippte Angabe ist eine Antwort, aber kein Dokument (siehe angabe_eintippen)
+ANGABE_PRAEFIX = "Angabe "
+_ECHT = "NOT (d.original LIKE 'Angabe %' AND d.original LIKE '%.txt')"
+
+
+def ist_angabe(original: str) -> bool:
+    return original.startswith(ANGABE_PRAEFIX) and original.endswith(".txt")
+
+
 def stuecke(conn: sqlite3.Connection, jahr: int, gebiet: str | None = None) -> list[dict]:
     ensure_schema(conn)
     sql = (
-        "SELECT s.*, (SELECT COUNT(*) FROM steuer_dateien d WHERE d.stueck_id = s.id) AS dateien"
+        "SELECT s.*, (SELECT COUNT(*) FROM steuer_dateien d WHERE d.stueck_id = s.id) AS dateien,"
+        # echte Belege: Dateien und mitbenutzte Dateien, aber keine eingetippten Angaben
+        f" (SELECT COUNT(*) FROM steuer_dateien d WHERE d.stueck_id = s.id AND {_ECHT})"
+        " + (SELECT COUNT(*) FROM steuer_verweise v JOIN steuer_dateien d ON d.id = v.datei_id"
+        f" WHERE v.stueck_id = s.id AND {_ECHT}) AS belege"
         " FROM steuer_stuecke s WHERE s.jahr = ?"
     )
     args: list = [jahr]
@@ -278,12 +291,45 @@ def setze_frage(conn: sqlite3.Connection, stueck_id: int, frage: str) -> dict:
     return stueck(conn, stueck_id)
 
 
+def _root(conn: sqlite3.Connection) -> Path | None:
+    """Der FRITS-Ordner, in dem diese Datenbank liegt (frits.db liegt direkt darin)."""
+    for row in conn.execute("PRAGMA database_list"):
+        if row[1] == "main" and row[2]:
+            return Path(row[2]).parent
+    return None
+
+
+def heile_pfad(conn: sqlite3.Connection, pfad: str) -> str:
+    """Gespeicherte Pfade sind absolut. Wurde der FRITS-Ordner verschoben oder aus einer
+    Sicherung zurückgeholt, zeigen sie ins Leere. Dann gilt der Teil ab "steuer/<jahr>"
+    im jetzigen Ordner."""
+    alt = Path(pfad)
+    if alt.exists():
+        return pfad
+    teile = alt.parts
+    root = _root(conn)
+    if root is None:
+        return pfad
+    for i in range(len(teile) - 2, -1, -1):
+        if teile[i] == "steuer" and re.fullmatch(r"\d{4}", teile[i + 1]):
+            neu = root.joinpath(*teile[i:])
+            return str(neu) if neu.exists() else pfad
+    return pfad
+
+
+def _geheilt(conn: sqlite3.Connection, row) -> dict:
+    d = dict(row)
+    if d.get("pfad"):
+        d["pfad"] = heile_pfad(conn, d["pfad"])
+    return d
+
+
 def datei(conn: sqlite3.Connection, jahr: int, datei_id: int) -> dict | None:
     ensure_schema(conn)
     row = conn.execute(
         "SELECT * FROM steuer_dateien WHERE id = ? AND jahr = ?", (datei_id, jahr)
     ).fetchone()
-    return dict(row) if row else None
+    return _geheilt(conn, row) if row else None
 
 
 def markiere_wunsch(conn: sqlite3.Connection, stueck_id: int) -> None:
@@ -385,8 +431,13 @@ def sammeln(
                     "UPDATE steuer_stuecke SET status = 'gesammelt', geaendert = ? WHERE id = ?",
                     (_now(), s["id"]),
                 )
-            return Fund(bool(cur.rowcount), Path(vorhanden["pfad"]), stueck(conn, s["id"]), bei)
-        return Fund(False, Path(vorhanden["pfad"]), bei)
+            return Fund(
+                bool(cur.rowcount),
+                Path(heile_pfad(conn, vorhanden["pfad"])),
+                stueck(conn, s["id"]),
+                bei,
+            )
+        return Fund(False, Path(heile_pfad(conn, vorhanden["pfad"])), bei)
 
     ziel_ordner = ordner(root, jahr) / s["gebiet"]
     ziel_ordner.mkdir(parents=True, exist_ok=True)
@@ -414,6 +465,59 @@ def sammeln(
     return Fund(True, ziel, stueck(conn, stueck_id))
 
 
+def darf_mitzaehlen(karte: dict, bei: dict) -> bool:
+    """Darf man eine Datei auf Nachfrage für eine zweite Karte zählen lassen? In derselben
+    Provinz (die 1099 hat Dividenden, Quellensteuer und Verkäufe) und für jeden Wunsch der
+    Beraterin. Automatisch passiert das nur in darf_mitbenutzen()."""
+    if karte["id"] == bei["id"] or karte["jahr"] != bei["jahr"]:
+        return False
+    if karte.get("wunsch") or karte.get("herkunft") == "beraterin":
+        return True
+    # Bonus-Schätze bringen extra Gold: eine Datei soll nicht mehrere davon auf einmal heben
+    return karte.get("art") != "bonus" and karte["gebiet"] == bei["gebiet"]
+
+
+def mitzaehlen(conn: sqlite3.Connection, stueck_id: int, datei_id: int) -> bool:
+    """Die Datei datei_id zählt auch für stueck_id. True, wenn das neu ist."""
+    karte = stueck(conn, stueck_id)
+    row = conn.execute(
+        "SELECT * FROM steuer_dateien WHERE id = ? AND jahr = ?", (datei_id, karte["jahr"])
+    ).fetchone()
+    if row is None:
+        raise QuestError("Diese Datei finde ich nicht mehr.")
+    if not darf_mitzaehlen(karte, stueck(conn, row["stueck_id"])):
+        raise QuestError("Diese Datei kann hier nicht mitzählen.")
+    with transaction(conn):
+        cur = conn.execute(
+            "INSERT OR IGNORE INTO steuer_verweise (jahr, stueck_id, datei_id) VALUES (?, ?, ?)",
+            (karte["jahr"], stueck_id, datei_id),
+        )
+        conn.execute(
+            "UPDATE steuer_stuecke SET status = 'gesammelt', geaendert = ? WHERE id = ?",
+            (_now(), stueck_id),
+        )
+    return bool(cur.rowcount)
+
+
+def datei_hash(pfad: Path) -> str:
+    return _hash(pfad)
+
+
+def datei_mit_hash(conn: sqlite3.Connection, jahr: int, sha: str) -> dict | None:
+    ensure_schema(conn)
+    row = conn.execute(
+        "SELECT * FROM steuer_dateien WHERE jahr = ? AND sha256 = ?", (jahr, sha)
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def datei_mit_pfad(conn: sqlite3.Connection, jahr: int, pfad: Path) -> dict | None:
+    for d in dateien(conn, jahr):
+        if d["pfad"] == str(pfad):
+            return d
+    return None
+
+
 def darf_mitbenutzen(karte: dict, bei: dict) -> bool:
     """Darf eine Datei für zwei Karten zählen? Nur für dieselbe Unterlage in Geschwister-
     Provinzen, z. B. eine Mietliste für Wohnung 1 und 2. Sonst ließe sich eine Datei auf
@@ -436,7 +540,7 @@ def verweise(conn: sqlite3.Connection, jahr: int, stueck_id: int | None = None) 
     if stueck_id is not None:
         sql += " AND v.stueck_id = ?"
         werte = (jahr, stueck_id)
-    return [dict(r) for r in conn.execute(sql + " ORDER BY v.id", werte)]
+    return [_geheilt(conn, r) for r in conn.execute(sql + " ORDER BY v.id", werte)]
 
 
 def _offen_wenn_leer(conn: sqlite3.Connection, stueck_id: int) -> None:
@@ -465,7 +569,7 @@ def dateien(conn: sqlite3.Connection, jahr: int, stueck_id: int | None = None) -
         rows = conn.execute(
             "SELECT * FROM steuer_dateien WHERE stueck_id = ? ORDER BY id", (stueck_id,)
         )
-    return [dict(r) for r in rows]
+    return [_geheilt(conn, r) for r in rows]
 
 
 def entferne_datei(conn: sqlite3.Connection, datei_id: int) -> None:
@@ -473,9 +577,11 @@ def entferne_datei(conn: sqlite3.Connection, datei_id: int) -> None:
     row = conn.execute("SELECT * FROM steuer_dateien WHERE id = ?", (datei_id,)).fetchone()
     if not row:
         return
-    pfad = Path(row["pfad"])
+    pfad = Path(heile_pfad(conn, row["pfad"]))
     root = pfad.parents[3]  # FRITS/steuer/<jahr>/<gebiet>/datei
-    if pfad.exists():
+    if ist_angabe(row["original"]):
+        pfad.unlink(missing_ok=True)  # Eingetipptes wird kein Zettel im Korb, es ist einfach weg
+    elif pfad.exists():
         ziel = lager(root) / row["original"]
         ziel.parent.mkdir(parents=True, exist_ok=True)
         if ziel.exists():

@@ -188,7 +188,7 @@ def _alte_euer_weg(conn: sqlite3.Connection, stueck_id: int, praefix: str = EUER
     ).fetchall()
     with transaction(conn):
         for row in alte:
-            Path(row["pfad"]).unlink(missing_ok=True)
+            Path(quest.heile_pfad(conn, row["pfad"])).unlink(missing_ok=True)
             conn.execute("DELETE FROM steuer_dateien WHERE id = ?", (row["id"],))
 
 

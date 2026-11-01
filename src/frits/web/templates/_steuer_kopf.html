@@ -8,17 +8,21 @@
     <li class="sq-marke fragen" title="Fragen an deine Beraterin"><i></i><b data-zaehler="fragen">{{ ressourcen.fragen }}</b> Fragen</li>
     <li class="sq-marke gold"><a href="/steuer/{{ jahr }}/markt" title="Dein Gold. Auf dem Hafenmarkt baust du damit deine Insel aus."><i></i><b data-zaehler="gold">{{ ressourcen.gold }}</b> Gold</a></li>
   </ul>
+  {# 100 % erst mit dem Sieg: Fehlt nur noch ein echtes Dokument, steht dort 99 % #}
+  {% set prozent = 99 if (gesamt.prozent >= 100 and drache is defined and not drache.besiegt) else gesamt.prozent %}
   <details class="sq-zeitalter">
     <summary title="Was bringt das nächste Zeitalter?">
     <span>{{ zeitalter[1] }}</span>
-    <span class="sq-band" role="progressbar" aria-label="Fortschritt" aria-valuenow="{{ gesamt.prozent }}" aria-valuemin="0" aria-valuemax="100"><span style="width: {{ gesamt.prozent }}%"></span></span>
-    <span><b data-zaehler="prozent">{{ gesamt.prozent }}</b> %</span>
+    <span class="sq-band" role="progressbar" aria-label="Fortschritt" aria-valuenow="{{ prozent }}" aria-valuemin="0" aria-valuemax="100"><span style="width: {{ prozent }}%"></span></span>
+    <span><b data-zaehler="prozent">{{ prozent }}</b> %</span>
     <span class="sq-zeitalter-info" aria-hidden="true">?</span>
     </summary>
     <div class="sq-zeitalter-zettel">
       <p><strong>{{ zeitalter[1] }}.</strong> {{ zeitalter[2] }}</p>
       {% if weg is defined and weg %}
       <p>Nächstes: <strong>{{ weg[0] }}</strong>, noch <strong>{{ weg[1] }} Karte{{ "n" if weg[1] != 1 }}</strong>. {{ weg[2] }}</p>
+      {% elif drache is defined and drache.will_beleg %}
+      <p>Es fehlt nur noch <strong>ein echtes Dokument</strong>, zum Beispiel ein Foto oder PDF. Eingetippte Angaben, „Gibt's nicht“ und Fragen zählen als Antwort, aber nicht als Beleg.</p>
       {% elif drache is defined and not drache.besiegt %}
       <p>Fast geschafft: Erst wenn der Drache besiegt ist, beginnt das Goldene Zeitalter.</p>
       {% endif %}

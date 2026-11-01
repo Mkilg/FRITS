@@ -6,6 +6,7 @@ Wie überall in FRITS: Jeder Knopf, der etwas ändert, ist ein POST mit dem gehe
 
 from __future__ import annotations
 
+import hashlib
 import math
 import re
 import shutil
@@ -225,6 +226,15 @@ def groesse_text(bytes_: int) -> str:
     return f"{bytes_ / (1024 * 1024):.1f} MB".replace(".", ",")
 
 
+def angabe_text(d: dict) -> str:
+    """Was bei einer eingetippten Angabe drinsteht (ohne die Überschrift-Zeile)."""
+    try:
+        roh = Path(d["pfad"]).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+    return roh.split("\n\n", 1)[-1].strip()
+
+
 def beleg_info(d: dict) -> dict:
     """Eine Datei fürs Belegbuch: was für eine Art, wie groß, bei Angaben der Text selbst."""
     pfad = Path(d["pfad"])
@@ -233,10 +243,9 @@ def beleg_info(d: dict) -> dict:
     groesse = pfad.stat().st_size if pfad.is_file() else 0
     art = "datei"
     text = ""
-    if endung == ".txt" and original.startswith("Angabe ") and pfad.is_file():
+    if endung == ".txt" and quest.ist_angabe(original) and pfad.is_file():
         art = "angabe"
-        roh = pfad.read_text(encoding="utf-8", errors="replace")
-        text = roh.split("\n\n", 1)[-1].strip()[:600]
+        text = angabe_text(d)[:600]
     elif endung in VORSCHAUBILD:
         art = "bild"
     elif endung == ".pdf":
@@ -389,14 +398,35 @@ def register_steuer(
         g = gebiet(p, gebiet_id)
         return g.titel if g else gebiet_id
 
-    def doppelt_text(jahr: int, fund: quest.Fund | None, karte: dict) -> str:
-        """Ehrlich sagen, warum eine Datei nicht (noch einmal) zählt."""
+    def doppelt_melden(
+        jahr: int, fund: quest.Fund | None, karte: dict, zurueck: str | None = None
+    ) -> None:
+        """Ehrlich sagen, warum eine Datei nicht (noch einmal) zählt, und einen Weg weiter
+        zeigen: zum Beleg, und wenn es passt, "Steht da mit drin, hier auch zählen"."""
         if fund is None or fund.stueck["id"] == karte["id"]:
-            return "Diese Datei hattest du schon gesammelt. Doppelt zählt nicht, aber gut gemerkt!"
-        wo = f"„{fund.stueck['name']}“ ({titel_von(jahr, fund.stueck['gebiet'])})"
-        return (
+            flash("Diese Datei hattest du schon gesammelt. Doppelt zählt nicht, aber gut gemerkt!")
+            return
+        bei = fund.stueck
+        wo = f"„{bei['name']}“ ({titel_von(jahr, bei['gebiet'])})"
+        d = quest.datei_mit_pfad(conn(), jahr, fund.pfad)
+        link = f"/steuer/{jahr}/belege#karte-{bei['id']}"
+        if d and quest.darf_mitzaehlen(karte, bei):
+            flash(
+                f"Diese Datei liegt schon bei {wo}. Steht das für „{karte['name']}“ mit drin?",
+                "warn",
+                aktion={
+                    "url": f"/steuer/{jahr}/stueck/{karte['id']}/mitzaehlen",
+                    "knopf": "Ja, hier auch zählen",
+                    "felder": {"datei_id": d["id"], "back": zurueck or ""},
+                    "link": link,
+                },
+            )
+            return
+        flash(
             f"Diese Datei liegt schon bei {wo}. Eine Datei zählt nur für eine Karte,"
-            " außer bei derselben Unterlage für mehrere Wohnungen oder Firmen."
+            " außer in derselben Provinz oder bei derselben Unterlage für mehrere Wohnungen.",
+            "warn",
+            aktion={"link": link},
         )
 
     def belohnen(
@@ -753,7 +783,7 @@ def register_steuer(
         if neu:
             quest.notiere(conn(), jahr, "start", f"Reich gegründet mit {len(gebiete)} Provinzen")
             flash(
-                f"Deine Insel hat {len(gebiete)} Provinzen. Fritte hat dir den Weg markiert.",
+                f"Deine Insel hat {len(gebiete)} Provinz{'' if len(gebiete) == 1 else 'en'}. Fritte hat dir den Weg markiert.",
                 "gruendung",
             )
         else:
@@ -772,7 +802,10 @@ def register_steuer(
         c = conn()
         eigene = [s for s in daten["stuecke"] if s["gebiet"] == g.id]
         for s in eigene:
-            s["datei_liste"] = quest.dateien(c, jahr, s["id"])
+            s["datei_liste"] = [
+                {**d, "angabe": angabe_text(d) if quest.ist_angabe(d["original"]) else None}
+                for d in quest.dateien(c, jahr, s["id"])
+            ]
             s["verweis_liste"] = [
                 {**v, "bei_titel": titel_von(jahr, v["bei_gebiet"])}
                 for v in quest.verweise(c, jahr, s["id"])
@@ -832,8 +865,18 @@ def register_steuer(
         tmp = ablage / f".angabe-{s['id']}.txt"
         tmp.write_text(f"{s['name']}\n\n{text}\n", encoding="utf-8")
         c = conn()
+        # Ändern statt stapeln: Eine Karte hat höchstens eine Angabe, die neue ersetzt die alte
+        alte = [
+            d
+            for d in quest.dateien(c, jahr, s["id"])
+            if quest.ist_angabe(d["original"]) and angabe_text(d) != text
+        ]
+        for d in alte:
+            quest.entferne_datei(c, d["id"])
         fund = quest.sammeln(c, ws.root, s["id"], tmp, original=original, verschieben=True)
-        if fund.neu:
+        if fund.neu and alte:
+            flash(f"Geändert: {s['name']} ist neu notiert.", "beute", "done")
+        elif fund.neu:
             quest.notiere(c, jahr, "fund", f"{s['name']}: eingetippt")
             flash(f"+1 Angabe! {s['name']} ist notiert und kommt so in die Truhe.", "beute", "done")
         else:
@@ -864,7 +907,7 @@ def register_steuer(
         elif neu:
             flash(f"+{neu} Beleg{'e' if neu > 1 else ''}! Gesichert: {s['name']}", "beute", "done")
         else:
-            flash(doppelt_text(jahr, funde[0] if funde else None, s))
+            doppelt_melden(jahr, funde[0] if funde else None, s)
         if belohnen(jahr, vorher):
             return back(f"/steuer/{jahr}/drache")
         return back(str(form.get("back") or f"/steuer/{jahr}/gebiet/{s['gebiet']}"))
@@ -892,7 +935,7 @@ def register_steuer(
                 wie = f" (dieselbe Datei wie bei {titel_von(jahr, fund.verweis['gebiet'])})"
             flash(f"+1 Beleg! {name} → {s['name']}{wie}", "beute", "done")
         else:
-            flash(doppelt_text(jahr, fund, s))
+            doppelt_melden(jahr, fund, s, str(form.get("back") or ""))
         if belohnen(jahr, vorher):
             return back(f"/steuer/{jahr}/drache")
         return back(str(form.get("back") or f"/steuer/{jahr}"))
@@ -908,7 +951,7 @@ def register_steuer(
             return back(zurueck)
         vorher = lage(jahr)
         alle = quest.stuecke(c, jahr)
-        gestempelt = 0
+        gestempelt, doppelt = 0, 0
         for quelle in quest.lager_dateien(ws.root):
             karte = spiel.ahnung(quelle.name, alle).stueck
             if karte is None:
@@ -917,10 +960,18 @@ def register_steuer(
             if fund.neu:
                 quest.notiere(c, jahr, "fund", f"{karte['name']}: {quelle.name}")
                 gestempelt += 1
-        if gestempelt:
+            else:
+                doppelt += 1  # dieselbe Datei lag schon bei einer Karte: der Zettel war eine Kopie
+        if gestempelt or doppelt:
+            extra = (
+                f" {doppelt} {'war eine Kopie' if doppelt == 1 else 'waren Kopien'} von Belegen,"
+                " die schon bei ihren Karten liegen."
+                if doppelt
+                else ""
+            )
             flash(
-                f"Die Spürnase hat {gestempelt} Zettel abgestempelt. "
-                "Falsch gelandet? Bei der Karte „Zurücklegen“, nichts ist verloren.",
+                f"Die Spürnase hat {gestempelt} Zettel abgestempelt.{extra} "
+                "Falsch gelandet? Im Belegbuch siehst du alles.",
                 "beute",
                 "done",
             )
@@ -934,11 +985,15 @@ def register_steuer(
     async def datei_entfernen(request: Request, jahr: int, datei_id: int):
         form = await request.form()
         vorher = lage(jahr)
+        d = quest.datei(conn(), jahr, datei_id)
         quest.entferne_datei(conn(), datei_id)
         # Wer zurücklegt, verliert die Serie: sonst ließe sich die Combo hochtreiben
         if jahr in app.state.steuer_combo:
             app.state.steuer_combo[jahr] = {"combo": 0, "ruf": spiel.RUFE[0]}
-        flash("Die Datei liegt wieder im Eingangskorb. Nichts ist verloren.")
+        if d and quest.ist_angabe(d["original"]):
+            flash("Die Angabe ist gelöscht. Du kannst sie jederzeit neu eintippen.")
+        else:
+            flash("Die Datei liegt wieder im Eingangskorb. Nichts ist verloren.")
         lp = lage(jahr)["drache"].lp
         if vorher["drache_wach"] and lp > vorher["drache"].lp:
             flash(f"Der Drache hat wieder {lp} Karte{'n' if lp != 1 else ''}.", "treffer")
@@ -1049,6 +1104,29 @@ def register_steuer(
             return back(f"/notfall/{key}#unterlagen")
         return back(f"/steuer/{jahr}/belege#karte-{d['stueck_id']}")
 
+    @app.post("/steuer/{jahr}/stueck/{stueck_id}/mitzaehlen", dependencies=guarded)
+    async def mitzaehlen(request: Request, jahr: int, stueck_id: int):
+        """Eine Datei, die schon bei einer anderen Karte liegt, zählt hier mit, z. B. die 1099
+        für "Quellensteuer" und "Dividenden". Nur in derselben Provinz oder für Wünsche."""
+        form = await request.form()
+        s = stueck_im_jahr(jahr, stueck_id)
+        zurueck = str(form.get("back") or f"/steuer/{jahr}/gebiet/{s['gebiet']}")
+        try:
+            datei_id = int(str(form.get("datei_id") or ""))
+        except ValueError:
+            raise HTTPException(400) from None
+        vorher = lage(jahr)
+        try:
+            neu = quest.mitzaehlen(conn(), stueck_id, datei_id)
+        except quest.QuestError as exc:
+            flash(str(exc))
+            return back(zurueck)
+        if neu:
+            flash(f"+1! {s['name']} zählt mit, die Datei liegt im Zip einmal.", "beute", "done")
+        if belohnen(jahr, vorher):
+            return back(f"/steuer/{jahr}/drache")
+        return back(zurueck)
+
     @app.post("/steuer/{jahr}/stueck/{stueck_id}/frage", dependencies=guarded)
     async def frage_merken(request: Request, jahr: int, stueck_id: int):
         """Eine Frage zu einer Karte, ohne den Stempel zu ändern. Sie kommt in die Mail."""
@@ -1099,6 +1177,8 @@ def register_steuer(
         ablage = quest.lager(ws.root)
         ablage.mkdir(parents=True, exist_ok=True)
         gelegt, zu_gross = [], []
+        c = conn()
+        im_korb = {quest.datei_hash(p) for p in quest.lager_dateien(ws.root)}
         for upload in [*form.getlist("files"), *form.getlist("datei")]:
             name = Path(str(getattr(upload, "filename", "") or "").replace("\\", "/")).name.strip()
             if not name or name.startswith("."):
@@ -1107,6 +1187,21 @@ def register_steuer(
             if len(daten) > MAX_LAGER:
                 zu_gross.append(name)
                 continue
+            # Kopien gleich erkennen, statt sie als neue Zettel in den Korb zu legen
+            sha = hashlib.sha256(daten).hexdigest()
+            schon = quest.datei_mit_hash(c, jahr, sha)
+            if schon:
+                bei = quest.stueck(c, schon["stueck_id"])
+                flash(
+                    f"{name}: Kenne ich schon, liegt bei „{bei['name']}“. Nichts zu tun.",
+                    "warn",
+                    aktion={"link": f"/steuer/{jahr}/belege#karte-{bei['id']}"},
+                )
+                continue
+            if sha in im_korb:
+                flash(f"{name}: Genau diese Datei liegt schon im Eingangskorb.")
+                continue
+            im_korb.add(sha)
             ziel, n = ablage / name, 1
             while ziel.exists():
                 ziel = ablage / f"{Path(name).stem} ({n}){Path(name).suffix}"
@@ -1237,13 +1332,15 @@ def register_steuer(
                     quest.neues_stueck(c, jahr, gid, name, hinweis="Wunsch deiner Beraterin")
                     ergebnis.append({"text": w.text, "wo": titel[gid], "karte": name, "neu": True})
         vorher = daten
-        quest.notiere(c, jahr, "brief", f"{len(wuensche)} Aufträge der Beraterin")
+        quest.notiere(c, jahr, "brief", f"{len(ergebnis)} Aufträge der Beraterin")
         markiert = sum(1 for e in ergebnis if not e["neu"])
+        # Eine Zahl für Meldung und Seite: "für beide Wohnungen" sind zwei Aufträge
+        anzahl = len(ergebnis)
         flash(
-            f"Botschaft entschlüsselt: {len(wuensche)} Aufträge. {markiert} davon kennst du"
+            f"Botschaft entschlüsselt: {anzahl} Aufträge. {markiert} davon kennst du"
             " schon, die Karten sind jetzt markiert."
             if markiert
-            else f"Botschaft entschlüsselt: {len(wuensche)} Aufträge auf deiner Karte.",
+            else f"Botschaft entschlüsselt: {anzahl} Aufträge auf deiner Karte.",
             "erfolg",
         )
         belohnen(jahr, vorher, auftraege=True)
@@ -1296,7 +1393,7 @@ def register_steuer(
             kritisch = any(f.neu for f in funde)
             if not kritisch and not any(f.stueck["id"] == s["id"] for f in funde):
                 # Die Datei gehört schon zu einer anderen Karte: Das ist kein Treffer
-                flash(doppelt_text(jahr, funde[0] if funde else None, s))
+                doppelt_melden(jahr, funde[0] if funde else None, s, f"/steuer/{jahr}/drache")
                 return back(f"/steuer/{jahr}/drache#karte")
         elif aktion == "zettel":
             # Ein Zettel aus der Hand (dem Eingangskorb) direkt auf den Drachen geworfen
@@ -1308,7 +1405,7 @@ def register_steuer(
             c = conn()
             fund = quest.sammeln(c, ws.root, s["id"], quelle, verschieben=True)
             if not fund.neu:
-                flash(doppelt_text(jahr, fund, s))
+                doppelt_melden(jahr, fund, s, f"/steuer/{jahr}/drache")
                 return back(f"/steuer/{jahr}/drache#karte")
             quest.notiere(c, jahr, "fund", f"{s['name']}: {name}")
             if fund.verweis:

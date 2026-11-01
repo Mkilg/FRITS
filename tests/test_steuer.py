@@ -868,9 +868,14 @@ def test_dateien_lassen_sich_auf_den_eingangskorb_ziehen(client, ws):
     karte = client.get("/steuer/2025").text
     assert "/steuer/2025/lager/hochladen" in karte and "data-dropzone" in karte
     assert client.get("/steuer/2025/lager/anzahl").json() == {"anzahl": 0}
-    dateien = [("files", ("bescheid.pdf", b"%PDF-1", "application/pdf"))] * 2
+    dateien = [
+        ("files", ("bescheid.pdf", b"%PDF-1", "application/pdf")),
+        ("files", ("bescheid.pdf", b"%PDF-2", "application/pdf")),
+        ("files", ("kopie.pdf", b"%PDF-1", "application/pdf")),  # dieselbe Datei noch einmal
+    ]
     seite = post(client, "/steuer/2025/lager/hochladen", files=dateien)
     assert "2 neue Zettel im Eingangskorb" in seite.text
+    assert "kopie.pdf: Genau diese Datei liegt schon im Eingangskorb" in seite.text
     namen = sorted(p.name for p in quest.lager_dateien(ws.root))
     assert namen == ["bescheid (1).pdf", "bescheid.pdf"]
     assert client.get("/steuer/2025/lager/anzahl").json() == {"anzahl": 2}
@@ -1244,7 +1249,9 @@ def test_spuernase_raet_nach_dem_dateinamen():
         _karte(id_=3, key="kv-beitraege", name="Beiträge zur Krankenversicherung"),
     ]
     assert spiel.vermute("Kontoauszug_März.pdf", stuecke)["id"] == 1
-    assert spiel.vermute("rechnung-mai.pdf", stuecke)["id"] == 2
+    # "Rechnung" allein sagt nicht, ob sie von dir oder an dich ist: lieber kein Vorschlag
+    assert spiel.vermute("rechnung-mai.pdf", stuecke) is None
+    assert spiel.vermute("Ausgangsrechnung-mai.pdf", stuecke)["id"] == 2
     assert spiel.vermute("krankenversicherung 2025.jpg", stuecke)["id"] == 3
     assert spiel.vermute("IMG_2034.jpg", stuecke) is None
     assert spiel.vermute("scan.pdf", stuecke) is None
@@ -1292,9 +1299,9 @@ def test_gold_im_kampf_mit_serie_und_markt_im_browser(client, ws):
     _bis_wach(conn)
     gold_vorher = quest.gold(conn, 2025)
     quest.lager(ws.root).mkdir(parents=True, exist_ok=True)
-    (quest.lager(ws.root) / "beleg-eins.pdf").write_bytes(b"%PDF eins")
+    (quest.lager(ws.root) / "quittung-eins.pdf").write_bytes(b"%PDF eins")
     karte = spiel.drache(quest.stuecke(conn, 2025)).karte
-    werfen = {"stueck_id": str(karte["id"]), "aktion": "zettel", "zettel": "beleg-eins.pdf"}
+    werfen = {"stueck_id": str(karte["id"]), "aktion": "zettel", "zettel": "quittung-eins.pdf"}
     seite = post(client, "/steuer/2025/drache/schlag", **werfen)
     # Kritischer Treffer: Serie 2, also 3 Gold × 2
     assert 'class="sq-rechnung"' in seite.text and "+6 Gold" in seite.text
@@ -1862,3 +1869,133 @@ def test_runde_15_beleg_mit_ki_oeffnet_den_freien_chat(client, ws):
     assert antwort.status_code in (302, 303)
     assert antwort.headers["location"] == "/notfall/abc#unterlagen"
     assert gesehen and gesehen[0][1] == "rechnung.txt"
+
+
+def test_runde_16_angabe_ist_antwort_aber_kein_beleg(client, ws):
+    """Tester Marie-6, P1-4: Steuer-ID notieren und dreimal "Gibt's nicht" war schon der Sieg."""
+    fragebogen(client, teil1={"name": "Marie"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    karten = quest.stuecke(conn, 2025, "rathaus")
+    steuer_id = next(s for s in karten if s["key"] == "steuer-id")
+    post(client, f"/steuer/2025/stueck/{steuer_id['id']}/angabe", text="Steuer-ID: 12 345 678 901")
+    for s in karten:
+        if s["id"] != steuer_id["id"] and s["art"] != "bonus":
+            post(client, f"/steuer/2025/stueck/{s['id']}/status", status="gibts_nicht")
+    alle = quest.stuecke(conn, 2025)
+    drache = spiel.drache(alle)
+    assert drache.will_beleg and not drache.besiegt
+    erster = next(
+        e
+        for e in spiel.erfolge(alle, spiel.provinzen(reich(Profil(jahr=2025)), alle))
+        if e.key == "erster-fund"
+    )
+    assert not erster.erreicht
+    karte = client.get("/steuer/2025").text
+    assert "ein echtes Dokument" in karte and ">99</b> %" in karte  # nie 100 % ohne Sieg
+    # Ändern ersetzt die Angabe, Löschen macht keinen Zettel daraus
+    seite = post(client, f"/steuer/2025/stueck/{steuer_id['id']}/angabe", text="Steuer-ID: 98 765")
+    assert "Geändert" in seite.text
+    angaben = quest.dateien(conn, 2025, steuer_id["id"])
+    assert len(angaben) == 1 and "98 765" in Path(angaben[0]["pfad"]).read_text(encoding="utf-8")
+    gebiet = client.get("/steuer/2025/gebiet/rathaus").text
+    assert "Eingetippt:" in gebiet and "98 765" in gebiet and "Ändern" in gebiet
+    seite = post(client, f"/steuer/2025/datei/{angaben[0]['id']}/entfernen")
+    assert "Die Angabe ist gelöscht" in seite.text
+    assert quest.lager_dateien(ws.root) == []
+
+
+def test_runde_16_datei_zaehlt_auf_nachfrage_auch_fuer_eine_zweite_karte(conn, ws, client):
+    """P1-2: die 1099 liegt bei der Jahresübersicht und soll auch für die Quellensteuer zählen."""
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_depots_ausland_0": "1"})
+    c = quest.ensure_schema(store.connect(ws.db))
+    hafen = {s["key"]: s for s in quest.stuecke(c, 2025, "hafen-1")}
+    datei = [("datei", ("1099-DIV.pdf", b"%PDF 1099"))]
+    post(client, f"/steuer/2025/stueck/{hafen['jahresuebersicht']['id']}/datei", files=datei)
+    seite = post(client, f"/steuer/2025/stueck/{hafen['quellensteuer']['id']}/datei", files=datei)
+    assert "Ja, hier auch zählen" in seite.text and "/steuer/2025/belege#karte-" in seite.text
+    d = quest.dateien(c, 2025, hafen["jahresuebersicht"]["id"])[0]
+    seite = post(
+        client, f"/steuer/2025/stueck/{hafen['quellensteuer']['id']}/mitzaehlen", datei_id=d["id"]
+    )
+    assert "zählt mit" in seite.text
+    s = quest.stueck(c, hafen["quellensteuer"]["id"])
+    assert s["status"] == "gesammelt"
+    assert spiel.echter_beleg(next(x for x in quest.stuecke(c, 2025) if x["id"] == s["id"]))
+    # Über Provinzgrenzen hinweg nur auf Wunsch der Beraterin, sonst nicht
+    rathaus = quest.stuecke(c, 2025, "rathaus")[0]
+    with pytest.raises(quest.QuestError):
+        quest.mitzaehlen(c, rathaus["id"], d["id"])
+
+
+def test_runde_16_beraterin_grundsteuer_und_1099():
+    """P1-3: "Wohnungen" sagt nur wo, nicht was; "1099" ist die Jahresübersicht des Depots."""
+    gebiete = reich(KIM)
+    stuecke = []
+    for i, g in enumerate(gebiete):
+        for j, s in enumerate(g.stuecke):
+            stuecke.append(
+                {
+                    "id": i * 100 + j,
+                    "gebiet": g.id,
+                    "key": s.key,
+                    "name": s.name,
+                    "hinweis": s.hinweis,
+                    "herkunft": "katalog",
+                }
+            )
+    nach_id = {s["id"]: s for s in stuecke}
+    w = beraterin.zuordnen("- Grundsteuerbescheid für beide Wohnungen", gebiete, stuecke)[0]
+    assert set(w.gebiete) == {"gehoeft-1", "gehoeft-2"}
+    assert {nach_id[i]["key"] for i in w.stuecke} == {"grundsteuer"}
+    w = beraterin.zuordnen("- 1099 des US-Brokers", gebiete, stuecke)[0]
+    assert w.gebiete == ("hafen-1",) and nach_id[w.stuecke[0]]["key"] == "jahresuebersicht"
+
+
+def test_runde_16_vorschlaege_raten_vorsichtiger():
+    """P1-5: KSK-Jahresbescheinigung ist nicht die Umsatzsteuer, ein Laptop keine Ausgangsrechnung."""
+    p = Profil(jahr=2025, mengen={"freiberuflich": [1, 0]}, haken=["ksk"], umsatzsteuer="quartal")
+    stuecke = []
+    for i, g in enumerate(reich(p)):
+        for j, s in enumerate(g.stuecke):
+            stuecke.append(
+                {"id": i * 100 + j, "gebiet": g.id, "key": s.key, "name": s.name, "status": "offen"}
+            )
+    assert spiel.vermute("KSK_Jahresbescheinigung_2025.pdf", stuecke)["key"] == "ksk"
+    assert spiel.vermute("Rechnung_Laptop_2025.pdf", stuecke)["key"] == "anschaffungen"
+    assert spiel.vermute("Kassenbon_Papier.jpg", stuecke)["key"] == "belege"
+
+
+def test_runde_16_bekannte_datei_im_korb_wird_erkannt(client, ws):
+    fragebogen(client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    s = quest.stuecke(conn, 2025, "werkstatt-1")[0]
+    post(client, f"/steuer/2025/stueck/{s['id']}/datei", files=[("datei", ("a.pdf", b"%PDF a"))])
+    seite = post(client, "/steuer/2025/lager/hochladen", files=[("files", ("b.pdf", b"%PDF a"))])
+    assert f"Kenne ich schon, liegt bei „{s['name']}“" in seite.text
+    assert quest.lager_dateien(ws.root) == []
+
+
+def test_runde_16_verschobener_frits_ordner_findet_seine_belege(tmp_path):
+    """Tester Marie-6 (Runde 15): Nach Umzug oder Sicherung zeigten die Pfade ins Leere."""
+    import shutil
+
+    alt = Workspace(tmp_path / "alt")
+    alt.ensure()
+    c = quest.ensure_schema(store.connect(alt.db))
+    quest.start(c, KIM)
+    s = quest.stuecke(c, 2025, "werkstatt-1")[0]
+    quest.sammeln(c, alt.root, s["id"], datei(tmp_path, "beleg.pdf", "inhalt"))
+    c.close()
+    shutil.copytree(alt.root, tmp_path / "neu")
+    shutil.rmtree(alt.root)
+    neu = Workspace(tmp_path / "neu")
+    c = quest.ensure_schema(store.connect(neu.db))
+    d = quest.dateien(c, 2025)[0]
+    assert Path(d["pfad"]).is_file() and str(neu.root) in d["pfad"]
+    ziel = truhe.packen(
+        tmp_path / "t.zip", KIM, reich(KIM), quest.stuecke(c, 2025), quest.dateien(c, 2025), None
+    )
+    import zipfile
+
+    with zipfile.ZipFile(ziel) as zf:
+        assert any(n.endswith(".pdf") for n in zf.namelist())

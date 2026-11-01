@@ -373,15 +373,19 @@ def create_app(
         stamp: str | None = None,
         undo: dict | None = None,
         link: tuple[str, str] | None = None,
+        aktion: dict | None = None,
     ) -> None:
         """A short note on the next page. `stamp` puts an ink stamp on it, e.g. "Bezahlt".
         `undo` remembers how to take the step back and puts a "Rückgängig" button on the note:
-        undo beats "Are you sure?" (people click OK by habit; a way back always works)."""
+        undo beats "Are you sure?" (people click OK by habit; a way back always works).
+        `aktion` puts a way forward on the note (Steuer-Quest): {"url", "knopf", "felder",
+        "link", "link_text"}; the note then stays until it is closed."""
         if undo:
             app.state.undo = undo
         note = {"text": text, "kind": kind, "cue": cue, "stamp": stamp, "undo": bool(undo)}
         if link:
             note["link"], note["link_text"] = link
+        note["aktion"] = aktion
         app.state.flashes.append(note)
 
     app.state.hinweise = []  # small notes other parts add to any page, e.g. Fritte's cards

@@ -49,7 +49,7 @@
       {% if s.status in schild %}<span class="sq-abdruck {{ s.status }}">{{ "Macht die Beraterin" if s.frage == MACHT_BERATERIN else schild[s.status] }}</span>{% endif %}
       <h3>{{ s.name }}</h3>
       {% if s.hinweis %}<p class="hinweis">{{ s.hinweis }}</p>{% endif %}
-      {% if s.frage %}<p class="hinweis"><strong>Deine Frage:</strong> {{ s.frage }}</p>{% endif %}
+      {% if s.frage == MACHT_BERATERIN %}<p class="hinweis"><strong>Macht deine Beraterin, wie immer.</strong></p>{% elif s.frage %}<p class="hinweis"><strong>Deine Frage:</strong> {{ s.frage }}</p>{% endif %}
       {% if s.datei_liste or s.verweis_liste %}
       <ul class="sq-dateien">
         {% for v in s.verweis_liste %}
@@ -60,11 +60,27 @@
           </form></li>
         {% endfor %}
         {% for d in s.datei_liste %}
-        <li><span>{{ d.original }}</span>
+        {% if d.angabe is not none %}
+        <li class="sq-angabe-notiz"><span><small>Eingetippt:</small> {{ d.angabe }}</span>
+          <details class="sq-angabe-aendern"><summary>Ändern</summary>
+            <form method="post" action="/steuer/{{ jahr }}/stueck/{{ s.id }}/angabe" class="sq-angabe" data-stempel="NOTIERT">
+              <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back" value="{{ zurueck }}">
+              <label class="sr-only" for="angabe-{{ d.id }}">Angabe zu {{ s.name }}</label>
+              <textarea id="angabe-{{ d.id }}" name="text" rows="2" maxlength="2000">{{ d.angabe }}</textarea>
+              <button class="sq-stempelknopf gruen">Neu notieren</button>
+            </form>
+          </details>
+          <form method="post" action="/steuer/{{ jahr }}/datei/{{ d.id }}/entfernen">
+            <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back" value="{{ zurueck }}">
+            <button class="quiet" title="Die Angabe wird gelöscht, die Karte ist dann wieder offen">löschen</button>
+          </form></li>
+        {% else %}
+        <li><a href="/steuer/{{ jahr }}/datei/{{ d.id }}" target="_blank" rel="noopener" title="Ansehen">{{ d.original }}</a>
           <form method="post" action="/steuer/{{ jahr }}/datei/{{ d.id }}/entfernen">
             <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back" value="{{ zurueck }}">
             <button class="quiet" title="Zurück in den Eingangskorb">zurücklegen</button>
           </form></li>
+        {% endif %}
         {% endfor %}
       </ul>
       {% endif %}

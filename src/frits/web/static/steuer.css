@@ -1375,14 +1375,15 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
 .sq-gebietname input { width: 100%; max-width: 16rem; margin-top: 0.2rem; }
 
 /* Schnellschläge im Drachenkampf: mehrere Karten einer Provinz auf einen Blick */
-.sq-schnell { margin: 1rem auto 0; max-width: 640px; padding: 0.9rem 1rem; text-align: left; }
+.sq-schnell { margin: 1rem auto 0; max-width: 640px; padding: 0.9rem 1rem; text-align: left; color: #2b1d0e; text-shadow: none; }
+.sq-schnell h2, .sq-schnell .name, .sq-schnell p { color: #2b1d0e; }
 .sq-schnell h2 { font: 700 1rem/1.2 var(--schrift); margin: 0 0 0.2rem; }
 .sq-schnell > p { margin: 0 0 0.5rem; font-size: 0.82rem; }
 .sq-schnell ul { list-style: none; margin: 0; padding: 0; }
 .sq-schnell li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.3rem 0.8rem; padding: 0.45rem 0; border-top: 1px dashed #d8c9a6; }
 .sq-schnell .name { font-weight: 600; font-size: 0.9rem; }
 .sq-schnell .reihe { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0; }
-.sq-schnell button { min-height: 36px; font-size: 0.8rem; }
+.sq-schnell button { min-height: 44px; font-size: 0.85rem; }
 
 /* Zeitalter in der Leiste: Klick zeigt, was als Nächstes kommt */
 details.sq-zeitalter { position: relative; display: block; }
@@ -1452,3 +1453,14 @@ a.sq-beleg-vorschau:hover, a.sq-beleg-vorschau:focus-visible { transform: rotate
   .sq-beleg { grid-template-columns: 56px minmax(0, 1fr); }
   .sq-beleg-vorschau { width: 56px; height: 72px; }
 }
+
+/* Eingetippte Angabe auf der Karte: lesbar, änderbar, löschbar */
+.sq-dateien li.sq-angabe-notiz { flex-wrap: wrap; }
+.sq-angabe-notiz > span { flex: 1 1 100%; white-space: pre-wrap; overflow-wrap: anywhere; font: 0.95rem/1.35 "Bradley Hand", "Segoe Print", var(--schrift); background: #fffbe8; padding: 0.3rem 0.5rem; border-radius: 2px; }
+.sq-angabe-notiz > span small { font: 0.75rem var(--schrift); opacity: .7; }
+.sq-angabe-aendern { flex: 1 1 auto; }
+.sq-angabe-aendern > summary { cursor: pointer; font-size: 0.78rem; }
+.sq-dateien li > a { overflow-wrap: anywhere; }
+.sq-meldung { overflow-wrap: anywhere; }
+.sq-meldung-aktion { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 0.45rem; }
+.sq-meldung-aktion form { margin: 0; }
