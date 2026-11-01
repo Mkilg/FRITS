@@ -95,6 +95,7 @@ KIND_LABELS = {
     "STEUERNR": "Steuernummer",
     "STEUERID": "Steuer-ID",
     "SVNR": "Sozialversicherungsnummer",
+    "ETIN": "eTIN",
     "GEBDATUM": "Geburtsdatum",
     "GEHEIM": "von dir geschwärzt",
 }
