@@ -1,11 +1,10 @@
 """E-Rechnung (ZUGFeRD / Factur-X, EN 16931) inside every invoice PDF."""
 
 from datetime import date
-from pathlib import Path
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
-
 from facturx import get_xml_from_pdf, xml_check_xsd
 from lxml import etree
 from pypdf import PdfReader
