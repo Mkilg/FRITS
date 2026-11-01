@@ -607,6 +607,8 @@ def test_about_page_and_bug_report_without_personal_data(client, mails):
     assert "nicht-kommerzielles Projekt" in page.text and "ARD KI-Podcast" in page.text
     assert "Platzhalter" not in page.text
     assert 'href="https://www.ardsounds.de/sendung/der-ki-podcast/' in page.text
+    assert "keine Steuer-, Rechts- oder Finanzberatung" in page.text
+    assert "Vorsatz und grober Fahrlässigkeit" in page.text
 
     page = post(client, "/ueber/fehler")
     assert "Fehler-Mail ist in Mail geöffnet" in page.text

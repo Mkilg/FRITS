@@ -733,6 +733,7 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
 .sq-intro-weiter { font: 700 1rem var(--schrift); padding: 0.55rem 1.2rem; border-radius: 999px; border: 0; cursor: pointer; background: var(--papierkarte); color: var(--tinte); box-shadow: 0 4px 0 #b39c68, 0 8px 16px rgba(0,0,0,.35); }
 .sq-intro-weiter kbd { font: 600 0.7rem system-ui, sans-serif; padding: 0.1rem 0.35rem; border: 1px solid #c9b88e; border-radius: 3px; margin-left: 0.4rem; color: #8a7a5c; }
 .sq-intro-skip { color: #ffe3a6; font-size: 0.85rem; text-shadow: 0 1px 3px #000; }
+.sq-intro-hinweis { margin: 0; max-width: 34rem; color: #ffe3a6; font-size: 0.85rem; line-height: 1.4; text-shadow: 0 1px 3px #000; }
 .sq-intro-punkte { position: relative; z-index: 1; display: none; gap: 0.5rem; list-style: none; padding: 0; margin: 1rem 0 0; }
 .sq-intro-punkte li { width: 10px; height: 10px; border-radius: 50%; background: rgba(246, 236, 210, .35); transition: background .3s, transform .3s; }
 .sq-intro-punkte li.an { background: var(--gold); transform: scale(1.3); }

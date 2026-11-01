@@ -29,6 +29,22 @@ ABOUT = {
             'sag gern Bescheid, unten unter "Fehler melden".'
         ),
     ],
+    "hinweis": [
+        (
+            "FRITS ist ein kostenloses, nicht-kommerzielles Hobbyprojekt. Es hilft dir, deine "
+            "eigenen Rechnungen und Unterlagen zu ordnen, und rechnet Zahlen für dich zusammen."
+        ),
+        (
+            "FRITS ist keine Steuer-, Rechts- oder Finanzberatung und ersetzt sie nicht. "
+            "Prüf bitte alle Zahlen, bevor du sie ans Finanzamt schickst, und frag im Zweifel "
+            "deine Steuerberatung."
+        ),
+        (
+            "Du nutzt FRITS auf eigene Verantwortung. Es gilt die MIT-Lizenz; für Schäden haftet "
+            "Marie nur bei Vorsatz und grober Fahrlässigkeit. Welche Programme anderer Leute in "
+            "FRITS stecken, steht in LIZENZEN.txt neben der App."
+        ),
+    ],
     "podcast_name": "Der KI-Podcast der ARD",
     "podcast_text": (
         "FRITS ist für eine Live-Folge vom ARD KI-Podcast entstanden. "

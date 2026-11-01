@@ -3,7 +3,28 @@ Fantastisches Rechnungsschreibungs IT-System
 
 Drop a note, email or photo into a folder and get an invoice draft back. Names, addresses and bank details are replaced on your own computer before any AI sees the text. Mascot: a French fry.
 
-Status: v1 in progress. The core pipeline, the browser app and the setup assistant are built. See the [plan](https://claude.ai/artifact/Y4geXZKysfhSEwjndteRQv) and the [phase 1 build spec](https://claude.ai/artifact/59NcqVbQoNgyqpGdYX7NgJ).
+Status: v1 is done and in use; FRITS keeps growing (Steuer-Quest, Notfall-Chat, a small game around the paperwork). It is a free, non-commercial hobby project, made by Marie for her friend Fritz, for freelancers in Germany.
+
+## Hinweis
+
+FRITS ist ein kostenloses, nicht-kommerzielles Hobbyprojekt. Es hilft dir, deine **eigenen** Rechnungen und Unterlagen zu ordnen, und rechnet Zahlen für dich zusammen (Rechnungen, EÜR, Umsatzsteuer-Voranmeldung, Unterlagen für die Steuerberatung).
+
+**FRITS ist keine Steuer-, Rechts- oder Finanzberatung und ersetzt sie nicht.** Prüf bitte alle Zahlen, bevor du sie ans Finanzamt schickst, und frag im Zweifel deine Steuerberatung. Du nutzt FRITS auf eigene Verantwortung. Es gilt die [MIT-Lizenz](LICENSE); für Schäden haftet die Autorin nur bei Vorsatz und grober Fahrlässigkeit.
+
+*In English: FRITS helps you with your own paperwork. It is not tax, legal or financial advice. Check every number before you file it. Use at your own risk; see [LICENSE](LICENSE).*
+
+## Datenschutz in FRITS
+
+- **Alles bleibt auf deinem Computer.** Kunden, Rechnungen und Belege liegen in deinem FRITS-Ordner (`~/Documents/FRITS`). Es gibt keinen FRITS-Server, kein Konto und keine Statistik, die irgendwohin geht.
+- **KI nur mit deinem eigenen Schlüssel**, bei einem Anbieter, den du wählst (Claude, OpenAI, OpenRouter), oder eine lokale KI auf deinem Mac, bei der nichts den Computer verlässt.
+- **Vorher wird geschwärzt.** Namen, Adressen, IBANs, E-Mails, Telefon- und Steuernummern werden auf deinem Computer durch Platzhalter wie `[PERSON_1]` ersetzt, bevor eine KI den Text sieht.
+- **Du siehst, was rausgeht.** Im Notfall-Chat zeigt FRITS den geschwärzten Text, und erst dein Klick schickt ihn ab. Die Fehler-Mail schickst du selbst, darin stehen nur Version und Computertyp.
+
+Wenn du FRITS beruflich mit Kundendaten nutzt, bist du für diese Daten verantwortlich (DSGVO). Bei der Claude- und OpenAI-API ist ein Auftragsverarbeitungsvertrag Teil der Geschäftsbedingungen. Geschwärzter Text gilt rechtlich meist noch als personenbezogen, das Risiko ist aber viel kleiner.
+
+## Lizenzen
+
+FRITS steht unter der [MIT-Lizenz](LICENSE). Klänge und Maskottchen-Zeichnungen sind selbst gemacht (Code), die gemalten Bilder hat Marie mit einer Bild-KI erstellt. Die Prüfregeln für E-Rechnungen in `tests/fixtures/en16931/` stehen unter EUPL 1.2. Die Schrift DejaVu und die Bibliotheken haben eigene freie Lizenzen: Die Mac-App bringt sie alle in `LIZENZEN.txt` mit (erzeugt von `tools/third_party_licenses.py`).
 
 ## Try FRITS
 
