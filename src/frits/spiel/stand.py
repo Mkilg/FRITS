@@ -15,6 +15,7 @@ from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
+from frits import gutschriften as gs
 from frits import store
 
 SCHEMA = """
@@ -67,7 +68,7 @@ GRUND = {
     "korrektur": 0,  # an invoice or payment that replaces a cancelled one already scored
 }
 ARTEN_TEXT = {
-    "rechnung": "Rechnung geschrieben",
+    "rechnung": "Rechnung geschrieben oder Gutschrift erfasst",
     "bezahlt": "Zahlung eingetragen",
     "angebot": "Angebot angenommen",
     "erinnerung": "Zahlungserinnerung",
@@ -138,7 +139,27 @@ def _gefunden(conn) -> list[tuple[str, str]]:
         found += [(f"{art}:{value}", art) for (value,) in rows(conn, sql)]
     found += [(key, "ausgabe") for key in ausgaben(conn)]
     found += [(f"erinnerung:{rid}", "erinnerung") for rid in erinnerungen(conn)]
+    for key, credit in gutschriften(conn).items():
+        found.append((f"rechnung:{key}", "rechnung"))
+        if credit.paid_date:
+            found.append((f"bezahlt:{key}", "bezahlt"))
     return found
+
+
+GS = "gs:"  # invoice numbers never start like this
+
+
+def gs_schluessel(customer_id: str, their_number: str) -> str:
+    return f"{GS}{customer_id}|{' '.join(their_number.split()).casefold()}"
+
+
+def gutschriften(conn) -> dict[str, gs.Credit]:
+    """Gutschriften that count (not struck), by the key part of their cards.
+
+    A Gutschrift is the customer's own invoice: it counts like a Rechnung, and its payment
+    like a Zahlung. The key is the customer and their number, not the row: striking one
+    and entering it again (say with the amount fixed) is still the same card."""
+    return {gs_schluessel(c.customer_id, c.their_number): c for c in gs.listing(conn)}
 
 
 def ausgabe_inhalt(day, vendor, gross) -> str:
@@ -215,13 +236,15 @@ def _tag(value) -> date | None:
         return None
 
 
-def korrektur_art(conn, key: str, art: str) -> str:
+def korrektur_art(conn, key: str, art: str, heute: date | None = None) -> str:
     """A new invoice (or its payment) for a customer whose scored invoice was cancelled
     shortly before is the correction of that mistake: it becomes a "korrektur" card
     without Körner. A mistake plus its correction never pays more than doing it right."""
     if art not in ("rechnung", "bezahlt"):
         return art
     number = key.split(":", 1)[1]
+    if number.startswith(GS):
+        return _gs_korrektur(conn, number, art, heute or date.today())
     r = rows(conn, "SELECT customer, issue_date FROM invoices WHERE number = ?", (number,))
     if not r:
         return art
@@ -250,6 +273,40 @@ def korrektur_art(conn, key: str, art: str) -> str:
     return "korrektur" if schon < len(storniert) else art
 
 
+def _gs_korrektur(conn, number: str, art: str, heute: date) -> str:
+    """The same for Gutschriften: one struck out (within 30 days, by the time FRITS
+    recorded, never a typed date) after its card was scored, and entered again under
+    another number, is a correction. Entered again under the same number, it is simply
+    the old card, so nothing new comes up at all."""
+    kunde = number[len(GS) :].split("|", 1)[0]
+    lebendig = set(gutschriften(conn))
+    seit = (heute - timedelta(days=KORREKTUR_TAGE)).isoformat()
+    gestrichen = {
+        gs_schluessel(cid, their)
+        for cid, their in rows(
+            conn,
+            "SELECT customer_id, their_number FROM credits"
+            " WHERE customer_id = ? AND struck IS NOT NULL AND struck >= ?",
+            (kunde, seit),
+        )
+    } - lebendig
+    gewertet = {
+        k[len(art) + 1 :]
+        for (k,) in rows(
+            conn,
+            "SELECT schluessel FROM spiel_karten WHERE art = ? AND kassensturz > 0"
+            " AND schluessel LIKE ?",
+            (art, f"{art}:{GS}{kunde}|%"),
+        )
+    }
+    schon = rows(
+        conn,
+        "SELECT COUNT(*) FROM spiel_karten WHERE art = 'korrektur' AND schluessel LIKE ?",
+        (f"{art}:{GS}{kunde}|%",),
+    )[0][0]
+    return "korrektur" if schon < len(gestrichen & gewertet) else art
+
+
 def _neue_schluessel(conn) -> None:
     """Expense cards were keyed by row id (v1), then by day, shop and amount (v2).
     Move them to today's key once, so no expense becomes a card a second time."""
@@ -269,11 +326,16 @@ def _neue_schluessel(conn) -> None:
 
 def _neue_karten(conn, tag: str) -> None:
     bekannt = {r[0] for r in conn.execute("SELECT schluessel FROM spiel_karten")}
+    weg = {r[0] for r in conn.execute("SELECT schluessel FROM spiel_karten WHERE kassensturz = -2")}
     for key, art in _gefunden(conn):
-        if key not in bekannt:
+        if key in weg and (art == "ausgabe" or key.split(":", 1)[1].startswith(GS)):
+            # Struck out before it was scored, then entered again (or restored): the
+            # card was never counted, so it simply waits again. Still only once.
+            conn.execute("UPDATE spiel_karten SET kassensturz = NULL WHERE schluessel = ?", (key,))
+        elif key not in bekannt:
             conn.execute(
                 "INSERT OR IGNORE INTO spiel_karten (schluessel, art, gesehen) VALUES (?, ?, ?)",
-                (key, korrektur_art(conn, key, art), tag),
+                (key, korrektur_art(conn, key, art, date.fromisoformat(tag)), tag),
             )
     # A quote that is not accepted (any more) waits off the table until it is.
     if rows(conn, "SELECT name FROM sqlite_master WHERE name = 'quotes'"):

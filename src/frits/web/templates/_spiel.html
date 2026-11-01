@@ -3,11 +3,12 @@
 
 {% set KARTEN_BILD = {"rechnung": "symbol-rechnungen", "bezahlt": "symbol-euer", "angebot": "symbol-angebote", "ausgabe": "symbol-ausgaben", "erinnerung": "symbol-eingang", "feierabend": "fritte-feierabend", "steuer": "symbol-steuer", "steuerjahr": "symbol-steuer", "start": "fritte-willkommen"} %}
 {% set KARTEN_ZEICHEN = {"rechnung": "📄", "bezahlt": "💶", "angebot": "📝", "ausgabe": "🧾", "erinnerung": "✉️", "feierabend": "🌙", "steuer": "🗂️", "steuerjahr": "🐉", "start": "🎁"} %}
-{% set KARTEN_NAME = {"rechnung": "Rechnung", "bezahlt": "Zahlung", "angebot": "Angebot", "ausgabe": "Ausgabe", "erinnerung": "Erinnerung", "feierabend": "Feierabend", "steuer": "Steuer", "steuerjahr": "Steuerjahr", "start": "Einzug"} %}
+{% set KARTEN_NAME = {"rechnung": "Rechnung", "bezahlt": "Zahlung", "angebot": "Angebot", "ausgabe": "Ausgabe", "erinnerung": "Erinnerung", "feierabend": "Feierabend", "steuer": "Steuer", "steuerjahr": "Steuerjahr", "start": "Einzug", "korrektur": "Korrektur"} %}
 
 {% macro karte(k, index=0, summe=None, klein=False) %}
 <div class="spielkarte art-{{ k.art }}{{ ' klein' if klein }}" data-karte="{{ index }}">
-  <span class="karte-art">{{ KARTEN_NAME.get(k.art, k.art) }}</span>
+  {% set art_name = "Gutschrift" if k.art == "rechnung" and (k.titel or "").startswith("Gutschrift ") else KARTEN_NAME.get(k.art, k.art) %}
+  <span class="karte-art{{ ' lang' if art_name|length > 9 }}">{{ art_name }}</span>
   <span class="karte-bild" aria-hidden="true">{% if picture(KARTEN_BILD.get(k.art, "")) %}<img src="{{ picture(KARTEN_BILD[k.art]) }}" alt="">{% else %}{{ KARTEN_ZEICHEN.get(k.art, "📄") }}{% endif %}</span>
   {% if not klein %}
   <strong class="karte-titel">{{ k.titel }}</strong>

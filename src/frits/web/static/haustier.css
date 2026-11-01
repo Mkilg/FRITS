@@ -181,6 +181,7 @@ button.gross { font-size: 1.1rem; padding: .7rem 1.6rem; }
 .art-erinnerung { --karte-farbe: var(--wachs); }
 .art-feierabend { --karte-farbe: var(--tinte); }
 .karte-art { font-family: var(--schrift); font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.karte-art.lang { letter-spacing: .02em; font-size: .7rem; }
 .karte-bild { display: grid; place-items: center; height: 4.2rem; font-size: 2.4rem; }
 .karte-bild img { max-height: 4.2rem; max-width: 100%; object-fit: contain; }
 .karte-titel { font-family: var(--schrift); font-size: .92rem; line-height: 1.2; color: var(--eiche-tief); }

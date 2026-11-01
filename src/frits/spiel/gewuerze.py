@@ -77,7 +77,7 @@ def _gereift(karten: list[dict], umfeld: dict) -> float:
 
 GEWUERZE: tuple[Gewuerz, ...] = (
     Gewuerz("meersalz", "Meersalz", "🌊", "gewöhnlich", 5,
-            "+2 Körner für jede Rechnung.", pro_karte=_art("rechnung", 2)),
+            "+2 Körner für jede Rechnung oder Gutschrift.", pro_karte=_art("rechnung", 2)),
     Gewuerz("muskat", "Muskat", "🌰", "gewöhnlich", 5,
             "+1 Korn für jede Ausgabe.", pro_karte=_art("ausgabe", 1)),
     Gewuerz("schnittlauch", "Schnittlauch", "🌱", "gewöhnlich", 6,

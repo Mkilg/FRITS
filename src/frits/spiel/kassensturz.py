@@ -99,7 +99,24 @@ def _karte(conn, schluessel: str, art: str, gesehen: str, ausgaben=None) -> Kart
             return None
         return Karte(
             schluessel, art, f"{echt.titel} (Korrektur)",
-            "ersetzt eine stornierte Rechnung, darum ohne Körner", 0, {},
+            "ersetzt eine gestrichene Gutschrift, darum ohne Körner"
+            if key.startswith(stand.GS) else "ersetzt eine stornierte Rechnung, darum ohne Körner",
+            0, {},
+        )  # fmt: skip
+    if art in ("rechnung", "bezahlt") and key.startswith(stand.GS):
+        c = stand.gutschriften(conn).get(key)
+        if c is None or (art == "bezahlt" and not c.paid_date):
+            return None
+        if art == "rechnung":
+            return Karte(
+                schluessel, art, f"Gutschrift {c.their_number}",
+                f"{c.customer} · {_euro(c.gross)}", base, {"frisch": False},
+            )  # fmt: skip
+        # Like any payment: the day is typed, so it never makes the card worth more.
+        return Karte(
+            schluessel, art, "Zahlung eingegangen",
+            f"Gutschrift {c.their_number} · {c.customer} · {_euro(c.gross)}", base,
+            {"puenktlich": False, "nach_erinnerung": False},
         )  # fmt: skip
     if art == "rechnung":
         r = stand.rows(
