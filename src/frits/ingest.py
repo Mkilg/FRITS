@@ -120,7 +120,7 @@ def _read_image(path: Path) -> str:
     if os.environ.get("FRITS_TESSERACT"):
         pytesseract.pytesseract.tesseract_cmd = os.environ["FRITS_TESSERACT"]
     if path.suffix.lower() in {".heic", ".heif"}:
-        from pillow_heif import register_heif_opener
+        from pi_heif import register_heif_opener  # read-only HEIC support, LGPL (no GPL encoder)
 
         register_heif_opener()
     try:

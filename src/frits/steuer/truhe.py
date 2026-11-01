@@ -11,6 +11,7 @@ drückst dort auf Senden.
 
 from __future__ import annotations
 
+import re
 import secrets
 import zipfile
 from datetime import date
@@ -18,7 +19,7 @@ from pathlib import Path
 
 import pyzipper
 
-from frits.steuer.katalog import Gebiet, Profil, ist_kern
+from frits.steuer.katalog import MACHT_BERATERIN, Gebiet, Profil, ist_kern
 
 # Kurze, gut diktierbare Wörter ohne Umlaute, damit das Passwort per SMS und Telefon klappt.
 _WOERTER = [
@@ -124,14 +125,22 @@ def passwort() -> str:
 _STATUS_TEXT = {
     "gesammelt": "dabei",
     "gibts_nicht": "gibt es dieses Jahr nicht",
-    "fragen": "Frage an dich",
+    "fragen": "offene Frage (steht in der Mail)",
     "offen": "fehlt noch",
 }
 
 
 def inhaltsverzeichnis(
-    profil: Profil, gebiete: list[Gebiet], stuecke: list[dict], dateien: list[dict]
+    profil: Profil,
+    gebiete: list[Gebiet],
+    stuecke: list[dict],
+    dateien: list[dict],
+    verweise: list[dict] | None = None,
 ) -> str:
+    """Was in der Truhe liegt, nach Bereich. Bei jeder Datei steht ihr ursprünglicher Name,
+    und mitbenutzte Dateien (eine Mietliste für zwei Wohnungen) sagen, wo sie liegen."""
+    verweise = verweise or []
+    bereich = {g.id: g.bereich for g in gebiete}
     zeilen = [
         f"Steuerunterlagen {profil.jahr}" + (f" von {profil.name}" if profil.name else ""),
         "",
@@ -142,13 +151,25 @@ def inhaltsverzeichnis(
             continue
         zeilen.append(f"{nr:02d} {g.bereich}")
         for s in eigene:
-            if s.get("art") == "bonus" and s["status"] == "offen":
-                continue  # nicht gesammelte Bonus-Schätze sind kein Thema
-            zeilen.append(f"   - {s['name']}: {_STATUS_TEXT[s['status']]}")
+            if s.get("art") == "bonus" and s["status"] == "offen" and not s.get("wunsch"):
+                continue  # nicht gesammelte Bonus-Schätze sind kein Thema, außer sie wünscht sie
+            status = _STATUS_TEXT[s["status"]]
+            if s["status"] == "offen" and s.get("wunsch"):
+                status = "fehlt noch (gewünscht)"
+            if s["status"] == "fragen" and s["frage"] == MACHT_BERATERIN:
+                status = "erstellt die Beraterin"
+            zeilen.append(f"   - {s['name']}: {status}")
             for d in dateien:
                 if d["stueck_id"] == s["id"]:
-                    zeilen.append(f"       {Path(d['pfad']).name}")
-            if s["frage"]:
+                    name = Path(d["pfad"]).name
+                    original = d.get("original") or ""
+                    zusatz = f" (Original: {original})" if original and original != name else ""
+                    zeilen.append(f"       {name}{zusatz}")
+            for v in verweise:
+                if v["stueck_id"] == s["id"]:
+                    wo = bereich.get(v["bei_gebiet"], v["bei_gebiet"])
+                    zeilen.append(f"       dieselbe Datei wie bei {wo}: {Path(v['pfad']).name}")
+            if s["frage"] and s["frage"] != MACHT_BERATERIN:
                 zeilen.append(f"       Frage: {s['frage']}")
         zeilen.append("")
     zeilen.append(f"Erstellt am {date.today().strftime('%d.%m.%Y')} mit FRITS.")
@@ -166,6 +187,7 @@ def packen(
     stuecke: list[dict],
     dateien: list[dict],
     kennwort: str | None,
+    verweise: list[dict] | None = None,
 ) -> Path:
     """Baut das Zip: ein Ordner pro Gebiet, dazu das Inhaltsverzeichnis.
 
@@ -185,7 +207,7 @@ def packen(
     with zf:
         zf.writestr(
             "00 Inhaltsverzeichnis.txt",
-            inhaltsverzeichnis(profil, gebiete, stuecke, dateien).encode("utf-8"),
+            inhaltsverzeichnis(profil, gebiete, stuecke, dateien, verweise).encode("utf-8"),
         )
         for d in dateien:
             pfad = Path(d["pfad"])
@@ -206,63 +228,139 @@ def verschluesselt(pfad: Path) -> bool:
         return False
 
 
+_SIE = [
+    (r"\bhast du\b", "haben Sie"),
+    (r"\bbrauchst du\b", "brauchen Sie"),
+    (r"\bkannst du\b", "können Sie"),
+    (r"\bweißt du\b", "wissen Sie"),
+    (r"\bmachst du\b", "machen Sie"),
+    (r"\berstellst du\b", "erstellen Sie"),
+    (r"\bsiehst du\b", "sehen Sie"),
+    (r"\bdir\b", "Ihnen"),
+    (r"\bdich\b", "Sie"),
+    (r"\bdeinem\b", "Ihrem"),
+    (r"\bdeinen\b", "Ihren"),
+    (r"\bdeiner\b", "Ihrer"),
+    (r"\bdeine\b", "Ihre"),
+    (r"\bdein\b", "Ihr"),
+]
+
+
+def siezen(text: str) -> str:
+    """Macht aus den vorformulierten Fragen ("Hast du sie noch vom letzten Jahr?") die
+    Sie-Form. Nur Wendungen, die sicher sind; ein einzelnes "du" bleibt, wie es ist."""
+    for muster, ersatz in _SIE:
+
+        def passend(m: re.Match, ersatz: str = ersatz) -> str:
+            return ersatz[:1].upper() + ersatz[1:] if m.group(0)[:1].isupper() else ersatz
+
+        text = re.sub(muster, passend, text, flags=re.IGNORECASE)
+    return text
+
+
+def _nach_bereich(eintraege: list[tuple[str, str]]) -> list[str]:
+    """[(Bereich, Name), ...] wird zu "- Bereich: Name, Name", ohne Doppelte."""
+    gruppen: dict[str, list[str]] = {}
+    for bereich, name in eintraege:
+        liste = gruppen.setdefault(bereich, [])
+        if name not in liste:
+            liste.append(name)
+    return [f"- {b}: {', '.join(namen)}" for b, namen in gruppen.items()]
+
+
 def mail(
     profil: Profil, gebiete: list[Gebiet], stuecke: list[dict], mit_passwort: bool = True
 ) -> tuple[str, str]:
-    """Betreff und Text der Mail an die Beraterin. Du kannst alles ändern, bevor du sendest."""
+    """Betreff und Text der Mail an die Beraterin. Du kannst alles ändern, bevor du sendest.
+
+    Alles ist nach Bereich geordnet ("Vermietete Wohnung · Lindenstraße: Grundsteuerbescheid"),
+    damit sie weiß, welche Wohnung gemeint ist. Anrede: du oder Sie, wie im Profil gewählt."""
+    sie = profil.anrede == "sie"
+    dir_ = "Ihnen" if sie else "dir"
+    name = profil.beraterin_name.strip()
+    if sie:
+        gruss = f"Guten Tag {name}," if name else "Guten Tag,"
+    else:
+        gruss = f"Hallo {name}," if name else "Hallo,"
+    bereich = {g.id: g.bereich for g in gebiete}
+    reihenfolge = {g.id: i for i, g in enumerate(gebiete)}
+    stuecke = sorted(stuecke, key=lambda s: reihenfolge.get(s["gebiet"], 999))
+
+    def wo(s: dict) -> str:
+        return bereich.get(s["gebiet"], s["gebiet"])
+
     dabei = [
         g.bereich
         for g in gebiete
         if any(s["gebiet"] == g.id and s["status"] == "gesammelt" for s in stuecke)
     ]
     pruefen = [
-        s["name"]
+        (wo(s), s["name"])
         for s in stuecke
         if s["status"] == "gibts_nicht" and ist_kern(s["gebiet"], s["key"])
     ]
     gibts_nicht = [
-        s["name"]
+        (wo(s), s["name"])
         for s in stuecke
         if s["status"] == "gibts_nicht" and not ist_kern(s["gebiet"], s["key"])
     ]
-    fragen = [s for s in stuecke if s["status"] == "fragen"]
-    offen = [s["name"] for s in stuecke if s["status"] == "offen" and s.get("art") != "bonus"]
-    bereich = {g.id: g.bereich for g in gebiete}
+    macht_sie = [
+        (wo(s), s["name"])
+        for s in stuecke
+        if s["status"] == "fragen" and s["frage"] == MACHT_BERATERIN
+    ]
+    fragen = [s for s in stuecke if s["status"] == "fragen" and s["frage"] != MACHT_BERATERIN]
+    # Was sie sich gewünscht hat, geht nie verloren, auch auf Bonus-Karten
+    von_ihr = [(wo(s), s["name"]) for s in stuecke if s["status"] == "offen" and s.get("wunsch")]
+    offen = [
+        (wo(s), s["name"])
+        for s in stuecke
+        if s["status"] == "offen" and s.get("art") != "bonus" and not s.get("wunsch")
+    ]
 
+    zeilen = [gruss, "", f"anbei meine Unterlagen für {profil.jahr} als Zip-Datei."]
     if mit_passwort:
-        zeilen = [
-            "Hallo,",
-            "",
-            (
-                f"anbei meine Unterlagen für {profil.jahr} als Zip-Datei. "
-                "Das Passwort schicke ich dir getrennt."
-            ),
-            (
-                "Die Datei ist mit AES verschlüsselt; falls sie sich nicht per Doppelklick "
-                "öffnen lässt, klappt es mit 7-Zip."
-            ),
-            "",
-        ]
-    else:
-        zeilen = ["Hallo,", "", f"anbei meine Unterlagen für {profil.jahr} als Zip-Datei.", ""]
+        zeilen[-1] += f" Das Passwort schicke ich {dir_} getrennt."
+        zeilen.append(
+            "Die Datei ist mit AES verschlüsselt; falls sie sich nicht per Doppelklick "
+            "öffnen lässt, klappt es mit 7-Zip."
+        )
+    zeilen.append("")
     if dabei:
         zeilen += ["Drin sind: " + ", ".join(dabei) + ". Ein Inhaltsverzeichnis liegt bei.", ""]
+    if macht_sie:
+        wie = "erstellen Sie" if sie else "erstellst du"
+        zeilen += [f"Wie bisher {wie}:", *_nach_bereich(macht_sie), ""]
     if pruefen:
+        bitte = "Sagen Sie mir bitte" if sie else "Sag mir bitte"
         zeilen += [
-            "Bitte prüfen: Diese Unterlagen habe ich nicht, obwohl man sie meistens braucht: "
-            + ", ".join(pruefen)
-            + ". Sag mir bitte, ob das so passt.",
+            "Bitte prüfen: Diese Unterlagen habe ich nicht, obwohl man sie meistens braucht.",
+            *_nach_bereich(pruefen),
+            f"{bitte}, ob das so passt.",
             "",
         ]
     if gibts_nicht:
-        zeilen += ["Gibt es dieses Jahr nicht: " + ", ".join(gibts_nicht) + ".", ""]
+        zeilen += ["Gibt es dieses Jahr nicht:", *_nach_bereich(gibts_nicht), ""]
     if fragen:
         zeilen.append("Meine Fragen:")
-        for i, s in enumerate(fragen, start=1):
-            text = s["frage"] or f"Zu „{s['name']}“ bin ich unsicher. Brauchst du das?"
-            zeilen.append(f"{i}. {bereich.get(s['gebiet'], '')}: {text}")
+        brauchst = "Brauchen Sie das?" if sie else "Brauchst du das?"
+        gesehen: set[str] = set()
+        nummer = 0
+        for s in fragen:
+            text = s["frage"] or f"Ich bin unsicher. {brauchst}"
+            if sie:
+                text = siezen(text)
+            zeile = f"{wo(s)}, {s['name']}: {text}"
+            if zeile in gesehen:
+                continue
+            gesehen.add(zeile)
+            nummer += 1
+            zeilen.append(f"{nummer}. {zeile}")
         zeilen.append("")
+    if von_ihr:
+        liste = "Ihrer" if sie else "deiner"
+        zeilen += [f"Noch offen von {liste} Liste:", *_nach_bereich(von_ihr), ""]
     if offen:
-        zeilen += ["Noch nicht gefunden habe ich: " + ", ".join(offen) + ".", ""]
+        zeilen += ["Noch nicht gefunden habe ich:", *_nach_bereich(offen), ""]
     zeilen += ["Viele Grüße", profil.name or ""]
     return f"Steuerunterlagen {profil.jahr}", "\n".join(zeilen).rstrip() + "\n"

@@ -65,6 +65,18 @@ def compose_email(to: str, subject: str, body: str, attachment: Path | None) -> 
     return Composed(True, link)
 
 
+def reveal_path(path: Path) -> bool:
+    """Show a file selected in Finder (other systems: open its folder)."""
+    path = Path(path)
+    try:
+        if sys.platform == "darwin":
+            subprocess.run(["open", "-R", str(path)], check=True, timeout=10)
+            return True
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return open_path(path.parent)
+
+
 def open_path(path: Path) -> bool:
     """Show a folder in Finder (or open a file with its usual app)."""
     path = Path(path)

@@ -45,7 +45,24 @@ def install_shims(services=None) -> None:
     sys.modules["keyring"] = _keyring_module()
     sys.modules["keyring.errors"] = sys.modules["keyring"].errors
     sys.modules["pytesseract"] = _pytesseract_module()
+    sys.modules.setdefault("pi_heif", _no_heic_module())
     _claude_from_the_browser()
+
+
+def _no_heic_module() -> types.ModuleType:
+    """iPhone photos (HEIC) need a decoder Pyodide doesn't ship. Say so instead of crashing."""
+    mod = types.ModuleType("pi_heif")
+
+    def register_heif_opener() -> None:
+        from frits.ingest import IngestError
+
+        raise IngestError(
+            "HEIC-Fotos (vom iPhone) kann FRITS im Browser noch nicht lesen. Speichere das Foto "
+            "als JPG (in Fotos: Exportieren) oder mach ein Bildschirmfoto davon."
+        )
+
+    mod.register_heif_opener = register_heif_opener
+    return mod
 
 
 def _claude_from_the_browser() -> None:

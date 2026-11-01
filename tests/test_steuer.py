@@ -12,13 +12,13 @@ from frits import store, system
 from frits.expenses import Expense, add_expense
 from frits.settings import Settings, Workspace
 from frits.steuer import beraterin, ernte, quest, spiel, truhe
-from frits.steuer.katalog import HAKEN, Profil, ist_kern, katalog, reich
+from frits.steuer.katalog import HAKEN, MACHT_BERATERIN, Profil, ist_kern, katalog, reich
 from frits.web.app import create_app
 from frits.web.steuer import inselplan
 
-MARIE = Profil(
+KIM = Profil(
     jahr=2025,
-    name="Marie Beispiel",
+    name="Kim Beispiel",
     beraterin_email="beraterin@example.com",
     mengen={"freiberuflich": [1, 0], "gesellschaft": [1, 0], "wohnungen": [2, 0]}
     | {"depots_ausland": [1, 0]},
@@ -35,10 +35,10 @@ PAAR = Profil(
     mengen={"angestellt": [1, 2], "wohnungen": [1, 0]},
 )
 
-MAIL = """Liebe Marie,
+MAIL = """Liebe Kim,
 für die Erklärung 2025 bräuchte ich noch:
 - die Versicherungsnachweise für beide Wohnungen
-- eine Übersicht der Dividenden aus deinem US-Depot
+- eine Übersicht der Dividenden aus deinem Depot im Ausland
 - die Anlage zum geänderten GbR-Vertrag
 - deinen Bausparvertrag
 Viele Grüße"""
@@ -68,7 +68,7 @@ def ids(profil):
 
 
 def test_fragebogen_schaltet_provinzen_frei():
-    assert ids(MARIE) == [
+    assert ids(KIM) == [
         "rathaus",
         "werkstatt-1",
         "gilde-1",
@@ -77,7 +77,7 @@ def test_fragebogen_schaltet_provinzen_frei():
         "hafen-1",
         "burg",
     ]
-    titel = [g.titel for g in reich(MARIE)]
+    titel = [g.titel for g in reich(KIM)]
     assert titel[3:6] == ["Gehöft 1", "Gehöft 2", "Überseehafen"]  # Nummer nur, wenn mehrere
 
 
@@ -154,15 +154,15 @@ def test_inselplan_passt_fuer_jede_groesse():
 
 
 def test_start_legt_sammelstuecke_an_und_ist_wiederholbar(conn):
-    quest.start(conn, MARIE)
+    quest.start(conn, KIM)
     anzahl = len(quest.stuecke(conn, 2025))
-    quest.start(conn, MARIE)
+    quest.start(conn, KIM)
     assert len(quest.stuecke(conn, 2025)) == anzahl
-    assert len(quest.stuecke(conn, 2025, "gehoeft-2")) == 8
+    assert len(quest.stuecke(conn, 2025, "gehoeft-2")) == 9
 
 
 def test_weniger_wohnungen_raeumt_leere_provinzen_weg(conn, ws, tmp_path):
-    quest.start(conn, MARIE)
+    quest.start(conn, KIM)
     s = quest.stuecke(conn, 2025, "gehoeft-1")[0]
     quest.sammeln(conn, ws.root, s["id"], datei(tmp_path, "miete.pdf", "x"))
     quest.start(conn, Profil(jahr=2025))
@@ -172,11 +172,11 @@ def test_weniger_wohnungen_raeumt_leere_provinzen_weg(conn, ws, tmp_path):
 
 
 def test_sammeln_benennt_um_und_erkennt_doppelte(conn, ws, tmp_path):
-    quest.start(conn, MARIE)
+    quest.start(conn, KIM)
     s = next(s for s in quest.stuecke(conn, 2025, "gehoeft-2") if s["key"] == "grundsteuer")
     fund = quest.sammeln(conn, ws.root, s["id"], datei(tmp_path, "scan 17.PDF", "bescheid"))
     assert fund.neu
-    assert fund.pfad.name == "2025_Gehoeft-2_Grundsteuerbescheid.pdf"
+    assert fund.pfad.name == "2025_Vermietete-Wohnung-2_Grundsteuerbescheid.pdf"
     assert fund.stueck["status"] == "gesammelt"
     zweimal = quest.sammeln(conn, ws.root, s["id"], datei(tmp_path, "nochmal.pdf", "bescheid"))
     assert not zweimal.neu
@@ -184,7 +184,7 @@ def test_sammeln_benennt_um_und_erkennt_doppelte(conn, ws, tmp_path):
 
 
 def test_datei_zurueck_ins_lager(conn, ws, tmp_path):
-    quest.start(conn, MARIE)
+    quest.start(conn, KIM)
     s = quest.stuecke(conn, 2025, "burg")[0]
     quest.sammeln(conn, ws.root, s["id"], datei(tmp_path, "kasse.pdf", "kv"))
     d = quest.dateien(conn, 2025)[0]
@@ -290,8 +290,8 @@ def test_erfolge():
 
 
 def test_beraterin_mail_wird_zu_auftraegen(conn):
-    quest.start(conn, MARIE)
-    wuensche = beraterin.zuordnen(MAIL, reich(MARIE), quest.stuecke(conn, 2025))
+    quest.start(conn, KIM)
+    wuensche = beraterin.zuordnen(MAIL, reich(KIM), quest.stuecke(conn, 2025))
     assert len(wuensche) == 4
     versicherung, dividenden, vertrag, bauspar = wuensche
     assert versicherung.gebiete == ("gehoeft-1", "gehoeft-2")
@@ -303,11 +303,11 @@ def test_beraterin_mail_wird_zu_auftraegen(conn):
 
 
 def test_beraterin_ohne_aufzaehlung():
-    text = "Hallo Marie, mir fehlt noch der Grundsteuerbescheid für Wohnung 2. Danke!"
+    text = "Hallo Kim, mir fehlt noch der Grundsteuerbescheid für Wohnung 2. Danke!"
     assert beraterin.wuensche_aus_text(text) == [
         "mir fehlt noch der Grundsteuerbescheid für Wohnung 2"
     ]
-    w = beraterin.zuordnen(text, reich(MARIE), [])
+    w = beraterin.zuordnen(text, reich(KIM), [])
     assert w[0].gebiete == ("gehoeft-2",)
 
 
@@ -320,7 +320,7 @@ def test_passwort_ist_lang_und_zufaellig():
 
 
 def test_truhe_ist_verschluesselt_und_geordnet(conn, ws, tmp_path):
-    quest.start(conn, MARIE)
+    quest.start(conn, KIM)
     s = quest.stuecke(conn, 2025, "hafen-1")[0]
     quest.sammeln(conn, ws.root, s["id"], datei(tmp_path, "jahr.pdf", "depot"))
     quest.setze_status(
@@ -328,8 +328,8 @@ def test_truhe_ist_verschluesselt_und_geordnet(conn, ws, tmp_path):
     )
     ziel = truhe.packen(
         tmp_path / "out" / "t.zip",
-        MARIE,
-        reich(MARIE),
+        KIM,
+        reich(KIM),
         quest.stuecke(conn, 2025),
         quest.dateien(conn, 2025),
         "Wiese-Anker-42",
@@ -340,7 +340,7 @@ def test_truhe_ist_verschluesselt_und_geordnet(conn, ws, tmp_path):
             zf.read(namen[0])  # ohne Passwort geht nichts
         zf.setpassword(b"Wiese-Anker-42")
         inhalt = zf.read("00 Inhaltsverzeichnis.txt").decode()
-    assert "06 Depot im Ausland/2025_Hafen-1_Jahresuebersicht-des-Depots.pdf" in namen
+    assert "06 Depot im Ausland/2025_Depot-im-Ausland-1_Jahresuebersicht-des-Depots.pdf" in namen
     assert "Frage: Brauchst du das?" in inhalt
     assert truhe.verschluesselt(ziel)
 
@@ -348,13 +348,13 @@ def test_truhe_ist_verschluesselt_und_geordnet(conn, ws, tmp_path):
 def test_truhe_ohne_passwort_oeffnet_sich_ueberall(conn, ws, tmp_path):
     import zipfile
 
-    quest.start(conn, MARIE)
+    quest.start(conn, KIM)
     s = quest.stuecke(conn, 2025, "hafen-1")[0]
     quest.sammeln(conn, ws.root, s["id"], datei(tmp_path, "jahr.pdf", "depot"))
     ziel = truhe.packen(
         tmp_path / "t.zip",
-        MARIE,
-        reich(MARIE),
+        KIM,
+        reich(KIM),
         quest.stuecke(conn, 2025),
         quest.dateien(conn, 2025),
         None,
@@ -362,21 +362,22 @@ def test_truhe_ohne_passwort_oeffnet_sich_ueberall(conn, ws, tmp_path):
     with zipfile.ZipFile(ziel) as zf:  # das normale Python-Zip, ganz ohne Passwort
         assert "Steuerunterlagen 2025" in zf.read("00 Inhaltsverzeichnis.txt").decode()
     assert not truhe.verschluesselt(ziel)
-    _, text = truhe.mail(MARIE, reich(MARIE), quest.stuecke(conn, 2025), mit_passwort=False)
+    _, text = truhe.mail(KIM, reich(KIM), quest.stuecke(conn, 2025), mit_passwort=False)
     assert "Passwort" not in text and "7-Zip" not in text
 
 
 def test_mail_nennt_fragen_und_luecken_aber_kein_passwort(conn):
-    quest.start(conn, MARIE)
+    quest.start(conn, KIM)
     alle = quest.stuecke(conn, 2025)
     quest.setze_status(conn, alle[0]["id"], "fragen", "Reicht der Export?")
     quest.setze_status(conn, alle[1]["id"], "gibts_nicht")
-    betreff, text = truhe.mail(MARIE, reich(MARIE), quest.stuecke(conn, 2025))
+    betreff, text = truhe.mail(KIM, reich(KIM), quest.stuecke(conn, 2025))
     assert betreff == "Steuerunterlagen 2025"
-    assert "Persönliches und Finanzamt: Reicht der Export?" in text
-    assert "Gibt es dieses Jahr nicht: Letzter Steuerbescheid." in text
-    assert "Noch nicht gefunden habe ich:" in text
-    assert "Passwort schicke ich dir getrennt" in text
+    erste, zweite = alle[0]["name"], alle[1]["name"]
+    assert f"1. Persönliches und Finanzamt, {erste}: Reicht der Export?" in text
+    assert f"Gibt es dieses Jahr nicht:\n- Persönliches und Finanzamt: {zweite}" in text
+    assert "Noch nicht gefunden habe ich:\n- " in text
+    assert "Passwort schicke ich dir getrennt" in text and text.startswith("Hallo,")
 
 
 # ---------- FRITS-Ernte: Rechnungen, Belege und EÜR aus dem normalen FRITS ----------
@@ -433,8 +434,8 @@ def test_ernte_findet_was_frits_im_jahr_hat(frits_jahr, conn):
 
 
 def test_ernte_einbringen_kopiert_und_ist_wiederholbar(frits_jahr, conn):
-    quest.start(conn, MARIE)
-    assert [g.id for g in ernte.ziele(reich(MARIE))] == ["werkstatt-1", "gilde-1"]
+    quest.start(conn, KIM)
+    assert [g.id for g in ernte.ziele(reich(KIM))] == ["werkstatt-1", "gilde-1"]
     neu = ernte.einbringen(conn, frits_jahr, 2025, "werkstatt-1", "kleinunternehmer")
     assert neu == {"rechnungen": 2, "belege": 1, "euer": 1}
     werkstatt = {s["key"]: s for s in quest.stuecke(conn, 2025, "werkstatt-1")}
@@ -453,11 +454,11 @@ def test_ernte_einbringen_kopiert_und_ist_wiederholbar(frits_jahr, conn):
 
 
 def test_ernte_legt_fehlende_faecher_an(frits_jahr, conn):
-    quest.start(conn, MARIE)
+    quest.start(conn, KIM)
     ernte.einbringen(conn, frits_jahr, 2025, "gilde-1", "kleinunternehmer")
     namen = {s["name"]: s["status"] for s in quest.stuecke(conn, 2025, "gilde-1")}
     assert namen["Rechnungen der Gesellschaft"] == "gesammelt"
-    assert namen["EÜR-Übersicht"] == "gesammelt"
+    assert namen["EÜR der Gesellschaft"] == "gesammelt"  # die Karte aus dem Katalog
 
 
 # ---------- Die Seiten ----------
@@ -465,7 +466,7 @@ def test_ernte_legt_fehlende_faecher_an(frits_jahr, conn):
 
 @pytest.fixture
 def client(ws, monkeypatch):
-    Settings(name="Marie Beispiel", hourly_rate=Decimal(1), setup_done=True).save(ws.settings_file)
+    Settings(name="Kim Beispiel", hourly_rate=Decimal(1), setup_done=True).save(ws.settings_file)
     sent = []
     monkeypatch.setattr(
         system,
@@ -508,7 +509,7 @@ def test_ganze_quest_im_browser(client, ws):
         client,
         "/steuer/2025/fragebogen",
         teil="1",
-        name="Marie",
+        name="Kim",
         familienstand="ledig",
         beraterin_email="b@example.com",
     )
@@ -581,7 +582,7 @@ def test_ganze_quest_im_browser(client, ws):
 
     page = post(client, "/steuer/2025/truhe")
     assert "Passwort:" in page.text
-    zip_pfad = quest.ordner(ws.root, 2025) / "Steuer-2025-Marie.zip"
+    zip_pfad = quest.ordner(ws.root, 2025) / "Steuer-2025-Kim.zip"
     assert zip_pfad.exists()
 
     page = post(client, "/steuer/2025/mail", betreff="Unterlagen", text="Hallo")
@@ -653,7 +654,7 @@ def test_steuer_knoepfe_brauchen_das_token(client):
 def test_seiten_rendern(client):
     fragebogen(
         client,
-        teil1={"name": "Marie"},
+        teil1={"name": "Kim"},
         teil2={"m_freiberuflich_0": "1", "m_gesellschaft_0": "1", "m_wohnungen_0": "2"},
         teil3={"haken": "spenden"},
     )
@@ -691,9 +692,9 @@ def test_gemalte_bilder_und_leihgaben():
 
 
 def test_auftrag_zeigt_immer_einen_naechsten_schritt(conn, ws):
-    quest.start(conn, MARIE)
+    quest.start(conn, KIM)
     alle = quest.stuecke(conn, 2025)
-    staende = spiel.provinzen(reich(MARIE), alle)
+    staende = spiel.provinzen(reich(KIM), alle)
     a = spiel.auftrag(2025, staende, spiel.drache(alle), 0, alle)
     assert a.art == "provinz" and a.ziel.startswith("/steuer/2025/gebiet/")
     assert "Gold-Siegel" in a.belohnungen and "Orden „Erste Ernte“" in a.belohnungen
@@ -702,18 +703,18 @@ def test_auftrag_zeigt_immer_einen_naechsten_schritt(conn, ws):
     ziel = next(s for s in alle if s["gebiet"] == "gehoeft-2" and s["art"] != "bonus")
     quest.setze_status(conn, ziel["id"], "gibts_nicht")
     alle = quest.stuecke(conn, 2025)
-    a = spiel.auftrag(2025, spiel.provinzen(reich(MARIE), alle), spiel.drache(alle), 0, alle)
+    a = spiel.auftrag(2025, spiel.provinzen(reich(KIM), alle), spiel.drache(alle), 0, alle)
     assert a.gebiet_id == "gehoeft-2" and a.erledigt == 1
 
     # Liegen Zettel im Eingangskorb, kommen die zuerst
-    a = spiel.auftrag(2025, spiel.provinzen(reich(MARIE), alle), spiel.drache(alle), 3, alle)
+    a = spiel.auftrag(2025, spiel.provinzen(reich(KIM), alle), spiel.drache(alle), 3, alle)
     assert a.art == "korb" and "3 Zettel" in a.text
 
     # Alles erledigt: zur Beute
     for s in alle:
         quest.setze_status(conn, s["id"], "gibts_nicht")
     alle = quest.stuecke(conn, 2025)
-    a = spiel.auftrag(2025, spiel.provinzen(reich(MARIE), alle), spiel.drache(alle), 0, alle)
+    a = spiel.auftrag(2025, spiel.provinzen(reich(KIM), alle), spiel.drache(alle), 0, alle)
     assert a.art == "sieg" and a.ziel == "/steuer/2025/sieg"
 
 
@@ -733,7 +734,7 @@ def test_fragebogen_merkt_sich_alles_auch_ohne_weiter(client, ws):
 
 
 def test_neues_jahr_laesst_sich_abbrechen(client, ws):
-    fragebogen(client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1"})
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
     karte = client.get("/steuer/2025").text
     assert "Neue Quest für 2024" in karte and "Dein Auftrag" in karte
     assert "Burg?" in karte  # die Burg wartet als Nebenquest
@@ -743,7 +744,7 @@ def test_neues_jahr_laesst_sich_abbrechen(client, ws):
 
 
 def test_siegel_kommt_als_belohnung_mit_naechstem_auftrag(client, ws):
-    fragebogen(client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1"})
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
     page = None
     for s in quest.stuecke(quest.ensure_schema(store.connect(ws.db)), 2025, "rathaus"):
         page = post(
@@ -788,7 +789,7 @@ def test_reine_bonus_provinz_zaehlt_nicht_zu_den_siegeln():
         {"gebiet": "burg", "art": "bonus", "status": "gesammelt", "wunsch": 0},
         {"gebiet": "rathaus", "art": "pflicht", "status": "offen", "wunsch": 0},
     ]
-    gebiete = [gb for gb in reich(MARIE) if gb.id in ("burg", "rathaus")]
+    gebiete = [gb for gb in reich(KIM) if gb.id in ("burg", "rathaus")]
     assert len(gebiete) == 2
     staende = spiel.provinzen(gebiete, stuecke)
     burg = next(p for p in staende if p.gebiet.id == "burg")
@@ -807,15 +808,15 @@ def test_journalisten_haken_nur_mit_freiberuf():
 
 
 def test_neuer_katalogtext_kommt_auch_in_alte_quests(conn):
-    quest.start(conn, MARIE)
+    quest.start(conn, KIM)
     conn.execute("UPDATE steuer_stuecke SET hinweis = 'alt' WHERE gebiet = 'rathaus'")
-    quest.start(conn, MARIE)
-    hinweise = {s["hinweis"] for s in quest.stuecke(conn, MARIE.jahr, "rathaus")}
+    quest.start(conn, KIM)
+    hinweise = {s["hinweis"] for s in quest.stuecke(conn, KIM.jahr, "rathaus")}
     assert "alt" not in hinweise
 
 
 def test_dateien_lassen_sich_auf_den_eingangskorb_ziehen(client, ws):
-    fragebogen(client, teil1={"name": "Marie"})
+    fragebogen(client, teil1={"name": "Kim"})
     karte = client.get("/steuer/2025").text
     assert "/steuer/2025/lager/hochladen" in karte and "data-dropzone" in karte
     assert client.get("/steuer/2025/lager/anzahl").json() == {"anzahl": 0}
@@ -839,7 +840,7 @@ def test_dateien_lassen_sich_auf_den_eingangskorb_ziehen(client, ws):
 def test_beraterin_steht_nicht_mehr_im_ersten_teil(client, ws):
     seite = client.get("/steuer/2025/fragebogen").text
     assert 'name="beraterin_email"' not in seite and "data-stapel" in seite
-    fragebogen(client, teil1={"name": "Marie"})
+    fragebogen(client, teil1={"name": "Kim"})
     brief = client.get("/steuer/2025/beraterin").text
     assert 'name="beraterin_email"' in brief
     post(
@@ -862,7 +863,7 @@ def test_beraterin_steht_nicht_mehr_im_ersten_teil(client, ws):
 
 
 def test_tagwerk_feiert_drei_karten_am_tag(client, ws):
-    fragebogen(client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1"})
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
     conn = store.connect(ws.db)
     karte = client.get("/steuer/2025").text
     assert "Tagwerk heute" in karte and "0/3" in karte
@@ -883,7 +884,7 @@ def test_tagwerk_feiert_drei_karten_am_tag(client, ws):
 
 
 def test_steuer_id_gibt_es_immer_und_kernunterlagen_kommen_zum_pruefen(client, ws):
-    fragebogen(client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1"})
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
     conn = quest.ensure_schema(store.connect(ws.db))
     rathaus = client.get("/steuer/2025/gebiet/rathaus").text
     assert "Finde ich nicht" in rathaus
@@ -914,7 +915,7 @@ def test_drache_faellt_auch_aus_der_ferne_und_der_sieg_kommt_immer(client, ws):
     # Lena (Runde 1c): Wer nach dem Erwachen in den Provinzen weiterstempelt, tötete den
     # Drachen nebenbei, und es gab nie einen Sieg. Jetzt: Treffer aus der Ferne, und der
     # letzte Treffer führt immer zur Drachenseite mit dem Falt-Moment.
-    fragebogen(client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1"})
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
     conn = quest.ensure_schema(store.connect(ws.db))
     _bis_wach(conn)
     rest = [s for s in spiel.pflicht(quest.stuecke(conn, 2025)) if s["status"] == "offen"]
@@ -930,7 +931,7 @@ def test_drache_faellt_auch_aus_der_ferne_und_der_sieg_kommt_immer(client, ws):
 
 
 def test_eingangskorb_ist_die_hand_im_drachenkampf(client, ws):
-    fragebogen(client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1"})
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
     conn = quest.ensure_schema(store.connect(ws.db))
     _bis_wach(conn)
     quest.lager(ws.root).mkdir(parents=True, exist_ok=True)
@@ -963,7 +964,7 @@ def test_silber_ist_ehrlich_und_feste_gibt_es_nur_einmal(client, ws):
     assert spiel.aufstieg("Goldenes Zeitalter") == "Aufstieg ins Goldene Zeitalter"
     assert spiel.aufstieg("Zeitalter der Ordnung") == "Aufstieg ins Zeitalter der Ordnung"
     assert spiel.zeitalter(1.0, silber=True)[1] == "Silbernes Zeitalter"
-    fragebogen(client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1"})
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
     conn = quest.ensure_schema(store.connect(ws.db))
     werkstatt = [s for s in quest.stuecke(conn, 2025) if s["gebiet"] == "werkstatt-1"]
     belege = next(s for s in werkstatt if s["key"] == "belege")
@@ -998,15 +999,15 @@ def test_falsche_adressen_sind_freundlich(client, ws):
 def test_eingefuegter_text_heisst_nach_seinen_ersten_woertern():
     from frits.web.steuer import textname
 
-    assert textname("Sehr geehrter Herr Espenlaub, bitte senden Sie …") == (
-        "Sehr geehrter Herr Espenlaub bitte senden.txt"
+    assert textname("Sehr geehrter Herr Bauer, bitte senden Sie …") == (
+        "Sehr geehrter Herr Bauer bitte senden.txt"
     )
     assert textname("  …  ") == "Eingefügter Text.txt"
 
 
 def test_drache_geht_vor_dem_korb_und_zettel_lassen_sich_beiseitelegen(client, ws):
     # Lena (1d): Ein Zettel, der nirgends passt, blockierte den Drachen-Auftrag für immer
-    fragebogen(client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1"})
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
     conn = quest.ensure_schema(store.connect(ws.db))
     quest.lager(ws.root).mkdir(parents=True, exist_ok=True)
     (quest.lager(ws.root) / "urlaubsfoto.png").write_bytes(b"strand")
@@ -1025,7 +1026,7 @@ def test_drache_geht_vor_dem_korb_und_zettel_lassen_sich_beiseitelegen(client, w
 
 
 def test_hand_fragt_nach_und_ein_wurf_laesst_sich_zuruecknehmen(client, ws):
-    fragebogen(client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1"})
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
     conn = quest.ensure_schema(store.connect(ws.db))
     _bis_wach(conn)
     quest.lager(ws.root).mkdir(parents=True, exist_ok=True)
@@ -1049,7 +1050,7 @@ def test_hand_fragt_nach_und_ein_wurf_laesst_sich_zuruecknehmen(client, ws):
 
 
 def test_aus_silber_wird_gold_und_zuruecknehmen_ist_nicht_stumm(client, ws):
-    fragebogen(client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1"})
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
     conn = quest.ensure_schema(store.connect(ws.db))
     belege = next(s for s in quest.stuecke(conn, 2025) if s["key"] == "belege")
     quest.setze_status(conn, belege["id"], "gibts_nicht")
@@ -1073,7 +1074,7 @@ def test_aus_silber_wird_gold_und_zuruecknehmen_ist_nicht_stumm(client, ws):
 
 
 def test_im_kampf_keine_grossen_dialoge_auf_provinzseiten(client, ws):
-    fragebogen(client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1"})
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
     conn = quest.ensure_schema(store.connect(ws.db))
     _bis_wach(conn)
     offen = [s for s in spiel.pflicht(quest.stuecke(conn, 2025)) if s["status"] == "offen"]
@@ -1097,7 +1098,7 @@ def test_gold_regeln_belohnen_finden_mehr_als_wegstempeln():
     assert spiel.gold_fuer(fund, "fragen") == 1
     kern = next(
         (g.provinz.key + "-1", s.key)
-        for g in reich(MARIE)
+        for g in reich(KIM)
         for s in g.stuecke
         if ist_kern(g.id, s.key)
     )
@@ -1178,7 +1179,8 @@ def test_markt_kaufen_helferplaetze_tauschgebuehr_und_zierde_fuer_alle_jahre(con
     quest.lege_helfer(conn, 2025, "sanduhr", True)
     assert quest.gold(conn, 2025) == vorher - spiel.TAUSCH_PREIS  # Tauschen kostet
     assert quest.helfer(conn, 2025) == {"spuernase", "sanduhr"}
-    assert quest.goldsummen(conn, 2025) == (200, 10 + 20 + 15 + 15 + spiel.TAUSCH_PREIS)
+    preise = sum(spiel.ware(k).preis for k in ("laternen", "spuernase", "brieftaube", "sanduhr"))
+    assert quest.goldsummen(conn, 2025) == (200, preise + spiel.TAUSCH_PREIS)
     with pytest.raises(quest.QuestError):
         quest.kaufe(conn, 2025, "gibtsnicht")
 
@@ -1199,7 +1201,7 @@ def test_spuernase_raet_nach_dem_dateinamen():
 def test_fragebogen_farm_bringt_kein_zweites_gold(client, ws):
     """Bericht 2a, P1-B: Karten über den Fragebogen löschen und neu anlegen zahlt nicht doppelt."""
     fragebogen(
-        client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1", "m_depots_inland_0": "1"}
+        client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1", "m_depots_inland_0": "1"}
     )
     conn = quest.ensure_schema(store.connect(ws.db))
     depot = next(s for s in quest.stuecke(conn, 2025) if s["gebiet"].startswith("schatzkammer"))
@@ -1233,7 +1235,7 @@ def test_fragebogen_farm_bringt_kein_zweites_gold(client, ws):
 
 
 def test_gold_im_kampf_mit_serie_und_markt_im_browser(client, ws):
-    fragebogen(client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1"})
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
     conn = quest.ensure_schema(store.connect(ws.db))
     _bis_wach(conn)
     gold_vorher = quest.gold(conn, 2025)
@@ -1268,7 +1270,7 @@ def test_gold_im_kampf_mit_serie_und_markt_im_browser(client, ws):
 
 
 def test_letzter_treffer_zeigt_seine_rechnung_im_sieg(client, ws):
-    fragebogen(client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1"})
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
     conn = quest.ensure_schema(store.connect(ws.db))
     _bis_wach(conn)
     while spiel.drache(quest.stuecke(conn, 2025)).lp > 1:
@@ -1285,3 +1287,287 @@ def test_letzter_treffer_zeigt_seine_rechnung_im_sieg(client, ws):
         zettel="letzter.pdf",
     )
     assert "Letzter Treffer: 3 ×" in seite.text
+
+
+def test_gold_nur_fuer_die_letzten_steuerjahre_und_wuensche_ohne_serie():
+    """Bericht 2b, P2-B: Erfundene alte Jahre und erfundene Wünsche bringen kein Gold-Feuerwerk."""
+    heute = date(2026, 11, 1)
+    assert spiel.gold_jahr(2026, heute) and spiel.gold_jahr(2025, heute)
+    assert spiel.gold_jahr(2024, heute)  # mit Beraterin oft erst im übernächsten Frühjahr
+    assert not spiel.gold_jahr(2023, heute) and not spiel.gold_jahr(2027, heute)
+    wunsch = _karte(key="wunsch-1", name="Bausparvertrag")
+    v = spiel.verdienste([wunsch], [{**wunsch, "status": "gesammelt"}], mult=6)
+    assert v[0].mult == 1 and v[0].betrag == spiel.GOLD_FUND
+
+
+def test_wuensche_zahlen_nur_bis_zum_deckel(client, ws):
+    fragebogen(client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    for n in range(spiel.WUNSCH_DECKEL + 2):
+        quest.neues_stueck(conn, 2025, "rathaus", f"Wunsch {n}", hinweis="Beraterin")
+    wuensche = [s for s in quest.stuecke(conn, 2025) if s["key"].startswith("wunsch-")]
+    assert len(wuensche) == spiel.WUNSCH_DECKEL + 2
+    for s in wuensche:
+        post(
+            client,
+            f"/steuer/2025/stueck/{s['id']}/datei",
+            files=[("datei", (f"{s['key']}.pdf", f"%PDF {s['key']}".encode()))],
+        )
+    assert quest.wunsch_funde(conn, 2025) == spiel.WUNSCH_DECKEL
+
+
+def test_gold_faellt_nie_unter_null_letzter_kauf_geht_in_den_hafen(conn):
+    """Bericht 2b, P2-A: Erst bei ×8 verdienen, ausgeben, dann zurücklegen darf nichts bringen."""
+    quest.verdiene(conn, 2025, "fund:a:b", 20, "Belege")
+    quest.verdiene(conn, 2025, "test", 30, "Testgold")
+    quest.kaufe(conn, 2025, "windmuehle")  # 35
+    quest.kaufe(conn, 2025, "laternen")  # 10
+    assert quest.gold(conn, 2025) == 5
+    quest.storniere(conn, 2025, "fund:a:b", "Belege")
+    assert quest.gold(conn, 2025) == -15
+    assert quest.decke_schulden(conn, 2025) == ["Laternen", "Windmühle"]
+    assert quest.gold(conn, 2025) == 30
+    assert "windmuehle" not in quest.besitz(conn, 2025)
+    assert "laternen" not in quest.besitz(conn, 2026)
+    assert quest.goldsummen(conn, 2025) == (30, 0)
+    assert quest.decke_schulden(conn, 2025) == []  # nichts mehr zu tun
+    quest.kaufe(conn, 2025, "laternen")  # zurückgegeben heißt: wieder kaufbar
+
+    # Steckt das Gold nur noch in Helfer-Wechseln, wird auf null ausgeglichen
+    quest.verdiene(conn, 2024, "fund:a:b", 20, "Belege")
+    quest.kaufe(conn, 2024, "spuernase")
+    quest.lege_helfer(conn, 2024, "spuernase", False)
+    quest.lege_helfer(conn, 2024, "spuernase", True)
+    quest.storniere(conn, 2024, "fund:a:b", "Belege")
+    assert quest.decke_schulden(conn, 2024) == ["Spürnase"]
+    assert quest.gold(conn, 2024) == 0 and quest.helfer(conn, 2024) == frozenset()
+
+
+def test_zurueckbuchen_mit_ausgegebenem_gold_im_browser(client, ws):
+    fragebogen(client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    karte = next(s for s in quest.stuecke(conn, 2025) if s["status"] == "offen")
+    post(
+        client,
+        f"/steuer/2025/stueck/{karte['id']}/datei",
+        files=[("datei", ("beleg.pdf", b"%PDF beleg"))],
+    )
+    verdient = quest.gold(conn, 2025)
+    assert 0 < verdient < 50
+    quest.verdiene(conn, 2025, "test", 50 - verdient, "Testgold")
+    post(client, "/steuer/2025/markt/kaufen", ware="leuchtturm")
+    assert quest.gold(conn, 2025) == 0
+    datei = quest.dateien(conn, 2025, karte["id"])[0]
+    seite = post(client, f"/steuer/2025/datei/{datei['id']}/entfernen")
+    assert "Leuchtturm zurück im Hafen" in seite.text
+    assert quest.gold(conn, 2025) >= 0 and "leuchtturm" not in quest.besitz(conn, 2025)
+    markt = client.get("/steuer/2025/markt").text
+    assert "Zurück in den Hafen: Leuchtturm" in markt
+
+
+# ---------- Runde 10: Übergabe an die Beraterin (Testbericht "Marie") ----------
+
+MARIE_MAIL = """Hallo Marie,
+für 2025 bräuchte ich noch:
+- Jahresbescheinigung KSK
+- Spendenquittungen
+- Für beide Wohnungen: Hausgeld, Grundsteuer, Zinsbescheinigung
+- Steuerbescheinigung US-Broker (1099)
+Viele Grüße"""
+
+MARIE = Profil(
+    jahr=2025,
+    name="Marie",
+    mengen={"freiberuflich": [1, 0], "gesellschaft": [1, 0], "wohnungen": [2, 0]}
+    | {"depots_ausland": [1, 0]},
+    haken=["ksk", "spenden", "vorsorge"],
+)
+
+
+def test_beraterin_mail_markiert_vorhandene_karten_statt_doppelkarten(conn):
+    """Bericht Marie, P1-1: KSK und Spenden in die Burg, Sammelzeilen zerlegt, keine Doppelkarten."""
+    quest.start(conn, MARIE)
+    alle = quest.stuecke(conn, 2025)
+    name = {s["id"]: (s["gebiet"], s["key"]) for s in alle}
+    wuensche = beraterin.zuordnen(MARIE_MAIL, reich(MARIE), alle)
+    ziele = {w.text: [name.get(i) for i in w.stuecke] for w in wuensche}
+    assert ziele["Jahresbescheinigung KSK"] == [("burg", "ksk")]
+    assert ziele["Spendenquittungen"] == [("burg", "spenden")]
+    assert ziele["Hausgeld"] == [("gehoeft-1", "nebenkosten"), ("gehoeft-2", "nebenkosten")]
+    assert ziele["Grundsteuer"] == [("gehoeft-1", "grundsteuer"), ("gehoeft-2", "grundsteuer")]
+    assert ziele["Zinsbescheinigung"] == [("gehoeft-1", "zinsen"), ("gehoeft-2", "zinsen")]
+    # Ein Broker-Wort zieht in den Hafen, dort passt die Jahresübersicht
+    assert ziele["Steuerbescheinigung US-Broker (1099)"] == [("hafen-1", "jahresuebersicht")]
+    # "Steuer" allein reicht nicht: Die Steuer-ID ist kein Ziel für eine Steuerbescheinigung
+    assert beraterin.zerlegen("Kontoauszüge Januar bis März") == [
+        ("Kontoauszüge Januar bis März", "")
+    ]
+
+
+def test_beraterin_im_browser_merkt_adresse_und_nimmt_kein_siegel_gold(client, ws):
+    fragebogen(
+        client,
+        teil1={"name": "Marie"},
+        teil2={"m_freiberuflich_0": "1", "m_wohnungen_0": "2"},
+        teil3={"haken": ["ksk", "spenden"]},
+    )
+    conn = quest.ensure_schema(store.connect(ws.db))
+    vorher = len(quest.stuecke(conn, 2025))
+    for s in quest.stuecke(conn, 2025, "burg"):
+        quest.setze_status(conn, s["id"], "gesammelt")
+    quest.verdiene(conn, 2025, "siegel:burg", 4, "Siegel: Burg")
+    seite = post(
+        client,
+        "/steuer/2025/beraterin",
+        text=MARIE_MAIL + "\n- Bausparvertrag",
+        beraterin_email="weber@kanzlei.example",
+        beraterin_name="Frau Weber",
+        anrede="sie",
+    )
+    assert "markiert: Grundsteuerbescheid" in seite.text
+    assert len(quest.stuecke(conn, 2025)) == vorher + 2  # nur Broker (kein Depot) und Bausparen
+    p = Profil.load(quest.profil_datei(ws.root, 2025))
+    assert (p.beraterin_email, p.beraterin_name, p.anrede) == (
+        "weber@kanzlei.example",
+        "Frau Weber",
+        "sie",
+    )
+    assert quest.gold(conn, 2025) >= 4  # ein neuer Wunsch nimmt kein Siegel-Gold weg
+    assert "Dein Siegel wartet" in seite.text
+    # Automatisch speichern ohne Seitenwechsel
+    r = client.post(
+        "/steuer/2025/beraterin/daten",
+        data={"token": client.token, "beraterin_termin": "2026-12-15"},
+        headers={"x-frits-leise": "1"},
+    )
+    assert r.json() == {"ok": True}
+    p = Profil.load(quest.profil_datei(ws.root, 2025))
+    assert p.beraterin_termin == "2026-12-15" and p.beraterin_email == "weber@kanzlei.example"
+
+
+def test_eine_datei_fuer_zwei_wohnungen_ist_ein_ehrlicher_verweis(conn, ws, tmp_path):
+    """Bericht Marie, P1-2: dieselbe Mietliste für Wohnung 1 und 2."""
+    quest.start(conn, MARIE)
+    w1 = next(s for s in quest.stuecke(conn, 2025, "gehoeft-1") if s["key"] == "mieteinnahmen")
+    w2 = next(s for s in quest.stuecke(conn, 2025, "gehoeft-2") if s["key"] == "mieteinnahmen")
+    zins = next(s for s in quest.stuecke(conn, 2025, "gehoeft-2") if s["key"] == "zinsen")
+    quest.sammeln(conn, ws.root, w1["id"], datei(tmp_path, "mieten.pdf", "beide"))
+    fund = quest.sammeln(conn, ws.root, w2["id"], datei(tmp_path, "kopie.pdf", "beide"))
+    assert fund.neu and fund.verweis["id"] == w1["id"]
+    assert quest.stueck(conn, w2["id"])["status"] == "gesammelt"
+    # Eine andere Unterlage darf die Datei nicht mitbenutzen
+    fund = quest.sammeln(conn, ws.root, zins["id"], datei(tmp_path, "nochmal.pdf", "beide"))
+    assert not fund.neu and quest.stueck(conn, zins["id"])["status"] == "offen"
+    inhalt = truhe.inhaltsverzeichnis(
+        MARIE,
+        reich(MARIE),
+        quest.stuecke(conn, 2025),
+        quest.dateien(conn, 2025),
+        quest.verweise(conn, 2025),
+    )
+    assert "dieselbe Datei wie bei Vermietete Wohnung · Nr. 1" in inhalt
+    assert "(Original: mieten.pdf)" in inhalt
+    # Wer die Datei bei Wohnung 1 zurücklegt, nimmt sie auch Wohnung 2 weg
+    quest.entferne_datei(conn, quest.dateien(conn, 2025, w1["id"])[0]["id"])
+    assert quest.stueck(conn, w2["id"])["status"] == "offen"
+    assert quest.verweise(conn, 2025) == []
+
+
+def test_verweis_im_browser_und_im_kampf_kein_falscher_treffer(client, ws):
+    fragebogen(client, teil1={"name": "Marie"}, teil2={"m_wohnungen_0": "2"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    w1, w2 = (
+        next(s for s in quest.stuecke(conn, 2025, g) if s["key"] == "mieteinnahmen")
+        for g in ("gehoeft-1", "gehoeft-2")
+    )
+    liste = [("datei", ("mieten.pdf", b"%PDF mieten"))]
+    post(client, f"/steuer/2025/stueck/{w1['id']}/datei", files=liste)
+    seite = post(client, f"/steuer/2025/stueck/{w2['id']}/datei", files=liste)
+    assert "dieselbe Datei wie bei Gehöft 1" in seite.text
+    gebiet = client.get("/steuer/2025/gebiet/gehoeft-2").text
+    assert "liegt bei Gehöft 1, zählt hier mit" in gebiet
+    v = quest.verweise(conn, 2025)[0]
+    post(client, f"/steuer/2025/verweis/{v['id']}/loesen")
+    assert quest.stueck(conn, w2["id"])["status"] == "offen"
+    assert quest.stueck(conn, w1["id"])["status"] == "gesammelt"  # die Datei bleibt
+
+
+def test_mail_per_sie_nach_bereich_ohne_doppelte(conn):
+    """Bericht Marie, P1-3: welche Wohnung, welche Karte, und Sie statt du."""
+    p = Profil(**{**MARIE.__dict__, "anrede": "sie", "beraterin_name": "Frau Weber"})
+    p.namen = {"gehoeft-1": "Lindenstraße", "gehoeft-2": "Gartenweg"}
+    quest.start(conn, p)
+    for g in ("gehoeft-1", "gehoeft-2"):
+        s = next(x for x in quest.stuecke(conn, 2025, g) if x["key"] == "versicherung")
+        quest.setze_status(conn, s["id"], "gibts_nicht")
+    euer = next(s for s in quest.stuecke(conn, 2025, "werkstatt-1") if s["key"] == "euer")
+    quest.setze_status(conn, euer["id"], "fragen", MACHT_BERATERIN)
+    gv = next(s for s in quest.stuecke(conn, 2025, "gilde-1") if s["key"] == "verteilung")
+    quest.setze_status(conn, gv["id"], "fragen", "50/50 wie im Vorjahr?")
+    _, text = truhe.mail(p, reich(p), quest.stuecke(conn, 2025))
+    assert text.startswith("Guten Tag Frau Weber,")
+    assert "Das Passwort schicke ich Ihnen getrennt." in text and " dir " not in text
+    assert "- Vermietete Wohnung · Lindenstraße: Versicherungen" in text
+    assert "- Vermietete Wohnung · Gartenweg: Versicherungen" in text
+    assert "Wie bisher erstellen Sie:\n- Freiberuflich: EÜR-Übersicht" in text
+    assert "1. GbR / Gesellschaft, Gewinnverteilung: 50/50 wie im Vorjahr?" in text
+    assert "Macht meine Beraterin" not in text
+    assert spiel.zweifel(quest.stuecke(conn, 2025)) == []  # kein Silber dafür
+
+
+def test_macht_meine_beraterin_und_sieg_seite_im_browser(client, ws, monkeypatch):
+    fragebogen(client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    euer = next(s for s in quest.stuecke(conn, 2025) if s["key"] == "euer")
+    assert "Macht meine Beraterin" in client.get("/steuer/2025/gebiet/werkstatt-1").text
+    seite = post(
+        client, f"/steuer/2025/stueck/{euer['id']}/status", status="fragen", frage=MACHT_BERATERIN
+    )
+    assert "macht deine Beraterin" in seite.text
+    assert "Macht die Beraterin" in client.get("/steuer/2025/gebiet/werkstatt-1").text
+    # Sieg-Seite: Truhe im Finder zeigen, Passwort kopieren
+    client.app.state.steuer_notausgang.add(2025)
+    post(client, "/steuer/2025/truhe", schloss="passwort")
+    belege = next(s for s in quest.stuecke(conn, 2025) if s["key"] == "belege")
+    quest.markiere_wunsch(conn, belege["id"])
+    sieg = client.get("/steuer/2025/sieg").text
+    assert "Im Finder zeigen" in sieg and "data-kopieren=" in sieg
+    assert "Noch offen von ihrer Liste" in sieg and belege["name"] in sieg
+    gezeigt = []
+    monkeypatch.setattr(system, "reveal_path", lambda p: gezeigt.append(p) or True)
+    post(client, "/steuer/2025/truhe/zeigen")
+    assert gezeigt and gezeigt[0].suffix == ".zip"
+
+
+def test_eingefuegter_text_hat_keine_steuernummer_im_namen():
+    from frits.web.steuer import textname
+
+    name = textname("Finanzamt Prenzlauer Berg Steuernummer 31/456/78901 Bescheid")
+    assert name == "Finanzamt Prenzlauer Berg Bescheid.txt"
+
+
+def test_runde_11_sie_offene_wuensche_und_lange_zeilen(conn):
+    """Nachtest Marie-2: Sie auch in vorformulierten Fragen, ihre Wünsche gehen nie verloren."""
+    frage = "Hast du sie noch von deiner letzten Erklärung?"
+    assert truhe.siezen(frage) == "Haben Sie sie noch von Ihrer letzten Erklärung?"
+    p = Profil(**{**MARIE.__dict__, "anrede": "sie", "beraterin_name": "Frau Weber"})
+    p.namen = {"gehoeft-1": "Lindenstraße"}
+    quest.start(conn, p)
+    kauf = next(s for s in quest.stuecke(conn, 2025, "gehoeft-1") if s["key"] == "kaufvertrag")
+    quest.markiere_wunsch(conn, kauf["id"])
+    _, text = truhe.mail(p, reich(p), quest.stuecke(conn, 2025))
+    assert "Noch offen von Ihrer Liste:\n- Vermietete Wohnung · Lindenstraße: Kaufvertrag" in text
+    assert " du " not in text and " dir " not in text
+    # Der Name der Wohnung steht auch im Titel der Insel
+    assert next(g for g in reich(p) if g.id == "gehoeft-1").titel.endswith("· Lindenstraße")
+    # Zeilen mit "und" oder "inkl." werden ganz erkannt
+    assert [
+        t for t, _ in beraterin.zerlegen("Ausgangsrechnungen der GbR und die Gewinnverteilung")
+    ] == [
+        "Ausgangsrechnungen der GbR",
+        "die Gewinnverteilung",
+    ]
+    teile = beraterin.zerlegen("Depot-Jahresübersicht inkl. Quellensteuer")
+    assert [t for t, _ in teile] == ["Depot-Jahresübersicht", "Quellensteuer"]
+    # Kein Zerlegen mitten im Wort
+    assert len(beraterin.zerlegen("Kranken- und Pflegeversicherung")) == 1

@@ -67,6 +67,13 @@ CREATE TABLE IF NOT EXISTS steuer_gold (
     text TEXT NOT NULL,
     UNIQUE (jahr, grund)
 );
+CREATE TABLE IF NOT EXISTS steuer_verweise (
+    id INTEGER PRIMARY KEY,        -- eine Datei gilt auch für diese Karte (z. B. beide Wohnungen)
+    jahr INTEGER NOT NULL,
+    stueck_id INTEGER NOT NULL REFERENCES steuer_stuecke(id),
+    datei_id INTEGER NOT NULL REFERENCES steuer_dateien(id),
+    UNIQUE (stueck_id, datei_id)
+);
 CREATE TABLE IF NOT EXISTS steuer_besitz (
     jahr INTEGER NOT NULL,
     ware TEXT NOT NULL,            -- siehe spiel.MARKT
@@ -266,9 +273,14 @@ def markiere_wunsch(conn: sqlite3.Connection, stueck_id: int) -> None:
 
 
 def _anzahl_dateien(conn: sqlite3.Connection, stueck_id: int) -> int:
-    return conn.execute(
+    """Eigene Dateien und mitbenutzte (Verweise) zusammen."""
+    eigene = conn.execute(
         "SELECT COUNT(*) FROM steuer_dateien WHERE stueck_id = ?", (stueck_id,)
     ).fetchone()[0]
+    verweise = conn.execute(
+        "SELECT COUNT(*) FROM steuer_verweise WHERE stueck_id = ?", (stueck_id,)
+    ).fetchone()[0]
+    return eigene + verweise
 
 
 # ---------- Dateien sammeln ----------
@@ -279,6 +291,7 @@ class Fund:
     neu: bool  # False: genau diese Datei war schon gesammelt
     pfad: Path
     stueck: dict
+    verweis: dict | None = None  # die Karte, bei der die Datei liegt (wird mitbenutzt)
 
 
 def _hash(path: Path) -> str:
@@ -295,6 +308,21 @@ def _slug(text: str) -> str:
     )
     text = re.sub(r"[^A-Za-z0-9]+", "-", text.translate(table)).strip("-")
     return text[:60] or "Dokument"
+
+
+def _ablagename(gebiet_id: str) -> str:
+    """Klartext statt Spielname für Dateinamen, die die Beraterin sieht:
+    "gehoeft-2" wird "Vermietete-Wohnung-2", "kaserne-p2-1" wird "Angestellt-Partner-1"."""
+    from frits.steuer.katalog import katalog
+
+    teile = gebiet_id.split("-")
+    provinz = katalog().get(teile[0])
+    name = _slug(provinz.bereich if provinz else teile[0])
+    if len(name) > 32:
+        name = name[:33].rsplit("-", 1)[0]  # an einer Wortgrenze kürzen
+    for t in teile[1:]:
+        name += "-Partner" if t == "p2" else f"-{t}"
+    return name
 
 
 def sammeln(
@@ -322,12 +350,28 @@ def sammeln(
     if vorhanden:
         if verschieben:
             quelle.unlink()
-        return Fund(False, Path(vorhanden["pfad"]), stueck(conn, vorhanden["stueck_id"]))
+        bei = stueck(conn, vorhanden["stueck_id"])
+        if bei["id"] != s["id"] and darf_mitbenutzen(s, bei):
+            # Eine Liste für beide Wohnungen: die Datei bleibt, wo sie ist, und zählt hier mit
+            datei_id = conn.execute(
+                "SELECT id FROM steuer_dateien WHERE jahr = ? AND sha256 = ?", (jahr, sha)
+            ).fetchone()["id"]
+            with transaction(conn):
+                cur = conn.execute(
+                    "INSERT OR IGNORE INTO steuer_verweise (jahr, stueck_id, datei_id)"
+                    " VALUES (?, ?, ?)",
+                    (jahr, s["id"], datei_id),
+                )
+                conn.execute(
+                    "UPDATE steuer_stuecke SET status = 'gesammelt', geaendert = ? WHERE id = ?",
+                    (_now(), s["id"]),
+                )
+            return Fund(bool(cur.rowcount), Path(vorhanden["pfad"]), stueck(conn, s["id"]), bei)
+        return Fund(False, Path(vorhanden["pfad"]), bei)
 
     ziel_ordner = ordner(root, jahr) / s["gebiet"]
     ziel_ordner.mkdir(parents=True, exist_ok=True)
-    gebiet_name = s["gebiet"].capitalize()
-    basis = f"{jahr}_{_slug(gebiet_name)}_{_slug(s['name'])}"
+    basis = f"{jahr}_{_ablagename(s['gebiet'])}_{_slug(s['name'])}"
     endung = quelle.suffix.lower()
     ziel = ziel_ordner / f"{basis}{endung}"
     n = 2
@@ -349,6 +393,49 @@ def sammeln(
             (_now(), stueck_id),
         )
     return Fund(True, ziel, stueck(conn, stueck_id))
+
+
+def darf_mitbenutzen(karte: dict, bei: dict) -> bool:
+    """Darf eine Datei für zwei Karten zählen? Nur für dieselbe Unterlage in Geschwister-
+    Provinzen, z. B. eine Mietliste für Wohnung 1 und 2. Sonst ließe sich eine Datei auf
+    jede Karte legen."""
+    return karte["key"] == bei["key"] and (
+        karte["gebiet"].split("-")[0] == bei["gebiet"].split("-")[0]
+    )
+
+
+def verweise(conn: sqlite3.Connection, jahr: int, stueck_id: int | None = None) -> list[dict]:
+    """Mitbenutzte Dateien: für welche Karte, welche Datei, und bei welcher Karte sie liegt."""
+    ensure_schema(conn)
+    sql = (
+        "SELECT v.id, v.stueck_id, v.datei_id, d.pfad, d.original, d.stueck_id AS bei_id,"
+        " s.name AS bei_name, s.gebiet AS bei_gebiet"
+        " FROM steuer_verweise v JOIN steuer_dateien d ON d.id = v.datei_id"
+        " JOIN steuer_stuecke s ON s.id = d.stueck_id WHERE v.jahr = ?"
+    )
+    werte: tuple = (jahr,)
+    if stueck_id is not None:
+        sql += " AND v.stueck_id = ?"
+        werte = (jahr, stueck_id)
+    return [dict(r) for r in conn.execute(sql + " ORDER BY v.id", werte)]
+
+
+def _offen_wenn_leer(conn: sqlite3.Connection, stueck_id: int) -> None:
+    if not _anzahl_dateien(conn, stueck_id):
+        conn.execute(
+            "UPDATE steuer_stuecke SET status = 'offen' WHERE id = ? AND status = 'gesammelt'",
+            (stueck_id,),
+        )
+
+
+def entferne_verweis(conn: sqlite3.Connection, verweis_id: int) -> None:
+    """Die Karte benutzt die Datei nicht mehr mit. Die Datei selbst bleibt, wo sie ist."""
+    row = conn.execute("SELECT * FROM steuer_verweise WHERE id = ?", (verweis_id,)).fetchone()
+    if not row:
+        return
+    with transaction(conn):
+        conn.execute("DELETE FROM steuer_verweise WHERE id = ?", (verweis_id,))
+        _offen_wenn_leer(conn, row["stueck_id"])
 
 
 def dateien(conn: sqlite3.Connection, jahr: int, stueck_id: int | None = None) -> list[dict]:
@@ -376,12 +463,14 @@ def entferne_datei(conn: sqlite3.Connection, datei_id: int) -> None:
             ziel = ziel.with_name(f"{ziel.stem}_{row['id']}{ziel.suffix}")
         shutil.move(str(pfad), ziel)
     with transaction(conn):
+        # Wer die Datei mitbenutzt hat, verliert sie auch (die andere Wohnung ist dann offen)
+        mit = conn.execute(
+            "SELECT stueck_id FROM steuer_verweise WHERE datei_id = ?", (datei_id,)
+        ).fetchall()
+        conn.execute("DELETE FROM steuer_verweise WHERE datei_id = ?", (datei_id,))
         conn.execute("DELETE FROM steuer_dateien WHERE id = ?", (datei_id,))
-        if not _anzahl_dateien(conn, row["stueck_id"]):
-            conn.execute(
-                "UPDATE steuer_stuecke SET status = 'offen' WHERE id = ? AND status = 'gesammelt'",
-                (row["stueck_id"],),
-            )
+        for r in [row, *mit]:
+            _offen_wenn_leer(conn, r["stueck_id"])
 
 
 def lager_dateien(root: Path) -> list[Path]:
@@ -480,6 +569,13 @@ def storniere(conn: sqlite3.Connection, jahr: int, grund: str, text: str) -> int
     return int(row["betrag"])
 
 
+def wunsch_funde(conn: sqlite3.Connection, jahr: int) -> int:
+    """Wie viele Wünsche der Beraterin in diesem Jahr schon Gold gebracht haben."""
+    ensure_schema(conn)
+    sql = "SELECT COUNT(*) FROM steuer_gold WHERE jahr = ? AND grund LIKE 'fund:%:wunsch:%'"
+    return int(conn.execute(sql, (jahr,)).fetchone()[0])
+
+
 def hat_gold(conn: sqlite3.Connection, jahr: int, grund: str) -> bool:
     ensure_schema(conn)
     sql = "SELECT 1 FROM steuer_gold WHERE jahr = ? AND grund = ?"
@@ -493,12 +589,17 @@ def gold(conn: sqlite3.Connection, jahr: int) -> int:
 
 
 def goldsummen(conn: sqlite3.Connection, jahr: int) -> tuple[int, int]:
-    """(verdient, ausgegeben) in diesem Jahr. Zurückgebuchtes zählt beim Verdienten ab."""
+    """(verdient, ausgegeben) in diesem Jahr. Zurückgebuchtes zählt beim Verdienten ab,
+    was zurück in den Hafen ging, beim Ausgegebenen."""
     ensure_schema(conn)
     rows = conn.execute("SELECT betrag, text FROM steuer_gold WHERE jahr = ?", (jahr,)).fetchall()
-    ausgegeben = -sum(
-        r["betrag"] for r in rows if r["betrag"] < 0 and not r["text"].startswith("Zurück")
-    )
+
+    def ausgabe(r) -> bool:
+        if r["text"].startswith("Zurück in den Hafen"):
+            return True
+        return r["betrag"] < 0 and not r["text"].startswith("Zurück")
+
+    ausgegeben = -sum(r["betrag"] for r in rows if ausgabe(r))
     verdient = sum(r["betrag"] for r in rows) + ausgegeben
     return verdient, ausgegeben
 
@@ -526,18 +627,66 @@ def helfer(conn: sqlite3.Connection, jahr: int) -> frozenset[str]:
     return frozenset(k for k, an in besitz(conn, jahr).items() if an)
 
 
-def _abbuchen(conn: sqlite3.Connection, jahr: int, betrag: int, text: str, was: str) -> None:
+def _abbuchen(
+    conn: sqlite3.Connection, jahr: int, betrag: int, text: str, was: str, grund: str | None = None
+) -> None:
     """Zieht Gold ab, im selben Schreibschloss wie die Prüfung: Zwei schnelle Klicks können
-    das Gold nie unter null drücken."""
+    das Gold nie unter null drücken. Käufe tragen den Grund "kauf:<ware>", damit sie
+    zurück in den Hafen gehen können (siehe decke_schulden)."""
     stand = conn.execute(
         "SELECT COALESCE(SUM(betrag), 0) FROM steuer_gold WHERE jahr = ?", (jahr,)
     ).fetchone()[0]
     if betrag > stand:
         raise QuestError(f"Für {was} fehlen dir noch {betrag - stand} Gold.")
     conn.execute(
-        "INSERT INTO steuer_gold (jahr, zeit, betrag, grund, text) VALUES (?, ?, ?, NULL, ?)",
-        (jahr, _now(), -betrag, text),
+        "INSERT INTO steuer_gold (jahr, zeit, betrag, grund, text) VALUES (?, ?, ?, ?, ?)",
+        (jahr, _now(), -betrag, grund, text),
     )
+
+
+def decke_schulden(conn: sqlite3.Connection, jahr: int) -> list[str]:
+    """Gold geht nie unter null. Fehlt nach einem Zurückbuchen Gold, weil es schon ausgegeben
+    ist, geht der letzte Kauf aus diesem Jahr zurück in den Hafen (mit vollem Preis), bis es
+    reicht. Sonst könnte man Gold bei ×8 verdienen, ausgeben, die Karte zurücklegen und es
+    neu verdienen. Gibt die Namen der zurückgegebenen Waren zurück.
+
+    Nur wenn gar kein Kauf mehr da ist (das Gold steckt in Helfer-Wechseln), wird auf null
+    ausgeglichen: Das sind höchstens ein paar Münzen."""
+    from frits.steuer import spiel
+
+    ensure_schema(conn)
+    zurueck: list[str] = []
+    with transaction(conn):
+        while True:
+            stand = conn.execute(
+                "SELECT COALESCE(SUM(betrag), 0) FROM steuer_gold WHERE jahr = ?", (jahr,)
+            ).fetchone()[0]
+            if stand >= 0:
+                break
+            kauf = conn.execute(
+                "SELECT id, betrag, grund FROM steuer_gold WHERE jahr = ? AND grund LIKE 'kauf:%'"
+                " ORDER BY id DESC LIMIT 1",
+                (jahr,),
+            ).fetchone()
+            if kauf is None:
+                conn.execute(
+                    "INSERT INTO steuer_gold (jahr, zeit, betrag, grund, text)"
+                    " VALUES (?, ?, ?, NULL, ?)",
+                    (jahr, _now(), -stand, "Ausgleich: Gold geht nicht unter null"),
+                )
+                break
+            key = kauf["grund"].removeprefix("kauf:")
+            w = spiel.ware(key)
+            name = w.name if w else key
+            wo = ALLE_JAHRE if w and w.art == "zierde" else jahr
+            conn.execute("DELETE FROM steuer_besitz WHERE jahr = ? AND ware = ?", (wo, key))
+            conn.execute("UPDATE steuer_gold SET grund = NULL WHERE id = ?", (kauf["id"],))
+            conn.execute(
+                "INSERT INTO steuer_gold (jahr, zeit, betrag, grund, text) VALUES (?, ?, ?, NULL, ?)",
+                (jahr, _now(), -kauf["betrag"], f"Zurück in den Hafen: {name}"),
+            )
+            zurueck.append(name)
+    return zurueck
 
 
 def kaufe(conn: sqlite3.Connection, jahr: int, key: str) -> str:
@@ -557,7 +706,7 @@ def kaufe(conn: sqlite3.Connection, jahr: int, key: str) -> str:
             (key, jahr, ALLE_JAHRE),
         ).fetchone():
             raise QuestError(f"{w.name} hast du schon.")
-        _abbuchen(conn, jahr, w.preis, f"Gekauft: {w.name}", w.name)
+        _abbuchen(conn, jahr, w.preis, f"Gekauft: {w.name}", w.name, f"kauf:{key}")
         conn.execute(
             "INSERT INTO steuer_besitz (jahr, ware, angelegt, gekauft) VALUES (?, ?, ?, ?)",
             (ALLE_JAHRE if w.art == "zierde" else jahr, key, int(anlegen), _now()),

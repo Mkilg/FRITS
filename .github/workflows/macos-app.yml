@@ -2,12 +2,18 @@ name: Mac app
 
 # Builds FRITS-macOS.zip: FRITS.app for Apple Silicon and Intel Macs, runs offline.
 # Runs by hand ("Run workflow") and for version tags (v1.0.0 ...), which also attach
-# the zip to a GitHub Release. Not on pushes or pull requests: Mac minutes count 10x on
-# a private repo, so builds happen only when a new version should be tried out. Every
-# build starts the real app and checks it answers before anything is published.
+# the zip to a GitHub Release. Pull requests that change the packaging get a test build
+# too (nothing is uploaded or published). Every build starts the real app and checks it
+# answers before anything is published.
 on:
   push:
     tags: ["v*"]
+  pull_request:
+    paths:
+      - "packaging/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/macos-app.yml"
   workflow_dispatch:
     inputs:
       release:
@@ -37,6 +43,10 @@ jobs:
           mkdir -p "$RUNNER_TEMP/try"
           ditto -x -k dist/macos/FRITS-macOS.zip "$RUNNER_TEMP/try"
           ls -la "$RUNNER_TEMP/try/FRITS"
+          # License notices travel with the app, and no GPL HEIC encoder (pillow-heif) is inside.
+          grep -q "^- pi_heif " "$RUNNER_TEMP/try/FRITS/LIZENZEN.txt"
+          if grep -qi "^- pillow.heif " "$RUNNER_TEMP/try/FRITS/LIZENZEN.txt"; then exit 1; fi
+          grep -q "^- tesseract " "$RUNNER_TEMP/try/FRITS/LIZENZEN.txt"
 
       - name: Check it starts, with no internet and no outside Python
         run: |
@@ -95,6 +105,7 @@ jobs:
           kill %1 || true
 
       - name: Upload zip
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: FRITS-macOS

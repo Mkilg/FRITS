@@ -78,6 +78,7 @@ def test_start_page_and_menu(client):
     response = client.get("/notfall")
     assert response.status_code == 200
     assert "So bleibt es geschützt" in response.text
+    assert "ersetzt keine Rechts-, Steuer- oder Finanzberatung" in response.text
     assert 'href="/notfall"' in client.get("/").text  # in "Mehr" and on Heute
 
 

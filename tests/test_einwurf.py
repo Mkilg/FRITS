@@ -140,14 +140,14 @@ Schulze Gartenbau GmbH
 Lindenallee 7
 53111 Bonn
 Tel. 0228 123456
-martina@schulze-garten.de"""
+martina@schulze-garten.example"""
 
 VCARD = """BEGIN:VCARD
 VERSION:3.0
 N:Schulze;Martina;;;
 FN:Martina Schulze
 ORG:Schulze Gartenbau GmbH;
-EMAIL;type=INTERNET;type=WORK:martina@schulze-garten.de
+EMAIL;type=INTERNET;type=WORK:martina@schulze-garten.example
 TEL;type=CELL:+49 170 1234567
 item1.ADR;type=WORK:;;Lindenallee 7;Bonn;;53111;Deutschland
 END:VCARD
@@ -160,7 +160,7 @@ def test_contact_from_a_signature(nlp):
         "name": "Martina Schulze",
         "company": "Schulze Gartenbau GmbH",
         "address": "Lindenallee 7, 53111 Bonn",
-        "email": "martina@schulze-garten.de",
+        "email": "martina@schulze-garten.example",
         "phone": "0228 123456",
     }
 
@@ -176,7 +176,7 @@ def test_pasted_signature_fills_the_new_customer(client, ws):  # noqa: F811
     page = send(client, "/customers/new/einlesen", text=SIGNATURE)
     assert "Aus deinem Text vorausgefüllt" in page.text
     assert 'value="Schulze Gartenbau GmbH"' in page.text
-    assert 'value="martina@schulze-garten.de"' in page.text
+    assert 'value="martina@schulze-garten.example"' in page.text
     assert not list(ws.customers.glob("*schulze*"))  # nothing saved before Fritz checks
 
 

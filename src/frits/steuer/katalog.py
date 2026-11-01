@@ -17,6 +17,8 @@ from pathlib import Path
 import tomli_w
 
 PFLICHT = "pflicht"
+# Die Frage, die "Macht meine Beraterin" stellt: zählt als erledigt, ohne Silber
+MACHT_BERATERIN = "Macht meine Beraterin"
 BONUS = "bonus"
 
 FAMILIENSTAND = {
@@ -73,6 +75,7 @@ class Stueck:
     kern: bool = False  # gibt es fast immer: "Gibt's nicht" fragt einmal nach
     fehlt_nie: bool = False  # hat jede:r (Steuer-ID): statt "Gibt's nicht" nur "Finde ich nicht"
     warum: str = ""  # warum es das fast immer gibt: steht in der Rückfrage bei "Gibt's nicht"
+    beraterin: bool = False  # kann die Beraterin selbst erstellen (EÜR): "Macht meine Beraterin"
 
 
 @dataclass(frozen=True)
@@ -129,6 +132,9 @@ class Profil:
     umsatzsteuer: str = "keine"  # keine | monatlich | quartal
     beraterin_email: str = ""
     beraterin_termin: str = ""
+    beraterin_name: str = ""  # für die Anrede in der Mail
+    anrede: str = "du"  # du | sie: wie du mit deiner Beraterin sprichst
+    namen: dict[str, str] = field(default_factory=dict)  # Gebiet -> eigener Name ("Lindenstraße")
 
     @property
     def personen(self) -> list[str]:
@@ -181,6 +187,7 @@ class Gebiet:
     wappen: str = ""  # Name der Person, wenn es zwei gibt
     stuecke: tuple[Stueck, ...] = ()
     zeige_nummer: bool = False
+    name: str = ""  # eigener Name, z. B. "Lindenstraße" für Wohnung 1
 
     @property
     def titel(self) -> str:
@@ -189,12 +196,17 @@ class Gebiet:
             titel += f" {self.nummer}"
         if self.wappen:
             titel += f" ({self.wappen})"
+        if self.name:
+            titel += f" · {self.name}"  # "Gehöft 1 · Lindenstraße"
         return titel
 
     @property
     def bereich(self) -> str:
+        """Klartext für die Beraterin, z. B. "Vermietete Wohnung · Lindenstraße"."""
         teile = [self.provinz.bereich]
-        if self.zeige_nummer:
+        if self.name:
+            teile.append(self.name)
+        elif self.zeige_nummer:
             teile.append(f"Nr. {self.nummer}")
         if self.wappen:
             teile.append(self.wappen)
@@ -230,6 +242,7 @@ def reich(profil: Profil) -> list[Gebiet]:
                         wappen=profil.personen[p] if provinz.person and zwei else "",
                         stuecke=stuecke,
                         zeige_nummer=provinz.zaehlbar and wie_viele > 1,
+                        name=profil.namen.get(gid, ""),
                     )
                 )
     return gebiete
@@ -253,6 +266,12 @@ def warum(gebiet_id: str, key: str) -> str:
     if not provinz:
         return ""
     return next((s.warum for s in provinz.stuecke if s.key == key), "")
+
+
+def macht_beraterin(gebiet_id: str, key: str) -> bool:
+    """Darf dieses Stück "Macht meine Beraterin" heißen (z. B. die EÜR)?"""
+    provinz = katalog().get(gebiet_id.split("-")[0])
+    return bool(provinz) and any(s.key == key and s.beraterin for s in provinz.stuecke)
 
 
 def gebiet(profil: Profil, gebiet_id: str) -> Gebiet | None:
