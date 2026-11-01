@@ -36,12 +36,13 @@ body {
   /* A light oak desk in morning light; the painted desk replaces it once it is there. */
   background-color: var(--bg);
   background-image:
+    var(--schleier, none),
     var(--tisch-bild, none),
     radial-gradient(ellipse at 12% -10%, rgba(255, 251, 238, .85), transparent 55%),
     repeating-linear-gradient(90deg, rgba(176, 122, 69, 0) 0 38px, rgba(176, 122, 69, .07) 38px 41px,
       rgba(176, 122, 69, 0) 41px 97px, rgba(176, 122, 69, .05) 97px 99px, rgba(176, 122, 69, 0) 99px 150px);
-  background-size: cover, auto, auto;
-  background-position: center, 0 0, 0 0;
+  background-size: auto, cover, auto, auto;
+  background-position: 0 0, center, 0 0, 0 0;
   background-attachment: fixed;
   color: var(--ink);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
@@ -72,7 +73,8 @@ nav a[aria-current="page"] { background: var(--fry); }
 .top-actions { display: flex; gap: 0.4rem; align-items: center; }
 
 main { max-width: 1100px; margin: 0 auto; padding: 1.5rem; }
-.bottom { max-width: 1100px; margin: 0 auto; padding: 1rem 1.5rem 2rem; color: var(--muted); font-size: 0.85rem; }
+.bottom { max-width: 1100px; margin: 0 auto 1.5rem; padding: 0.6rem 1.5rem; color: var(--muted); font-size: 0.85rem;
+  background: rgba(252, 246, 230, .8); border-radius: var(--radius); }
 
 .card { background: var(--papierkarte); border: 1px solid var(--line); border-radius: var(--radius);
   box-shadow: var(--karten-schatten); padding: 1.1rem 1.3rem; margin-bottom: 1rem; }
@@ -218,7 +220,14 @@ iframe.receipt { width: 100%; height: 32rem; border: 1px solid var(--line); bord
   100% { transform: rotate(-8deg) scale(1); opacity: 0.9; } }
 
 img.leer-bild { display: block; width: 150px; max-width: 40%; margin: 0 0 0.4rem; }
-body:has(.feierabend-page) { background-image: var(--feierabend-bild, none),
+img.buendel { display: block; width: 120px; margin: 0.6rem 0 0; }
+/* Painted Fritte: a tall figure, so it keeps its own width */
+.mascot-big img.fritte { width: auto; height: 150px; }
+.mascot-small img.fritte { width: auto; height: 76px; }
+.brand-fry img.fritte { width: auto; height: 38px; }
+/* A soft veil over the painted desk keeps text that sits directly on it readable */
+body { --schleier: linear-gradient(rgba(246, 236, 210, .5), rgba(246, 236, 210, .5)); }
+body:has(.feierabend-page) { background-image: var(--schleier, none), var(--feierabend-bild, none),
   radial-gradient(ellipse at 85% -10%, rgba(255, 214, 160, .55), transparent 60%),
   linear-gradient(#efdcbc, #e6cfa8); }
 

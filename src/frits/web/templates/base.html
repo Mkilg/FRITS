@@ -6,7 +6,7 @@
   {% if picture_css %}<style>{{ picture_css }}</style>{% endif %}
   <title>{% block title %}FRITS{% endblock %}</title>
   <link rel="stylesheet" href="/static/frits.css">
-  <link rel="icon" href="/static/fry.svg">
+  <link rel="icon" href="{{ picture('app-icon') or '/static/fry.svg' }}">
   {% block head %}{% endblock %}
 </head>
 <body data-effekte="{{ settings.effects }}"{% if sounds %} data-frits-sound="on" data-frits-sound-base="{{ sounds }}"{% endif %}>
