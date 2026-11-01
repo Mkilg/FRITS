@@ -169,3 +169,17 @@ def guess(text: str, today: date) -> dict[str, str]:
         "category": guess_category(text),
     }
     return {key: value for key, value in found.items() if value}
+
+
+# Words that only a bought ticket or a till receipt carries, not a note about a job.
+_RECEIPT_WORDS = re.compile(
+    r"\b(fahrkarte|fahrschein|online-ticket|ticket|bahncard|quittung|kassenbon|kassenbeleg|"
+    r"tankbeleg|bewirtungsbeleg|deutsche bahn|db fernverkehr|db regio|flixbus|bon-nr)\b",
+    re.IGNORECASE,
+)
+
+
+def looks_like_receipt(text: str) -> bool:
+    """A ticket or till receipt: a receipt word and a paid amount. Then FRITS can take it as
+    a Beleg without any AI, even if the AI may not see it (e.g. redaction wasn't sure)."""
+    return bool(_RECEIPT_WORDS.search(text)) and guess_total(text) is not None

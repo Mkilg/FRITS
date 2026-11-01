@@ -2,15 +2,35 @@
 {% block title %}Zum Prüfen · FRITS{% endblock %}
 {% block content %}
 <h1>Bitte einmal ansehen</h1>
-<p class="hint">Diese Dateien habe ich nicht verarbeitet. Aus Sicherheit wurde nichts an die KI geschickt.</p>
+<p class="hint">Diese Dateien habe ich nicht verarbeitet, und aus Sicherheit ging davon nichts an die KI. Schau sie kurz an und sag mir, was sie sind. Das dauert pro Datei ein paar Sekunden.</p>
 {% if files %}
-<ul class="list">
-  {% for f in files %}
-  <li class="split"><span><strong>{{ f.name }}</strong><br><span class="muted">{{ f.reason }}</span></span>
-    <form method="post" action="/check-me/retry"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="name" value="{{ f.name }}"><button class="tiny">Zurück in den Eingang</button></form>
-  </li>
-  {% endfor %}
-</ul>
+{% for f in files %}
+<section class="card pruefen">
+  <div class="split">
+    <h2 class="datei">{{ f.name }}</h2>
+    <a class="button quiet tiny" href="/check-me/datei?name={{ f.name | urlencode }}" target="_blank" rel="noopener">Ansehen</a>
+  </div>
+  {% if f.reason %}
+  <p><strong>Warum hier?</strong> {{ f.reason }}</p>
+  {% endif %}
+  {% if "weder ein Auftrag noch ein Beleg" in f.reason %}
+  <p class="hint">Ein Brief vom Finanzamt oder ein Steuerbescheid gehört in die <a href="/steuer">Steuer-Quest</a>: Öffne dort das passende Feld und zieh die Datei aus dem Ordner „Zum Prüfen“ hinein. Willst du erst verstehen, was drinsteht, frag im Notfall-Chat.</p>
+  {% elif "Schwärzen" in f.reason %}
+  <p class="hint">Beim Schwärzen blieb etwas übrig, das wie ein Name oder eine Nummer aussah. Deshalb habe ich die Datei lieber gar nicht an die KI geschickt. Ist es ein Ticket oder eine Quittung, trägst du es einfach als Ausgabe ein: Das geht ganz ohne KI.</p>
+  {% elif "Text" in f.reason or "lesen" in f.reason %}
+  <p class="hint">Ich konnte darin keinen Text lesen. Ist es ein Beleg, trag ihn als Ausgabe ein und tipp Betrag und Datum selbst ab. Ein schärferes Foto kannst du auch noch einmal hereingeben.</p>
+  {% endif %}
+  <p><strong>Was ist es?</strong></p>
+  <div class="row actions">
+    <form method="post" action="/check-me/beleg"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="name" value="{{ f.name }}"><button class="primary">Ein Beleg: als Ausgabe eintragen</button></form>
+    <form method="post" action="/drafts/new"><input type="hidden" name="token" value="{{ token }}"><button title="Ein leerer Rechnungsentwurf. Die Datei bleibt hier liegen, bis du sie weglegst.">Ein Auftrag: Rechnung selbst schreiben</button></form>
+    <form method="post" action="/check-me/notfall"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="name" value="{{ f.name }}"><button title="Geschwärzt, du siehst vorher, was rausgeht">Ein Brief: im Notfall-Chat verstehen</button></form>
+    <form method="post" action="/check-me/retry"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="name" value="{{ f.name }}"><button class="quiet" title="Zum Beispiel, wenn die KI vorher nicht erreichbar war">Nochmal lesen lassen</button></form>
+    <form method="post" action="/check-me/weglegen"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="name" value="{{ f.name }}"><button class="quiet" title="Kommt in den Ordner „erledigt“ und zählt nirgends mit">Nichts davon: weglegen</button></form>
+  </div>
+</section>
+{% endfor %}
+<p class="hint">Für einen Brief, den du verstehen willst, gibt es den <a href="/notfall">Notfall-Chat</a>. Dort siehst du auch genau, was geschwärzt wird.</p>
 {% else %}
 <p class="muted">Alles erledigt.</p>
 {% endif %}

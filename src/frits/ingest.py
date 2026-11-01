@@ -12,7 +12,8 @@ from pathlib import Path
 
 TEXT_TYPES = {".txt", ".md"}
 IMAGE_TYPES = {".jpg", ".jpeg", ".png", ".heic", ".heif"}
-SUPPORTED = TEXT_TYPES | IMAGE_TYPES | {".eml", ".pdf", ".docx", ".xml"}
+SUPPORTED = TEXT_TYPES | IMAGE_TYPES | {".eml", ".pdf", ".docx", ".xml", ".rtf"}
+OCR_PDF_PAGES = 5  # a scanned PDF is read page by page with OCR, up to this many pages
 
 
 class IngestError(Exception):
@@ -41,7 +42,10 @@ def extract_text(path: Path) -> SourceText:
     elif suffix == ".eml":
         result = SourceText(_read_eml(path), "email")
     elif suffix == ".pdf":
-        result = SourceText(_read_pdf(path), "pdf")
+        text, ocr = _read_pdf(path)
+        result = SourceText(text, "pdf", ocr_used=ocr)
+    elif suffix == ".rtf":
+        result = SourceText(rtf_to_text(path.read_bytes()), "rtf")
     elif suffix == ".docx":
         result = SourceText(_read_docx(path), "docx")
     else:
@@ -72,7 +76,38 @@ def _read_eml(path: Path) -> str:
         text = plain_part.get_content()
     else:
         text = ""
-    return "\n".join(headers) + "\n\n" + text.strip()
+    parts = ["\n".join(headers) + "\n\n" + text.strip()]
+    parts += _eml_attachments(msg)
+    return "\n\n".join(parts)
+
+
+MAX_ATTACHMENTS = 3
+
+
+def _eml_attachments(msg) -> list[str]:
+    """An invoice or ticket often comes as a PDF attached to a mail: read those too, here."""
+    import tempfile
+
+    found = []
+    for part in msg.iter_attachments():
+        name = Path(str(part.get_filename() or "")).name
+        suffix = Path(name).suffix.lower()
+        if not name or suffix not in SUPPORTED - {".eml"}:
+            continue
+        payload = part.get_payload(decode=True)
+        if not payload:
+            continue
+        with tempfile.TemporaryDirectory() as tmp:
+            copy = Path(tmp) / f"anhang{suffix}"
+            copy.write_bytes(payload)
+            try:
+                inner = extract_text(copy).text
+            except IngestError:
+                continue
+        found.append(f"Anhang „{name}“:\n{inner.strip()}")
+        if len(found) >= MAX_ATTACHMENTS:
+            break
+    return found
 
 
 def _strip_html(markup: str) -> str:
@@ -81,7 +116,8 @@ def _strip_html(markup: str) -> str:
     return html.unescape(re.sub(r"<[^>]+>", "", markup))
 
 
-def _read_pdf(path: Path) -> str:
+def _read_pdf(path: Path) -> tuple[str, bool]:
+    """The text of a PDF. A scan (only pictures, no text) is read with local OCR instead."""
     from pypdf import PdfReader
     from pypdf.errors import PdfReadError
 
@@ -91,11 +127,136 @@ def _read_pdf(path: Path) -> str:
     except (PdfReadError, ValueError, OSError) as exc:
         raise IngestError("Die PDF-Datei ist beschädigt und kann nicht gelesen werden.") from exc
     text = "\n".join(pages)
-    if not text.strip():
+    if text.strip():
+        return text, False
+    scanned = _ocr_pdf_images(reader)
+    if not scanned.strip():
         raise IngestError(
-            "Die PDF enthält nur ein Bild ohne Text. Bitte als Foto (JPG/PNG) ablegen."
+            "Die PDF enthält nur ein Bild, und darin konnte ich keinen Text erkennen. "
+            "Ein schärferes Foto (JPG/PNG) klappt oft besser."
         )
-    return text
+    return scanned, True
+
+
+def _ocr_pdf_images(reader) -> str:
+    """Scans and some tickets are PDFs with just a picture inside: read those pictures."""
+    import pytesseract
+    from PIL import ImageOps
+
+    if os.environ.get("FRITS_TESSERACT"):
+        pytesseract.pytesseract.tesseract_cmd = os.environ["FRITS_TESSERACT"]
+    texts = []
+    for page in list(reader.pages)[:OCR_PDF_PAGES]:
+        try:
+            images = list(page.images)
+        except Exception:  # pypdf raises several types for odd image streams  # noqa: BLE001
+            images = []
+        for picture in images:
+            try:
+                img = picture.image
+                if img is None or min(img.size) < 100:
+                    continue  # logos and icons, no receipt text in there
+                texts.append(pytesseract.image_to_string(ImageOps.grayscale(img), lang="deu+eng"))
+            except pytesseract.TesseractNotFoundError as exc:
+                raise IngestError("Die Texterkennung (Tesseract) ist nicht installiert.") from exc
+            except Exception:  # an image format PIL can't open: skip it  # noqa: BLE001, S112
+                continue
+    return "\n".join(texts)
+
+
+# ----- RTF (TextEdit's default format) -----
+_RTF_TOKEN = re.compile(
+    r"\\([a-zA-Z]+)(-?\d+)? ?|\\'([0-9a-fA-F]{2})|\\(.)|([{}])|([^\\{}]+)", re.DOTALL
+)
+_RTF_SKIP = {
+    "fonttbl",
+    "colortbl",
+    "stylesheet",
+    "info",
+    "pict",
+    "object",
+    "header",
+    "footer",
+    "headerl",
+    "headerr",
+    "footerl",
+    "footerr",
+    "listtable",
+    "listoverridetable",
+    "expandedcolortbl",
+    "themedata",
+    "datastore",
+    "xmlnstbl",
+    "rsidtbl",
+    "generator",
+}
+_RTF_BREAKS = {
+    "par": "\n",
+    "line": "\n",
+    "sect": "\n",
+    "page": "\n",
+    "row": "\n",
+    "tab": "\t",
+    "cell": " | ",
+    "emdash": "—",
+    "endash": "–",
+    "bullet": "•",
+    "lquote": "‘",
+    "rquote": "’",
+    "ldblquote": "“",
+    "rdblquote": "”",
+}
+
+
+def rtf_to_text(raw: bytes) -> str:
+    """Plain text from RTF, as TextEdit on the Mac writes it. Formatting is dropped."""
+    data = raw.decode("latin-1")
+    if not data.lstrip().startswith("{\\rtf"):
+        raise IngestError("Die RTF-Datei ist beschädigt und kann nicht gelesen werden.")
+    out: list[str] = []
+    stack: list[tuple[bool, int]] = []
+    skip, uc, pending_skip = False, 1, 0
+    codepage = "cp1252"
+    for word, arg, hexa, symbol, brace, text in _RTF_TOKEN.findall(data):
+        if brace == "{":
+            stack.append((skip, uc))
+        elif brace == "}":
+            skip, uc = stack.pop() if stack else (False, 1)
+        elif symbol:
+            if symbol == "*":
+                skip = True
+            elif not skip and symbol in "\\{}":
+                out.append(symbol)
+            elif not skip and symbol == "~":
+                out.append("\u00a0")
+            elif not skip and symbol in "\n\r":
+                out.append("\n")
+        elif hexa:
+            if pending_skip:
+                pending_skip -= 1
+            elif not skip:
+                out.append(bytes([int(hexa, 16)]).decode(codepage, errors="replace"))
+        elif word:
+            if word in _RTF_SKIP:
+                skip = True
+            elif word == "ansicpg" and arg:
+                codepage = f"cp{arg}"
+            elif word == "uc" and arg:
+                uc = int(arg)
+            elif word == "u" and arg and not skip:
+                value = int(arg)
+                out.append(chr(value + 65536 if value < 0 else value))
+                pending_skip = uc
+            elif not skip and word in _RTF_BREAKS:
+                out.append(_RTF_BREAKS[word])
+        elif text:
+            if pending_skip:
+                cut = min(pending_skip, len(text))
+                text, pending_skip = text[cut:], pending_skip - cut
+            if not skip:
+                out.append(text.replace("\r", "").replace("\n", ""))
+    lines = [line.rstrip() for line in "".join(out).splitlines()]
+    return "\n".join(lines).strip()
 
 
 def _read_docx(path: Path) -> str:

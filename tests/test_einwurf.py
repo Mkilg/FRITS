@@ -236,7 +236,7 @@ def test_dropped_receipt_photo_opens_ready_to_check(client, ws, needs_ocr):  # n
     assert (ws.done / "bon.jpg").exists()
     # The same receipt again is recognised, not counted twice.
     again = send(client, "/expenses/beleg", files=[("files", ("bon2.jpg", photo, "image/jpeg"))])
-    assert "Diesen Beleg kenne ich schon" in again.text
+    assert "Den kenne ich schon. Er wartet hier aufs Eintragen" in again.text
     assert not (ws.done / "bon2.jpg").exists()
 
 

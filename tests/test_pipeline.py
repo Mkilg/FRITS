@@ -190,3 +190,22 @@ def test_ordinary_notes_are_not_flagged(text):
     from frits.extract import _INJECTION
 
     assert not _INJECTION.search(text)
+
+
+def test_a_letter_is_not_turned_into_an_invoice(ws, settings, nlp):
+    from frits.schema import ExtractionResult
+
+    letter = ws.inbox / "bescheid.txt"
+    letter.write_text("Finanzamt Musterstadt\nEinkommensteuerbescheid 2025\nErstattung 312,00 €\n")
+    provider = RecordedProvider(
+        ExtractionResult(doc_type="other", customer_ref=None, items=[], questions=[])
+    )
+    outcome = process_file(letter, ws, settings, provider, nlp)
+    assert outcome.status == "check-me"
+    assert (ws.check_me / "bescheid.txt").exists()
+    assert (
+        "weder ein Auftrag noch ein Beleg" in (ws.check_me / "bescheid.txt.grund.txt").read_text()
+    )
+    conn = store.connect(ws.db)
+    assert conn.execute("SELECT COUNT(*) FROM drafts").fetchone()[0] == 0
+    assert conn.execute("SELECT status FROM jobs").fetchone()[0] == "check-me"

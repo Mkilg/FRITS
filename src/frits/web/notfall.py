@@ -67,21 +67,31 @@ def register_notfall(
             return "die lokale KI"
         return _LABELS.get(current.provider, current.provider)
 
-    def show(request: Request, g: notfall.Gespraech | None, **extra) -> HTMLResponse:
+    def show(
+        request: Request, g: notfall.Gespraech | None, frei: bool = False, **extra
+    ) -> HTMLResponse:
         current = settings()
+        frei = frei or bool(g and g.frei)
         return page(
             request,
             "notfall.html",
             g=g,
+            frei=frei,
             chats=list(reversed(chats.values())),
             ki=ai_label(current),
             ai_ready=ai_ready(current),
-            vorschlaege=notfall.VORSCHLAEGE,
+            vorschlaege=notfall.VORSCHLAEGE_FREI if frei else notfall.VORSCHLAEGE,
             max_docs=notfall.MAX_DOCS,
-            system=notfall.SYSTEM,
+            system=g.system if g else notfall.SYSTEM,
             leicht=notfall.leicht,
+            nav="/chat" if frei else "/notfall",
             **extra,
         )
+
+    def keep(g: notfall.Gespraech) -> None:
+        chats[g.key] = g
+        while len(chats) > notfall.KEEP:
+            chats.popitem(last=False)
 
     async def take_documents(g: notfall.Gespraech, form) -> list[str]:
         """Read every dropped file and the pasted text, here, and redact them. Returns problems."""
@@ -154,9 +164,7 @@ def register_notfall(
             return None, [f"{name}: {LEAK_TEXT}"]
         except RuntimeError as exc:
             return None, [str(exc)]
-        chats[g.key] = g
-        while len(chats) > notfall.KEEP:
-            chats.popitem(last=False)
+        keep(g)
         cut = [f"{name} ist sehr lang. Ich nehme nur den Anfang."] if doc.cut else []
         return g.key, cut
 
@@ -177,10 +185,32 @@ def register_notfall(
             if not problems:
                 flash("Zieh ein Dokument auf das Feld oder füg Text ein.", "error")
             return back("/notfall")
-        chats[g.key] = g
-        while len(chats) > notfall.KEEP:
-            chats.popitem(last=False)
+        keep(g)
         return back(f"/notfall/{g.key}")
+
+    @app.get("/chat", response_class=HTMLResponse)
+    def chat_start(request: Request):
+        return show(request, None, frei=True)
+
+    @app.post("/chat/neu", dependencies=guarded)
+    async def chat_neu(request: Request):
+        """Freier Chat: a question straight away; documents only if Fritz adds some."""
+        form = await request.form()
+        g = notfall.neues_gespraech()
+        g.frei = True
+        problems = await take_documents(g, form)
+        for p in problems:
+            flash(p, "error")
+        question = str(form.get("vorschlag") or form.get("frage") or "").strip()
+        if not question and not g.docs:
+            if not problems:
+                flash("Schreib kurz, was du wissen möchtest.", "error")
+            return back("/chat")
+        keep(g)
+        if g.docs:  # first look at what the AI would see, then send
+            g.entwurf = question
+            return back(f"/notfall/{g.key}#unterlagen")
+        return await send(g, question, str(form.get("action") or form.get("modus") or "senden"))
 
     @app.get("/notfall/{key}", response_class=HTMLResponse)
     def notfall_chat(request: Request, key: str):
@@ -236,6 +266,11 @@ def register_notfall(
         form = await request.form()
         question = str(form.get("vorschlag") or form.get("frage") or "").strip()
         mode = str(form.get("action") or form.get("modus") or "senden")
+        return await send(g, question, mode)
+
+    async def send(g: notfall.Gespraech, question: str, mode: str):
+        """Redact the question, then send it (or prepare it for copying by hand)."""
+        key = g.key
         if not question:
             flash("Schreib kurz, was du wissen möchtest.", "error")
             return back(f"/notfall/{key}#frage")
@@ -261,7 +296,7 @@ def register_notfall(
                     "Diese KI kann hier nicht chatten. Kopier die Frage lieber selbst."
                 )
             messages = g.api_messages()
-            text, usage = await run_in_threadpool(provider.chat, notfall.SYSTEM, messages)
+            text, usage = await run_in_threadpool(provider.chat, g.system, messages)
         except ProviderError as exc:
             notfall.take_back(g)
             g.entwurf = question  # kept for the field, not in the address (browser history)
