@@ -10,6 +10,14 @@
     if (message && !window.confirm(message)) { e.preventDefault(); return; }
     var busy = form.getAttribute("data-busy");
     if (busy) {
+      // A disabled button's name and value are not sent, so keep which one was pressed.
+      if (button && button.name) {
+        var keep = document.createElement("input");
+        keep.type = "hidden";
+        keep.name = button.name;
+        keep.value = button.value;
+        form.appendChild(keep);
+      }
       form.querySelectorAll("button").forEach(function (b) { b.disabled = true; });
       var note = document.createElement("p");
       note.className = "busy";

@@ -31,6 +31,36 @@ class OpenAICompatProvider:
                 last_error = exc
         raise last_error
 
+    def chat(self, system: str, messages: list[dict]) -> tuple[str, Usage]:
+        """One answer in the Notfall-Chat, from already redacted messages. No tools."""
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "system", "content": system}, *messages],
+            )
+        except openai.APIConnectionError as exc:
+            where = (
+                "zum lokalen Modell (läuft Ollama?)" if self.name == "ollama" else "zum KI-Dienst"
+            )
+            raise ProviderError(f"Keine Verbindung {where}.") from exc
+        except openai.APIStatusError as exc:
+            label = _LABELS.get(self.name, self.name)
+            raise ProviderError(
+                explain_status(label, exc.status_code, _detail(exc), self.model)
+            ) from exc
+        tokens = response.usage
+        usage = Usage(
+            self.name,
+            self.model,
+            tokens.prompt_tokens if tokens else 0,
+            tokens.completion_tokens if tokens else 0,
+        )
+        text = (response.choices[0].message.content or "").strip()
+        if not text:
+            label = _LABELS.get(self.name, self.name)
+            raise ProviderError(f"{label} hat keine Antwort geschickt. Versuch es noch einmal.")
+        return text, usage
+
     def _call(self, redacted_text: str) -> tuple[ExtractionResult, Usage]:
         try:
             response = self.client.chat.completions.create(

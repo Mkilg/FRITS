@@ -1689,6 +1689,22 @@ def create_app(
     register_lernen(
         app, page=page, settings=settings, customers=customers, nlp=nlp, guarded=guarded
     )
+
+    from frits.web.notfall import register_notfall
+
+    register_notfall(
+        app,
+        page=page,
+        back=back,
+        flash=flash,
+        settings=settings,
+        customers=customers,
+        nlp=nlp,
+        guarded=guarded,
+        provider_for=provider_for,
+        ai_ready=ai_ready,
+        db=db,
+    )
     return app
 
 
