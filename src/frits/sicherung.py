@@ -65,9 +65,14 @@ def kennwort(create: bool = True, ziel: Path | str | None = None) -> str | None:
     try:
         found = keyring.get_password(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT)
     except KeyringError as exc:
+        if ziel and letzte(ziel):
+            raise KennwortFehlt(
+                "Der Schlüsselbund ist gerade nicht erreichbar. Gib das Passwort für die "
+                "Sicherung von deinem Zettel ein, dann sichere ich damit."
+            ) from exc
         raise KennwortFehlt(
-            "Der Schlüsselbund ist gerade nicht erreichbar. Gib das Passwort für die Sicherung "
-            "von deinem Zettel ein, dann sichere ich damit."
+            "Der Schlüsselbund ist gerade nicht erreichbar. Denk dir ein Passwort für die "
+            "Sicherung aus, schreib es auf einen Zettel und gib es hier ein."
         ) from exc
     if found or not create:
         return found
@@ -90,6 +95,9 @@ def kennwort(create: bool = True, ziel: Path | str | None = None) -> str | None:
     return new
 
 
+MIN_NEU = 10  # a new password Fritz makes up himself
+
+
 def kennwort_merken(passwort: str, ziel: Path | str | None = None) -> None:
     """The password from Fritz's paper: check it on the newest backup, then keep it."""
     import keyring
@@ -99,6 +107,11 @@ def kennwort_merken(passwort: str, ziel: Path | str | None = None) -> None:
     if not passwort:
         raise KennwortFehlt("Bitte das Passwort von deinem Zettel eingeben.")
     newest = _neueste(ziel) if ziel else None
+    if not newest and len(passwort) < MIN_NEU:
+        raise KennwortFehlt(
+            f"Nimm mindestens {MIN_NEU} Zeichen, zum Beispiel drei Wörter mit Bindestrich: "
+            "Fritte-Wolke-Tisch."
+        )
     if newest and not passt(newest, passwort):
         raise KennwortFehlt(
             "Dieses Passwort öffnet die letzte Sicherung nicht. Schau noch einmal auf deinen "

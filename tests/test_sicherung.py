@@ -258,3 +258,39 @@ def test_restored_copy_finds_its_invoice_pdfs(tmp_path):
     with TestClient(app) as client:
         response = client.get(f"/invoices/{number}/pdf")
         assert response.status_code == 200 and response.content.startswith(b"%PDF")
+
+
+def test_locked_keychain_first_backup_asks_for_a_new_password(tmp_path, monkeypatch):
+    """Tester: the place was gone after the keychain message, and the first backup has no
+    paper yet, so "Passwort von deinem Zettel" made no sense."""
+    import keyring
+    from fastapi.testclient import TestClient
+    from keyring.errors import KeyringError
+
+    from frits.web.app import create_app
+
+    def broken(*args):
+        raise KeyringError("gesperrt")
+
+    monkeypatch.setattr(keyring, "get_password", broken)
+    monkeypatch.setattr(keyring, "set_password", broken)
+    ws = _ws(tmp_path)
+    usb = tmp_path / "usb"
+    usb.mkdir()
+    with TestClient(create_app(ws, nlp_loader=lambda: None)) as client:
+        token = client.app.state.token
+        page = client.post("/sicherung", data={"token": token, "anderer": str(usb)})
+        assert "Denk dir ein Passwort" in page.text
+        assert "Neues Passwort für die Sicherung" in page.text
+        assert f'value="{usb}" checked' in page.text or f'value="{usb}"' in page.text
+        short = client.post(
+            "/sicherung", data={"token": token, "ziel": str(usb), "passwort": "kurz"}
+        )
+        assert "mindestens 10 Zeichen" in short.text and str(usb) in short.text
+        done = client.post(
+            "/sicherung",
+            data={"token": token, "ziel": str(usb), "passwort": "Fritte-Wolke-Tisch"},
+        )
+        assert "Gesichert" in done.text
+    newest = sicherung._neueste(usb)
+    assert newest and sicherung.passt(newest, "Fritte-Wolke-Tisch")

@@ -253,3 +253,45 @@ def test_hotel_abroad_has_no_german_vorsteuer():
     assert beleg.guess(text, date(2026, 11, 2))["vat_rate"] == ""
     berlin = "Café Wiener Straße\nBerlin\nSumme 12,00\nMwSt 19 %\n"
     assert beleg.guess(berlin, date(2026, 11, 2))["vat_rate"] == "0.19"
+
+
+def test_entered_receipt_again_links_to_it_in_its_year(client, ws):  # noqa: F811
+    """Tester: „Kenne ich schon“ had no link, and the page showed 2026 for a 2025 receipt."""
+    text = "Baumarkt\nSUMME EUR 12,50\n30.10.2025"
+    send(client, "/expenses/beleg", text=text)
+    name = store.connect(ws.db).execute("SELECT filename FROM jobs").fetchone()[0]
+    send(
+        client,
+        "/expenses",
+        date="2025-10-30",
+        vendor="Baumarkt",
+        description="Schrauben",
+        gross="12,50",
+        vat_rate="0.19",
+        category="waren",
+        source_file=name,
+    )
+    again = send(client, "/expenses/beleg", text=text)
+    assert "schon eingetragen (Ausgaben 2025)" in again.text
+    expense = store.connect(ws.db).execute("SELECT id FROM expenses").fetchone()[0]
+    assert f'href="/expenses?year=2025#ausgabe-{expense}">Zum Beleg</a>' in again.text
+    target = client.get("/expenses?year=2025")
+    assert f'id="ausgabe-{expense}"' in target.text
+    assert len(list(ws.done.glob("beleg-*"))) == 1  # no second copy kept
+
+
+def test_same_file_on_heute_twice_is_not_kept_twice(client, ws):  # noqa: F811
+    name = "01_notiz_meier.txt"
+    shutil.copy(FIXTURES / "docs" / name, ws.inbox / name)
+    send(client, "/inbox/process")
+    shutil.copy(FIXTURES / "docs" / name, ws.inbox / name)
+    page = send(client, "/inbox/process")
+    assert f"{name}: Daraus gibt es schon einen Entwurf." in page.text
+    assert "Zum Entwurf</a>" in page.text
+    assert [p.name for p in ws.done.iterdir() if p.name.startswith("01_")] == [name]
+
+
+def test_shop_from_a_mail_is_the_sender_not_the_header():
+    mail = "From: Thomann <rechnung@thomann.de>\nSubject: Ihre Rechnung\n\nSumme 129,00 €"
+    assert beleg.guess_vendor(mail) == "Thomann"
+    assert beleg.guess_vendor("From: no-reply@adobe.com\nBetreff: Abo") == "Adobe"

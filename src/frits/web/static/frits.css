@@ -468,3 +468,4 @@ button.punkt-weg:hover, button.punkt-weg:focus-visible { opacity: 1; color: var(
 }
 .flash.flash-hier { margin: 0.4rem 0 0.6rem; }
 .liste-bild { width: 1.8rem; height: 1.8rem; object-fit: contain; vertical-align: -0.45rem; }
+tr:target > td { background: rgba(214, 164, 60, 0.18); }

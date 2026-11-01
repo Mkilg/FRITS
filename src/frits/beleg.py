@@ -132,9 +132,31 @@ def guess_vat(text: str) -> str | None:
     return rates.pop() if len(rates) == 1 else None
 
 
+_MAIL_FROM = re.compile(r"(?im)^(?:from|von)\s*:\s*(.+)$")
+_MAIL_HEADER = re.compile(r"(?i)^(?:from|von|to|an|cc|subject|betreff|date|datum)\s*:")
+
+
+def _mail_sender(header: str) -> str | None:
+    """'Thomann <rechnung@thomann.de>' -> 'Thomann'; a bare address -> its domain name."""
+    name = header.split("<")[0].strip().strip('"').strip()
+    if name and "@" not in name:
+        return name[:60]
+    address = re.search(r"[\w.+-]+@([\w-]+(?:\.[\w-]+)+)", header)
+    if not address:
+        return None
+    parts = address.group(1).split(".")
+    return (parts[-2] if len(parts) >= 2 else parts[0]).capitalize()
+
+
 def guess_vendor(text: str) -> str | None:
-    """Shops print their name at the top: the first line that looks like a name."""
+    """Shops print their name at the top: the first line that looks like a name.
+    In a mail the shop is the sender."""
+    sender = _MAIL_FROM.search("\n".join(text.splitlines()[:12]))
+    if sender and (found := _mail_sender(sender.group(1))):
+        return found
     for line in text.splitlines()[:8]:
+        if _MAIL_HEADER.match(line.strip()):
+            continue
         line = re.sub(r"\s+", " ", line).strip(" *-=|_.:")
         letters = sum(ch.isalpha() for ch in line)
         if letters < 3 or letters < len(line) / 2 or _NOT_A_NAME.match(line):
