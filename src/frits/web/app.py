@@ -20,6 +20,7 @@ from decimal import Decimal
 from importlib.resources import as_file, files
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from urllib.parse import urlencode
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exception_handlers import request_validation_exception_handler
@@ -669,6 +670,9 @@ def create_app(
                 flash(
                     f"{path.name}: {outcome.message}", link=("/check-me", "Ansehen und einordnen")
                 )
+            if outcome.status == "skipped" and outcome.sha256:
+                text, link = where_known(db(), outcome.sha256)
+                flash(f"{_upload_name(path)}: {text}", link=link)
         parts = []
         if counts["drafted"]:
             parts.append(
@@ -1479,6 +1483,45 @@ def create_app(
 
     # ----- Ausgaben und EÜR -----
 
+    def where_known(conn, digest: str) -> tuple[str, tuple[str, str] | None]:
+        """A file FRITS has seen before: what became of it, and a link there."""
+        job = conn.execute("SELECT * FROM jobs WHERE sha256 = ?", (digest,)).fetchone()
+        if job is None:
+            return "Diese Datei kenne ich schon.", None
+        if job["status"] == "receipt":
+            expenses.init_db(ws.db)
+            booked = conn.execute(
+                "SELECT id, date FROM expenses WHERE source_file = ? ORDER BY id LIMIT 1",
+                (job["filename"],),
+            ).fetchone()
+            if booked:
+                year = booked["date"][:4]
+                return (
+                    (
+                        f"Diesen Beleg hast du schon eingetragen (Ausgaben {year}). "
+                        "Du musst nichts mehr tun."
+                    ),
+                    (f"/expenses?year={year}#ausgabe-{booked['id']}", "Zum Beleg"),
+                )
+            return (
+                "Den kenne ich schon. Er wartet aufs Eintragen.",
+                (f"/expenses?receipt={job['id']}#neu", "Jetzt eintragen"),
+            )
+        draft = conn.execute(
+            "SELECT id, status, invoice_number FROM drafts WHERE job_id = ? ORDER BY id DESC",
+            (job["id"],),
+        ).fetchone()
+        if draft and draft["invoice_number"]:
+            return (
+                f"Daraus ist schon die Rechnung {draft['invoice_number']} geworden.",
+                (f"/invoices#r-{draft['invoice_number']}", "Zur Rechnung"),
+            )
+        if draft and draft["status"] == "draft":
+            return "Daraus gibt es schon einen Entwurf.", (f"/drafts/{draft['id']}", "Zum Entwurf")
+        if job["status"] == "check-me":
+            return "Die liegt schon bei „Bitte einmal ansehen“.", ("/check-me", "Ansehen")
+        return "Diese Datei habe ich schon einmal gelesen. Du musst nichts mehr tun.", None
+
     def open_receipts(conn) -> list[dict]:
         """Receipts FRITS recognised that Fritz hasn't entered as an expense yet."""
         expenses.init_db(ws.db)
@@ -1570,20 +1613,14 @@ def create_app(
                 continue
             if known:
                 path.unlink()
+                name = _upload_name(path)
                 waiting = {r["id"] for r in open_receipts(conn)}
                 if known["id"] in waiting:
-                    flash(f"{path.name}: Den kenne ich schon. Er wartet hier aufs Eintragen.")
+                    flash(f"{name}: Den kenne ich schon. Er wartet hier aufs Eintragen.")
                     first = first or known["id"]
-                elif known["status"] == "receipt":
-                    flash(
-                        f"{path.name}: Diesen Beleg hast du schon eingetragen. Er steht unten "
-                        "in der Liste, du musst nichts mehr tun."
-                    )
                 else:
-                    flash(
-                        f"{path.name}: Diese Datei habe ich schon einmal gelesen. Sie liegt im "
-                        "Ordner „erledigt“, du musst nichts mehr tun."
-                    )
+                    text, link = where_known(conn, digest)
+                    flash(f"{name}: {text}", link=link)
                 continue
             job_id = store.add_job(conn, digest, path.name, "receipt")
             first = first or job_id
@@ -1987,16 +2024,28 @@ def create_app(
 
     def _sicherung_page(request: Request, **extra):
         current = settings()
+        # After an error the place Fritz chose comes back, so he needn't choose again.
+        ziel = request.query_params.get("ziel") or current.backup_dir
         return page(
             request,
             "sicherung.html",
-            ziel=current.backup_dir,
-            letzte=sicherung.letzte(current.backup_dir),
-            faellig=sicherung.faellig(current.backup_dir),
+            ziel=ziel,
+            letzte=sicherung.letzte(ziel),
+            faellig=sicherung.faellig(ziel),
             vorschlaege=sicherung.vorschlaege(),
             zettel=request.query_params.get("zettel") == "1",
+            zettel_neu=not (ziel and sicherung.letzte(ziel)),
+            min_neu=sicherung.MIN_NEU,
             **extra,
         )
+
+    def _zurueck_zur_sicherung(ziel: str, zettel: bool) -> RedirectResponse:
+        params = {}
+        if zettel:
+            params["zettel"] = "1"
+        if ziel:
+            params["ziel"] = ziel
+        return back(f"/sicherung?{urlencode(params)}#sichern")
 
     @app.get("/sicherung", response_class=HTMLResponse)
     def sicherung_page(request: Request):
@@ -2019,10 +2068,10 @@ def create_app(
             path = sicherung.sichern(ws, Path(ziel), passwort)
         except sicherung.KennwortFehlt as exc:
             flash(str(exc), "error")
-            return back("/sicherung?zettel=1#sichern")
+            return _zurueck_zur_sicherung(ziel, zettel=True)
         except sicherung.SicherungError as exc:
             flash(str(exc), "error")
-            return back("/sicherung")
+            return _zurueck_zur_sicherung(ziel, zettel=bool(vom_zettel))
         if ziel != settings().backup_dir:
             replace(settings(), backup_dir=ziel).save(ws.settings_file)
         flash(f"Gesichert: {path.name} in {path.parent}.", cue="saved", stamp="Gesichert")
@@ -2224,6 +2273,11 @@ TEXT_FIELDS = ("name", "company", "email", "phone", "steuernummer", "ust_id", "b
 NOTIZ_MAX = 1500
 CHECKBOXES = ("strict_local", "sound", "haustier", "auto_read")
 EFFECTS = ("ruhig", "verspielt")
+
+
+def _upload_name(path: Path) -> str:
+    """The name Fritz gave the file, without the " (1)" FRITS added to avoid a clash."""
+    return re.sub(r" \(\d+\)(?=\.[^.]*$|$)", "", Path(path).name)
 
 
 def settings_from_form(current: Settings, form) -> Settings:

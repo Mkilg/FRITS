@@ -35,7 +35,7 @@
       <label><input type="radio" name="ziel" value="{{ ordner }}" {{ "checked" if ordner == ziel or (not ziel and loop.first) }}> {{ label }} <span class="muted">{{ ordner }}</span></label>
       {% endfor %}
       {% if ziel and ziel not in vorschlaege | map(attribute=1) %}
-      <label><input type="radio" name="ziel" value="{{ ziel }}" checked> Bisheriger Ort <span class="muted">{{ ziel }}</span></label>
+      <label><input type="radio" name="ziel" value="{{ ziel }}" checked> Gewählter Ort <span class="muted">{{ ziel }}</span></label>
       {% endif %}
     </fieldset>
     <details class="anderer-ort">
@@ -51,9 +51,15 @@
     <p class="hint">Steck einen USB-Stick oder eine Festplatte an und lade die Seite neu, dann schlage ich sie dir vor.</p>
     {% endif %}
     {% if zettel %}
+    {% if zettel_neu %}
+    <label class="field">Neues Passwort für die Sicherung <small class="muted">(mindestens {{ min_neu }} Zeichen, schreib es auf einen Zettel)</small>
+      <input name="passwort" autocomplete="off" required minlength="{{ min_neu }}" placeholder="z. B. Fritte-Wolke-Tisch">
+    </label>
+    {% else %}
     <label class="field">Passwort von deinem Zettel
       <input name="passwort" autocomplete="off" required>
     </label>
+    {% endif %}
     {% endif %}
     <div class="row">
       <button class="primary">Jetzt sichern</button>

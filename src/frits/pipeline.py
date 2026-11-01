@@ -30,6 +30,7 @@ class Outcome:
     status: str  # drafted | check-me | receipt | skipped
     message: str
     draft_id: int | None = None
+    sha256: str | None = None  # for "skipped": which known file it was
 
 
 def file_hash(path: Path) -> str:
@@ -43,8 +44,13 @@ def process_file(
     conn = store.connect(ws.db)
     digest = file_hash(path)
     if store.job_seen(conn, digest):
-        _move(path, ws.done)
-        return Outcome("skipped", f"{path.name} wurde schon verarbeitet.")
+        known = conn.execute("SELECT filename FROM jobs WHERE sha256 = ?", (digest,)).fetchone()
+        kept = ws.done / Path(known["filename"]).name
+        if kept.is_file() and file_hash(kept) == digest:
+            path.unlink()  # the same bytes already lie in "erledigt": no "Beleg (1).pdf"
+        else:
+            _move(path, ws.done)
+        return Outcome("skipped", f"{path.name} wurde schon verarbeitet.", sha256=digest)
 
     try:
         source = extract_text(path)
