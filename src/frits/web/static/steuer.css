@@ -4,13 +4,7 @@
    Gemalte Bilder kommen aus static/steuer/<name>.png. Fehlt eins, malt dieses CSS einen Ersatz. */
 
 .sq {
-  --eiche: #8a5a32; --eiche-dunkel: #5b391d; --eiche-tief: #3a2412; --eiche-hell: #b07a45;
-  --moos: #6f9440; --moos-dunkel: #4b6a2a; --moos-hell: #a3c466;
-  --ocker: #d9a441; --ocker-dunkel: #9c6f1f; --terrakotta: #c4623a; --terrakotta-dunkel: #8e3f22;
-  --creme: #f6ecd2; --papier: #fcf6e6; --papier-schatten: #d9c9a2;
-  --tinte: #24395c; --tinte-hell: #4a6896; --wachs: #b3302a; --gold: #e9bd4f;
-  --schrift: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
-  --hand: "Bradley Hand", "Segoe Print", "Chalkboard SE", "Comic Neue", cursive;
+  /* Farben und Schriften kommen aus frits.css (:root), damit FRITS und die Quest gleich aussehen. */
   color: var(--tinte);
 }
 .sq h1, .sq h2, .sq h3 { font-family: var(--schrift); color: var(--tinte); }

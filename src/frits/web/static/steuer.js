@@ -3,7 +3,8 @@
    - Stempel beim Ablegen (Papers, Please), tickernde Zähler mit steigender Tonhöhe (Balatro)
    - Konfetti und Funken bei Siegeln und beim Sieg
    Alles funktioniert auch ohne JavaScript; hier kommt nur die Würze dazu.
-   Töne nur, wenn in FRITS "Klang an" ist. Bewegung nur, wenn der Computer sie nicht abgeschaltet hat. */
+   Töne nur, wenn in FRITS "Klang an" ist. Bewegung nur, wenn der Computer sie nicht abgeschaltet hat.
+   Die Quest ist absichtlich immer verspielt, auch wenn FRITS sonst auf "ruhig" steht: sie ist ein Spiel. */
 (function () {
   "use strict";
 
@@ -41,17 +42,10 @@
   function stempelTon() {
     var c = klang();
     if (!c) return;
-    // dumpfer Plopp: tiefer Ton, der schnell fällt, plus ein kurzes Rascheln
+    // Derselbe dumpfe Plopp wie im normalen FRITS (frits.js), dazu ein kurzes Papierrascheln
+    if (window.Frits && window.Frits.stampSound) window.Frits.stampSound();
+    else ton(120, 0.16, "sine", 0.3);
     var start = c.currentTime;
-    var osc = c.createOscillator();
-    var gain = c.createGain();
-    osc.frequency.setValueAtTime(180, start);
-    osc.frequency.exponentialRampToValueAtTime(55, start + 0.12);
-    gain.gain.setValueAtTime(0.35, start);
-    gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.16);
-    osc.connect(gain).connect(c.destination);
-    osc.start(start);
-    osc.stop(start + 0.2);
     var laenge = Math.floor(c.sampleRate * 0.08);
     var puffer = c.createBuffer(1, laenge, c.sampleRate);
     var daten = puffer.getChannelData(0);
