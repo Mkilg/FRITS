@@ -464,6 +464,11 @@ main:has(.sq-tisch) > .flash { max-width: 760px; margin: 0.8rem auto; position: 
 .sq-truhe .glanz { position: absolute; left: 30px; right: 30px; bottom: 80px; height: 40px; background: radial-gradient(ellipse at 50% 100%, rgba(255, 228, 140, .95), transparent 70%); animation: sq-glanz 2.4s ease-in-out infinite; }
 .sq-statistik { display: grid; grid-template-columns: 1fr auto; gap: 0.25rem 1rem; margin: 0.8rem 0 0; }
 .sq-statistik dd { margin: 0; font: 700 1.2rem var(--schrift); text-align: right; font-variant-numeric: tabular-nums; }
+.sq-schloss { border: 0; padding: 0; margin: 0.4rem 0 0.9rem; display: grid; gap: 0.5rem; }
+.sq-schloss legend { font-weight: 700; margin-bottom: 0.35rem; }
+.sq-schloss label { display: flex; gap: 0.55rem; align-items: flex-start; padding: 0.5rem 0.6rem; border: 1px solid var(--papier-schatten); border-radius: 4px; background: rgba(255, 255, 255, .45); cursor: pointer; line-height: 1.35; }
+.sq-schloss label:has(input:checked) { border-color: var(--ocker-dunkel); background: #fff6d0; box-shadow: inset 4px 0 0 var(--gold); }
+.sq-schloss input { margin-top: 0.25rem; accent-color: var(--moos-dunkel); }
 .sq-passwort { font: 700 1.25rem var(--schrift); background: #fff6d0; padding: 0.6rem 0.8rem; border-radius: 3px; border-left: 5px solid var(--gold); letter-spacing: .02em; }
 .sq-brief { padding: 1.4rem 1.6rem; background: repeating-linear-gradient(transparent 0 27px, rgba(74, 104, 150, .18) 27px 28px), linear-gradient(175deg, var(--papier), var(--creme)); }
 .sq-brief textarea, .sq-brief input { width: 100%; background: transparent; border: 0; font: 1rem/28px var(--schrift); color: var(--tinte); resize: vertical; padding: 0; }

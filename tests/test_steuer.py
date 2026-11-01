@@ -342,6 +342,28 @@ def test_truhe_ist_verschluesselt_und_geordnet(conn, ws, tmp_path):
         inhalt = zf.read("00 Inhaltsverzeichnis.txt").decode()
     assert "06 Depot im Ausland/2025_Hafen-1_Jahresuebersicht-des-Depots.pdf" in namen
     assert "Frage: Brauchst du das?" in inhalt
+    assert truhe.verschluesselt(ziel)
+
+
+def test_truhe_ohne_passwort_oeffnet_sich_ueberall(conn, ws, tmp_path):
+    import zipfile
+
+    quest.start(conn, MARIE)
+    s = quest.stuecke(conn, 2025, "hafen-1")[0]
+    quest.sammeln(conn, ws.root, s["id"], datei(tmp_path, "jahr.pdf", "depot"))
+    ziel = truhe.packen(
+        tmp_path / "t.zip",
+        MARIE,
+        reich(MARIE),
+        quest.stuecke(conn, 2025),
+        quest.dateien(conn, 2025),
+        None,
+    )
+    with zipfile.ZipFile(ziel) as zf:  # das normale Python-Zip, ganz ohne Passwort
+        assert "Steuerunterlagen 2025" in zf.read("00 Inhaltsverzeichnis.txt").decode()
+    assert not truhe.verschluesselt(ziel)
+    _, text = truhe.mail(MARIE, reich(MARIE), quest.stuecke(conn, 2025), mit_passwort=False)
+    assert "Passwort" not in text and "7-Zip" not in text
 
 
 def test_mail_nennt_fragen_und_luecken_aber_kein_passwort(conn):
@@ -540,6 +562,13 @@ def test_ganze_quest_im_browser(client, ws):
 
     page = post(client, "/steuer/2025/mail", betreff="Unterlagen", text="Hallo")
     assert client.sent == [("b@example.com", "Unterlagen", zip_pfad)]
+
+    # Neu packen, diesmal ohne Passwort: kein Passwort, und die Mail erwähnt keins
+    page = post(client, "/steuer/2025/truhe", schloss="ohne")
+    assert "gepackt, ohne Passwort" in page.text
+    assert "Passwort:" not in page.text
+    assert "Passwort schicke ich dir getrennt" not in page.text
+    assert not truhe.verschluesselt(zip_pfad)
 
 
 def test_gemeinsame_erklaerung_im_fragebogen(client, ws):

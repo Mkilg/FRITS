@@ -24,9 +24,9 @@
 
   <div class="sq-rand">
     <section class="sq-papier">
-      <h2>1. Truhe packen und verschließen</h2>
+      <h2>1. Truhe packen</h2>
       {% if zip_pfad %}
-      <p>Gepackt: <strong>{{ zip_pfad.name }}</strong></p>
+      <p>Gepackt: <strong>{{ zip_pfad.name }}</strong> ({{ "mit Passwort" if mit_passwort else "ohne Passwort" }})</p>
       {% if passwort %}
       <p class="sq-passwort">Passwort: {{ passwort }}</p>
       <p class="muted">Schick es deiner Beraterin getrennt, zum Beispiel per SMS, nicht in dieselbe Mail. Ich zeige es nur jetzt. Neu packen macht ein neues Passwort.</p>
@@ -34,7 +34,14 @@
       {% endif %}
       <form method="post" action="/steuer/{{ jahr }}/truhe">
         <input type="hidden" name="token" value="{{ token }}">
-        <button class="{{ 'quiet' if zip_pfad else 'sq-siegelknopf' }}">{{ "Neu packen" if zip_pfad else "Truhe packen und versiegeln" }}</button>
+        <fieldset class="sq-schloss">
+          <legend>Wie soll die Truhe zu sein?</legend>
+          <label><input type="radio" name="schloss" value="passwort" {% if mit_passwort %}checked{% endif %}>
+            <span><strong>Mit Passwort</strong> (empfohlen). Nur wer das Passwort hat, kann die Unterlagen lesen. Deine Beraterin braucht zum Öffnen eventuell 7-Zip.</span></label>
+          <label><input type="radio" name="schloss" value="ohne" {% if not mit_passwort %}checked{% endif %}>
+            <span><strong>Ohne Passwort.</strong> Öffnet sich überall mit Doppelklick. Aber jeder, der die Mail sieht, kann alles lesen. Gut, wenn du die Datei über ein sicheres Portal hochlädst oder persönlich übergibst.</span></label>
+        </fieldset>
+        <button class="{{ 'quiet' if zip_pfad else 'sq-siegelknopf' }}">{{ "Neu packen" if zip_pfad else "Truhe packen" }}</button>
       </form>
     </section>
 

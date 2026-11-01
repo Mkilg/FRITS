@@ -1,13 +1,18 @@
-"""Die Schatztruhe: ein Zip mit Passwort für die Steuerberaterin, und die passende Mail.
+"""Die Schatztruhe: ein Zip für die Steuerberaterin, und die passende Mail.
 
-Das Zip ist mit AES-256 verschlüsselt. Das Passwort steht NICHT in der Mail; es geht
-getrennt an die Beraterin (z. B. per SMS). Abgeschickt wird nichts von FRITS selbst:
-Die Mail öffnet sich im Mail-Programm, und du drückst dort auf Senden.
+Du wählst, wie die Truhe verschlossen wird:
+- mit Passwort (empfohlen): AES-256. Das Passwort steht NICHT in der Mail; es geht
+  getrennt an die Beraterin (z. B. per SMS).
+- ohne Passwort: ein normales Zip, das sich überall per Doppelklick öffnet. Dafür kann
+  jeder es lesen, der die Mail in die Hände bekommt.
+Abgeschickt wird nichts von FRITS selbst: Die Mail öffnet sich im Mail-Programm, und du
+drückst dort auf Senden.
 """
 
 from __future__ import annotations
 
 import secrets
+import zipfile
 from datetime import date
 from pathlib import Path
 
@@ -160,18 +165,24 @@ def packen(
     gebiete: list[Gebiet],
     stuecke: list[dict],
     dateien: list[dict],
-    kennwort: str,
+    kennwort: str | None,
 ) -> Path:
-    """Baut das Zip: ein Ordner pro Gebiet, dazu das Inhaltsverzeichnis."""
+    """Baut das Zip: ein Ordner pro Gebiet, dazu das Inhaltsverzeichnis.
+
+    Ohne Kennwort (None) wird es ein normales Zip ohne Verschlüsselung."""
     ziel = Path(ziel)
     ziel.parent.mkdir(parents=True, exist_ok=True)
     ordner_von = {g.id: _ordnername(nr, g) for nr, g in enumerate(gebiete, start=1)}
     gebiet_von = {s["id"]: s["gebiet"] for s in stuecke}
     tmp = ziel.with_suffix(".zip.tmp")
-    with pyzipper.AESZipFile(
-        tmp, "w", compression=pyzipper.ZIP_DEFLATED, encryption=pyzipper.WZ_AES
-    ) as zf:
+    if kennwort:
+        zf = pyzipper.AESZipFile(
+            tmp, "w", compression=pyzipper.ZIP_DEFLATED, encryption=pyzipper.WZ_AES
+        )
         zf.setpassword(kennwort.encode("utf-8"))
+    else:
+        zf = zipfile.ZipFile(tmp, "w", compression=zipfile.ZIP_DEFLATED)
+    with zf:
         zf.writestr(
             "00 Inhaltsverzeichnis.txt",
             inhaltsverzeichnis(profil, gebiete, stuecke, dateien).encode("utf-8"),
@@ -186,7 +197,18 @@ def packen(
     return ziel
 
 
-def mail(profil: Profil, gebiete: list[Gebiet], stuecke: list[dict]) -> tuple[str, str]:
+def verschluesselt(pfad: Path) -> bool:
+    """Ist diese Truhe mit Passwort verschlossen? Steht im Zip selbst (Bit 0 der Flags)."""
+    try:
+        with zipfile.ZipFile(pfad) as zf:
+            return any(info.flag_bits & 0x1 for info in zf.infolist())
+    except (OSError, zipfile.BadZipFile):
+        return False
+
+
+def mail(
+    profil: Profil, gebiete: list[Gebiet], stuecke: list[dict], mit_passwort: bool = True
+) -> tuple[str, str]:
     """Betreff und Text der Mail an die Beraterin. Du kannst alles ändern, bevor du sendest."""
     dabei = [
         g.bereich
@@ -198,19 +220,22 @@ def mail(profil: Profil, gebiete: list[Gebiet], stuecke: list[dict]) -> tuple[st
     offen = [s["name"] for s in stuecke if s["status"] == "offen" and s.get("art") != "bonus"]
     bereich = {g.id: g.bereich for g in gebiete}
 
-    zeilen = [
-        "Hallo,",
-        "",
-        (
-            f"anbei meine Unterlagen für {profil.jahr} als Zip-Datei. "
-            "Das Passwort schicke ich dir getrennt."
-        ),
-        (
-            "Die Datei ist mit AES verschlüsselt; falls sie sich nicht per Doppelklick öffnen "
-            "lässt, klappt es mit 7-Zip."
-        ),
-        "",
-    ]
+    if mit_passwort:
+        zeilen = [
+            "Hallo,",
+            "",
+            (
+                f"anbei meine Unterlagen für {profil.jahr} als Zip-Datei. "
+                "Das Passwort schicke ich dir getrennt."
+            ),
+            (
+                "Die Datei ist mit AES verschlüsselt; falls sie sich nicht per Doppelklick "
+                "öffnen lässt, klappt es mit 7-Zip."
+            ),
+            "",
+        ]
+    else:
+        zeilen = ["Hallo,", "", f"anbei meine Unterlagen für {profil.jahr} als Zip-Datei.", ""]
     if dabei:
         zeilen += ["Drin sind: " + ", ".join(dabei) + ". Ein Inhaltsverzeichnis liegt bei.", ""]
     if gibts_nicht:
