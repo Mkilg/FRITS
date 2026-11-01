@@ -205,9 +205,10 @@ def register_steuer(
     app.state.steuer_combo = {}
     app.state.steuer_notausgang = set()
     app.state.steuer_passwort = {}
-    app.state.steuer_finale = (
-        set()
-    )  # Jahre, deren Drache gerade gefallen ist: Falt-Animation zeigen
+    # Jahre, deren Drache gerade gefallen ist: dort die Falt-Animation zeigen
+    app.state.steuer_finale = set()
+    # Der letzte Zettel aus der Hand, damit man ihn zurücklegen kann
+    app.state.steuer_wurf = {}
 
     def conn():
         return quest.ensure_schema(store.connect(ws.db))
@@ -322,6 +323,8 @@ def register_steuer(
             else:
                 quest.notiere(c, jahr, "erwachen", "Der Papierdrache ist erwacht")
                 flash(text, "erwachen", cue="done")
+        elif vorher["drache_wach"] and not nachher["drache_wach"]:
+            flash("Der Drache ist wieder eingeschlafen. Er wacht bei 40 % wieder auf.", "hinweis")
         elif (
             ferne
             and not sieg
@@ -351,6 +354,17 @@ def register_steuer(
                 continue  # den Orden gab es schon einmal
             quest.notiere(c, jahr, "erfolg", e.name)
             flash(f"Neuer Orden: {e.name}. {e.beschreibung}", "orden")
+        gold = (
+            vorher["zweifel"]
+            and not nachher["zweifel"]
+            and drache_nachher.besiegt
+            and drache_vorher.besiegt
+        )
+        if gold:
+            # Wer Silber nachträglich aufwertet, soll das spüren
+            text = "Aus Silber wird Gold! Alle wichtigen Unterlagen sind geklärt."
+            quest.notiere(c, jahr, "gold", text)
+            flash(text, "gold", cue="done")
         if sieg:
             quest.notiere(c, jahr, "sieg", "Der Papierdrache ist besiegt")
             app.state.steuer_combo.pop(jahr, None)
@@ -589,7 +603,9 @@ def register_steuer(
         vorher = lage(jahr)
         frage = str(form.get("frage") or "").strip() if aktion == "fragen" else ""
         quest.setze_status(conn(), stueck_id, aktion, frage)
-        if aktion == "gibts_nicht":
+        if aktion == "offen":
+            flash(f"Stempel zurückgenommen: {s['name']} ist wieder offen.")
+        elif aktion == "gibts_nicht":
             flash(f"Notiert: {s['name']} gibt es dieses Jahr nicht. Zählt trotzdem!", "beute")
         elif aktion == "fragen":
             flash("Kommt auf die Fragenliste für deine Beraterin. Fragen ist klug.", "beute")
@@ -608,9 +624,7 @@ def register_steuer(
         vorher = lage(jahr)
         neu = await hochladen(jahr, stueck_id, uploads)
         if neu:
-            flash(
-                f"+{neu} Beleg{'e' if neu > 1 else ''}! {s['name']} ist gesichert.", "beute", "done"
-            )
+            flash(f"+{neu} Beleg{'e' if neu > 1 else ''}! Gesichert: {s['name']}", "beute", "done")
         else:
             flash("Diese Datei hattest du schon gesammelt. Doppelt zählt nicht, aber gut gemerkt!")
         if belohnen(jahr, vorher):
@@ -647,8 +661,16 @@ def register_steuer(
     @app.post("/steuer/{jahr}/datei/{datei_id}/entfernen", dependencies=guarded)
     async def datei_entfernen(request: Request, jahr: int, datei_id: int):
         form = await request.form()
+        vorher = lage(jahr)
         quest.entferne_datei(conn(), datei_id)
-        flash("Die Datei liegt wieder im Lager. Nichts ist verloren.")
+        # Wer zurücklegt, verliert die Serie: sonst ließe sich die Combo hochtreiben
+        if jahr in app.state.steuer_combo:
+            app.state.steuer_combo[jahr] = {"combo": 0, "ruf": spiel.RUFE[0]}
+        flash("Die Datei liegt wieder im Eingangskorb. Nichts ist verloren.")
+        lp = lage(jahr)["drache"].lp
+        if vorher["drache_wach"] and lp > vorher["drache"].lp:
+            flash(f"Der Drache hat wieder {lp} Karte{'n' if lp != 1 else ''}.", "treffer")
+        belohnen(jahr, vorher, ferne=False)
         return back(str(form.get("back") or f"/steuer/{jahr}"))
 
     @app.post("/steuer/{jahr}/lager/hochladen", dependencies=guarded)
@@ -694,6 +716,21 @@ def register_steuer(
         if not gelegt and not zu_gross:
             flash("Es wurde keine Datei mitgeschickt.", "error")
         return back(f"/steuer/{jahr}#sq-korb")
+
+    @app.post("/steuer/{jahr}/lager/beiseite", dependencies=guarded)
+    async def lager_beiseite(request: Request, jahr: int):
+        """Ein Zettel, der nirgends hingehört: weg aus dem Korb, aber nicht gelöscht."""
+        form = await request.form()
+        name = Path(str(form.get("name") or "")).name
+        ziel = quest.lege_beiseite(ws.root, name)
+        if ziel is None:
+            flash("Den Zettel finde ich nicht mehr im Eingangskorb.")
+        else:
+            flash(
+                f"„{name}“ liegt jetzt im Ordner „{ziel.parent.name}“."
+                " Nichts ist gelöscht, und die Beraterin bekommt es nicht."
+            )
+        return back(str(form.get("back") or f"/steuer/{jahr}"))
 
     @app.get("/steuer/{jahr}/lager/anzahl")
     def lager_anzahl(jahr: int):
@@ -781,6 +818,7 @@ def register_steuer(
         daten = lage(jahr)
         combo = dict(app.state.steuer_combo.get(jahr, {"combo": 0, "ruf": spiel.RUFE[0]}))
         frisch = app.state.steuer_combo.get(jahr, {}).pop("frisch", False)
+        wurf = app.state.steuer_wurf.pop(jahr, None) if frisch else None
         finale = jahr in app.state.steuer_finale and daten["drache"].besiegt
         app.state.steuer_finale.discard(jahr)
         return seite(
@@ -789,6 +827,7 @@ def register_steuer(
             combo=combo,
             frisch=frisch,
             finale=finale,
+            wurf=wurf,
             lager=quest.lager_dateien(ws.root),
             **daten,
         )
@@ -829,6 +868,8 @@ def register_steuer(
                 )
                 return back(f"/steuer/{jahr}/drache#karte")
             quest.notiere(c, jahr, "fund", f"{s['name']}: {name}")
+            datei = next(d for d in quest.dateien(c, jahr, s["id"]) if d["pfad"] == str(fund.pfad))
+            app.state.steuer_wurf[jahr] = {"id": datei["id"], "name": name, "karte": s["name"]}
             kritisch = True
         elif aktion in ("gibts_nicht", "fragen"):
             frage = str(form.get("frage") or "").strip() if aktion == "fragen" else ""

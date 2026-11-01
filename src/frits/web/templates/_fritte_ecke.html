@@ -6,16 +6,9 @@
     <p>{{ f.satz }}</p>
     <p class="salz"><span aria-hidden="true">🧂</span> <strong data-zaehlen>{{ f.guthaben }}</strong> Salzkörner</p>
     {% if f.wartend %}
-    <p class="wartet">{{ f.wartend }} {{ "Karte wartet" if f.wartend == 1 else "Karten warten" }} auf den Kassensturz. Das {{ "ist" if f.bereit == 1 else "sind" }} gerade etwa <strong>+{{ f.bereit }} {{ "Salzkorn" if f.bereit == 1 else "Salzkörner" }}</strong>.</p>
-    <div class="row">
-      <form method="post" action="/fritte/kassensturz">
-        <input type="hidden" name="token" value="{{ token }}">
-        <button class="primary">Kassensturz machen</button>
-      </form>
-      <a class="button" href="/fritte">Zu Fritte</a>
-    </div>
-    {% else %}
-    <a class="button" href="/fritte">Zu Fritte und in den Laden</a>
+    <p>{{ f.wartend }} {{ "Karte wartet" if f.wartend == 1 else "Karten warten" }} auf den Kassensturz. Das {{ "ist" if f.bereit == 1 else "sind" }} gerade etwa <strong>+{{ f.bereit }} {{ "Salzkorn" if f.bereit == 1 else "Salzkörner" }}</strong>.</p>
     {% endif %}
+    {# No big button here: "Heute" is for work, Fritte is one quiet link away. #}
+    <a class="button" href="/fritte">Zu Fritte</a>
   </div>
 </section>

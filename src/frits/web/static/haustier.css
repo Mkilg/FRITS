@@ -308,6 +308,8 @@ details[open] > summary::before { content: "▾ "; }
 /* Ruhig: no shaking, no wiggling jars; numbers still count. */
 [data-effekte="ruhig"] .beben, [data-effekte="ruhig"] .wackeln { animation: none; }
 @media (max-width: 760px) { .ks-tisch { grid-template-columns: 1fr; } }
+/* With many cards the score stays in view while they are counted. */
+@media (min-width: 761px) { .ks-rechnung { position: sticky; top: 1rem; z-index: 2; } }
 @media (prefers-reduced-motion: reduce) {
   .kassensturz-show *, .kassensturz-show { animation: none !important; transition: none !important; }
 }
@@ -468,6 +470,38 @@ details[open] > summary::before { content: "▾ "; }
 @media (max-height: 820px) {
   .kassensturz-show .ks-aktionen { position: sticky; bottom: 0; z-index: 5; padding: .5rem 0;
     background: linear-gradient(180deg, transparent, var(--bg) 35%); }
+  .kassensturz-show .ks-ausbau { scroll-margin-bottom: 4.5rem; } /* not under the buttons */
   .kassensturz-show .ks-karten .spielkarte { width: 5.9rem; min-height: 7.6rem; }
   .kassensturz-show .ks-karten .karte-detail { display: none; }
 }
+
+/* ---------- a season festival: a string of pennants across the room ---------- */
+.zimmer .wimpel { position: absolute; left: 0; right: 0; top: 0; height: 8%; z-index: 1; pointer-events: none;
+  border-top: .25cqw solid var(--eiche-dunkel);
+  background:
+    conic-gradient(from 150deg at 50% 0, var(--moos) 0 60deg, transparent 0) 0 0 / 9% 100%,
+    conic-gradient(from 150deg at 50% 0, var(--gold) 0 60deg, transparent 0) 3% 0 / 9% 100%,
+    conic-gradient(from 150deg at 50% 0, var(--tinte-hell, #4a6896) 0 60deg, transparent 0) 6% 0 / 9% 100%; }
+/* The Frittenbude has its garland already: on a festival it gets more colours. */
+.zimmer.stufe-5 .wimpel { display: none; }
+.zimmer.stufe-5.fest .girlande { background:
+    conic-gradient(from 150deg at 50% 0, var(--terrakotta) 0 60deg, transparent 0) 0 0 / 8% 100%,
+    conic-gradient(from 150deg at 50% 0, var(--moos) 0 60deg, transparent 0) 2% 0 / 8% 100%,
+    conic-gradient(from 150deg at 50% 0, var(--gold) 0 60deg, transparent 0) 4% 0 / 8% 100%,
+    conic-gradient(from 150deg at 50% 0, var(--tinte-hell, #4a6896) 0 60deg, transparent 0) 6% 0 / 8% 100%; }
+.feste { display: grid; gap: .4rem; padding: 0; list-style: none; }
+.feste li { display: flex; gap: .6rem; align-items: baseline; flex-wrap: wrap; }
+.pokal-jahre { display: grid; gap: .5rem; }
+.pokal-jahre .jahr { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+
+/* ---------- closer to the gouache: paper grain and soft light over the drawn room ---------- */
+.zimmer .papier { position: absolute; inset: 0; z-index: 0; pointer-events: none; mix-blend-mode: multiply; opacity: .9;
+  background:
+    radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(90, 57, 29, .22) 100%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .55 0 0 0 0 .45 0 0 0 0 .3 0 0 0 .32 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23p)'/%3E%3C/svg%3E"); }
+/* A painted room (zimmer-<stage> in static/bilder) replaces the drawn one. */
+.zimmer.gemalt { background: var(--zimmer-bild) center / cover no-repeat, #ecdcb6; }
+.zimmer.gemalt::before, .zimmer.gemalt .fenster, .zimmer.gemalt .vorhang, .zimmer.gemalt .lampe,
+.zimmer.gemalt .werkbank, .zimmer.gemalt .theke, .zimmer.gemalt .markise, .zimmer.gemalt .girlande,
+.zimmer.gemalt .teppich { display: none; }
+.zimmer.gemalt .papier { opacity: .25; }

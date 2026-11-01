@@ -402,3 +402,6 @@ body:has(.sq-tisch) .bottom { max-width: none; margin: 0; border-radius: 0; back
 .vorschau[data-effekte="ruhig"] .flash.mit-stempel { animation: none; }
 .vorschau[data-effekte="verspielt"] .mascot-small > * { animation: hopsen .5s ease-in-out .3s 2; }
 @media (prefers-reduced-motion: reduce) { .vorschau * { animation: none !important; } }
+
+.notfall-hinweis { margin: 0.4rem 0 1rem; padding: 0.5rem 0.9rem; border-radius: var(--radius);
+  background: rgba(252, 246, 230, .75); border: 1px dashed var(--papier-schatten); font-size: 0.92rem; }

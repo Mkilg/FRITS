@@ -134,3 +134,12 @@ def test_an_invoice_without_draft_can_still_be_cancelled(tmp_path):
     storno, pdf = cancel(conn, "2026-0001", settings, tmp_path / "r", date(2026, 10, 1))
     row = conn.execute("SELECT net, gross FROM invoices WHERE number = ?", (storno,)).fetchone()
     assert (row["net"], row["gross"]) == ("-100.00", "-100.00") and pdf.exists()
+
+
+def test_receipt_words_suggest_a_category():
+    from frits.beleg import guess_category
+
+    assert guess_category("DB Fernverkehr AG\nFahrkarte Berlin-Köln") == "reisekosten"
+    assert guess_category("Gaststätte Zur Linde\nBewirtung") == "bewirtung"
+    assert guess_category("Deutsche Post\nPorto") == "buero"
+    assert guess_category("Irgendwas") is None
