@@ -64,7 +64,7 @@
         {% if s.status == "offen" %}
         <form method="post" action="/steuer/{{ jahr }}/stueck/{{ s.id }}/status" data-stempel="GIBT'S NICHT" data-farbe="grau">
           <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back" value="{{ zurueck }}">
-          <button class="sq-stempelknopf grau" name="status" value="gibts_nicht">Gibt's nicht</button>
+          <button class="sq-stempelknopf grau" name="status" value="gibts_nicht"{% if kern(s.gebiet, s.key) %} data-rueckfrage="Wirklich keins? Nochmal klicken"{% endif %}>Gibt's nicht</button>
         </form>
         <details>
           <summary>Lieber fragen …</summary>

@@ -12,7 +12,7 @@ from frits import store, system
 from frits.expenses import Expense, add_expense
 from frits.settings import Settings, Workspace
 from frits.steuer import beraterin, ernte, quest, spiel, truhe
-from frits.steuer.katalog import HAKEN, Profil, katalog, reich
+from frits.steuer.katalog import HAKEN, Profil, ist_kern, katalog, reich
 from frits.web.app import create_app
 from frits.web.steuer import inselplan
 
@@ -544,6 +544,20 @@ def test_ganze_quest_im_browser(client, ws):
 
     # Zur Sieg-Seite geht es nur über den Drachen
     assert "Papierdrache" in client.get("/steuer/2025/sieg", follow_redirects=True).text
+
+    # Der Drache schläft, bis das Reich im Zeitalter der Ordnung ist (40 %)
+    assert "Der Papierdrache schläft noch" in client.get("/steuer/2025/drache").text
+    offen = [s for s in spiel.pflicht(quest.stuecke(conn, 2025)) if s["status"] == "offen"]
+    karte = spiel.drache(quest.stuecke(conn, 2025)).karte
+    page = post(
+        client, "/steuer/2025/drache/schlag", stueck_id=str(karte["id"]), aktion="gibts_nicht"
+    )
+    assert "schläft noch" in page.text
+    while not spiel.drache_wach(quest.stuecke(conn, 2025)):
+        quest.setze_status(conn, offen.pop()["id"], "gesammelt")
+    wach = client.get("/steuer/2025/drache").text
+    assert "schläft noch" not in wach and 'id="karte"' in wach
+
     page = None
     for _ in range(40):
         karte = spiel.drache(quest.stuecke(conn, 2025)).karte
@@ -646,7 +660,8 @@ def test_seiten_rendern(client):
         "/steuer/2025/fragebogen?teil=3",
     ):
         assert client.get(url).status_code == 200, url
-    assert client.get("/steuer/2025/gebiet/gibtsnicht").status_code == 404
+    unbekannt = client.get("/steuer/2025/gebiet/gibtsnicht")
+    assert unbekannt.status_code == 200 and "gibt es auf deiner Insel nicht" in unbekannt.text
     karte = client.get("/steuer/2025").text
     assert 'class="sq-insel' in karte and "Drachenhort" in karte
 
@@ -731,3 +746,28 @@ def test_siegel_kommt_als_belohnung_mit_naechstem_auftrag(client, ws):
         )
     assert "data-belohnung" in page.text and "Gold-Siegel!" in page.text
     assert "Nächster Auftrag" in page.text and "Versiegle Werkstatt" in page.text
+
+
+def test_gibts_nicht_haelt_die_serie_zaehlt_aber_nicht_hoch():
+    combo, _ruf = spiel.treffer(3, kritisch=False, zaehlt=False)
+    assert combo == 3
+    assert spiel.treffer(3, kritisch=False)[0] > 3
+
+
+def test_wichtige_karten_fragen_bei_gibts_nicht_nach():
+    assert ist_kern("rathaus", "steuer-id")
+    assert ist_kern("werkstatt-2", "belege")
+    assert not ist_kern("rathaus", "briefe")
+
+
+def test_reine_bonus_provinz_zaehlt_nicht_zu_den_siegeln():
+    stuecke = [
+        {"gebiet": "burg", "art": "bonus", "status": "gesammelt", "wunsch": 0},
+        {"gebiet": "rathaus", "art": "pflicht", "status": "offen", "wunsch": 0},
+    ]
+    gebiete = [gb for gb in reich(MARIE) if gb.id in ("burg", "rathaus")]
+    assert len(gebiete) == 2
+    staende = spiel.provinzen(gebiete, stuecke)
+    burg = next(p for p in staende if p.gebiet.id == "burg")
+    assert burg.nur_bonus and burg.stand.siegel
+    assert spiel.ressourcen(stuecke, staende).siegel == 0

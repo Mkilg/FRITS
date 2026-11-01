@@ -1,6 +1,6 @@
 {# Eine Provinz als kleines Diorama. Erwartet: p (Provinzstand), jahr, bild(), optional lage=(x, y) #}
 {% set g = p.gebiet %}{% set stufe = p.stand.stufe %}{% set gemalt, farbe = provinzbild(g.provinz.key, stufe) %}
-<a class="sq-parzelle stufe-{{ stufe }}{% if p.stand.siegel %} siegel{% endif %}{% if auftrag is defined and auftrag.gebiet_id == g.id %} auftragsziel{% endif %}" href="/steuer/{{ jahr }}/gebiet/{{ g.id }}" data-gebiet="{{ g.id }}" data-titel="{{ g.titel }}"
+<a class="sq-parzelle stufe-{{ stufe }}{% if p.stand.siegel %} siegel{% endif %}{% if p.nur_bonus %} bonus{% endif %}{% if auftrag is defined and auftrag.gebiet_id == g.id %} auftragsziel{% endif %}" href="/steuer/{{ jahr }}/gebiet/{{ g.id }}" data-gebiet="{{ g.id }}" data-titel="{{ g.titel }}"
    {% if lage %}style="--x: {{ lage[0] }}%; --y: {{ lage[1] }}%; --zeile: {{ (lage[1] | int) }}"{% endif %}
    aria-label="{{ g.titel }}: {{ p.stand.erledigt }} von {{ p.stand.gesamt }}, {{ p.stufe_name }}">
   <span class="sq-diorama">

@@ -19,7 +19,7 @@ from fastapi.responses import HTMLResponse, Response
 from frits import store, system
 from frits.settings import Workspace
 from frits.steuer import beraterin, ernte, quest, spiel, truhe
-from frits.steuer.katalog import FAMILIENSTAND, HAKEN, Profil, fragen, gebiet, reich
+from frits.steuer.katalog import FAMILIENSTAND, HAKEN, Profil, fragen, gebiet, ist_kern, reich
 
 AKTIONEN = {"gibts_nicht", "fragen", "offen"}
 
@@ -108,6 +108,31 @@ def wiesenplan(anzahl: int) -> list[tuple[float, float]]:
     return lagen
 
 
+MONATE = (
+    "Januar",
+    "Februar",
+    "März",
+    "April",
+    "Mai",
+    "Juni",
+    "Juli",
+    "August",
+    "September",
+    "Oktober",
+    "November",
+    "Dezember",
+)
+
+
+def schoenes_datum(iso: str) -> str:
+    """ "2026-12-15" wird zu "15. Dezember 2026"; alles andere bleibt, wie es ist."""
+    try:
+        d = date.fromisoformat(str(iso))
+    except ValueError:
+        return str(iso)
+    return f"{d.day}. {MONATE[d.month - 1]} {d.year}"
+
+
 def fritte_tipp(daten: dict, lager: list) -> tuple[str, str]:
     """Was Fritte, die Kartografin, gerade sagt: (Stimmung, Satz)."""
     if daten["drache"].besiegt and daten["stuecke"]:
@@ -167,7 +192,14 @@ def register_steuer(
     def seite(request: Request, name: str, **context):
         """Wie page(), plus was alle Quest-Seiten brauchen (Bilder, Klang)."""
         return page(
-            request, name, bild=bild, provinzbild=provinzbild, klang=settings().sound, **context
+            request,
+            name,
+            bild=bild,
+            provinzbild=provinzbild,
+            klang=settings().sound,
+            kern=ist_kern,
+            datum=schoenes_datum,
+            **context,
         )
 
     def quest_jahre() -> list[int]:
@@ -207,6 +239,7 @@ def register_steuer(
             "zeitalter": spiel.zeitalter(gesamt.anteil),
             "naechstes": spiel.naechstes_zeitalter(gesamt.anteil),
             "drache": drache,
+            "drache_wach": spiel.drache_wach(alle) or jahr in app.state.steuer_notausgang,
             "auftrag": spiel.auftrag(jahr, staende, drache, zettel, alle),
             "burg_fehlt": not any(g.provinz.key == "burg" for g in gebiete),
             "jahre": quest_jahre(),
@@ -420,7 +453,8 @@ def register_steuer(
     def provinz(request: Request, jahr: int, gebiet_id: str):
         g = gebiet(profil_oder_404(jahr), gebiet_id)
         if g is None:
-            raise HTTPException(404)
+            flash("Diese Provinz gibt es auf deiner Insel nicht (mehr).", "hinweis")
+            return back(f"/steuer/{jahr}")
         daten = lage(jahr)
         c = conn()
         eigene = [s for s in daten["stuecke"] if s["gebiet"] == g.id]
@@ -594,6 +628,9 @@ def register_steuer(
         s = stueck_im_jahr(jahr, int(str(form.get("stueck_id") or 0)))
         aktion = str(form.get("aktion") or "")
         vorher = lage(jahr)
+        if not vorher["drache_wach"]:
+            flash("Der Drache schläft noch. Bau erst deine Provinzen auf.")
+            return back(f"/steuer/{jahr}/drache")
         kritisch = False
         if aktion == "datei":
             uploads = [f for f in form.getlist("datei") if hasattr(f, "filename") and f.filename]
@@ -609,7 +646,7 @@ def register_steuer(
         else:
             raise HTTPException(400)
         alt = app.state.steuer_combo.get(jahr, {"combo": 0})
-        combo, ruf = spiel.treffer(alt["combo"], kritisch)
+        combo, ruf = spiel.treffer(alt["combo"], kritisch, zaehlt=aktion != "gibts_nicht")
         app.state.steuer_combo[jahr] = {
             "combo": combo,
             "ruf": ruf,
@@ -622,7 +659,7 @@ def register_steuer(
             app.state.steuer_combo.pop(jahr, None)
             flash("SIEG! Der Drache faltet sich zu einer Schatztruhe zusammen.", "sieg", "sent")
             return back(f"/steuer/{jahr}/sieg")
-        return back(f"/steuer/{jahr}/drache")
+        return back(f"/steuer/{jahr}/drache#karte")
 
     @app.post("/steuer/{jahr}/drache/notausgang", dependencies=guarded)
     def notausgang(jahr: int):

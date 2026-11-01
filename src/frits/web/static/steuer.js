@@ -429,3 +429,21 @@
     window.addEventListener("pagehide", gleichSichern);
   }
 })();
+
+// Wichtige Karten (z. B. Steuer-ID): "Gibt's nicht" braucht einen zweiten Klick
+(function () {
+  document.addEventListener("click", function (e) {
+    var knopf = e.target.closest("[data-rueckfrage]");
+    if (!knopf) return;
+    if (knopf.classList.contains("rueckfrage")) return; // zweiter Klick: abschicken
+    e.preventDefault();
+    knopf.dataset.vorher = knopf.textContent;
+    knopf.textContent = knopf.dataset.rueckfrage;
+    knopf.classList.add("rueckfrage");
+    setTimeout(function () {
+      if (!knopf.isConnected) return;
+      knopf.textContent = knopf.dataset.vorher;
+      knopf.classList.remove("rueckfrage");
+    }, 5000);
+  });
+})();
