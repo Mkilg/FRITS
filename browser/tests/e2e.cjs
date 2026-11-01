@@ -196,7 +196,11 @@ async function step(name, fn) {
       await ctx.setOffline(true);
       await page.reload();
       await page.waitForSelector("#app:not([hidden])", { timeout: 180000 });
-      const frame = page.frames().find((f) => f.url().includes("/FRITS/app"));
+      let frame;
+      for (let i = 0; i < 100 && !frame; i++) {
+        frame = page.frames().find((f) => f.url().includes("/FRITS/app"));
+        if (!frame) await page.waitForTimeout(100);
+      }
       await frame.waitForLoadState();
       assert.match(await frame.locator("main").innerText(), /Martina Berger/);
       await ctx.close();

@@ -4,7 +4,7 @@
 <div class="head-row">
   <h1>Kunden</h1>
   <div class="row">
-    <form method="post" action="/open/customers"><input type="hidden" name="token" value="{{ token }}"><button class="quiet">Ordner öffnen</button></form>
+    {% if not im_browser() %}<form method="post" action="/open/customers"><input type="hidden" name="token" value="{{ token }}"><button class="quiet">Ordner öffnen</button></form>{% endif %}
     <a class="button primary" href="/customers/new">Neuer Kunde</a>
   </div>
 </div>
