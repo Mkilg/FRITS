@@ -72,6 +72,7 @@ class Stueck:
     wenn: str = ""  # nur dabei, wenn dieser Haken im Fragebogen gesetzt ist
     kern: bool = False  # gibt es fast immer: "Gibt's nicht" fragt einmal nach
     fehlt_nie: bool = False  # hat jede:r (Steuer-ID): statt "Gibt's nicht" nur "Finde ich nicht"
+    warum: str = ""  # warum es das fast immer gibt: steht in der Rückfrage bei "Gibt's nicht"
 
 
 @dataclass(frozen=True)
@@ -244,6 +245,14 @@ def fehlt_nie(gebiet_id: str, key: str) -> bool:
     """Gibt es dieses Stück bei allen (z. B. die Steuer-ID)? Dann ist "Gibt's nicht" falsch."""
     provinz = katalog().get(gebiet_id.split("-")[0])
     return bool(provinz) and any(s.key == key and s.fehlt_nie for s in provinz.stuecke)
+
+
+def warum(gebiet_id: str, key: str) -> str:
+    """Der Grund, warum es dieses wichtige Stück fast immer gibt ("" wenn keiner hinterlegt ist)."""
+    provinz = katalog().get(gebiet_id.split("-")[0])
+    if not provinz:
+        return ""
+    return next((s.warum for s in provinz.stuecke if s.key == key), "")
 
 
 def gebiet(profil: Profil, gebiet_id: str) -> Gebiet | None:

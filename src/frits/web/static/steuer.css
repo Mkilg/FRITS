@@ -940,3 +940,140 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
   .sq-arena .sq-wurf { order: -1; }
   .sq-arena { gap: 0.5rem; }
 }
+
+/* =====================================================================
+   Runde 6: Der Bosskampf ist unumgehbar und sichtbar, der Korb ist die Hand,
+   Silber ist ehrlich, die Rückfrage verschiebt nichts mehr
+   ===================================================================== */
+
+/* Drachenseite: derselbe gemalte Tisch, nur bei Nacht (statt der alten Streifen) */
+.sq-tisch.nacht {
+  background:
+    radial-gradient(ellipse at 50% 30%, rgba(255, 190, 110, .26), transparent 50%) fixed,
+    radial-gradient(ellipse at 50% 50%, transparent 25%, rgba(8, 4, 2, .8) 90%) fixed,
+    linear-gradient(rgba(20, 12, 30, .5), rgba(20, 12, 30, .5)) fixed,
+    var(--tisch-bild, none) center / cover no-repeat fixed,
+    repeating-linear-gradient(90deg, #6d4526 0 180px, #66401f 180px 330px, #714829 330px 520px, #5f3c1f 520px 640px);
+}
+
+/* Der wache Drache auf der Karte: groß, oben rechts im Bild, mit Leuchtfeuer */
+.sq-hort.wach .sq-drache-klein { width: 176px; height: 156px; animation: sq-atmen 2.4s ease-in-out infinite; }
+.sq-hort.wach .sq-schild small { color: var(--terrakotta-dunkel); font-weight: 700; }
+.sq-hort.auftragsziel .sq-leuchtfeuer { top: -34px; z-index: 2; }
+.sq-hort.auftragsziel::before { content: ""; position: absolute; left: 50%; top: 40%; width: 210px; height: 120px; margin: -60px 0 0 -105px; border-radius: 50%; z-index: -1;
+  background: radial-gradient(ellipse, rgba(255, 140, 90, .6), rgba(233, 120, 60, .2) 55%, transparent 72%); animation: sq-feuer 1.8s ease-in-out infinite; }
+@keyframes sq-atmen { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.04) rotate(-1deg); } }
+@media (min-width: 1101px) {
+  .sq-hort.wach { top: 0.4rem; bottom: auto; right: 0; }
+}
+@media (max-width: 1100px) {
+  .sq-meer:has(.sq-hort.wach) { display: flex; flex-direction: column; }
+  .sq-hort.wach { order: -1; margin: 1.6rem auto 0.8rem; }
+}
+
+/* Große Momente mit dem Drachen statt dem Wachssiegel */
+.sq-belohnung-drache { width: 230px; height: 180px; margin: -130px auto 0.2rem; }
+.sq-belohnung-drache img, .sq-belohnung-drache .sq-origami { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 12px 12px rgba(0,0,0,.4)); }
+.art-erwachen .sq-belohnung-drache { animation: sq-erwachen 1s .1s cubic-bezier(.2, 1.6, .4, 1) both; }
+.art-sieg .sq-belohnung-drache { animation: sq-siegel-drauf .8s .1s cubic-bezier(.2, 1.6, .4, 1) both; }
+.art-erwachen h2 { color: #8c2a1c; }
+@keyframes sq-erwachen { 0% { opacity: 0; transform: scale(.5) translateY(40px); filter: brightness(.4); } 60% { transform: scale(1.1) rotate(-4deg); } 75% { transform: scale(1.05) rotate(3deg); } }
+.sq-belohnung.silber { box-shadow: 0 0 0 6px rgba(190, 200, 214, .7), 0 30px 60px rgba(10, 4, 0, .6); }
+.sq-belohnung.silber h2 { color: #4d5d72; }
+.sq-belohnung.silber .sq-belohnung-licht { background: repeating-conic-gradient(from 0deg, rgba(215, 225, 240, .6) 0 8deg, transparent 8deg 22deg); }
+.sq-belohnung.silber .sq-belohnung-siegel img { filter: grayscale(1) brightness(1.35) drop-shadow(0 8px 8px rgba(0,0,0,.35)); }
+.sq-parzelle.silber .sq-wachs { filter: grayscale(1) brightness(1.4); }
+
+/* Tagwerk als kleiner Zettel statt Vollbild: mit Ring und einem leisen Ausgang */
+.sq-meldung.tagwerk { border-left-color: var(--moos); display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.sq-meldung.tagwerk .sq-tagwerk-ring { flex: none; animation: sq-siegel-drauf .6s .2s cubic-bezier(.2, 1.6, .4, 1) both; }
+.sq-meldung.tagwerk .sq-tagwerk-ring b { color: var(--moos-dunkel); }
+.sq-meldung.tagwerk a { font-size: 0.82rem; color: #6d6150; }
+.sq-meldung.treffer { font-weight: 600; }
+
+/* Schadensstufen: Je weniger Karten, desto zerknitterter der Drache */
+.sq-drache-gross.schaden-1 img { transform: rotate(-3deg); }
+.sq-drache-gross.schaden-2 img { transform: rotate(5deg) scale(.96); filter: drop-shadow(0 12px 10px rgba(0,0,0,.45)) saturate(.8) sepia(.15); }
+.sq-drache-gross.schaden-3 img { filter: drop-shadow(0 12px 10px rgba(0,0,0,.45)) saturate(.6) sepia(.3); animation: sq-taumeln 1.6s ease-in-out infinite; }
+@keyframes sq-taumeln { 0%, 100% { transform: rotate(-6deg) scale(.94); } 50% { transform: rotate(7deg) scale(.92) translateY(6px); } }
+.sq-risse { position: absolute; inset: 18% 16% 22%; pointer-events: none; opacity: .85;
+  background:
+    linear-gradient(118deg, transparent 47%, rgba(60, 30, 10, .75) 48%, rgba(255, 245, 220, .9) 49%, transparent 50.5%) 10% 20% / 45% 45% no-repeat,
+    linear-gradient(64deg, transparent 47%, rgba(60, 30, 10, .75) 48%, rgba(255, 245, 220, .9) 49%, transparent 50.5%) 85% 60% / 40% 50% no-repeat; }
+.schaden-1 .sq-risse { opacity: .4; }
+.schaden-3 .sq-risse { background:
+    linear-gradient(118deg, transparent 47%, rgba(60, 30, 10, .75) 48%, rgba(255, 245, 220, .9) 49%, transparent 50.5%) 10% 20% / 45% 45% no-repeat,
+    linear-gradient(64deg, transparent 47%, rgba(60, 30, 10, .75) 48%, rgba(255, 245, 220, .9) 49%, transparent 50.5%) 85% 60% / 40% 50% no-repeat,
+    linear-gradient(160deg, transparent 47%, rgba(60, 30, 10, .75) 48%, rgba(255, 245, 220, .9) 49%, transparent 50.5%) 40% 90% / 50% 35% no-repeat; }
+
+/* Nach dem Sieg: der Drache faltet sich zur Schatztruhe */
+.sq-arena-sieg { display: grid; grid-template-columns: minmax(240px, 340px) minmax(280px, 440px); gap: 2rem; align-items: center; justify-content: center; text-align: left; padding-top: 1rem; }
+.sq-arena-sieg .sq-papier { color: var(--tinte); padding: 1.2rem 1.4rem; }
+.sq-arena-sieg .sq-papier h1 { color: var(--tinte); text-shadow: none; font-size: 1.6rem; margin: 0.1rem 0 0.4rem; }
+.sq-arena-sieg .sq-papier p { text-wrap: pretty; }
+.sq-falten { position: relative; width: 320px; height: 290px; margin: 0 auto; }
+.sq-falten img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 14px 12px rgba(0,0,0,.5)); }
+.sq-falten .falt-drache { opacity: 0; }
+.sq-falten::after { content: ""; position: absolute; left: 10%; right: 10%; bottom: 4%; height: 30px; z-index: -1; border-radius: 50%; background: radial-gradient(ellipse, rgba(255, 200, 100, .55), transparent 70%); }
+.finale .sq-falten .falt-drache { animation: sq-falten-drache 1.5s ease-in both; }
+.finale .sq-falten .falt-truhe { animation: sq-falten-truhe .7s 1.2s cubic-bezier(.2, 1.6, .4, 1) both; }
+.finale .sq-arena-sieg .sq-papier { animation: sq-zettel-rein .5s 1.7s both; }
+@keyframes sq-falten-drache {
+  0% { opacity: 1; transform: none; }
+  12% { transform: translateX(-8px) rotate(-4deg); } 24% { transform: translateX(8px) rotate(4deg); } 36% { transform: translateX(-5px) rotate(-2deg); }
+  55% { opacity: 1; transform: scale(.85, .6) rotate(8deg); }
+  75% { opacity: .9; transform: scale(.45, .3) rotate(-20deg); }
+  100% { opacity: 0; transform: scale(.05) rotate(40deg); }
+}
+@keyframes sq-falten-truhe { from { opacity: 0; transform: scale(.1) rotate(-25deg); } }
+@media (max-width: 760px) { .sq-arena-sieg { grid-template-columns: minmax(0, 1fr); } .sq-falten { width: 220px; height: 200px; } }
+@media (prefers-reduced-motion: reduce) { .finale .sq-falten .falt-drache, .finale .sq-falten .falt-truhe, .finale .sq-arena-sieg .sq-papier { animation: none; } }
+
+/* Die Hand: Zettel aus dem Eingangskorb als Kartenfächer unter dem Kampf */
+.sq-hand { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 0.4rem; margin-top: 0.6rem; }
+@media (min-width: 900px) { .sq-arena:has(.sq-hand) { grid-template-areas: "boss karte" "combo karte" "hand hand"; } .sq-arena .sq-hand { grid-area: hand; } }
+.sq-hand-titel { margin: 0; color: #f3e3c0; font-size: 0.92rem; text-align: center; text-shadow: 0 1px 2px rgba(0,0,0,.95), 0 0 10px rgba(20, 8, 2, .8); }
+.sq-hand-faecher { display: flex; justify-content: center; align-items: flex-end; padding: 1rem 0 0.4rem; flex-wrap: wrap; row-gap: 1rem; }
+.sq-handkarte { width: 118px; height: 148px; margin: 0 -10px; padding: 0.7rem 0.55rem; display: flex; flex-direction: column; gap: 0.4rem; align-items: flex-start; text-align: left; cursor: grab;
+  background: linear-gradient(175deg, #fffdf5, var(--papier)); color: var(--tinte); border: 1px solid #d9c79c; border-radius: 5px;
+  box-shadow: 0 8px 16px rgba(0,0,0,.4); transform: rotate(calc(var(--i) * 5deg)) translateY(calc(max(var(--i), -1 * var(--i)) * 6px));
+  transition: transform .18s, box-shadow .18s; font: inherit; }
+.sq-handkarte strong { font-size: 0.78rem; line-height: 1.25; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
+.sq-handkarte .art { font: 700 0.68rem system-ui, sans-serif; padding: 0.15rem 0.35rem; border-radius: 3px; background: var(--tinte); color: var(--creme); }
+.sq-handkarte .art.bild { background: var(--moos-dunkel); }
+.sq-handkarte:hover, .sq-handkarte:focus-visible { transform: translateY(-22px) rotate(0) scale(1.06); z-index: 5; box-shadow: 0 18px 26px rgba(0,0,0,.5), 0 0 0 3px var(--gold); outline: none; }
+.sq-handkarte.zieht { opacity: .5; }
+@media (max-width: 600px) { .sq-handkarte { width: 96px; height: 124px; margin: 0 -6px; } }
+
+/* Rückfrage als Sprechblase über dem Knopf: nichts verrutscht */
+.sq-rueckfrage-ort { position: relative; }
+.sq-rueckfrage-blase { position: absolute; left: 0; bottom: calc(100% + 12px); z-index: 60; width: min(330px, 80vw); padding: 0.8rem 0.9rem; text-align: left;
+  background: #fffaf0; color: var(--tinte); border-radius: 6px; border-left: 5px solid var(--terrakotta); box-shadow: 0 14px 30px rgba(20, 8, 2, .45);
+  animation: sq-zettel-rein .3s cubic-bezier(.2, 1.4, .4, 1) both; text-shadow: none; }
+.sq-rueckfrage-blase::after { content: ""; position: absolute; left: 22px; top: 100%; border: 9px solid transparent; border-top-color: #fffaf0; }
+.sq-rueckfrage-blase.unten { bottom: auto; top: calc(100% + 12px); }
+.sq-rueckfrage-blase.unten::after { top: auto; bottom: 100%; border-top-color: transparent; border-bottom-color: #fffaf0; }
+.sq-rueckfrage-blase p { margin: 0 0 0.6rem; font-size: 0.9rem; line-height: 1.4; }
+.sq-rueckfrage-blase .knoepfe { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
+.sq-rueckfrage-blase .sq-siegelknopf { font-size: 0.9rem; padding: 0.45rem 0.9rem; }
+.sq-karte:has(.sq-rueckfrage-blase) { z-index: 50; transform: none; }
+.rueckfrage-offen { outline: 3px solid var(--terrakotta); outline-offset: 2px; }
+
+/* Lesbar auf dem Holz: die Hinweiszeile im Korb bekommt eine dunkle Unterlage */
+.sq-korb > p:not(.sq-leer), .sq-korb > div > p:not(.sq-leer) { display: inline-block; background: rgba(28, 14, 4, .62); padding: 0.35rem 0.6rem; border-radius: 4px; }
+
+/* Fokus auf Zetteln sichtbar (die gerissene Kante schneidet den normalen Ring ab) */
+.sq-zettel:has(> summary:focus-visible) { outline: 3px solid var(--gold); outline-offset: 4px; border-radius: 3px; }
+
+/* Chaos sieht nach Chaos aus: grau, stürmisch, große fliegende Papiere */
+.sq-insel.zeitalter-0 .sq-insel-gras { filter: saturate(.35) brightness(.86) contrast(.95); }
+.sq-insel.mit-bild.zeitalter-0 .sq-insel-gras { filter: drop-shadow(0 30px 30px rgba(20, 8, 2, .45)) saturate(.35) brightness(.86) contrast(.95); }
+.sq-insel.zeitalter-0::before { content: ""; position: absolute; inset: -6% -4%; z-index: 2; pointer-events: none; border-radius: 40%;
+  background: radial-gradient(ellipse at 30% 20%, rgba(90, 95, 110, .38), transparent 55%), radial-gradient(ellipse at 75% 70%, rgba(80, 85, 100, .3), transparent 55%);
+  animation: sq-sturm 9s ease-in-out infinite alternate; }
+@keyframes sq-sturm { to { transform: translateX(3%) rotate(2deg); opacity: .7; } }
+.sq-insel.zeitalter-0 .sq-wirbel { width: 34px; height: 44px; opacity: .95; }
+.sq-insel.zeitalter-0 .sq-wirbel:nth-child(odd) { width: 26px; height: 34px; }
+
+/* Ein langer Auftragstitel bleibt einzeilig und schiebt die Insel nicht nach unten */
+@media (min-width: 900px) { .sq-auftrag h2 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } }

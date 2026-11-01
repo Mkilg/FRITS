@@ -71,10 +71,12 @@
       </div>
     </div>
     <div class="sq-insel-schatten"></div>
-    <a class="sq-hort{% if not drache_wach %} schlaeft{% endif %}" href="/steuer/{{ jahr }}/drache">
+    {% set hort_wach = drache_wach and not drache.besiegt %}
+    <a class="sq-hort{% if not drache_wach %} schlaeft{% elif hort_wach %} wach{% endif %}{% if auftrag.art == 'drache' %} auftragsziel{% endif %}" href="/steuer/{{ jahr }}/drache">
+      {% if auftrag.art == "drache" %}<span class="sq-leuchtfeuer" aria-hidden="true"><span>Hier weiter</span></span>{% endif %}
       <span class="sq-drache-klein">{% include "_steuer_drache.html" %}</span>
       {% if drache.stimmung == "schläfrig" %}<span class="sq-zzz" aria-hidden="true">z z Z</span>{% endif %}
-      <span class="sq-schild"><strong>Drachenhort</strong><small>{% if drache.besiegt %}Besiegt! Zur Beute{% elif not drache_wach %}schläft noch{% else %}{{ drache.lp }} Karten übrig{% endif %}</small></span>
+      <span class="sq-schild"><strong>Drachenhort</strong><small>{% if drache.besiegt %}Besiegt! Zur Beute{% elif not drache_wach %}schläft noch{% else %}Wach! {{ drache.lp }} Karte{{ "n" if drache.lp != 1 }} übrig{% endif %}</small></span>
     </a>
   </section>
 
