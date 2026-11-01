@@ -152,7 +152,7 @@ def next_due(today: date, period: str) -> tuple[int, int]:
     return today.year, today.month
 
 
-def _groups(conn: sqlite3.Connection, row, settings: Settings):
+def invoice_groups(conn: sqlite3.Connection, row, settings: Settings):
     """(kind, rate, net, vat) for one issued invoice, from the snapshot frozen at approval."""
     data = None
     if row["draft_id"] is not None:
@@ -229,12 +229,12 @@ def voranmeldung(
             counted.add(key)
 
         for row in done_here:
-            for kind, rate, net, _vat in _groups(conn, row, settings):
+            for kind, rate, net, _vat in invoice_groups(conn, row, settings):
                 if basis == "soll" or kind != "inland":
                     add(kind, rate, net, row["number"])
         if basis == "ist":  # domestic VAT is due when the money came (§ 20 UStG)
             for row in paid_here:
-                for kind, rate, net, _vat in _groups(conn, row, settings):
+                for kind, rate, net, _vat in invoice_groups(conn, row, settings):
                     if kind == "inland":
                         add(kind, rate, net, row["number"])
         result.invoices = len(counted)
@@ -297,7 +297,7 @@ def late_notice(db_path: str | Path, settings: Settings, number: str, today: dat
         row = conn.execute("SELECT * FROM invoices WHERE number = ?", (number,)).fetchone()
         if row is None:
             return None
-        kinds = {kind for kind, *_ in _groups(conn, row, settings)}
+        kinds = {kind for kind, *_ in invoice_groups(conn, row, settings)}
         if settings.vat_basis == "ist" and kinds <= {"inland"}:
             return None  # counts when paid, which is still to come
         day = _service_day(conn, row)

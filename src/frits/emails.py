@@ -56,20 +56,34 @@ def quote_email(quote: dict, gross: Decimal, customer: Customer | None, settings
     return subject, body
 
 
-def reminder_email(invoice: dict, new_due: date, customer: Customer | None, settings: Settings):
+def reminder_email(
+    invoice: dict,
+    new_due: date,
+    customer: Customer | None,
+    settings: Settings,
+    level: int = 1,
+    previous: date | None = None,
+):
+    from frits.reminders import reminder_text
+
     subject = f"Zahlungserinnerung zu Rechnung {invoice['number']}"
+    if level > 1:
+        subject = f"{level}. {subject}"
+    middle = reminder_text(
+        invoice["number"],
+        date.fromisoformat(invoice["issue_date"]),
+        eur(Decimal(invoice["gross"])),
+        level,
+        new_due,
+        previous,
+    )
+    middle = [line.replace("ist dieses Schreiben", "ist diese E-Mail") for line in middle]
     body = "\n".join(
         [
             _hello(customer),
             "",
-            (
-                f"meine Rechnung {invoice['number']} über {eur(Decimal(invoice['gross']))} ist noch "
-                "offen. Vielleicht ist sie untergegangen, das passiert. Die Erinnerung hängt an."
-            ),
-            (
-                f"Ich freue mich über Ihre Zahlung bis zum {_de(new_due)}. Falls Sie schon bezahlt "
-                "haben, ist diese E-Mail erledigt."
-            ),
+            *middle,
+            "Die Erinnerung hängt als PDF an.",
             "",
             "Freundliche Grüße",
             settings.name,

@@ -848,7 +848,19 @@ def create_app(
         except BillingError as exc:
             flash(str(exc), "error")
             return back("/invoices")
-        subject, body = emails.reminder_email(dict(row), new_due, customer, current)
+        level, previous = conn.execute(
+            "SELECT level, (SELECT MAX(created) FROM reminders r2 WHERE r2.invoice_number ="
+            " r.invoice_number AND r2.id < r.id) FROM reminders r WHERE id = ?",
+            (reminder_id,),
+        ).fetchone()
+        subject, body = emails.reminder_email(
+            dict(row),
+            new_due,
+            customer,
+            current,
+            level,
+            date.fromisoformat(previous[:10]) if previous else None,
+        )
         result = system.compose_email(
             customer.email if customer and customer.email else "", subject, body, pdf
         )
@@ -1414,6 +1426,22 @@ def create_app(
         target.parent.mkdir(parents=True, exist_ok=True)
         (euer.write_csv if kind == "csv" else euer.write_pdf)(summary, target)
         return FileResponse(target, filename=target.name)
+
+    @app.get("/euer/{year}/buchungsliste.csv")
+    def euer_buchungsliste(year: int):
+        from frits.export import buchungsliste
+
+        expenses.init_db(ws.db)
+        db()
+        path = buchungsliste(ws, year, ws.root / "euer")
+        return FileResponse(path, filename=path.name)
+
+    @app.get("/euer/{year}/verfahrensdoku.pdf")
+    def euer_verfahrensdoku(year: int):
+        from frits.export import verfahrensdoku
+
+        path = verfahrensdoku(ws, year, ws.root / "euer", today())
+        return FileResponse(path, filename=path.name)
 
     # ----- Umsatzsteuer-Voranmeldung -----
 
