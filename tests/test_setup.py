@@ -229,3 +229,23 @@ def test_redaction_lesson_uses_fritz_own_name(client):
     )
     seen = page.text.split("Das sieht die KI")[1].split("</pre>")[0]
     assert "Sonderbar" not in seen
+
+
+def test_first_setup_shows_only_the_way_through_and_a_way_out(client, ws):
+    page = client.get("/setup/welcome").text
+    header = page[page.index('<header class="top') : page.index("</header>")]
+    assert "nur-einrichtung" in header
+    assert "Später einrichten" in header
+    assert "<nav>" not in header and "Feierabend" not in header
+
+    page = client.post("/setup/later", data={"token": client.token}, follow_redirects=True)
+    assert "Die Einrichtung findest du jederzeit" in page.text
+    assert "<nav>" in page.text  # Heute, with the whole menu
+    assert Settings.load(ws.settings_file).setup_done
+    # Starting the setup again later keeps the menu
+    assert "<nav>" in client.get("/setup/welcome").text
+
+
+def test_setup_later_needs_the_token(client, ws):
+    assert client.post("/setup/later", data={"token": "falsch"}).status_code == 403
+    assert not Settings.load(ws.settings_file).setup_done

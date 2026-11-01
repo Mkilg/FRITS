@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} · FRITS{% endblock %}
+{% block content %}
+<section class="hello fehler">
+  <div class="mascot-big">{{ mascot("warning") }}</div>
+  <div>
+    <h1>{{ title }}</h1>
+    <p class="speech">{{ text }}</p>
+  </div>
+</section>
+<p class="row">
+  <a class="button primary" href="/">Zurück zu Heute</a>
+  <button type="button" class="quiet" onclick="history.back()">Eine Seite zurück</button>
+</p>
+{% endblock %}

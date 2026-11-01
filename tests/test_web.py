@@ -642,3 +642,22 @@ def test_rare_pages_sit_behind_mehr_and_it_shows_where_you_are(client):
     settings_page = client.get("/settings").text
     assert '<summary aria-current="page">Mehr</summary>' in settings_page
     assert '<summary aria-current="page">' not in page
+
+
+def test_missing_pages_look_like_frits(client):
+    page = client.get("/invoices/2099-9999")
+    assert page.status_code == 404
+    assert "Diese Seite gibt es nicht" in page.text
+    assert "Zurück zu Heute" in page.text and "<nav>" in page.text
+    refused = client.post("/inbox/process", data={"token": "wrong"})
+    assert refused.status_code == 403
+    assert "Bitte lade die Seite neu" in refused.text and "<nav>" in refused.text
+
+
+def test_painted_fritte_has_a_fixed_size_and_settings_preview_the_effects(client, ws):
+    from frits.web.app import mascot_or_picture
+
+    html = mascot_or_picture({"fritte-fertig": "/static/bilder/fritte-fertig.webp"})("done")
+    assert 'width="84" height="112"' in html
+    page = client.get("/settings").text
+    assert "So sieht's aus" in page and "data-vorschau" in page

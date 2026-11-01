@@ -41,7 +41,9 @@ def test_mood_follows_the_rhythm_and_never_gets_sad(conn, tmp_path, days_ago, la
     f = haustier.ansehen(conn, tmp_path / "fritte.toml", TODAY)
     assert (f.laune, f.bild) == (laune, bild)
     assert "warning" not in f.bild  # she is never worried or sad
-    assert not any(word in f.satz.lower() for word in ("traurig", "vermisst", "endlich", "schon lange"))
+    assert not any(
+        word in f.satz.lower() for word in ("traurig", "vermisst", "endlich", "schon lange")
+    )
 
 
 def test_salzkoerner_count_real_paperwork_including_older_work(conn, tmp_path):

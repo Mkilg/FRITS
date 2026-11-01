@@ -27,6 +27,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from jinja2 import Environment, PackageLoader, select_autoescape
 from markupsafe import Markup
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from frits import __version__, about, emails, euer, expenses, haustier, setup, store, system
 from frits.billing import (
@@ -166,7 +167,10 @@ def mascot_or_picture(pictures: dict[str, str]):
     def mascot(mood: str) -> Markup:
         name = MOOD_PICTURES.get(mood)
         if name in pictures:
-            return Markup('<img class="fritte" src="{}" alt="">').format(pictures[name])
+            # Fixed size in the HTML, so nothing jumps while the picture loads
+            return Markup('<img class="fritte" src="{}" alt="" width="84" height="112">').format(
+                pictures[name]
+            )
         return mascot_markup(mood)
 
     return mascot
@@ -317,6 +321,25 @@ def create_app(
 
     def back(url: str) -> RedirectResponse:
         return RedirectResponse(url, status_code=303)
+
+    @app.exception_handler(StarletteHTTPException)
+    async def friendly_error(request: Request, exc: StarletteHTTPException):
+        # A page in FRITS's own look instead of bare "Not Found" text
+        if exc.status_code == 404:
+            title, text = (
+                "Diese Seite gibt es nicht",
+                ("Hier liegt nichts. Vielleicht wurde der Eintrag gelöscht oder der Link ist alt."),
+            )
+        elif exc.status_code == 403:
+            title, text = (
+                "Das hat nicht geklappt",
+                (str(exc.detail) if exc.detail != "Forbidden" else "Das darf diese Seite nicht."),
+            )
+        else:
+            title, text = "Da ist etwas schiefgelaufen", str(exc.detail)
+        response = page(request, "fehler.html", title=title, text=text, code=exc.status_code)
+        response.status_code = exc.status_code
+        return response
 
     # Sounds and music, if that part of FRITS is installed
     app.state.sounds_url = None
@@ -1036,6 +1059,16 @@ def create_app(
             flash("In dieser Datei habe ich keine Angaben gefunden. Trag sie einfach von Hand ein.")
             return back("/setup/business_details")
         return setup_page(request, "business_details", imported=details)
+
+    @app.post("/setup/later", dependencies=guarded)
+    def setup_later():
+        # Fritz may look around first; FRITS reminds him on "Heute" what's still missing
+        current = settings()
+        replace(current, setup_done=True).save(ws.settings_file)
+        flash(
+            "Gut, schau dich in Ruhe um. Die Einrichtung findest du jederzeit unter Mehr › Einstellungen."
+        )
+        return back("/")
 
     @app.post("/setup/{step}", dependencies=guarded)
     async def setup_save(request: Request, step: str):

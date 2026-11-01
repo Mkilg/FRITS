@@ -10,8 +10,17 @@
   {% block head %}{% endblock %}
 </head>
 <body data-effekte="{{ settings.effects }}"{% if sounds %} data-frits-sound="on" data-frits-sound-base="{{ sounds }}"{% endif %}>
-<header class="top">
+<header class="top{{ ' nur-einrichtung' if nav.startswith('/setup') and not settings.setup_done }}">
   <a class="brand" href="/"><span class="brand-fry">{{ mascot("welcome") }}</span><span>FRITS</span></a>
+  {% if nav.startswith("/setup") and not settings.setup_done %}
+  {# During the first setup: only the way through, plus a way out #}
+  <div class="top-actions">
+    <form method="post" action="/setup/later">
+      <input type="hidden" name="token" value="{{ token }}">
+      <button class="quiet" title="FRITS erst einmal ansehen. Die Einrichtung wartet unter Einstellungen.">Später einrichten</button>
+    </form>
+  </div>
+  {% else %}
   {# Everyday places in the row; the rest behind "Mehr", so the row stays one line #}
   {% set more = [("/lernen", "KI-Werkstatt"), ("/settings", "Einstellungen"), ("/ueber", "Über FRITS")] %}
   {% set ns = namespace(here=false) %}
@@ -43,6 +52,7 @@
       <button class="feierabend">Feierabend</button>
     </form>
   </div>
+  {% endif %}
 </header>
 <main>
   {% block flashes %}
