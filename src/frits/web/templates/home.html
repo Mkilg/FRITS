@@ -36,7 +36,7 @@
   {% endif %}
   {% with dz_back="/", dz_class="form", dz_read=ai_ready, dz_title=("Noch etwas? Hierher ziehen oder einfügen" if waiting else "Notiz, E-Mail oder Foto hierher ziehen") %}{% include "_dropzone.html" %}{% endwith %}
   <div class="leise-links">
-    <form method="post" action="/open/inbox"><input type="hidden" name="token" value="{{ token }}"><button>Eingangsordner im Finder öffnen</button></form>
+    {% if not im_browser() %}<form method="post" action="/open/inbox"><input type="hidden" name="token" value="{{ token }}"><button>Eingangsordner im Finder öffnen</button></form>{% endif %}
     {% if ai_ready %}<form method="post" action="/drafts/new"><input type="hidden" name="token" value="{{ token }}"><button>Rechnung von Hand schreiben</button></form>{% endif %}
   </div>
 </section>

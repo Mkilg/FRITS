@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FRITS im Browser</title>
+<meta name="description" content="FRITS ohne Installation: läuft ganz in deinem Browser, deine Daten bleiben auf deinem Gerät.">
+<link rel="icon" href="fry.svg">
+<link rel="stylesheet" href="shell.css">
+</head>
+<body>
+<main id="laden" class="laden" aria-live="polite">
+  <img src="static/bilder/fritte-willkommen.webp" alt="" width="160" height="160">
+  <h1>FRITS startet</h1>
+  <p id="laden-text">Einen Moment, FRITS wird in deinem Browser eingerichtet …</p>
+  <div class="balken" aria-hidden="true"><div id="laden-balken"></div></div>
+  <p class="klein">Beim ersten Mal lädt dein Browser etwa 35 MB. Danach muss nichts mehr geladen werden, FRITS startet
+    dann auch ohne Internet. Deine Daten bleiben in diesem Browser auf diesem Gerät.</p>
+</main>
+
+<iframe id="app" title="FRITS" hidden></iframe>
+
+<footer id="leiste" class="leiste" hidden>
+  <span class="ort" title="Deine Rechnungen, Kunden und Belege liegen nur in diesem Browser auf diesem Gerät.">
+    <span aria-hidden="true">🔒</span> Im Browser · <span id="speicher-status">gespeichert</span>
+  </span>
+  <span id="modell-status" class="modell"></span>
+  <span class="knoepfe">
+    <button type="button" id="sichern">Sicherung <span class="lang">herunterladen</span><span class="kurz">laden</span></button>
+    <label class="knopf"><span class="lang">Sicherung einspielen</span><span class="kurz">Einspielen</span><input type="file" id="einspielen" accept=".zip" hidden></label>
+    <button type="button" id="info-knopf" aria-haspopup="dialog">Was ist anders?</button>
+  </span>
+</footer>
+
+<dialog id="info">
+  <h2>FRITS im Browser</h2>
+  <p>Das ist dasselbe FRITS wie die Mac-App, nur ohne Installation. Es läuft komplett in diesem
+    Browser-Tab. Es gibt keinen FRITS-Server: niemand außer dir sieht deine Daten.</p>
+  <ul>
+    <li><b>Wo liegen meine Daten?</b> Im Speicher dieses Browsers auf diesem Gerät. Ein anderer
+      Browser oder ein anderes Gerät sieht sie nicht.</li>
+    <li><b>Sicherung ist Pflicht.</b> Wenn du die Browserdaten löschst, sind deine Rechnungen weg.
+      Lade regelmäßig eine Sicherung herunter (unten links), zum Beispiel jeden Freitag.</li>
+    <li><b>Was geht ins Internet?</b> Nur der schon geschwärzte Text an die KI, die du gewählt
+      hast, mit deinem eigenen Schlüssel. Einmalig lädt dein Browser das Schwärz-Modell
+      (ca. 180 MB) von Hugging Face; dabei wird kein Text von dir übertragen.</li>
+    <li><b>Was fehlt?</b> Der Eingangsordner auf dem Mac und „In Mail öffnen“. Dateien ziehst du
+      einfach ins Fenster oder fügst Text ein.</li>
+  </ul>
+  <form method="dialog"><button>Alles klar</button></form>
+</dialog>
+
+<dialog id="fehler">
+  <h2 id="fehler-titel">Das hat nicht geklappt</h2>
+  <p id="fehler-text"></p>
+  <form method="dialog"><button>Schließen</button></form>
+</dialog>
+
+<script type="module" src="shell.js"></script>
+</body>
+</html>

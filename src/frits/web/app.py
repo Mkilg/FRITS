@@ -43,6 +43,7 @@ from frits import (
     setup,
     store,
     system,
+    umgebung,
     ustva,
 )
 from frits.billing import (
@@ -290,6 +291,7 @@ def _templates() -> Jinja2Templates:
         countries=COUNTRIES,
         providers=PROVIDERS,
         supported=",".join(sorted(SUPPORTED)),
+        im_browser=lambda: umgebung.IM_BROWSER,
     )
     return Jinja2Templates(env=env)
 
@@ -1183,9 +1185,9 @@ def create_app(
             return back("/settings")
         updated.save(ws.settings_file)
         if save_key(updated.provider, str(form.get("api_key", ""))):
-            flash("Gespeichert. Dein Schlüssel liegt jetzt im Schlüsselbund dieses Macs.")
+            flash(f"Gespeichert. Dein Schlüssel liegt jetzt {umgebung.schluessel_ort()}.")
         elif str(form.get("api_key", "")).strip():
-            flash("Der Schlüssel ließ sich nicht im Schlüsselbund speichern.", "error")
+            flash("Der Schlüssel ließ sich nicht speichern.", "error")
         else:
             flash("Gespeichert.")
         return back("/settings")
@@ -1623,9 +1625,9 @@ def create_app(
 
         if step == "store_key" and str(form.get("api_key", "")).strip():
             if save_key(updated.provider, str(form.get("api_key"))):
-                flash("Dein Schlüssel liegt jetzt im Schlüsselbund dieses Macs.")
+                flash(f"Dein Schlüssel liegt jetzt {umgebung.schluessel_ort()}.")
             else:
-                flash("Der Schlüssel ließ sich nicht im Schlüsselbund speichern.", "error")
+                flash("Der Schlüssel ließ sich nicht speichern.", "error")
                 return back(f"/setup/{step}")
         if action == "test":
             try:
