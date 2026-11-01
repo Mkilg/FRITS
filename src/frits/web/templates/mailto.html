@@ -7,7 +7,7 @@
   <div class="row">
     <a class="button primary" href="{{ link }}">E-Mail öffnen</a>
     {% if attachment is not defined or attachment %}
-    <form method="post" action="/open/invoices"><input type="hidden" name="token" value="{{ token }}"><button>Rechnungsordner öffnen</button></form>
+    {% if not im_browser() %}<form method="post" action="/open/invoices"><input type="hidden" name="token" value="{{ token }}"><button>Rechnungsordner öffnen</button></form>{% endif %}
     {% endif %}
   </div>
 </section>

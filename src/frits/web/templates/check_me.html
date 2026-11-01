@@ -14,5 +14,5 @@
 {% else %}
 <p class="muted">Alles erledigt.</p>
 {% endif %}
-<form method="post" action="/open/check-me"><input type="hidden" name="token" value="{{ token }}"><button class="quiet">Ordner öffnen</button></form>
+{% if not im_browser() %}<form method="post" action="/open/check-me"><input type="hidden" name="token" value="{{ token }}"><button class="quiet">Ordner öffnen</button></form>{% endif %}
 {% endblock %}

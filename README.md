@@ -53,6 +53,12 @@ uv run frits ui                 # opens the browser; the setup assistant starts
 Your FRITS folder is `~/Documents/FRITS` (set `FRITS_HOME` to use another folder).
 Here the key goes into the Keychain, and Mail opens ready-to-send messages.
 
+### In the browser, without installing anything
+
+FRITS also runs completely inside a browser tab: https://mkilg.github.io/FRITS/ (once GitHub Pages
+is switched on). There is no FRITS server; your data stays in that browser on that device, so
+download a backup now and then (button at the bottom). How it works: [browser/README.md](browser/README.md).
+
 ## The Mac app (no installing)
 
 A ready-to-run `FRITS.app` (no installing, works offline, also from a USB stick) is built automatically. See [packaging/macos](packaging/macos/README.md).

@@ -56,7 +56,7 @@ FALLBACK_STEPS = {
     "store_key": (
         "thinking",
         "Dein Schlüssel bleibt bei dir",
-        "Ich speichere ihn nur im Schlüsselbund dieses Computers.",
+        "Ich speichere ihn nur auf diesem Gerät, nie in einer Datei.",
     ),
     "business_details": (
         "welcome",

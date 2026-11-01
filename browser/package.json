@@ -1,0 +1,17 @@
+{
+  "name": "frits-browser",
+  "private": true,
+  "type": "module",
+  "description": "JavaScript parts of the FRITS browser version: text recognition and the redaction model. Copied into dist/ by build.py, never loaded from a CDN.",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "e2e": "node tests/e2e.cjs"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "4.3.2",
+    "@tesseract.js-data/deu": "1.0.0",
+    "@tesseract.js-data/eng": "1.0.0",
+    "tesseract.js": "6.0.1",
+    "tesseract.js-core": "6.1.2"
+  }
+}
