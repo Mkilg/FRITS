@@ -335,6 +335,20 @@
     }, 380);
     if (!ruhig) setTimeout(konfetti, 250);
     fanfare();
+    // Balatro-Trick: Belohnungen kommen einzeln, jede mit eigenem Ton, nie als Liste auf einmal
+    var beute = belohnung.querySelectorAll(".sq-beute li");
+    if (beute.length > 1 && !ruhig) {
+      belohnung.classList.add("nacheinander");
+      Array.prototype.forEach.call(beute, function (li, i) {
+        var ab = 0.6 + i * 0.7;
+        ton(523 * Math.pow(2, (i * 3) / 12), 0.16, "triangle", 0.08, ab + 0.05);
+        ton(784 * Math.pow(2, (i * 3) / 12), 0.22, "triangle", 0.06, ab + 0.13);
+        setTimeout(function () {
+          var w = mitte(li);
+          funken(w[0], w[1], 10);
+        }, (ab + 0.15) * 1000);
+      });
+    }
     belohnung.addEventListener("click", function (e) { if (e.target === belohnung) belohnung.close(); });
   }
 

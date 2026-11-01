@@ -51,7 +51,8 @@
   </div>
 
   {% if combo.combo %}
-  <div class="sq-combo" aria-live="polite"><span class="mult">×{{ combo.combo }}</span><span class="ruf">{{ combo.ruf }}</span>
+  <div class="sq-combo" aria-live="polite"><span class="mult" title="Gold-Serie: So oft zählt das Gold für den nächsten Beleg">Gold ×{{ combo.mult }}</span><span class="ruf">{{ combo.ruf }}</span>
+    <small class="sq-combo-regel">Jeder Treffer nimmt dem Drachen eine Karte. Die Serie vervielfacht das Gold für Belege.</small>
   </div>
   {% endif %}
 
@@ -68,10 +69,14 @@
         <button class="quiet">Falsch? Zurücklegen</button>
       </form>
       {% else %}
-      <span><b>{{ "Kritischer Treffer" if wurf.wie == "datei" else ("Notiert" if wurf.wie == "gibts_nicht" else "Treffer") }}:</b> {{ {"datei": "„" ~ wurf.karte ~ "“ ist gesichert.", "fragen": "„" ~ wurf.karte ~ "“ kommt als Frage in die Mail.", "gibts_nicht": "„" ~ wurf.karte ~ "“ gibt es nicht.", "verweis": "„" ~ wurf.karte ~ "“ benutzt dieselbe Datei mit."}.get(wurf.wie, "") }}</span>
+      <span><b>{{ "Volltreffer" if wurf.wie == "datei" else ("Notiert" if wurf.wie == "gibts_nicht" else "Treffer") }}:</b> {{ {"datei": "„" ~ wurf.karte ~ "“ ist gesichert.", "fragen": "„" ~ wurf.karte ~ "“ kommt als Frage in die Mail.", "gibts_nicht": "„" ~ wurf.karte ~ "“ gibt es nicht.", "verweis": "„" ~ wurf.karte ~ "“ benutzt dieselbe Datei mit."}.get(wurf.wie, "") }}</span>
       {% endif %}
       {% if beute %}{% set karte_gold = beute.basis * beute.mult %}
+      {% if beute.mult > 1 %}
       <span class="sq-rechnung" aria-label="{{ beute.plus }} Gold verdient"><span class="chips">{{ beute.basis }}</span><span class="mal">×</span><span class="faktor">{{ beute.mult }}</span><span class="gleich">=</span><b>+{{ karte_gold }} Gold</b>{% if beute.plus > karte_gold %}<small>+{{ beute.plus - karte_gold }} Bonus</small>{% endif %}</span>
+      {% else %}
+      <span class="sq-rechnung" aria-label="{{ beute.plus }} Gold verdient"><b>+{{ karte_gold }} Gold</b>{% if beute.plus > karte_gold %}<small>+{{ beute.plus - karte_gold }} Bonus</small>{% endif %}{% if wurf.wie not in ["datei", "zettel", "verweis"] and combo.mult > 1 %}<small>ohne Serie, die zählt nur für Belege</small>{% endif %}</span>
+      {% endif %}
       {% endif %}
     </div>
     {% endif %}
@@ -89,7 +94,7 @@
         <input type="hidden" name="token" value="{{ token }}">
         <input type="hidden" name="stueck_id" value="{{ k.id }}">
         <div class="sq-ablage">
-          <label class="fach">Datei geben: kritischer Treffer, doppelte Combo!<input type="file" name="datei" multiple></label>
+          <label class="fach">Datei geben: Volltreffer, die Gold-Serie wächst doppelt!<input type="file" name="datei" multiple></label>
         </div>
         <div class="reihe">
           <button class="sq-siegelknopf" name="aktion" value="datei" data-datei-waehlen>Datei geben</button>
@@ -149,7 +154,7 @@ Steuer-ID: {% endif %}</textarea></label>
   </section>
   {% endif %}
   {% if lager %}
-  {# Balatro-Kern: Der Eingangskorb ist deine Hand. Ein Zettel, der passt, ist ein kritischer Treffer. #}
+  {# Balatro-Kern: Der Eingangskorb ist deine Hand. Ein Zettel, der passt, ist ein Volltreffer. #}
   {% set hand = lager[:8] %}
   <div class="sq-hand" aria-label="Deine Hand: Zettel aus dem Eingangskorb">
     <p class="sq-hand-titel"><strong>Deine Hand:</strong> {{ lager | length }} Zettel aus dem Eingangskorb. Passt einer zu „{{ k.name }}“? Wirf ihn auf den Drachen!</p>

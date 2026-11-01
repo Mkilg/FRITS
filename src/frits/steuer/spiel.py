@@ -205,14 +205,17 @@ def ressourcen(stuecke: list[dict], provinzstaende: list[Provinzstand]) -> Resso
 
 # ---------- Der Papierdrache ----------
 
+# Ehrlich bleiben: Jeder Treffer nimmt dem Drachen genau eine Karte. Die Serie vervielfacht
+# nur das Gold für gefundene Belege, darum heißt sie Gold-Serie und nicht "Doppelschlag".
 RUFE = (
     "Er wirft dir eine Karte zu!",
     "Treffer!",
-    "Doppelschlag!",
-    "Dreifach-Serie!",
+    "Die Gold-Serie läuft!",
+    "Die Gold-Serie wächst!",
     "Unaufhaltsam!",
-    "Legendäre Serie!",
+    "Legendäre Gold-Serie!",
 )
+VOLLTREFFER = "Volltreffer mit Beleg! "
 
 
 @dataclass(frozen=True)
@@ -220,8 +223,9 @@ class Drache:
     """Der Bosskampf am Ende. Seine Lebenspunkte sind die offenen Sammelstücke.
 
     Je mehr du vorher gesammelt hast, desto weniger Karten hat er. Jede beantwortete
-    Karte ist ein Treffer: eine Datei abgeben ist ein kritischer Treffer, "gibt's nicht"
-    oder "lieber fragen" sind normale Treffer. Nichts davon ist falsch.
+    Karte ist ein Treffer und nimmt ihm genau einen Lebenspunkt. Eine Datei ist ein Volltreffer:
+    Die Gold-Serie wächst doppelt. "Gibt's nicht" oder "lieber fragen" sind normale Treffer.
+    Nichts davon ist falsch.
     """
 
     lp: int
@@ -275,7 +279,9 @@ def drache(stuecke: list[dict]) -> Drache:
 
 
 def treffer(combo: int, kritisch: bool, zaehlt: bool = True) -> tuple[int, str]:
-    """Neue Combo-Zahl und der passende Ruf. Kritische Treffer (eine Datei) zählen doppelt.
+    """Neue Combo-Zahl und der passende Ruf. Volltreffer (eine Datei) lassen die Serie doppelt
+    wachsen. Die Serie ist eine Gold-Serie: Sie vervielfacht das Gold für Belege, der Drache
+    verliert trotzdem nur eine Karte pro Treffer.
 
     "Gibt's nicht" zählt nicht für die Serie (zaehlt=False): Die Serie hält, wächst aber nicht.
     Sonst wäre Wegstempeln der schnellste Weg zum Sieg, und genau das soll das Spiel nicht belohnen.
@@ -285,7 +291,7 @@ def treffer(combo: int, kritisch: bool, zaehlt: bool = True) -> tuple[int, str]:
     neu = combo + (2 if kritisch else 1)
     ruf = RUFE[min(neu, len(RUFE) - 1)]
     if kritisch:
-        ruf = "Kritischer Treffer! " + ruf
+        ruf = VOLLTREFFER + ruf
     return neu, ruf
 
 
@@ -649,6 +655,27 @@ WIESE: tuple[float, float, float, float] = (37.0, 28.0, 90.0, 62.0)
 
 def ware(key: str) -> Ware | None:
     return next((w for w in MARKT if w.key == key), None)
+
+
+GEWUERZ_START_MAX = 3  # so viele Gewürze aus Frittes Regal wärmen höchstens auf
+
+
+def start_serie(gewuerze: int) -> int:
+    """Die Brücke vom Alltag zum Drachen: Jedes Gewürz in Frittes Regal (gepflegt mit
+    Kassenstürzen) hebt die Gold-Serie zum Kampfbeginn um eins, höchstens um drei.
+    Ein Gewürz heißt also Gold ×2 schon für den ersten Beleg."""
+    n = max(0, min(gewuerze, GEWUERZ_START_MAX))
+    return n + 1 if n else 0
+
+
+def hafen_angebot(gold: int, besitz: dict | set | frozenset) -> list[Ware]:
+    """Helfer, die man sich gerade leisten kann und noch nicht hat, billigste zuerst.
+    Beim Erwachen des Drachen ist das die erste echte Entscheidung: gleich kämpfen,
+    oder erst im Hafen einen Helfer anheuern?"""
+    return sorted(
+        (w for w in MARKT if w.art == "helfer" and w.key not in besitz and w.preis <= gold),
+        key=lambda w: w.preis,
+    )
 
 
 def multiplikator(combo: int, helfer: frozenset[str] | set[str] = frozenset()) -> int:

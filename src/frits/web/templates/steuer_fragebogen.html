@@ -58,6 +58,7 @@
         <span class="sq-wahlbild">{% if gemalt %}<img src="{{ gemalt }}" alt=""{% if farbe %} style="--farbe: {{ farbe }}" class="geliehen"{% endif %}>{% endif %}</span>
         <strong>{{ prov.bereich }}</strong>
         <span class="muted">wird zu: {{ prov.name }}</span>
+        {% if prov.frage == "freiberuflich" and uebernommen and (werte[0] + werte[1]) %}<span class="sq-uebernommen">Aus deiner Einrichtung übernommen</span>{% endif %}
         {% for person in range(2 if (profil.zusammen and prov.person) else 1) %}
         {% set wert = werte[person] if prov.person else (werte[0] + werte[1]) %}
         <label class="sq-wahl">
