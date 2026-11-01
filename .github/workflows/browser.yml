@@ -1,0 +1,75 @@
+name: Browser-Version
+
+# Builds FRITS for the browser (browser/build.py), tests it in a real Chromium and, on main,
+# publishes it on GitHub Pages. The page is only the program: every user's data stays in their
+# own browser. Needs once: Settings > Pages > Source: "GitHub Actions".
+on:
+  push:
+    branches: [main]
+    paths: ["src/**", "browser/**", "uv.lock", "pyproject.toml", ".github/workflows/browser.yml"]
+  pull_request:
+    paths: ["src/frits/browser/**", "browser/**", ".github/workflows/browser.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: browser-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Pyodide aus dem Zwischenspeicher
+        uses: actions/cache@v4
+        with:
+          path: browser/.cache
+          key: pyodide-${{ hashFiles('browser/build.py') }}
+      - run: npm ci --no-audit --no-fund
+        working-directory: browser
+      - run: uv sync --frozen --python 3.12
+      - name: Bauen
+        run: uv run python browser/build.py
+      - name: Tests ohne Browser
+        run: node --test browser/tests/*.test.mjs
+      - name: Test im echten Browser
+        run: |
+          npm install --no-save --no-audit --no-fund playwright@1.63.0
+          npx playwright install --with-deps chromium
+          node tests/e2e.cjs
+        working-directory: browser
+        env:
+          FRITS_E2E_SHOTS: ${{ runner.temp }}/bilder
+      - name: Bilder vom Test
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-test-bilder
+          path: ${{ runner.temp }}/bilder
+          retention-days: 7
+          if-no-files-found: ignore
+      - uses: actions/upload-pages-artifact@v3
+        if: github.ref == 'refs/heads/main'
+        with:
+          path: browser/dist
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
