@@ -97,6 +97,7 @@
       </table>
       </div>
       {% if sums.vat_rate is none %}<p class="hint">Kleinunternehmer: keine Umsatzsteuer (§ 19 UStG).</p>{% endif %}
+      {% if editable and not is_quote and not period %}<p class="hint">Keine Position hat ein Datum. Dann steht auf der Rechnung „Leistungsdatum entspricht dem Rechnungsdatum“. Hast du früher gearbeitet, trag bitte bei den Positionen das Datum ein (Pflicht nach § 14 UStG).</p>{% endif %}
       <p class="hint">Preise kommen aus der Kundennotiz oder deinen Einstellungen, nie von der KI. Du kannst jeden Wert ändern.</p>
 
       {% if draft.questions %}

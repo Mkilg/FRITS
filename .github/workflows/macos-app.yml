@@ -1,11 +1,12 @@
 name: Mac app
 
 # Builds FRITS-macOS.zip: FRITS.app for Apple Silicon and Intel Macs, runs offline.
-# Runs when the packaging changes, on every push to main, by hand ("Run workflow"),
-# and for version tags (v1.0.0 ...), which also attach the zip to a GitHub Release.
+# Runs when the packaging changes, by hand ("Run workflow"), and for version
+# tags (v1.0.0 ...), which also attach the zip to a GitHub Release.
+# Not on every push to main: Mac minutes count 10x on a private repo, so builds
+# happen only when a new version should be tried out.
 on:
   push:
-    branches: [main]
     tags: ["v*"]
   pull_request:
     paths:

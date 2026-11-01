@@ -9,7 +9,13 @@ from pathlib import Path
 
 from fpdf import FPDF
 
-from frits.billing import KLEINUNTERNEHMER_NOTE, Draft, Totals
+from frits.billing import (
+    KLEINUNTERNEHMER_NOTE,
+    SERVICE_DATE_FALLBACK,
+    Draft,
+    Totals,
+    service_period,
+)
 from frits.settings import Settings
 
 FONTS = files("frits") / "assets" / "fonts"
@@ -40,9 +46,14 @@ def render_invoice(
     issued: date,
     due: date | None,
     cancels: str | None = None,
+    cancels_date: date | None = None,
 ) -> Path:
     title = f"Stornorechnung zu {cancels}" if cancels else "Rechnung"
     facts = [("Rechnungsnummer", number), ("Rechnungsdatum", _de(issued))]
+    if cancels:
+        original = f"{cancels} vom {_de(cancels_date)}" if cancels_date else cancels
+        facts.append(("Storniert wird", original))
+    facts.append(("Leistungsdatum", service_period(draft.lines) or SERVICE_DATE_FALLBACK))
     closing = []
     if due and not cancels:
         closing.append(
@@ -62,6 +73,8 @@ def render_quote(
     valid_until: date,
 ) -> Path:
     facts = [("Angebotsnummer", number), ("Datum", _de(issued))]
+    if period := service_period(draft.lines):
+        facts.append(("Leistungszeitraum", period))
     closing = [
         f"Dieses Angebot gilt bis zum {_de(valid_until)}. Ich freue mich auf Ihren Auftrag.",
     ]
@@ -108,10 +121,51 @@ def render_reminder(
     return _finish(pdf, path, settings)
 
 
+class _Paper(FPDF):
+    """A4 with Fritz's bank and tax details at the bottom of every page."""
+
+    def __init__(self, footer_lines: list[str]) -> None:
+        super().__init__(format="A4")
+        self.footer_lines = footer_lines
+
+    def footer(self) -> None:
+        self.set_y(-38)
+        self.set_font("DejaVu", size=8)
+        for text in self.footer_lines:
+            self.cell(0, 4.5, text, align="C", new_x="LMARGIN", new_y="NEXT")
+        self.cell(0, 4.5, f"Seite {self.page_no()} von {{nb}}", align="C")
+
+
+def _footer_lines(settings: Settings) -> list[str]:
+    sender = settings.company or settings.name
+    tax_ids = []
+    if settings.steuernummer.strip():
+        tax_ids.append(f"Steuernummer {settings.steuernummer.strip()}")
+    if settings.ust_id.strip():
+        tax_ids.append(f"USt-IdNr. {settings.ust_id.strip()}")
+    return [
+        line
+        for line in (
+            " · ".join(x for x in (sender, settings.address, settings.email, settings.phone) if x),
+            " · ".join(
+                x
+                for x in (
+                    settings.bank,
+                    f"IBAN {settings.iban}" if settings.iban else "",
+                    f"BIC {settings.bic}" if settings.bic else "",
+                )
+                if x
+            ),
+            " · ".join(tax_ids),
+        )
+        if line
+    ]
+
+
 def _start(settings: Settings, customer_name: str | None, customer_address: str | None) -> FPDF:
-    pdf = FPDF(format="A4")
+    pdf = _Paper(_footer_lines(settings))
     pdf.set_margins(20, 20, 20)
-    pdf.set_auto_page_break(True, margin=25)
+    pdf.set_auto_page_break(True, margin=42)
     pdf.add_font("DejaVu", fname=str(FONTS / "DejaVuSans.ttf"))
     pdf.add_font("DejaVu", style="B", fname=str(FONTS / "DejaVuSans-Bold.ttf"))
     pdf.add_page()
@@ -127,23 +181,6 @@ def _start(settings: Settings, customer_name: str | None, customer_address: str 
 
 
 def _finish(pdf: FPDF, path: Path, settings: Settings) -> Path:
-    # Footer: bank and tax details
-    sender = settings.company or settings.name
-    pdf.set_y(-40)
-    pdf.set_font("DejaVu", size=8)
-    tax_id = (
-        f"USt-IdNr. {settings.ust_id}"
-        if settings.ust_id
-        else f"Steuernummer {settings.steuernummer}"
-    )
-    footer = [
-        f"{sender} · {settings.address} · {settings.email} · {settings.phone}".strip(" ·"),
-        f"{settings.bank} · IBAN {settings.iban} · BIC {settings.bic}".strip(" ·"),
-        tax_id,
-    ]
-    for text in footer:
-        pdf.cell(0, 4.5, text, align="C", new_x="LMARGIN", new_y="NEXT")
-
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     pdf.output(str(path))
@@ -165,11 +202,6 @@ def _document(
     pdf.set_font("DejaVu", "B", 16)
     pdf.cell(0, 9, title, new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("DejaVu", size=10)
-    facts = list(facts)
-    dates = [line.date for line in draft.lines if line.date]
-    if dates:
-        period = dates[0] if len(set(dates)) == 1 else f"{dates[0]} bis {dates[-1]}"
-        facts.append(("Leistungsdatum", period))
     for label, value in facts:
         pdf.cell(45, 6, label)
         pdf.cell(0, 6, value, new_x="LMARGIN", new_y="NEXT")
@@ -183,11 +215,19 @@ def _document(
     pdf.ln()
     pdf.set_font("DejaVu", size=10)
     for line in draft.lines:
-        label = line.description + (f" ({line.date})" if line.date else "")
-        pdf.cell(cols[0], 7, label[:60])
-        pdf.cell(cols[1], 7, f"{qty(line.quantity)} {line.unit}", align="R")
-        pdf.cell(cols[2], 7, eur(line.unit_price), align="R")
-        pdf.cell(cols[3], 7, eur(line.net), align="R", new_x="LMARGIN", new_y="NEXT")
+        # The whole description is printed, wrapped if needed: it is the "Art der Leistung".
+        label = line.description + (f" ({service_period([line])})" if line.date else "")
+        rows = pdf.multi_cell(cols[0], 6, label, align="L", dry_run=True, output="LINES")
+        height = max(len(rows), 1) * 6 + 1
+        if pdf.will_page_break(height):
+            pdf.add_page()
+        top = pdf.get_y()
+        pdf.multi_cell(cols[0], 6, label, align="L", new_x="RIGHT", new_y="TOP")
+        pdf.set_xy(pdf.l_margin + cols[0], top)
+        pdf.cell(cols[1], 6, f"{qty(line.quantity)} {line.unit}", align="R")
+        pdf.cell(cols[2], 6, eur(line.unit_price), align="R")
+        pdf.cell(cols[3], 6, eur(line.net), align="R")
+        pdf.set_xy(pdf.l_margin, top + height)
     pdf.ln(2)
 
     def total_row(label: str, value: Decimal, bold: bool = False) -> None:
