@@ -17,6 +17,16 @@
     {% else %}
     <p><strong>Willkommen bei Fritte!</strong> Fritte ist gerade eingezogen und hat dir ein Glas Pfeffer mitgebracht. Er wirkt, sobald drei verschiedene Kartenarten auf dem Tisch liegen. Jede erledigte Rechnung, Ausgabe oder Zahlung wird zu einer Karte.</p>
     {% endif %}
+    {% if stil_fragen %}
+    <div class="stil-frage">
+      <p><strong>Wie soll Fritte feiern?</strong> Das kannst du jederzeit in den Einstellungen ändern.</p>
+      <form method="post" action="/fritte/stil" class="stil-wahl">
+        <input type="hidden" name="token" value="{{ token }}">
+        <button name="stil" value="verspielt"><span aria-hidden="true">🎉</span> Verspielt mit Klang<small>Karte für Karte, Gläser wackeln, kleine Töne</small></button>
+        <button name="stil" value="ruhig"><span aria-hidden="true">🌿</span> Ruhig und leise<small>Nur das Ergebnis und ein Stempel</small></button>
+      </form>
+    </div>
+    {% endif %}
     <form method="post" action="/fritte/kassensturz">
       <input type="hidden" name="token" value="{{ token }}">
       <button class="primary gross">Ersten Kassensturz machen</button>
@@ -53,10 +63,28 @@
   <p class="vorschau-zeile">Vorschau: <strong>{{ vorschau.koerner }}</strong> {{ "Korn" if vorschau.koerner == 1 else "Körner" }} × <strong>{{ spiel.zahl(vorschau.wuerze) }}</strong> Würze = <strong>{{ vorschau.summe }}</strong> {{ "Salzkorn" if vorschau.summe == 1 else "Salzkörner" }}</p>
   <div class="regal-vorschau">
     <span class="hint">Im Regal ({{ regal | length }} von {{ plaetze }}):</span>
-    {% for g in regal %}{{ spiel.glas(g, klein=True) }}{% else %}<span class="hint">noch leer. Im <a href="/fritte/laden#markt">Laden</a> gibt es Gewürze.</span>{% endfor %}
+    {% for g in extras + regal %}
+    <span class="glas-mit-wirkung{{ ' wirkt' if wirkt[g.id][0] else ' wartet' }}">{{ spiel.glas(g, klein=True) }}<span class="glas-wirkung"><strong>{{ g.name }}:</strong> {{ wirkt[g.id][1] }}</span></span>
+    {% else %}<span class="hint">noch leer. Im <a href="/fritte/laden#markt">Laden</a> gibt es Gewürze.</span>{% endfor %}
   </div>
   <form method="post" action="/fritte/kassensturz">
     <input type="hidden" name="token" value="{{ token }}">
+    {% if gerichte %}
+    <fieldset class="tagesgericht">
+      <legend>Was kocht Fritte heute dazu? <span class="hint">Ein Gericht für diesen Kassensturz. Morgen gibt es andere.</span></legend>
+      <div class="gerichte">
+        {% for g in gerichte %}
+        <label class="gericht">
+          <input type="radio" name="rezept" value="{{ g.id }}" required>
+          <span class="gericht-zeichen" aria-hidden="true">{{ g.zeichen }}</span>
+          <strong>{{ "Einkochen" if g.id == "einkochen" else g.name }}</strong>
+          <span class="gericht-text">{{ g.text }}</span>
+          <span class="gericht-summe">{% if g.id == "einkochen" %}Heute <strong>{{ gericht_summe[g.id] }}</strong>, nächstes Mal mehr{% else %}Ergibt <strong>{{ gericht_summe[g.id] }}</strong> {{ "Salzkorn" if gericht_summe[g.id] == 1 else "Salzkörner" }}{% endif %}</span>
+        </label>
+        {% endfor %}
+      </div>
+    </fieldset>
+    {% endif %}
     <button class="primary gross">{{ "Ersten Kassensturz machen" if willkommen else "Kassensturz machen" }}</button>
   </form>
   {% if not willkommen %}

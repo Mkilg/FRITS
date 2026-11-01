@@ -11,6 +11,7 @@ from fastapi.responses import HTMLResponse
 
 from frits import haustier, store
 from frits.spiel import album, ausbau, kassensturz, saison, stand
+from frits.spiel import gewuerze as gewuerze_mod
 from frits.spiel.gewuerze import GEWICHT, GEWUERZE, NACH_ID
 
 MARKT_GROESSE = 3
@@ -61,6 +62,11 @@ def markt(conn, heute: date) -> list:
     neue = set(seltenheiten) - alte
     if neue:
         ids += ziehen(neue, owned | set(ids), 1, 1000 + wurf)
+    if not gespeichert and stand.einstellung(conn, "salbei_markt") != "1":
+        # The very first market brings a "×" spice, so Würze is more than a 1 from the start.
+        if "salbei" not in owned and "salbei" not in ids:
+            ids = ["salbei", *ids[: MARKT_GROESSE - 1]]
+        stand.setze(conn, "salbei_markt", "1")
     if not gespeichert or neue:
         stand.setze(conn, key, f"{','.join(ids)}|{','.join(sorted(seltenheiten))}")
     return [NACH_ID[i] for i in ids]
@@ -165,11 +171,19 @@ def register_haustier(
         if ding:
             f.bild = haustier.BILD["freut_sich"]
             f.satz = f"Danke! {_freude(ding)}"
-        karten, vorschau = kassensturz.vorschau(conn, today(), aufgeraeumt())
+        sauber = aufgeraeumt()
+        karten, vorschau = kassensturz.vorschau(conn, today(), sauber)
         pro_karte = kassensturz.pro_karte(vorschau, len(karten))
         willkommen = stand.einstellung(conn, "willkommen") == "kassensturz" and not (
             kassensturz.chronik(conn, 1)
         )
+        regal = kassensturz.regal(conn)
+        extras = [gewuerze_mod.EINGEKOCHT] if kassensturz.eingekocht(conn) else []
+        dicts = [k.als_dict() for k in karten]
+        gerichte = [] if willkommen or not karten else kassensturz.tagesgerichte(conn, today())
+        gericht_summe = {
+            g.id: kassensturz.vorschau(conn, today(), sauber, g.id)[1]["summe"] for g in gerichte
+        }
         return page(
             request,
             "fritte.html",
@@ -179,6 +193,7 @@ def register_haustier(
             pro_karte=pro_karte,
             vorschau=vorschau,
             willkommen=willkommen,
+            stil_fragen=willkommen and stand.einstellung(conn, "stil_gefragt") != "1",
             saison=saison.jetzt(conn, today()),
             ort=ausbau.ort(conn),
             orte=ausbau.ORTE,
@@ -187,7 +202,11 @@ def register_haustier(
             ruf=ausbau.ruf(conn),
             bau_preis=lambda st: ausbau.preis(conn, st),
             stufen_text=lambda st: ausbau.stufen_text(conn, st),
-            regal=kassensturz.regal(conn),
+            regal=regal,
+            extras=extras,
+            wirkt=kassensturz.wirkungen(conn, today(), sauber, dicts, [*extras, *regal]),
+            gerichte=gerichte,
+            gericht_summe=gericht_summe,
             plaetze=kassensturz.plaetze(conn),
             chronik=kassensturz.chronik(conn),
             arten=stand.ARTEN_TEXT,
@@ -199,6 +218,24 @@ def register_haustier(
             fest_preis=saison.fest_preis(conn),
             fest_name=saison.FESTE[saison.quartal(today())[0]],
         )
+
+    @app.post("/fritte/stil", dependencies=guarded)
+    async def fritte_stil(request: Request):
+        """Before the first Kassensturz: calm or playful, with or without sound.
+        The same switches are in the settings; this just asks once, at the right moment."""
+        from dataclasses import replace
+
+        stil = await form_value(request, "stil")
+        if stil in ("ruhig", "verspielt"):
+            current = settings()
+            replace(current, effects=stil, sound=stil == "verspielt").save(ws.settings_file)
+            stand.setze(db(), "stil_gefragt", "1")
+            flash(
+                "Verspielt mit Klang. Leiser geht es jederzeit in den Einstellungen."
+                if stil == "verspielt"
+                else "Ruhig und ohne Klang. Mehr Trubel geht jederzeit in den Einstellungen."
+            )
+        return back("/fritte")
 
     @app.post("/fritte/feiern", dependencies=guarded)
     def fritte_feiern():
@@ -243,11 +280,12 @@ def register_haustier(
         return back("/fritte#haus")
 
     @app.post("/fritte/kassensturz", dependencies=guarded)
-    def fritte_kassensturz():
+    async def fritte_kassensturz(request: Request):
+        rezept = await form_value(request, "rezept") or None
         conn = db()
         stand.abgleichen(conn, today(), datei)
         try:
-            nummer = kassensturz.durchfuehren(conn, today(), aufgeraeumt())
+            nummer = kassensturz.durchfuehren(conn, today(), aufgeraeumt(), rezept)
         except stand.SpielFehler as exc:
             flash(str(exc), "error")
             return back("/fritte")

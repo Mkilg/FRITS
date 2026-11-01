@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import math
+import random
 import re
 import sqlite3
 from dataclasses import dataclass
@@ -17,6 +18,7 @@ from datetime import date, timedelta
 
 from frits import store
 from frits.spiel import album, ausbau, saison, stand
+from frits.spiel import gewuerze as gw
 from frits.spiel.gewuerze import NACH_ID, Gewuerz
 
 ZEITNAH_TAGE = 10  # GoBD: record bookings promptly; here: receipt entered within 10 days of arrival
@@ -366,7 +368,38 @@ def berechnen(karten: list[dict], gewuerze: list[Gewuerz], umfeld: dict) -> dict
     }
 
 
-def vorschau(conn, heute: date, aufgeraeumt: bool) -> tuple[list[Karte], dict]:
+def eingekocht(conn) -> bool:
+    return stand.einstellung(conn, "eingekocht") == "1"
+
+
+def tagesgerichte(conn, heute: date) -> list[Gewuerz]:
+    """Today's three dishes: two that change daily (preferring ones that do something
+    with the cards on the table), and "Einkochen" unless a jar is already waiting."""
+    karten = [k.als_dict() for k in offene_karten(conn)]
+    umf = umfeld(conn, heute, False)
+    nummer = len(chronik(conn, 10_000)) + 1
+    rng = random.Random(f"{heute.isoformat()}/{nummer}")
+    passend = [r for r in gw.REZEPTE if gw.wirkung(r, karten, umf)[0]]
+    rest = [r for r in gw.REZEPTE if r not in passend]
+    rng.shuffle(passend)
+    rng.shuffle(rest)
+    gerichte = (passend + rest)[:2]
+    if not eingekocht(conn):
+        gerichte.append(gw.EINGEKOCHT)
+    return gerichte
+
+
+def _extras(conn, rezept: str | None) -> list[Gewuerz]:
+    """What comes before the shelf: last time's jar, then today's dish."""
+    extras = [gw.EINGEKOCHT] if eingekocht(conn) else []
+    if rezept and rezept != gw.EINKOCHEN and rezept in gw.REZEPT_NACH_ID:
+        extras.append(gw.REZEPT_NACH_ID[rezept])
+    return extras
+
+
+def vorschau(
+    conn, heute: date, aufgeraeumt: bool, rezept: str | None = None
+) -> tuple[list[Karte], dict]:
     karten = offene_karten(conn)
     for k in karten:  # the season's theme (of the day the card came): one kind brings double
         tag = heute if k.art == "start" else _tag(gesehen_von(conn, k))
@@ -374,8 +407,16 @@ def vorschau(conn, heute: date, aufgeraeumt: bool) -> tuple[list[Karte], dict]:
             k.koerner *= 2
             k.fakten["saison"] = True
     return karten, berechnen(
-        [k.als_dict() for k in karten], regal(conn), umfeld(conn, heute, aufgeraeumt)
+        [k.als_dict() for k in karten],
+        [*_extras(conn, rezept), *regal(conn)],
+        umfeld(conn, heute, aufgeraeumt),
     )
+
+
+def wirkungen(conn, heute: date, aufgeraeumt: bool, karten: list[dict], liste: list) -> dict:
+    """For each jar: does it work with these cards, and what does it bring or miss."""
+    umf = umfeld(conn, heute, aufgeraeumt)
+    return {g.id: gw.wirkung(g, karten, umf) for g in liste}
 
 
 def gesehen_von(conn, karte: Karte) -> str:
@@ -395,24 +436,36 @@ def umfeld(conn, heute: date, aufgeraeumt: bool) -> dict:
     }
 
 
-def durchfuehren(conn: sqlite3.Connection, heute: date, aufgeraeumt: bool) -> int:
-    """Score all waiting cards, book the grains, return the Kassensturz id."""
+def durchfuehren(
+    conn: sqlite3.Connection, heute: date, aufgeraeumt: bool, rezept: str | None = None
+) -> int:
+    """Score all waiting cards, book the grains, return the Kassensturz id.
+    `rezept` is the Tagesgericht Fritz chose (or "einkochen")."""
+    if rezept and rezept not in {g.id for g in tagesgerichte(conn, heute)}:
+        rezept = None  # only today's dishes; an old form can't pick another one
     with store.transaction(conn):
-        karten, ergebnis = vorschau(conn, heute, aufgeraeumt)
+        extras = _extras(conn, rezept)
+        karten, ergebnis = vorschau(conn, heute, aufgeraeumt, rezept)
         if not any(k.art != "korrektur" for k in karten):  # corrections just come along
             raise stand.SpielFehler(
                 "Gerade wartet keine Karte. Erledigter Papierkram wird zur Karte."
             )
         shelf = regal(conn)
+        dicts = [k.als_dict() for k in karten]
+        wirkt = wirkungen(conn, heute, aufgeraeumt, dicts, [*extras, *shelf])
         record = {
             **ergebnis,
-            "karten": [k.als_dict() for k in karten],
+            "karten": dicts,
             "gewuerze": [
                 {"id": g.id, "name": g.name, "zeichen": g.zeichen, "seltenheit": g.seltenheit,
-                 "text": g.text}
-                for g in shelf
+                 "text": g.text, "wirkt": wirkt[g.id][0], "wirkung": wirkt[g.id][1]}
+                for g in [*extras, *shelf]
             ],
         }  # fmt: skip
+        if rezept:
+            gericht = gw.REZEPT_NACH_ID[rezept]
+            record["rezept"] = {"id": gericht.id, "name": gericht.name, "zeichen": gericht.zeichen}
+        stand.setze(conn, "eingekocht", "1" if rezept == gw.EINKOCHEN else "0")
         cur = conn.execute(
             "INSERT INTO spiel_kassenstuerze (tag, summe, ergebnis) VALUES (?, ?, ?)",
             (heute.isoformat(), ergebnis["summe"], json.dumps(record, ensure_ascii=False)),
