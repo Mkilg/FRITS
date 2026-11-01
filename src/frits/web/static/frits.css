@@ -185,12 +185,18 @@ table { width: 100%; border-collapse: collapse; }
 .lines tr.blank input { background: var(--bg); }
 .lines tfoot td { border-bottom: 0; }
 .lines tr.total td { font-weight: 700; font-size: 1.05rem; }
-.lines th:nth-child(1) { width: 34%; }
+.lines th:nth-child(1) { width: 38%; }
 .lines select { min-width: 6.2rem; }
 .table-wrap { overflow-x: auto; }
 
 .review { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 1rem; align-items: start; }
 .review.single { grid-template-columns: minmax(0, 1fr); }
+/* The draft table needs room (Leistung, USt column): on wide screens the page grows and
+   the original gets the smaller share. */
+@media (min-width: 1200px) {
+  main:has(> .review:not(.single)), body:has(main > .review:not(.single)) .bottom { max-width: 1340px; }
+  .review:not(.single) { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); }
+}
 .source pre { white-space: pre-wrap; word-break: break-word; background: var(--bg); padding: 0.8rem;
   border-radius: 8px; font-size: 0.85rem; max-height: 28rem; overflow: auto; margin: 0.3rem 0; }
 .source pre.redacted { background: #f3f0ff; }
