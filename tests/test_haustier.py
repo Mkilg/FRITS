@@ -265,6 +265,16 @@ def test_reminders_count_once_a_week_and_not_after_a_storno(conn):
     assert [k.art for k in kassensturz.offene_karten(conn)] == []
 
 
+def test_a_refund_is_not_a_payment(conn):
+    """A Storno whose money went back to the customer ("erstattet") carries a paid_date.
+    It is neither an invoice nor a payment card, and the original drops out too."""
+    started(conn)
+    add_invoice(conn, "2026-0001", TODAY - timedelta(days=9), paid=TODAY - timedelta(days=5))
+    add_invoice(conn, "2026-0002", TODAY, paid=TODAY, cancels="2026-0001")
+    stand.abgleichen(conn, TODAY)
+    assert kassensturz.offene_karten(conn) == []
+
+
 def test_garlic_rewards_a_payment_after_a_reminder(conn):
     started(conn)
     add_invoice(conn, "2026-0001", TODAY - timedelta(days=40), paid=TODAY,
@@ -328,6 +338,7 @@ def test_pages_and_a_whole_round(client, ws):  # noqa: F811
     add_invoice(conn, "2026-0001", TODAY - timedelta(days=30))
     home = client.get("/").text
     assert "Fritte zuhause" in home and "2 Karten warten" in home  # old work + moving in
+    assert "etwa <strong>+9 Salzkörner</strong>" in home  # what they'd bring, right away
     fritte = client.get("/fritte").text
     assert "Willkommen bei Fritte" in fritte and "Ersten Kassensturz machen" in fritte
     assert "Vorschau:" in fritte and "Herbst 2026" in fritte

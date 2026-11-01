@@ -16,7 +16,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 from frits import store
-from frits.spiel import ausbau, saison, stand
+from frits.spiel import ausbau, kassensturz, saison, stand
 from frits.spiel.stand import SpielFehler as LadenFehler
 
 MUNTER_BIS = 4  # days since the last paperwork: up to here she's lively
@@ -93,6 +93,7 @@ class Fritte:
     bild: str  # mascot mood: welcome | thinking | done | feierabend
     guthaben: int
     wartend: int  # cards waiting for the Kassensturz
+    bereit: int  # about how many Salzkörner the waiting cards would bring right now
     tage_ruhig: int | None  # days since the last paperwork, None if there was none yet
     wochen: list[bool]  # oldest first, the last one is this week
     zimmer: list[Ding]
@@ -111,6 +112,7 @@ class Fritte:
 def ansehen(conn: sqlite3.Connection, heute: date, alte_datei: Path | None = None) -> Fritte:
     """How Fritte is today. Also turns new paperwork into waiting cards."""
     wartend = stand.abgleichen(conn, heute, alte_datei)
+    bereit = kassensturz.vorschau(conn, heute, aufgeraeumt=False)[1]["summe"] if wartend else 0
     tage = stand.pflegetage(conn, heute)
     tage_ruhig = (heute - max(tage)).days if tage else None
     if tage_ruhig is None:
@@ -136,6 +138,7 @@ def ansehen(conn: sqlite3.Connection, heute: date, alte_datei: Path | None = Non
         bild=BILD[laune],
         guthaben=stand.guthaben(conn),
         wartend=wartend,
+        bereit=bereit,
         tage_ruhig=tage_ruhig,
         wochen=wochen,
         zimmer=[DINGE[d] for d in gekauft if DINGE[d].art == "zimmer"],

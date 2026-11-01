@@ -12,7 +12,7 @@
   <div class="haus-leiste">
     <p class="speech">{{ f.satz }}</p>
     <div class="haus-zahlen">
-      <p class="salz"><span aria-hidden="true">🧂</span> <strong data-zaehlen>{{ f.guthaben }}</strong> Salzkörner</p>
+      <p class="salz"><span aria-hidden="true">🧂</span> <strong data-zaehlen>{{ f.guthaben }}</strong> Salzkörner{% if f.bereit %} <a class="hint" href="#kassensturz">(+{{ f.bereit }} warten)</a>{% endif %}</p>
       <div class="wochen" title="In welchen der letzten {{ f.wochen | length }} Wochen du Papierkram gemacht hast">
         <span class="hint">Büro-Wochen</span>
         {% for w in f.wochen %}<span class="punkt{{ ' voll' if w }}" aria-label="{{ 'diese Woche' if loop.last else 'vor ' ~ (loop.length - loop.index) ~ ' Wochen' }}: {{ 'Papierkram gemacht' if w else 'Pause' }}"></span>{% endfor %}

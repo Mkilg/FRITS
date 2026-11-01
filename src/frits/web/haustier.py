@@ -122,9 +122,11 @@ def register_haustier(
         if n <= vorher or path == "/" or path.startswith(("/fritte", "/feierabend")):
             return []
         neu = n - vorher
+        bereit = kassensturz.vorschau(conn, today(), aufgeraeumt=False)[1]["summe"]
         text = (
             f"Fritte hat {'eine neue Karte' if neu == 1 else f'{neu} neue Karten'}"
-            f" für den Kassensturz ({n} {'wartet' if n == 1 else 'warten'})."
+            f" für den Kassensturz: {n} {'wartet' if n == 1 else 'warten'},"
+            f" das sind etwa +{bereit} Salzkörner."
         )
         return [
             {"text": text, "kind": "karte", "cue": None, "stamp": None, "undo": False,
