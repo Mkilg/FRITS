@@ -136,7 +136,7 @@ def test_other_hostnames_are_refused(client):
 
 def test_drop_review_approve_email_paid(client, ws, provider, mails):
     page = drop_and_read(client, ws, "01_notiz_meier.txt")
-    assert "Fertig gelesen: 1 neue Entwürfe" in page.text
+    assert "Fertig gelesen: 1 neuer Entwurf" in page.text
     # The AI saw placeholders only, and the review screen shows exactly that text.
     assert "Meier" not in provider.calls[0]
     draft_id = latest_draft(ws)

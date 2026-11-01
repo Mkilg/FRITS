@@ -185,7 +185,7 @@ table { width: 100%; border-collapse: collapse; }
 .table-wrap { overflow-x: auto; }
 
 .review { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 1rem; align-items: start; }
-.review.single { grid-template-columns: 1fr; }
+.review.single { grid-template-columns: minmax(0, 1fr); }
 .source pre { white-space: pre-wrap; word-break: break-word; background: var(--bg); padding: 0.8rem;
   border-radius: 8px; font-size: 0.85rem; max-height: 28rem; overflow: auto; margin: 0.3rem 0; }
 .source pre.redacted { background: #f3f0ff; }
@@ -200,7 +200,7 @@ label.field { display: flex; flex-direction: column; gap: 0.2rem; margin-bottom:
 .choice { display: block; margin: 0.3rem 0 0.6rem; }
 
 @media (max-width: 800px) {
-  .review { grid-template-columns: 1fr; }
+  .review { grid-template-columns: minmax(0, 1fr); }
   ul.list a { grid-template-columns: 1fr auto; }
   ul.list a .muted { display: none; }
   .top { padding: 0.6rem 1rem; }
@@ -304,3 +304,29 @@ details.lesson summary { cursor: pointer; }
 .checklist li { margin-bottom: 0.35rem; }
 fieldset.prices { border: 1px solid var(--line); border-radius: var(--radius); margin: 0.8rem 0; }
 fieldset.prices input { width: 100%; }
+
+/* ---------- Einwurf: drop, paste (⌘V) or pick ---------- */
+.einwurf .dropzone { padding: 1.4rem 1rem; }
+.dz-titel { display: block; font-size: 1.12rem; font-weight: 600; margin-bottom: 0.2rem; }
+.dropzone small { display: block; line-height: 1.5; }
+body.zieht-datei .dropzone { border-color: var(--fry); }
+.dropzone.over { box-shadow: 0 0 0 4px rgba(217, 164, 65, .25); }
+.dropzone.bringt { border-style: solid; border-color: var(--moos); background: #eef4e1; }
+.dropzone:focus-within { outline: 3px solid var(--tinte-hell); outline-offset: 2px; }
+kbd { display: inline-block; min-width: 1.4em; padding: 0 0.3em; margin: 0 0.1em; border: 1px solid var(--papier-schatten);
+  border-bottom-width: 2px; border-radius: 4px; background: #fff; font: 0.8rem/1.4 -apple-system, system-ui, sans-serif;
+  text-align: center; color: var(--ink); }
+.dz-text { margin-top: 0.6rem; }
+.dz-text summary { cursor: pointer; color: var(--tinte); font-size: 0.92rem; }
+.dz-text textarea { width: 100%; margin: 0.5rem 0; font: inherit; }
+.dz-text .row { align-items: center; }
+.dz-tipp { font-size: 0.8rem; }
+.dz-lesen { display: block; margin-top: 0.6rem; font-size: 0.92rem; }
+.dz-lesen .muted { font-size: 0.82rem; }
+.dz-hinweis { margin: 0.6rem 0 0; color: var(--ketchup); font-size: 0.9rem; }
+.ki-fehlt { border-left: 4px solid var(--fry); }
+.leise-links { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; margin-top: 0.6rem; font-size: 0.9rem; }
+.leise-links form { display: inline; }
+.leise-links button { background: none; border: 0; padding: 0; color: var(--tinte); text-decoration: underline;
+  cursor: pointer; font: inherit; }
+p code, li code { overflow-wrap: anywhere; }

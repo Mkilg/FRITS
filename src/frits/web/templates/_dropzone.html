@@ -1,9 +1,29 @@
-{# Drop files here: they land in the inbox folder, exactly as if dragged there in Finder. #}
-<form method="post" action="/inbox/upload" enctype="multipart/form-data" class="{{ dz_class or 'card form' }}" data-busy="Ich lege die Dateien in den Eingang.">
+{# The "Einwurf": hand FRITS something without a folder. Drag files onto the field, press ⌘V
+   anywhere on the page to paste what you copied (a photo, a PDF, text from a mail), or pick
+   a file. Works without JavaScript too: the file field and the text box are plain form fields.
+
+   Options (all optional): dz_action, dz_back (alias back_to), dz_class, dz_title, dz_hint,
+   dz_icon, dz_accept, dz_send, dz_busy, dz_read (show "gleich lesen lassen"), dz_text_label. #}
+<form method="post" action="{{ dz_action or '/inbox/upload' }}" enctype="multipart/form-data"
+      class="einwurf {{ dz_class or 'card form' }}" data-einwurf
+      data-busy="{{ dz_busy or ('Ich lese gerade. Das dauert einen Moment.' if dz_read and settings.auto_read else 'Ich lege es in den Eingang.') }}">
   <input type="hidden" name="token" value="{{ token }}">
-  <input type="hidden" name="back" value="{{ back_to }}">
+  <input type="hidden" name="back" value="{{ dz_back or back_to or '' }}">
   <label class="dropzone" data-dropzone>
-    <input type="file" name="files" multiple accept="{{ supported }}" data-autosubmit>
-    <span>📥 Dateien hierher ziehen oder <u>auswählen</u><br><small class="muted">Notizen, E-Mails, PDFs, Fotos. Sie landen in deinem Eingang.</small></span>
+    <input type="file" name="files" multiple accept="{{ dz_accept or supported }}" data-autosubmit aria-describedby="einwurf-hilfe-{{ dz_id or 'eingang' }}">
+    <span class="dz-titel">{{ dz_icon or "📥" }} {{ dz_title or "Hierher ziehen oder einfügen" }}</span>
+    <small class="muted" id="einwurf-hilfe-{{ dz_id or 'eingang' }}">{{ dz_hint or "Notizen, E-Mails, PDFs, Fotos." }}
+      Kopiert? Dann einfach <kbd data-taste-cmd>⌘</kbd><kbd>V</kbd> drücken. Oder <u>Datei auswählen</u>.</small>
   </label>
+  <details class="dz-text">
+    <summary>{{ dz_text_label or "Text einfügen, z. B. aus einer E-Mail" }}</summary>
+    <textarea name="text" rows="5" placeholder="Text hier hineinkopieren …" aria-label="{{ dz_text_label or 'Text einfügen' }}"></textarea>
+    <div class="row"><button class="primary">{{ dz_send or "In den Eingang" }}</button>
+      <span class="muted dz-tipp"><kbd data-taste-cmd>⌘</kbd><kbd>↩</kbd> schickt ab</span></div>
+  </details>
+  {% if dz_read %}
+  <input type="hidden" name="lesen_merken" value="1">
+  <label class="dz-lesen"><input type="checkbox" name="lesen" {{ "checked" if settings.auto_read }}> gleich lesen lassen
+    <span class="muted">(Namen und Adressen schwärze ich vorher hier auf deinem Computer)</span></label>
+  {% endif %}
 </form>

@@ -1,0 +1,143 @@
+"""Read the obvious parts of a receipt (Beleg) on this computer, without AI.
+
+A receipt photo is turned into text by local OCR (see ingest.py). From that text FRITS
+guesses the total, the day it was paid, the shop and the VAT rate, so Fritz only has to
+check four fields instead of typing them. Every guess is shown as a suggestion; nothing is
+saved until he presses "Speichern".
+"""
+
+from __future__ import annotations
+
+import re
+from datetime import date
+
+# "12,34" or "1.234,56" or "12.34" (some till rolls), optionally with € or EUR around it.
+_AMOUNT = re.compile(r"(?<![\d.,])(\d{1,3}(?:[.\s]\d{3})*|\d+)[,.](\d{2})(?![\d])")
+_DATE = re.compile(r"\b(\d{1,2})\.(\d{1,2})\.(\d{4}|\d{2})\b")
+_ISO_DATE = re.compile(r"\b(20\d{2})-(\d{2})-(\d{2})\b")
+_MONTHS = (
+    "januar",
+    "februar",
+    "märz",
+    "april",
+    "mai",
+    "juni",
+    "juli",
+    "august",
+    "september",
+    "oktober",
+    "november",
+    "dezember",
+)
+_WORD_DATE = re.compile(
+    r"\b(\d{1,2})\.?\s*(" + "|".join(_MONTHS) + r"|maerz)\s+(\d{4})\b", re.IGNORECASE
+)
+
+# Words that sit next to the amount actually paid, best first.
+_TOTAL_WORDS = (
+    r"zu\s*zahlen",
+    r"gesamtbetrag",
+    r"rechnungsbetrag",
+    r"endbetrag",
+    r"gesamt",
+    r"summe",
+    r"total",
+    r"betrag",
+    r"preis",
+    r"bar\b",
+    r"ec[\s-]*karte|girocard|kartenzahlung|visa|mastercard",
+)
+# Lines that are clearly not the total even though they carry an amount.
+_NOT_TOTAL = re.compile(
+    r"mwst|ust\b|umsatzsteuer|netto|steuer|rückgeld|rueckgeld|gegeben", re.IGNORECASE
+)
+_NOT_A_NAME = re.compile(
+    r"^(rechnung|quittung|beleg|kassenbon|bon|kasse|datum|uhrzeit|tel|fax|www\.|http|"
+    r"steuer|ust|mwst|filiale|beleg-?nr|danke|vielen dank|willkommen|fahrkarte|fahrschein|"
+    r"ticket|parkschein|einzelfahrt|tageskarte|bestellbestätigung|auftragsbestätigung)",
+    re.IGNORECASE,
+)
+
+
+def _money(whole: str, cents: str) -> str:
+    euros = int(re.sub(r"[.\s]", "", whole))
+    return f"{euros},{cents}"
+
+
+def _amounts(line: str) -> list[str]:
+    line = _DATE.sub(" ", _ISO_DATE.sub(" ", line))  # "28.10.2026" is a day, not 28,10 €
+    line = re.sub(r"\b\d{1,2}[:.]\d{2}\s*(uhr|h)\b", " ", line, flags=re.IGNORECASE)
+    return [_money(m.group(1), m.group(2)) for m in _AMOUNT.finditer(line)]
+
+
+def _as_number(amount: str) -> float:
+    return float(amount.replace(",", "."))
+
+
+def guess_total(text: str) -> str | None:
+    lines = [line for line in text.splitlines() if line.strip()]
+    for word in _TOTAL_WORDS:
+        pattern = re.compile(word, re.IGNORECASE)
+        for i, line in enumerate(lines):
+            if not pattern.search(line) or _NOT_TOTAL.search(line):
+                continue
+            found = _amounts(line)
+            if not found and i + 1 < len(lines):
+                found = _amounts(lines[i + 1])  # "Summe" on one line, the amount below
+            if found:
+                return found[-1]
+    every = [a for line in lines if not _NOT_TOTAL.search(line) for a in _amounts(line)]
+    return max(every, key=_as_number) if every else None
+
+
+def guess_date(text: str, today: date) -> str | None:
+    """The first real day on the receipt that isn't in the future, as YYYY-MM-DD."""
+    candidates = []
+    for m in _DATE.finditer(text):
+        day, month, year = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        candidates.append((m.start(), year + 2000 if year < 100 else year, month, day))
+    for m in _ISO_DATE.finditer(text):
+        candidates.append((m.start(), int(m.group(1)), int(m.group(2)), int(m.group(3))))
+    for m in _WORD_DATE.finditer(text):
+        word = m.group(2).lower().replace("maerz", "märz")
+        candidates.append((m.start(), int(m.group(3)), _MONTHS.index(word) + 1, int(m.group(1))))
+    for _, year, month, day in sorted(candidates):
+        try:
+            found = date(year, month, day)
+        except ValueError:
+            continue
+        if found <= today and (today - found).days < 3 * 366:
+            return found.isoformat()
+    return None
+
+
+def guess_vat(text: str) -> str | None:
+    """ "0.07" or "0.19" when the receipt names exactly one of them."""
+    rates = set()
+    for m in re.finditer(r"(?<![\d,.])(19|7)(?:[,.]0{1,2})?\s*%", text):
+        rates.add("0.19" if m.group(1) == "19" else "0.07")
+    return rates.pop() if len(rates) == 1 else None
+
+
+def guess_vendor(text: str) -> str | None:
+    """Shops print their name at the top: the first line that looks like a name."""
+    for line in text.splitlines()[:8]:
+        line = re.sub(r"\s+", " ", line).strip(" *-=|_.:")
+        letters = sum(ch.isalpha() for ch in line)
+        if letters < 3 or letters < len(line) / 2 or _NOT_A_NAME.match(line):
+            continue
+        if _AMOUNT.search(line) or _DATE.search(line) or _WORD_DATE.search(line):
+            continue
+        return line[:60]
+    return None
+
+
+def guess(text: str, today: date) -> dict[str, str]:
+    """Suggestions for the expense form. Keys only for what was found."""
+    found = {
+        "gross": guess_total(text),
+        "date": guess_date(text, today),
+        "vendor": guess_vendor(text),
+        "vat_rate": guess_vat(text),
+    }
+    return {key: value for key, value in found.items() if value}

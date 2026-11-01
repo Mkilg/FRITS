@@ -3,13 +3,21 @@
 {% block content %}
 <h1>{{ customer.display_name if customer else "Neuer Kunde" }}</h1>
 {% set p = prefill or {} %}
+{% if not customer %}
+{% with dz_action="/customers/new/einlesen", dz_class="card form", dz_id="kontakt", dz_icon="📇",
+        dz_back=back_to, dz_title="Signatur oder Kontakt hierher ziehen oder einfügen",
+        dz_hint="Eine E-Mail-Signatur, eine Visitenkarte oder ein Kontakt aus der Kontakte-App.",
+        dz_accept=".vcf,.txt,.eml,.pdf,.jpg,.jpeg,.png,.heic", dz_send="Felder ausfüllen",
+        dz_busy="Ich suche die Kontaktdaten heraus.", dz_text_label="Signatur oder Adresse einfügen" %}{% include "_dropzone.html" %}{% endwith %}
+<p class="hint">Das Herauslesen passiert nur auf diesem Computer, ohne KI. Du prüfst jedes Feld, bevor etwas gespeichert wird.</p>
+{% endif %}
 <form method="post" action="/customers" class="card form">
-  {% if p %}<p class="flash">Aus dem Entwurf vorausgefüllt. Bitte prüfen und ergänzen.</p>{% endif %}
+  {% if p %}<p class="flash">{{ "Aus deinem Text vorausgefüllt" if prefill_from == "contact" else "Aus dem Entwurf vorausgefüllt" }}. Bitte prüfen und ergänzen.</p>{% endif %}
   <input type="hidden" name="token" value="{{ token }}">
   <input type="hidden" name="id" value="{{ customer.id if customer else '' }}">
   <input type="hidden" name="back" value="{{ back_to or '' }}">
   <label class="field">Name der Ansprechperson <input name="name" required value="{{ customer.name if customer else p.name or '' }}"></label>
-  <label class="field">Firma (falls es eine gibt) <input name="company" value="{{ customer.company or '' if customer else '' }}"></label>
+  <label class="field">Firma (falls es eine gibt) <input name="company" value="{{ customer.company or '' if customer else p.company or '' }}"></label>
   <label class="field">Adresse <textarea name="address" rows="3" placeholder="Straße Nr.&#10;PLZ Ort">{{ (customer.address or '').replace(', ', '\n') if customer else (p.address or '').replace(', ', '\n') }}</textarea></label>
   <label class="field">E-Mail <input name="email" type="email" value="{{ customer.email or '' if customer else p.email or '' }}"></label>
   <label class="field">Telefon <input name="phone" value="{{ customer.phone or '' if customer else p.phone or '' }}"></label>
