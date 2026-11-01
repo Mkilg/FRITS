@@ -56,7 +56,7 @@ anlage = "Anlage S, Anlage EÜR und AVEÜR"
 woerter = ["rechnung", "beleg", "geschäftskonto", "fahrt", "arbeitszimmer", "einnahmen", "ausgaben", "eür", "umsatzsteuer", "freiberuf"]
 stuecke = [
   { key = "ausgangsrechnungen", kern = true, warum = "Ohne deine Rechnungen kann deine Beraterin die Einnahmen nicht belegen. Schreibst du mit FRITS, holt die FRITS-Ernte sie.", name = "Ausgangsrechnungen", hinweis = "Schreibst du mit FRITS? Dann holt die FRITS-Ernte auf dem Kartentisch sie automatisch." },
-  { key = "euer", kern = true, warum = "Die musst du nicht selbst machen: FRITS rechnet sie aus deinen Rechnungen und Ausgaben (FRITS-Ernte auf der Insel).", name = "EÜR-Übersicht", hinweis = "Einnahmen minus Ausgaben. FRITS rechnet sie aus deinen Rechnungen und Ausgaben aus." },
+  { key = "euer", kern = true, beraterin = true, warum = "Die musst du nicht selbst machen: FRITS rechnet sie aus deinen Rechnungen und Ausgaben (FRITS-Ernte auf der Insel).", name = "EÜR-Übersicht", hinweis = "Einnahmen minus Ausgaben. FRITS rechnet sie aus deinen Rechnungen und Ausgaben aus." },
   { key = "belege", kern = true, warum = "Ohne Belege zählen deine Ausgaben nicht, und du zahlst mehr Steuern als nötig.", name = "Belege und Quittungen", hinweis = "Alles, was du fürs Geschäft bezahlt hast. Ausgaben aus FRITS kommen mit der FRITS-Ernte." },
   { key = "kontoauszuege", kern = true, warum = "Deine Beraterin gleicht die Einnahmen mit dem Konto ab. Ein Jahres-Export aus dem Online-Banking reicht.", name = "Kontoauszüge Geschäftskonto", hinweis = "Am einfachsten als Jahres-Export aus dem Online-Banking." },
   { key = "umsatzsteuer", name = "Umsatzsteuer-Meldungen des Jahres", hinweis = "Voranmeldungen und, falls schon da, die Jahreserklärung. 7 % gilt für Texte und Beiträge mit Nutzungsrechten, 19 % z. B. für Moderation und Beratung.", wenn = "umsatzsteuer" },
@@ -100,14 +100,16 @@ frage = "gesellschaft"
 zaehlbar = true
 person = true
 anlage = "eigene Erklärung der Gesellschaft (ESt 1 B), privat nur dein Anteil"
-woerter = ["gbr", "gesellschaft", "gesellschafter", "gesellschaftsvertrag", "gemeinsam", "partner", "gewinnverteilung"]
+woerter = ["gbr", "gesellschaft", "gesellschafter", "gesellschaftsvertrag", "gemeinsam", "partner", "gewinnverteilung", "sonderbetriebsausgaben", "feststellung"]
 stuecke = [
   { key = "rechnungen", kern = true, warum = "Ohne die Rechnungen der Gesellschaft lassen sich ihre Einnahmen nicht belegen.", name = "Rechnungen der Gesellschaft", hinweis = "Alles, was die Gesellschaft geschrieben hat." },
   { key = "belege", kern = true, warum = "Ohne Belege zählen die Ausgaben der Gesellschaft nicht.", name = "Belege der Gesellschaft", hinweis = "Ausgaben, die die Gesellschaft bezahlt hat." },
   { key = "konto", kern = true, warum = "Deine Beraterin gleicht die Einnahmen mit dem Konto der Gesellschaft ab.", name = "Kontoauszüge Gesellschaftskonto", hinweis = "Jahres-Export des gemeinsamen Kontos." },
   { key = "vertrag", name = "Gesellschaftsvertrag und Änderungen", hinweis = "Vor allem, wenn sich dieses Jahr etwas geändert hat." },
   { key = "verteilung", name = "Gewinnverteilung", hinweis = "Wer bekommt welchen Anteil." },
-  { key = "eigene-kosten", name = "Eigene Kosten für die Gesellschaft", hinweis = "Was du privat für die Gesellschaft bezahlt hast.", art = "bonus" },
+  { key = "umsatzsteuer", name = "Umsatzsteuer der Gesellschaft", hinweis = "Nur wenn die Gesellschaft eine eigene Steuernummer hat und Umsatzsteuer berechnet: ihre Voranmeldungen und, falls schon da, die Jahreserklärung." },
+  { key = "euer", name = "EÜR der Gesellschaft", beraterin = true, hinweis = "Einnahmen minus Ausgaben der Gesellschaft. Meist macht sie deine Beraterin aus Rechnungen, Belegen und Konto." },
+  { key = "eigene-kosten", name = "Eigene Kosten für die Gesellschaft (Sonderbetriebsausgaben)", hinweis = "Was du privat für die Gesellschaft bezahlt hast, z. B. dein Laptop oder Fahrten. So heißt das bei der Beraterin.", art = "bonus" },
 ]
 
 [[provinz]]
@@ -133,13 +135,14 @@ zaehlbar = true
 anlage = "Anlage V (eine pro Wohnung)"
 woerter = ["miete", "mieter", "wohnung", "nebenkosten", "hausgeld", "grundsteuer", "darlehen", "zins", "handwerker", "gebäude", "hausverwaltung", "vermietung"]
 stuecke = [
-  { key = "mieteinnahmen", kern = true, warum = "Mieteinnahmen gehören immer in die Steuererklärung, auch kleine.", name = "Mieteinnahmen", hinweis = "Kontoauszug oder Liste der Mietzahlungen." },
+  { key = "mieteinnahmen", kern = true, warum = "Mieteinnahmen gehören immer in die Steuererklärung, auch kleine.", name = "Mieteinnahmen", hinweis = "Kontoauszug oder Liste der Mietzahlungen. Auch die Nebenkosten-Vorauszahlungen der Mieter zählen als Einnahmen. Eine Liste für mehrere Wohnungen darfst du überall mitbenutzen." },
   { key = "mietvertrag", name = "Mietvertrag bei Mieterwechsel", hinweis = "Nur wenn sich dieses Jahr etwas geändert hat." },
   { key = "nebenkosten", name = "Nebenkosten- oder Hausgeldabrechnung", hinweis = "Kommt von der Hausverwaltung." },
   { key = "grundsteuer", name = "Grundsteuerbescheid", hinweis = "Kommt meist zum Jahresanfang per Post." },
   { key = "zinsen", name = "Zinsbescheinigung Kredit", hinweis = "Von der Bank, falls die Wohnung finanziert ist." },
   { key = "versicherung", name = "Versicherungen", hinweis = "Gebäude, Haftpflicht für die Wohnung." },
-  { key = "handwerker", name = "Handwerker und Reparaturen", hinweis = "Rechnungen fürs Jahr.", art = "bonus" },
+  { key = "handwerker", name = "Handwerker und Reparaturen", hinweis = "Rechnungen fürs Jahr. Oft der größte Posten, der Steuern spart.", art = "bonus" },
+  { key = "kaufvertrag", name = "Kaufvertrag und Kaufnebenkosten", hinweis = "Für die Abschreibung (AfA): nur im ersten Jahr der Vermietung oder bei einer neuen Beraterin. Kaufpreis, Notar, Grunderwerbsteuer.", art = "bonus" },
   { key = "fahrten", name = "Fahrten zur Wohnung und Verwaltung", hinweis = "Besichtigungen, Übergaben, Kontoführung.", art = "bonus" },
 ]
 
@@ -198,12 +201,13 @@ name = "Überseehafen"
 bereich = "Depot im Ausland"
 frage = "depots_ausland"
 zaehlbar = true
-anlage = "Anlage KAP, KAP-INV und AUS"
-woerter = ["depot", "dividende", "quellensteuer", "broker", "1099", "aktien", "verkauf", "ausland", "us", "activity"]
+anlage = "Anlage KAP (ausländische Erträge und anrechenbare Quellensteuer) und KAP-INV (Fonds und ETFs)"
+woerter = ["depot", "dividende", "quellensteuer", "broker", "1099", "aktien", "verkauf", "ausland", "us", "activity", "etf", "fonds", "vorabpauschale"]
 stuecke = [
   { key = "jahresuebersicht", kern = true, warum = "Ausländische Depots schicken keine deutsche Steuerbescheinigung. Die Jahresübersicht ist dann der einzige Beleg.", name = "Jahresübersicht des Depots", hinweis = "Eine deutsche Steuerbescheinigung gibt es hier nicht." },
   { key = "dividenden", name = "Dividenden-Liste", hinweis = "Alle Ausschüttungen des Jahres." },
-  { key = "quellensteuer", name = "Einbehaltene Quellensteuer", hinweis = "Steht oft in der Jahresübersicht." },
+  { key = "quellensteuer", name = "Einbehaltene Quellensteuer", hinweis = "Steht oft in der Jahresübersicht. Sie wird in der Anlage KAP angerechnet, nicht in der Anlage AUS." },
+  { key = "fonds", name = "ETF- und Fonds-Bestand", hinweis = "Für die Vorabpauschale (Anlage KAP-INV): Wert jedes Fonds am 1.1. und am 31.12. und alle Ausschüttungen. Nur wenn du ETFs oder Fonds im Depot hast." },
   { key = "verkaeufe", name = "Verkäufe mit Gewinn oder Verlust", hinweis = "Nur wenn du etwas verkauft hast." },
 ]
 
@@ -266,7 +270,7 @@ name = "Burg"
 bereich = "Privates, das Steuern spart"
 frage = "immer"
 anlage = "Anlagen Vorsorgeaufwand, AV, Sonderausgaben, Haushaltsnahe Aufwendungen, Außergewöhnliche Belastungen, Unterhalt, Energetische Maßnahmen"
-woerter = ["krankenversicherung", "rentenversicherung", "spende", "haushalt", "versicherung", "altersvorsorge", "riester", "rürup", "pflege", "krankheit", "steuerberatung"]
+woerter = ["krankenversicherung", "rentenversicherung", "spende", "spenden", "spendenquittung", "zuwendungsbestätigung", "haushalt", "versicherung", "altersvorsorge", "riester", "rürup", "pflege", "krankheit", "steuerberatung", "ksk", "künstlersozialkasse"]
 stuecke = [
   { key = "ksk", name = "Beitragsbescheinigung der Künstlersozialkasse", hinweis = "Jahresbescheinigung der KSK. Dein Anteil zählt wie gesetzliche Renten- und Krankenversicherung.", art = "bonus", wenn = "ksk" },
   { key = "krankenversicherung", name = "Kranken- und Pflegeversicherung", hinweis = "Jahresbescheinigung der Kasse.", art = "bonus", wenn = "vorsorge" },

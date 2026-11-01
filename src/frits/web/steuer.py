@@ -16,7 +16,7 @@ from importlib import resources
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, UploadFile
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 
 from frits import store, system
 from frits.settings import Workspace
@@ -24,11 +24,13 @@ from frits.steuer import beraterin, ernte, quest, spiel, truhe
 from frits.steuer.katalog import (
     FAMILIENSTAND,
     HAKEN,
+    MACHT_BERATERIN,
     Profil,
     fehlt_nie,
     fragen,
     gebiet,
     ist_kern,
+    macht_beraterin,
     reich,
     warum,
 )
@@ -147,8 +149,16 @@ def schoenes_datum(iso: str) -> str:
 
 
 def textname(text: str) -> str:
-    """Ein eingefügter Text heißt nach seinen ersten Wörtern, damit man drei Zettel unterscheiden kann."""
-    woerter = re.findall(r"[^\W_][\w.-]*", text)[:6]
+    """Ein eingefügter Text heißt nach seinen ersten Wörtern, damit man drei Zettel unterscheiden kann.
+
+    Wörter mit Ziffern (Steuernummer, IBAN, Beträge) und Wörter wie "Steuernummer" bleiben weg:
+    Dateinamen stehen auch in einer verschlüsselten Zip lesbar da."""
+    heikel = {"steuernummer", "steuer-id", "iban", "identifikationsnummer", "steuer-nr", "konto"}
+    woerter = [
+        w
+        for w in re.findall(r"[^\W_][\w.-]*", text)
+        if not any(z.isdigit() for z in w) and w.lower().strip(".:") not in heikel
+    ][:6]
     name = " ".join(woerter)[:48].strip(" .-")
     return f"{name or 'Eingefügter Text'}.txt"
 
@@ -235,6 +245,8 @@ def register_steuer(
             kern=ist_kern,
             fehlt_nie=fehlt_nie,
             warum=warum,
+            macht_beraterin=macht_beraterin,
+            MACHT_BERATERIN=MACHT_BERATERIN,
             datum=schoenes_datum,
             vermute=spiel.vermute,
             ware=spiel.ware,
@@ -295,13 +307,48 @@ def register_steuer(
             "chronik": quest.chronik(c, jahr),
         }
 
-    def belohnen(jahr: int, vorher: dict, ferne: bool = True, mult: int = 1) -> bool:
+    def beraterin_merken(p: Profil, form) -> None:
+        """Übernimmt, was im Formular über die Beraterin steht. Felder, die fehlen, bleiben."""
+        if "beraterin_email" in form:
+            p.beraterin_email = str(form.get("beraterin_email") or "").strip()
+        if "beraterin_name" in form:
+            p.beraterin_name = str(form.get("beraterin_name") or "").strip()[:80]
+        if form.get("anrede") in ("du", "sie"):
+            p.anrede = str(form.get("anrede"))
+        if "beraterin_termin" in form:
+            termin = str(form.get("beraterin_termin") or "").strip()
+            try:
+                p.beraterin_termin = date.fromisoformat(termin).isoformat() if termin else ""
+            except ValueError:
+                p.beraterin_termin = ""
+
+    def titel_von(jahr: int, gebiet_id: str) -> str:
+        p = profil_oder_404(jahr)
+        g = gebiet(p, gebiet_id)
+        return g.titel if g else gebiet_id
+
+    def doppelt_text(jahr: int, fund: quest.Fund | None, karte: dict) -> str:
+        """Ehrlich sagen, warum eine Datei nicht (noch einmal) zählt."""
+        if fund is None or fund.stueck["id"] == karte["id"]:
+            return "Diese Datei hattest du schon gesammelt. Doppelt zählt nicht, aber gut gemerkt!"
+        wo = f"„{fund.stueck['name']}“ ({titel_von(jahr, fund.stueck['gebiet'])})"
+        return (
+            f"Diese Datei liegt schon bei {wo}. Eine Datei zählt nur für eine Karte,"
+            " außer bei derselben Unterlage für mehrere Wohnungen oder Firmen."
+        )
+
+    def belohnen(
+        jahr: int, vorher: dict, ferne: bool = True, mult: int = 1, auftraege: bool = False
+    ) -> bool:
         """Nach jeder Änderung: neue Siegel, neues Zeitalter, neue Orden und den Sieg feiern.
 
         Jedes Fest gibt es nur einmal: Wer einen Stempel zurücknimmt und neu setzt, bekommt
         beim zweiten Mal höchstens einen kleinen Zettel. Gibt True zurück, wenn der Drache
         gerade gefallen ist; dann geht es immer zur Drachenseite und ihrem Falt-Moment,
         egal ob der letzte Treffer im Kampf oder in einer Provinz kam (ferne=True).
+
+        auftraege=True: Neue Wünsche der Beraterin sind dazugekommen. Das ist keine Strafe:
+        Ein Siegel, das dadurch wieder offen ist, behält sein Gold, und der Drache wartet nur.
         """
         nachher = lage(jahr)
         c = conn()
@@ -324,7 +371,18 @@ def register_steuer(
         for grund, text in spiel.rueckbuchungen(vorher["stuecke"], nachher["stuecke"]):
             minus += quest.storniere(c, jahr, grund, text)
         neu_siegel = {p.gebiet.id for p in nachher["provinzen"] if p.stand.siegel}
-        for p in vorher["provinzen"]:
+        wartend = [
+            p.gebiet.titel
+            for p in vorher["provinzen"]
+            if p.stand.siegel and p.gebiet.id not in neu_siegel
+        ]
+        if auftraege and wartend:
+            flash(
+                f"Neue Aufträge für {', '.join(wartend)}. Dein Siegel wartet, bis du sie erledigt"
+                " hast. Das Gold dafür behältst du.",
+                "hinweis",
+            )
+        for p in vorher["provinzen"] if not auftraege else []:
             if p.stand.siegel and p.gebiet.id not in neu_siegel:
                 minus_siegel += quest.storniere(
                     c, jahr, f"siegel:{p.gebiet.id}", f"Siegel {p.gebiet.titel}"
@@ -380,6 +438,8 @@ def register_steuer(
             else:
                 quest.notiere(c, jahr, "erwachen", "Der Papierdrache ist erwacht")
                 flash(text, "erwachen", cue="done")
+        elif vorher["drache_wach"] and not nachher["drache_wach"] and auftraege:
+            flash("Der Drache döst, bis du die neuen Aufträge angesehen hast.", "hinweis")
         elif vorher["drache_wach"] and not nachher["drache_wach"]:
             flash("Der Drache ist wieder eingeschlafen. Er wacht bei 40 % wieder auf.", "hinweis")
         elif (
@@ -463,9 +523,10 @@ def register_steuer(
         # Im Herbst 2026 sammelt man meistens für 2025.
         return today().year - 1
 
-    async def hochladen(jahr: int, stueck_id: int, uploads: list[UploadFile]) -> int:
-        """Speichert hochgeladene Dateien und sammelt sie ein. Gibt die Zahl neuer Funde zurück."""
-        neu = 0
+    async def hochladen(jahr: int, stueck_id: int, uploads: list[UploadFile]) -> list[quest.Fund]:
+        """Speichert hochgeladene Dateien und sammelt sie ein. Gibt alle Funde zurück (neu oder
+        schon da), damit die Seite ehrlich sagen kann, was passiert ist."""
+        funde = []
         c = conn()
         ablage = quest.lager(ws.root)
         ablage.mkdir(parents=True, exist_ok=True)
@@ -477,10 +538,10 @@ def register_steuer(
             with tmp.open("wb") as fh:
                 shutil.copyfileobj(upload.file, fh)
             fund = quest.sammeln(c, ws.root, stueck_id, tmp, original=name, verschieben=True)
+            funde.append(fund)
             if fund.neu:
-                neu += 1
                 quest.notiere(c, jahr, "fund", f"{fund.stueck['name']}: {name}")
-        return neu
+        return funde
 
     # ----- Einstieg und Fragebogen -----
 
@@ -650,6 +711,10 @@ def register_steuer(
         eigene = [s for s in daten["stuecke"] if s["gebiet"] == g.id]
         for s in eigene:
             s["datei_liste"] = quest.dateien(c, jahr, s["id"])
+            s["verweis_liste"] = [
+                {**v, "bei_titel": titel_von(jahr, v["bei_gebiet"])}
+                for v in quest.verweise(c, jahr, s["id"])
+            ]
         vorjahr = [v for v in daten["vergleich"] if v["gebiet"] == g.id]
         stand = next(p for p in daten["provinzen"] if p.gebiet.id == g.id)
         return seite(
@@ -679,6 +744,8 @@ def register_steuer(
             flash(f"Stempel zurückgenommen: {s['name']} ist wieder offen.")
         elif aktion == "gibts_nicht":
             flash(f"Notiert: {s['name']} gibt es dieses Jahr nicht. Zählt trotzdem!", "beute")
+        elif aktion == "fragen" and frage == MACHT_BERATERIN:
+            flash(f"Notiert: {s['name']} macht deine Beraterin. Zählt als erledigt.", "beute")
         elif aktion == "fragen":
             flash("Kommt auf die Fragenliste für deine Beraterin. Fragen ist klug.", "beute")
         if belohnen(jahr, vorher):
@@ -694,11 +761,20 @@ def register_steuer(
             flash("Da war keine Datei dabei. Zieh eine Datei in das Feld oder wähle eine aus.")
             return back(f"/steuer/{jahr}/gebiet/{s['gebiet']}")
         vorher = lage(jahr)
-        neu = await hochladen(jahr, stueck_id, uploads)
-        if neu:
+        funde = await hochladen(jahr, stueck_id, uploads)
+        neu = sum(1 for f in funde if f.neu)
+        mit = next((f.verweis for f in funde if f.neu and f.verweis), None)
+        if mit and neu == 1:
+            flash(
+                f"+1 Beleg! {s['name']}: dieselbe Datei wie bei {titel_von(jahr, mit['gebiet'])}."
+                " Sie zählt für beide, im Zip liegt sie einmal.",
+                "beute",
+                "done",
+            )
+        elif neu:
             flash(f"+{neu} Beleg{'e' if neu > 1 else ''}! Gesichert: {s['name']}", "beute", "done")
         else:
-            flash("Diese Datei hattest du schon gesammelt. Doppelt zählt nicht, aber gut gemerkt!")
+            flash(doppelt_text(jahr, funde[0] if funde else None, s))
         if belohnen(jahr, vorher):
             return back(f"/steuer/{jahr}/drache")
         return back(str(form.get("back") or f"/steuer/{jahr}/gebiet/{s['gebiet']}"))
@@ -721,11 +797,12 @@ def register_steuer(
         fund = quest.sammeln(c, ws.root, stueck_id, quelle, verschieben=True)
         if fund.neu:
             quest.notiere(c, jahr, "fund", f"{s['name']}: {name}")
-            flash(f"+1 Beleg! {name} → {s['name']}", "beute", "done")
+            wie = ""
+            if fund.verweis:
+                wie = f" (dieselbe Datei wie bei {titel_von(jahr, fund.verweis['gebiet'])})"
+            flash(f"+1 Beleg! {name} → {s['name']}{wie}", "beute", "done")
         else:
-            flash(
-                f"{name} liegt schon bei „{fund.stueck['name']}“. Die doppelte Kopie habe ich weggeräumt."
-            )
+            flash(doppelt_text(jahr, fund, s))
         if belohnen(jahr, vorher):
             return back(f"/steuer/{jahr}/drache")
         return back(str(form.get("back") or f"/steuer/{jahr}"))
@@ -742,6 +819,36 @@ def register_steuer(
         lp = lage(jahr)["drache"].lp
         if vorher["drache_wach"] and lp > vorher["drache"].lp:
             flash(f"Der Drache hat wieder {lp} Karte{'n' if lp != 1 else ''}.", "treffer")
+        belohnen(jahr, vorher, ferne=False)
+        return back(str(form.get("back") or f"/steuer/{jahr}"))
+
+    @app.post("/steuer/{jahr}/gebiet/{gebiet_id}/name", dependencies=guarded)
+    async def gebiet_name(request: Request, jahr: int, gebiet_id: str):
+        """Wohnungen, Firmen und Depots bekommen einen eigenen Namen ("Lindenstraße"). Der
+        steht dann in der Mail und im Inhaltsverzeichnis, damit die Beraterin weiß, was gemeint ist."""
+        form = await request.form()
+        p = profil_oder_404(jahr)
+        if gebiet(p, gebiet_id) is None:
+            raise HTTPException(404)
+        name = " ".join(str(form.get("name") or "").split())[:40]
+        if name:
+            p.namen[gebiet_id] = name
+        else:
+            p.namen.pop(gebiet_id, None)
+        p.save(quest.profil_datei(ws.root, jahr))
+        if request.headers.get("x-frits-leise"):
+            return JSONResponse({"ok": True})
+        flash(f"Gemerkt: {name}." if name else "Der eigene Name ist weg.")
+        return back(f"/steuer/{jahr}/gebiet/{gebiet_id}")
+
+    @app.post("/steuer/{jahr}/verweis/{verweis_id}/loesen", dependencies=guarded)
+    async def verweis_loesen(request: Request, jahr: int, verweis_id: int):
+        form = await request.form()
+        vorher = lage(jahr)
+        if not any(v["id"] == verweis_id for v in quest.verweise(conn(), jahr)):
+            raise HTTPException(404)
+        quest.entferne_verweis(conn(), verweis_id)
+        flash("Die Karte benutzt die Datei nicht mehr mit. Die Datei selbst bleibt, wo sie ist.")
         belohnen(jahr, vorher, ferne=False)
         return back(str(form.get("back") or f"/steuer/{jahr}"))
 
@@ -857,6 +964,11 @@ def register_steuer(
     async def beraterin_lesen(request: Request, jahr: int):
         form = await request.form()
         text = str(form.get("text") or "")
+        if any(k in form for k in ("beraterin_email", "beraterin_name", "beraterin_termin")):
+            # Was oben im Kärtchen steht, geht nicht verloren, wenn man gleich das Siegel bricht
+            p = profil_oder_404(jahr)
+            beraterin_merken(p, form)
+            p.save(quest.profil_datei(ws.root, jahr))
         daten = lage(jahr)
         wuensche = beraterin.zuordnen(text, daten["gebiete"], daten["stuecke"])
         if not wuensche:
@@ -864,23 +976,30 @@ def register_steuer(
             return seite(request, "steuer_beraterin.html", ergebnis=None, text=text, **daten)
         c = conn()
         titel = {g.id: g.titel for g in daten["gebiete"]}
+        namen = {s["id"]: s["name"] for s in daten["stuecke"]}
         ergebnis = []
         for w in wuensche:
-            if w.stueck_id:
-                quest.markiere_wunsch(c, w.stueck_id)
-                ergebnis.append({"text": w.text, "wo": titel[w.gebiete[0]], "neu": False})
-            else:
-                for gid in w.gebiete:
-                    quest.neues_stueck(
-                        c, jahr, gid, w.text[:120], hinweis="Wunsch deiner Beraterin"
+            for gid, sid in zip(w.gebiete, w.stuecke, strict=True):
+                if sid:
+                    quest.markiere_wunsch(c, sid)
+                    ergebnis.append(
+                        {"text": w.text, "wo": titel[gid], "karte": namen[sid], "neu": False}
                     )
-                ergebnis.append(
-                    {"text": w.text, "wo": ", ".join(titel[g] for g in w.gebiete), "neu": True}
-                )
+                else:
+                    name = w.text[:1].upper() + w.text[1:120]
+                    quest.neues_stueck(c, jahr, gid, name, hinweis="Wunsch deiner Beraterin")
+                    ergebnis.append({"text": w.text, "wo": titel[gid], "karte": name, "neu": True})
         vorher = daten
         quest.notiere(c, jahr, "brief", f"{len(wuensche)} Aufträge der Beraterin")
-        flash(f"Botschaft entschlüsselt: {len(wuensche)} Aufträge auf deiner Karte.", "erfolg")
-        belohnen(jahr, vorher)
+        markiert = sum(1 for e in ergebnis if not e["neu"])
+        flash(
+            f"Botschaft entschlüsselt: {len(wuensche)} Aufträge. {markiert} davon kennst du"
+            " schon, die Karten sind jetzt markiert."
+            if markiert
+            else f"Botschaft entschlüsselt: {len(wuensche)} Aufträge auf deiner Karte.",
+            "erfolg",
+        )
+        belohnen(jahr, vorher, auftraege=True)
         return seite(request, "steuer_beraterin.html", ergebnis=ergebnis, text="", **lage(jahr))
 
     # ----- Der Papierdrache -----
@@ -913,6 +1032,9 @@ def register_steuer(
         aktion = str(form.get("aktion") or "")
         if aktion == "gibts_nicht" and fehlt_nie(s["gebiet"], s["key"]):
             aktion = "fragen"
+        beraterin_macht = aktion == "beraterin" and macht_beraterin(s["gebiet"], s["key"])
+        if beraterin_macht:
+            aktion = "fragen"
         vorher = lage(jahr)
         if not vorher["drache_wach"]:
             flash("Der Drache schläft noch. Bau erst deine Provinzen auf.")
@@ -923,9 +1045,12 @@ def register_steuer(
             if not uploads:
                 flash("Wähle eine Datei aus, dann trifft der Schlag.")
                 return back(f"/steuer/{jahr}/drache")
-            kritisch = await hochladen(jahr, s["id"], uploads) > 0
-            if not kritisch:
-                quest.setze_status(conn(), s["id"], "gesammelt")
+            funde = await hochladen(jahr, s["id"], uploads)
+            kritisch = any(f.neu for f in funde)
+            if not kritisch and not any(f.stueck["id"] == s["id"] for f in funde):
+                # Die Datei gehört schon zu einer anderen Karte: Das ist kein Treffer
+                flash(doppelt_text(jahr, funde[0] if funde else None, s))
+                return back(f"/steuer/{jahr}/drache#karte")
         elif aktion == "zettel":
             # Ein Zettel aus der Hand (dem Eingangskorb) direkt auf den Drachen geworfen
             name = Path(str(form.get("zettel") or "")).name
@@ -936,22 +1061,31 @@ def register_steuer(
             c = conn()
             fund = quest.sammeln(c, ws.root, s["id"], quelle, verschieben=True)
             if not fund.neu:
-                flash(
-                    f"{name} liegt schon bei „{fund.stueck['name']}“. Doppelt zählt nicht,"
-                    " die Kopie habe ich weggeräumt."
-                )
+                flash(doppelt_text(jahr, fund, s))
                 return back(f"/steuer/{jahr}/drache#karte")
             quest.notiere(c, jahr, "fund", f"{s['name']}: {name}")
-            datei = next(d for d in quest.dateien(c, jahr, s["id"]) if d["pfad"] == str(fund.pfad))
-            app.state.steuer_wurf[jahr] = {
-                "id": datei["id"],
-                "name": name,
-                "karte": s["name"],
-                "wie": "zettel",
-            }
+            if fund.verweis:
+                app.state.steuer_wurf[jahr] = {
+                    "id": None,
+                    "name": name,
+                    "karte": s["name"],
+                    "wie": "verweis",
+                }
+            else:
+                datei = next(
+                    d for d in quest.dateien(c, jahr, s["id"]) if d["pfad"] == str(fund.pfad)
+                )
+                app.state.steuer_wurf[jahr] = {
+                    "id": datei["id"],
+                    "name": name,
+                    "karte": s["name"],
+                    "wie": "zettel",
+                }
             kritisch = True
         elif aktion in ("gibts_nicht", "fragen"):
             frage = str(form.get("frage") or "").strip() if aktion == "fragen" else ""
+            if beraterin_macht:
+                frage = MACHT_BERATERIN
             quest.setze_status(conn(), s["id"], aktion, frage)
         else:
             raise HTTPException(400)
@@ -1073,6 +1207,7 @@ def register_steuer(
             daten["stuecke"],
             quest.dateien(conn(), jahr),
             kennwort,
+            quest.verweise(conn(), jahr),
         )
         if kennwort:
             app.state.steuer_passwort[jahr] = kennwort
@@ -1087,18 +1222,25 @@ def register_steuer(
     async def beraterin_daten(request: Request, jahr: int):
         form = await request.form()
         p = profil_oder_404(jahr)
-        p.beraterin_email = str(form.get("beraterin_email") or "").strip()
-        termin = str(form.get("beraterin_termin") or "").strip()
-        try:
-            p.beraterin_termin = date.fromisoformat(termin).isoformat() if termin else ""
-        except ValueError:
-            p.beraterin_termin = ""
+        beraterin_merken(p, form)
         p.save(quest.profil_datei(ws.root, jahr))
+        if request.headers.get("x-frits-leise"):
+            return JSONResponse({"ok": True})  # automatisch gespeichert, ohne Seitenwechsel
         if p.beraterin_termin:
             flash(f"Gemerkt: Abgabe bis {schoenes_datum(p.beraterin_termin)}.")
         else:
             flash("Gemerkt.")
         return back(str(form.get("back") or f"/steuer/{jahr}/beraterin"))
+
+    @app.post("/steuer/{jahr}/truhe/zeigen", dependencies=guarded)
+    def truhe_zeigen(jahr: int):
+        p = profil_oder_404(jahr)
+        zip_pfad = truhe_pfad(jahr, p)
+        if not zip_pfad.exists():
+            flash("Pack zuerst die Schatztruhe.")
+        elif not system.reveal_path(zip_pfad):
+            flash(f"Deine Truhe liegt hier: {zip_pfad}")
+        return back(f"/steuer/{jahr}/sieg")
 
     @app.post("/steuer/{jahr}/mail", dependencies=guarded)
     async def mail_oeffnen(request: Request, jahr: int):

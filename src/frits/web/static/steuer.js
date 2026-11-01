@@ -759,3 +759,51 @@
   }
   if (document.readyState === "complete") los(); else window.addEventListener("load", los);
 })();
+
+// Kärtchen der Beraterin: speichert sich selbst ("✓ gemerkt"), und wer gleich das Siegel
+// bricht, verliert die E-Mail-Adresse trotzdem nicht (die Felder reisen im Brief mit).
+(function () {
+  Array.prototype.forEach.call(document.querySelectorAll("form[data-leise]"), function (form) {
+    var gemerkt = form.querySelector("[data-gemerkt]"), uhr = null;
+    function speichern() {
+      if (!window.fetch) return;
+      fetch(form.action, { method: "POST", body: new FormData(form), headers: { "x-frits-leise": "1" }, credentials: "same-origin" })
+        .then(function (r) {
+          if (r.ok && gemerkt) {
+            gemerkt.textContent = "✓ gemerkt";
+            gemerkt.classList.add("da");
+            setTimeout(function () { gemerkt.classList.remove("da"); }, 1600);
+          }
+        }).catch(function () {});
+    }
+    form.addEventListener("input", function () { clearTimeout(uhr); uhr = setTimeout(speichern, 700); });
+    form.addEventListener("change", function () { clearTimeout(uhr); speichern(); });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll("form[data-mit]"), function (form) {
+    form.addEventListener("submit", function () {
+      var quelle = document.querySelector(form.getAttribute("data-mit"));
+      if (!quelle) return;
+      Array.prototype.forEach.call(quelle.elements, function (feld) {
+        if (!feld.name || feld.name === "token" || (feld.type === "radio" && !feld.checked)) return;
+        var kopie = document.createElement("input");
+        kopie.type = "hidden"; kopie.name = feld.name; kopie.value = feld.value;
+        form.appendChild(kopie);
+      });
+    });
+  });
+  // "Passwort kopieren": es wird nur einmal gezeigt
+  Array.prototype.forEach.call(document.querySelectorAll("[data-kopieren]"), function (knopf) {
+    knopf.addEventListener("click", function () {
+      var text = knopf.getAttribute("data-kopieren");
+      function fertig() { knopf.textContent = "✓ kopiert"; setTimeout(function () { knopf.textContent = "Passwort kopieren"; }, 1800); }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(fertig, function () {});
+      } else {
+        var feld = document.createElement("textarea");
+        feld.value = text; document.body.appendChild(feld); feld.select();
+        try { document.execCommand("copy"); fertig(); } catch (e) {}
+        document.body.removeChild(feld);
+      }
+    });
+  });
+})();

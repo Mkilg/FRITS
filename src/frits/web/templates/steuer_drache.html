@@ -68,7 +68,7 @@
         <button class="quiet">Falsch? Zurücklegen</button>
       </form>
       {% else %}
-      <span><b>{{ "Kritischer Treffer" if wurf.wie == "datei" else ("Notiert" if wurf.wie == "gibts_nicht" else "Treffer") }}:</b> {{ {"datei": "„" ~ wurf.karte ~ "“ ist gesichert.", "fragen": "„" ~ wurf.karte ~ "“ kommt als Frage in die Mail.", "gibts_nicht": "„" ~ wurf.karte ~ "“ gibt es nicht."}.get(wurf.wie, "") }}</span>
+      <span><b>{{ "Kritischer Treffer" if wurf.wie == "datei" else ("Notiert" if wurf.wie == "gibts_nicht" else "Treffer") }}:</b> {{ {"datei": "„" ~ wurf.karte ~ "“ ist gesichert.", "fragen": "„" ~ wurf.karte ~ "“ kommt als Frage in die Mail.", "gibts_nicht": "„" ~ wurf.karte ~ "“ gibt es nicht.", "verweis": "„" ~ wurf.karte ~ "“ benutzt dieselbe Datei mit."}.get(wurf.wie, "") }}</span>
       {% endif %}
       {% if beute %}{% set karte_gold = beute.basis * beute.mult %}
       <span class="sq-rechnung" aria-label="{{ beute.plus }} Gold verdient"><span class="chips">{{ beute.basis }}</span><span class="mal">×</span><span class="faktor">{{ beute.mult }}</span><span class="gleich">=</span><b>+{{ karte_gold }} Gold</b>{% if beute.plus > karte_gold %}<small>+{{ beute.plus - karte_gold }} Bonus</small>{% endif %}</span>
@@ -92,7 +92,8 @@
           <label class="fach">Datei geben: kritischer Treffer, doppelte Combo!<input type="file" name="datei" multiple></label>
         </div>
         <div class="reihe">
-          <button class="sq-siegelknopf" name="aktion" value="datei" data-datei-waehlen>Ist drin</button>
+          <button class="sq-siegelknopf" name="aktion" value="datei" data-datei-waehlen>Datei geben</button>
+          {% if macht_beraterin(k.gebiet, k.key) %}<button class="sq-stempelknopf" name="aktion" value="beraterin" title="Zählt als Treffer. In der Mail steht, dass sie das wie immer macht.">Macht meine Beraterin</button>{% endif %}
           {% if fehlt_nie(k.gebiet, k.key) %}
           <button class="sq-stempelknopf grau" name="aktion" value="fragen" title="Die hat jede:r. Deine Beraterin kennt sie oft schon.">Finde ich nicht</button>
           {% else %}
