@@ -192,8 +192,8 @@
     var zettel = e.target.closest && e.target.closest(".sq-zettel");
     if (!zettel) return;
     gezogen = zettel.getAttribute("data-name");
+    // Nur unser eigener Typ, kein text/plain: sonst hält der Einwurf den Zettel für eingefügten Text
     e.dataTransfer.setData(TYP, gezogen);
-    e.dataTransfer.setData("text/plain", gezogen);
     e.dataTransfer.effectAllowed = "move";
     zettel.classList.add("zieht");
     ton(660, 0.08, "triangle", 0.06);

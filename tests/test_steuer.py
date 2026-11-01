@@ -796,12 +796,43 @@ def test_dateien_lassen_sich_auf_den_eingangskorb_ziehen(client, ws):
     karte = client.get("/steuer/2025").text
     assert "/steuer/2025/lager/hochladen" in karte and "data-dropzone" in karte
     assert client.get("/steuer/2025/lager/anzahl").json() == {"anzahl": 0}
-    dateien = [("datei", ("bescheid.pdf", b"%PDF-1", "application/pdf"))] * 2
+    dateien = [("files", ("bescheid.pdf", b"%PDF-1", "application/pdf"))] * 2
     seite = post(client, "/steuer/2025/lager/hochladen", files=dateien)
     assert "2 neue Zettel im Eingangskorb" in seite.text
     namen = sorted(p.name for p in quest.lager_dateien(ws.root))
     assert namen == ["bescheid (1).pdf", "bescheid.pdf"]
     assert client.get("/steuer/2025/lager/anzahl").json() == {"anzahl": 2}
     # Ein Pfad im Namen wird nie ein Pfad auf der Platte
-    post(client, "/steuer/2025/lager/hochladen", files=[("datei", ("../../boese.txt", b"x"))])
+    post(client, "/steuer/2025/lager/hochladen", files=[("files", ("../../boese.txt", b"x"))])
     assert (quest.lager(ws.root) / "boese.txt").is_file()
+    # Auch Bankexporte (CSV) dürfen in den Korb, und eingefügter Text wird ein Zettel
+    post(client, "/steuer/2025/lager/hochladen", files=[("files", ("konto.csv", b"a;b"))])
+    seite = post(client, "/steuer/2025/lager/hochladen", text="Mail vom Finanzamt: bitte Belege")
+    assert "1 neuer Zettel" in seite.text
+    namen = [p.name for p in quest.lager_dateien(ws.root)]
+    assert "konto.csv" in namen and any(n.startswith("eingefuegt-") for n in namen)
+
+
+def test_beraterin_steht_nicht_mehr_im_ersten_teil(client, ws):
+    seite = client.get("/steuer/2025/fragebogen").text
+    assert 'name="beraterin_email"' not in seite and "data-stapel" in seite
+    fragebogen(client, teil1={"name": "Marie"})
+    brief = client.get("/steuer/2025/beraterin").text
+    assert 'name="beraterin_email"' in brief
+    post(
+        client,
+        "/steuer/2025/beraterin/daten",
+        beraterin_email="b@example.org",
+        beraterin_termin="2026-03-12",
+    )
+    p = Profil.load(quest.profil_datei(ws.root, 2025))
+    assert p.beraterin_email == "b@example.org" and p.beraterin_termin == "2026-03-12"
+    assert "12. März 2026" in client.get("/steuer/2025").text
+    # Teil 1 erneut speichern löscht die Beraterin nicht
+    post(client, "/steuer/2025/fragebogen", teil="1", name="Marie K.")
+    post(client, "/steuer/2025/fragebogen", teil="3")
+    p = Profil.load(quest.profil_datei(ws.root, 2025))
+    assert p.beraterin_email == "b@example.org"
+    # Kaputtes Datum wird nicht gespeichert
+    post(client, "/steuer/2025/beraterin/daten", beraterin_termin="morgen")
+    assert Profil.load(quest.profil_datei(ws.root, 2025)).beraterin_termin == ""

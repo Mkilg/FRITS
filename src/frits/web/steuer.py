@@ -554,7 +554,7 @@ def register_steuer(
         ablage = quest.lager(ws.root)
         ablage.mkdir(parents=True, exist_ok=True)
         gelegt, zu_gross = [], []
-        for upload in form.getlist("datei"):
+        for upload in [*form.getlist("files"), *form.getlist("datei")]:
             name = Path(str(getattr(upload, "filename", "") or "").replace("\\", "/")).name.strip()
             if not name or name.startswith("."):
                 continue
@@ -568,6 +568,11 @@ def register_steuer(
                 n += 1
             ziel.write_bytes(daten)
             gelegt.append(ziel.name)
+        text = str(form.get("text") or "").strip()
+        if text:
+            from frits.web.app import _save_text  # beim Einfügen von Text: eine .txt im Lager
+
+            gelegt.append(_save_text(text[:200_000], ablage, "eingefuegt").name)
         if gelegt:
             n = len(gelegt)
             flash(
