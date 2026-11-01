@@ -54,7 +54,7 @@
 {% set offene, fertige = liste %}
 <section class="card liste" id="liste">
   <div class="liste-kopf">
-    <h2>Deine Liste</h2>
+    <h2>{% if picture("symbol-liste") %}<img class="liste-bild" src="{{ picture('symbol-liste') }}" alt=""> {% endif %}Deine Liste</h2>
     {% if settings.haustier %}<span class="liste-karten" title="Jeder abgehakte Punkt wird eine Karte für den nächsten Kassensturz, drei am Tag.">{% if karten_uebrig %}✅ Noch {{ karten_uebrig }} {{ "Karte" if karten_uebrig == 1 else "Karten" }} für Fritte heute{% else %}Heute keine Karten mehr, abhaken tut trotzdem gut{% endif %}</span>{% endif %}
   </div>
   {% if offene or fertige %}

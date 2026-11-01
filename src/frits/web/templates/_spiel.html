@@ -1,7 +1,7 @@
 {# Building blocks of the everyday game: cards and spice jars. #}
 {% macro zahl(w) %}{{ ("%g" % w) | replace(".", ",") }}{% endmacro %}
 
-{% set KARTEN_BILD = {"rechnung": "symbol-rechnungen", "bezahlt": "symbol-euer", "angebot": "symbol-angebote", "ausgabe": "symbol-ausgaben", "erinnerung": "symbol-eingang", "feierabend": "fritte-feierabend", "steuer": "symbol-steuer", "steuerjahr": "symbol-steuer", "start": "fritte-willkommen"} %}
+{% set KARTEN_BILD = {"rechnung": "symbol-rechnungen", "bezahlt": "symbol-euer", "angebot": "symbol-angebote", "ausgabe": "symbol-ausgaben", "erinnerung": "symbol-eingang", "feierabend": "fritte-feierabend", "aufgabe": "symbol-liste", "steuer": "symbol-steuer", "steuerjahr": "symbol-steuer", "start": "fritte-willkommen"} %}
 {% set KARTEN_ZEICHEN = {"rechnung": "📄", "bezahlt": "💶", "angebot": "📝", "ausgabe": "🧾", "erinnerung": "✉️", "feierabend": "🌙", "aufgabe": "✅", "steuer": "🗂️", "steuerjahr": "🐉", "start": "🎁"} %}
 {% set KARTEN_NAME = {"rechnung": "Rechnung", "bezahlt": "Zahlung", "angebot": "Angebot", "ausgabe": "Ausgabe", "erinnerung": "Erinnerung", "feierabend": "Feierabend", "aufgabe": "Abgehakt", "steuer": "Steuer", "steuerjahr": "Steuerjahr", "start": "Einzug", "korrektur": "Korrektur"} %}
 
