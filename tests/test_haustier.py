@@ -976,3 +976,12 @@ def test_festival_and_album_pages(client, ws):  # noqa: F811
     assert 'class="wimpel"' in client.get("/fritte").text
     album = client.get("/fritte/album").text
     assert "Saisons und Feste" in album and "Herbstfest" in album
+
+
+def test_a_deleted_expense_is_not_counted_as_waiting(conn):
+    started(conn)
+    add_invoice(conn, "2026-0001", TODAY)
+    eid = add_expense(conn, TODAY)
+    assert haustier.ansehen(conn, TODAY).wartend == 2
+    conn.execute("UPDATE expenses SET struck = '2026-11-02T10:00:00' WHERE id = ?", (eid,))
+    assert haustier.ansehen(conn, TODAY).wartend == 1
