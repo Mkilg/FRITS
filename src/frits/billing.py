@@ -50,6 +50,9 @@ class Draft:
     warnings: list[str]
     source_file: str
     kind: str = "invoice"  # invoice | quote: what the review screen's main button makes
+    # How tax was worked out when this became an invoice, so a later Storno mirrors it exactly
+    # even if Fritz changes his tax settings in between: {"mode": ..., "rate": "19"}.
+    tax: dict | None = None
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), default=str, ensure_ascii=False)
@@ -154,12 +157,55 @@ def unit_price(
     return None
 
 
-def totals(lines: list[Line], settings: Settings) -> Totals:
+def tax_snapshot(settings: Settings) -> dict:
+    return {"mode": settings.tax_mode, "rate": str(settings.vat_rate)}
+
+
+def totals(lines: list[Line], settings: Settings, tax: dict | None = None) -> Totals:
+    """Net, VAT and gross. tax is the snapshot stored on an issued invoice; it wins over settings."""
+    tax = tax or tax_snapshot(settings)
     net = money(sum((line.net for line in lines if line.net is not None), Decimal(0)))
-    if settings.tax_mode == "regelbesteuerung":
-        vat = money(net * settings.vat_rate / 100)
-        return Totals(net, vat, net + vat, settings.vat_rate)
+    if tax["mode"] == "regelbesteuerung":
+        rate = Decimal(tax["rate"])
+        vat = money(net * rate / 100)
+        return Totals(net, vat, net + vat, rate)
     return Totals(net, Decimal("0.00"), net, None)
+
+
+_ISO_DAY = re.compile(r"\d{4}-\d{2}-\d{2}")
+_DE_DAY = re.compile(r"(\d{1,2})\.(\d{1,2})\.(\d{4}|\d{2})")
+
+
+def _day(text: str) -> date | None:
+    """Read "2026-10-03", "3.10.2026" or "3.10.26". Anything else stays as Fritz wrote it."""
+    text = text.strip()
+    try:
+        if _ISO_DAY.fullmatch(text):
+            return date.fromisoformat(text)
+        if m := _DE_DAY.fullmatch(text):
+            year = int(m.group(3))
+            return date(year + 2000 if year < 100 else year, int(m.group(2)), int(m.group(1)))
+    except ValueError:
+        return None
+    return None
+
+
+def service_period(lines: list[Line]) -> str | None:
+    """The Leistungsdatum or -zeitraum for § 14 Abs. 4 Nr. 6 UStG, from the line dates."""
+    raw = [line.date.strip() for line in lines if line.date and line.date.strip()]
+    if not raw:
+        return None
+    days = [_day(text) for text in raw]
+    if all(days):
+        first, last = min(days), max(days)
+        if first == last:
+            return first.strftime("%d.%m.%Y")
+        return f"{first.strftime('%d.%m.%Y')} bis {last.strftime('%d.%m.%Y')}"
+    unique = list(dict.fromkeys(raw))
+    return unique[0] if len(unique) == 1 else f"{unique[0]} bis {unique[-1]}"
+
+
+SERVICE_DATE_FALLBACK = "entspricht dem Rechnungsdatum"
 
 
 def blockers(draft: Draft, settings: Settings) -> list[str]:
@@ -167,6 +213,11 @@ def blockers(draft: Draft, settings: Settings) -> list[str]:
     problems = []
     if not settings.is_complete:
         problems.append("Deine eigenen Angaben (Name, Adresse, IBAN, Stundensatz) fehlen noch.")
+    if draft.kind != "quote" and not (settings.steuernummer.strip() or settings.ust_id.strip()):
+        problems.append(
+            "Deine Steuernummer oder USt-IdNr fehlt. Eine davon muss auf jeder Rechnung stehen "
+            "(§ 14 UStG). Du trägst sie in den Einstellungen ein."
+        )
     if not draft.customer_id or not draft.customer_address:
         problems.append("Kunde mit Adresse fehlt.")
     if not draft.lines:
@@ -233,11 +284,13 @@ def approve(conn, draft_id: int, settings: Settings, invoices_dir: Path, today: 
     if problems:
         raise BillingError(" ".join(problems))
 
-    sums = totals(draft.lines, settings)
+    draft.tax = tax_snapshot(settings)
+    sums = totals(draft.lines, settings, draft.tax)
     due = today + timedelta(days=settings.payment_days)
     with store.transaction(conn):
         number = next_number(conn, today.year, settings.number_pattern, settings.last_number_before)
         pdf_path = Path(invoices_dir) / f"{number}_{_slug(draft.customer_name)}.pdf"
+        _never_overwrite(pdf_path)
         conn.execute(
             "INSERT INTO invoices (number, customer, issue_date, net, vat, gross, draft_id,"
             " due_date, pdf_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -254,8 +307,8 @@ def approve(conn, draft_id: int, settings: Settings, invoices_dir: Path, today: 
             ),
         )
         conn.execute(
-            "UPDATE drafts SET status = 'approved', invoice_number = ? WHERE id = ?",
-            (number, draft_id),
+            "UPDATE drafts SET status = 'approved', invoice_number = ?, data = ? WHERE id = ?",
+            (number, draft.to_json(), draft_id),
         )
         # Rendering inside the transaction: if the PDF fails, the number is not used up.
         render_invoice(pdf_path, number, draft, sums, settings, today, due)
@@ -278,10 +331,12 @@ def cancel(conn, number: str, settings: Settings, invoices_dir: Path, today: dat
     draft = Draft.from_json(draft_row["data"])
     for line in draft.lines:
         line.quantity = -line.quantity
-    sums = totals(draft.lines, settings)
+    tax = draft.tax or _tax_from_invoice(original)
+    sums = totals(draft.lines, settings, tax)
     with store.transaction(conn):
         storno = next_number(conn, today.year, settings.number_pattern, settings.last_number_before)
         pdf_path = Path(invoices_dir) / f"{storno}_Storno_{number}.pdf"
+        _never_overwrite(pdf_path)
         conn.execute(
             "INSERT INTO invoices (number, customer, issue_date, net, vat, gross,"
             " draft_id, pdf_path, cancels) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -297,8 +352,36 @@ def cancel(conn, number: str, settings: Settings, invoices_dir: Path, today: dat
                 number,
             ),
         )
-        render_invoice(pdf_path, storno, draft, sums, settings, today, None, cancels=number)
+        render_invoice(
+            pdf_path,
+            storno,
+            draft,
+            sums,
+            settings,
+            today,
+            None,
+            cancels=number,
+            cancels_date=date.fromisoformat(original["issue_date"]),
+        )
     return storno, pdf_path
+
+
+def _tax_from_invoice(row) -> dict:
+    """For invoices issued before FRITS kept a tax snapshot: read it back from the stored sums."""
+    net, vat = Decimal(row["net"]), Decimal(row["vat"])
+    if vat == 0:
+        return {"mode": "kleinunternehmer", "rate": "0"}
+    rate = (vat / net * 100).quantize(Decimal(1), rounding=ROUND_HALF_UP) if net else Decimal(19)
+    return {"mode": "regelbesteuerung", "rate": str(rate)}
+
+
+def _never_overwrite(path: Path) -> None:
+    """An issued PDF is a record (GoBD). A file already sitting there is never replaced."""
+    if Path(path).exists():
+        raise BillingError(
+            f"Im Rechnungsordner liegt schon eine Datei {Path(path).name}. FRITS überschreibt "
+            "keine Rechnungen. Bitte verschiebe die Datei und versuche es noch einmal."
+        )
 
 
 def parse_amount(text: str | None) -> Decimal | None:

@@ -72,6 +72,22 @@ CREATE TABLE IF NOT EXISTS audit (
     cost_usd REAL,
     text_sha256 TEXT NOT NULL      -- hash of exactly what was sent, never the text itself
 );
+-- GoBD: an issued invoice is a record. It is never deleted and its content never changes;
+-- a mistake gets a Storno. Only bookkeeping notes (paid, emailed, due date, file) may change.
+CREATE TRIGGER IF NOT EXISTS invoices_never_deleted BEFORE DELETE ON invoices
+BEGIN
+    SELECT RAISE(ABORT, 'Rechnungen werden nie gelöscht. Bitte stornieren.');
+END;
+CREATE TRIGGER IF NOT EXISTS invoices_content_fixed
+BEFORE UPDATE OF number, customer, issue_date, net, vat, gross, draft_id, cancels ON invoices
+BEGIN
+    SELECT RAISE(ABORT, 'Eine ausgestellte Rechnung ändert sich nicht. Bitte stornieren.');
+END;
+CREATE TRIGGER IF NOT EXISTS approved_draft_fixed
+BEFORE UPDATE OF data, customer_id ON drafts WHEN OLD.status = 'approved'
+BEGIN
+    SELECT RAISE(ABORT, 'Diese Rechnung ist schon ausgestellt und ändert sich nicht.');
+END;
 """
 
 
