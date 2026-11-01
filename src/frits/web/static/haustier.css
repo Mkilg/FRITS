@@ -63,7 +63,7 @@
 
 .zimmer .ding {
   position: absolute; transform: translateX(-50%); line-height: 1;
-  font-size: calc(var(--g, 2.4) * 2.3cqw);
+  font-size: calc(var(--g, 2.4) * 3.1cqw);  /* bought things are meant to be seen */
   filter: saturate(.8) drop-shadow(0 .3cqw .2cqw rgba(58, 36, 18, .25));
 }
 .zimmer .ding img { height: 1.2em; width: auto; display: block; }
@@ -505,3 +505,43 @@ details[open] > summary::before { content: "▾ "; }
 .zimmer.gemalt .werkbank, .zimmer.gemalt .theke, .zimmer.gemalt .markise, .zimmer.gemalt .girlande,
 .zimmer.gemalt .teppich { display: none; }
 .zimmer.gemalt .papier { opacity: .25; }
+
+/* ---------- What each jar does right now (Lena: a quiet jar must not look like a bug) ---------- */
+.glas-mit-wirkung { display: inline-flex; flex-direction: column; align-items: center; gap: .25rem; max-width: 9.5rem; }
+.glas-wirkung { font-size: .74rem; line-height: 1.25; text-align: center; color: var(--muted); }
+.glas-mit-wirkung.wirkt .glas-wirkung { color: var(--moos-dunkel); font-weight: 600; }
+.glas-mit-wirkung.wirkt .glas-koerper { box-shadow: 0 0 0 2px var(--moos-hell), 0 4px 10px rgba(75, 106, 42, .25); }
+.glas-mit-wirkung.wartet .gewuerzglas { opacity: .72; }
+.regal-vorschau .glas-mit-wirkung { max-width: 8rem; }
+.selten-rezept { --etikett: var(--terrakotta); }
+.selten-rezept .glas-deckel { background: var(--terrakotta-dunkel); }
+
+/* ---------- Tagesgericht: one small choice before the Kassensturz ---------- */
+.tagesgericht { border: 0; padding: 0; margin: 0 0 1rem; }
+.tagesgericht legend { font-family: var(--schrift); font-weight: 700; color: var(--eiche-tief); margin-bottom: .5rem; padding: 0; }
+.tagesgericht legend .hint { font-family: inherit; font-weight: 400; display: block; }
+.gerichte { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: .6rem; }
+.gericht { position: relative; display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto auto; column-gap: .55rem;
+  padding: .7rem .8rem .7rem .7rem; border: 2px solid var(--line); border-radius: 8px 6px 9px 7px; background: var(--papierkarte);
+  box-shadow: var(--karten-schatten); cursor: pointer; transition: transform .12s, border-color .12s; }
+.gericht:hover { border-color: var(--ocker); transform: translateY(-2px); }
+.gericht input { position: absolute; opacity: 0; pointer-events: none; }
+.gericht:focus-within { outline: 3px solid var(--gold); outline-offset: 2px; }
+.gericht:has(input:checked) { border-color: var(--moos-dunkel); background: #eef3df; transform: translateY(-3px); }
+.gericht:has(input:checked)::after { content: "✓"; position: absolute; top: .35rem; right: .55rem; color: var(--moos-dunkel); font-weight: 700; }
+.gericht-zeichen { grid-row: 1 / span 3; font-size: 2rem; line-height: 1; align-self: center; }
+.gericht strong { font-family: var(--schrift); }
+.gericht-text { font-size: .85rem; color: var(--ink); }
+.gericht-summe { font-size: .85rem; color: var(--muted); margin-top: .2rem; }
+.gericht-summe strong { color: var(--tinte); font-family: inherit; }
+.ks-tipp { margin-top: .8rem; }
+[data-effekte="ruhig"] .gericht, [data-effekte="ruhig"] .gericht:hover { transform: none; }
+
+/* ---------- Before the first Kassensturz: how should Fritte celebrate? ---------- */
+.stil-frage { margin: .4rem 0 .8rem; }
+.stil-frage p { margin: 0 0 .4rem; }
+.stil-wahl { display: flex; flex-wrap: wrap; gap: .5rem; }
+.stil-wahl button { display: inline-flex; flex-direction: column; align-items: flex-start; text-align: left; padding: .5rem .9rem; }
+.stil-wahl button small { font-weight: 400; font-size: .78rem; color: var(--muted); }
+.regal-vorschau:has(.glas-mit-wirkung) { align-items: flex-start; }
+.regal-vorschau:has(.glas-mit-wirkung) > .hint:first-child { flex-basis: 100%; }
