@@ -27,7 +27,7 @@
   <div class="sq-papier sq-schief" style="--r: -0.6deg">
     <p class="sq-kicker">{{ "Silber-Sieg" if zweifel else "Sieg" }}</p>
     <h1>Der Drache ist besiegt!</h1>
-    <p>Er hat sich zu einer Schatztruhe gefaltet. Darin liegt alles, was deine Beraterin für {{ jahr }} braucht.</p>
+    <p>Er hat sich zu einer Schatztruhe gefaltet. {% if zweifel %}Darin liegt alles, was du für {{ jahr }} gefunden hast.{% else %}Darin liegt alles, was deine Beraterin für {{ jahr }} braucht.{% endif %}</p>
     {% if zweifel %}<p>{{ zweifel | length }} wichtige Unterlage{{ "n" if zweifel | length != 1 }} hast du als „Gibt's nicht“ gestempelt. In der Mail stehen sie unter „Bitte prüfen“.</p>{% endif %}
     <p class="sq-arena-knopf"><a class="sq-siegelknopf" href="/steuer/{{ jahr }}/sieg">Zur Schatztruhe →</a></p>
   </div>
@@ -73,7 +73,7 @@
           {% if fehlt_nie(k.gebiet, k.key) %}
           <button class="sq-stempelknopf grau" name="aktion" value="fragen" title="Die hat jede:r. Deine Beraterin kennt sie oft schon.">Finde ich nicht</button>
           {% else %}
-          <button class="sq-stempelknopf grau" name="aktion" value="gibts_nicht"{% if kern(k.gebiet, k.key) %} data-rueckfrage="{{ warum(k.gebiet, k.key) or ('„' ~ k.name ~ '“ hat fast jede:r in deiner Lage.') }} Findest du es nur gerade nicht? Dann frag lieber, das zählt genauso." data-rueckfrage-frage="Ich finde „{{ k.name }}“ nicht. Brauchst du das?"{% endif %} title="Zählt als Treffer, die Serie hält">Gibt's nicht</button>
+          <button class="sq-stempelknopf grau" name="aktion" value="gibts_nicht"{% if kern(k.gebiet, k.key) %} data-rueckfrage="{{ warum(k.gebiet, k.key) or ('„' ~ k.name ~ '“ hat fast jede:r in deiner Lage.') }} Gerade nicht zur Hand? Dann frag lieber, das zählt genauso." data-rueckfrage-frage="Ich finde „{{ k.name }}“ nicht. Brauchst du das?"{% endif %} title="Zählt als Treffer, die Serie hält">Gibt's nicht</button>
           {% endif %}
         </div>
         <div class="reihe">
@@ -81,6 +81,12 @@
           <button class="sq-stempelknopf" name="aktion" value="fragen">Lieber fragen</button>
         </div>
       </form>
+      {% if wurf %}
+      <form method="post" action="/steuer/{{ jahr }}/datei/{{ wurf.id }}/entfernen" class="sq-wurf-zurueck">
+        <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back" value="/steuer/{{ jahr }}/drache">
+        <span>Gerade geworfen: „{{ wurf.name }}“ als {{ wurf.karte }}.</span> <button class="quiet">Falsch? Zurücklegen</button>
+      </form>
+      {% endif %}
     </article>
   </div>
   {% if lager %}
@@ -88,12 +94,12 @@
   {% set hand = lager[:8] %}
   <div class="sq-hand" aria-label="Deine Hand: Zettel aus dem Eingangskorb">
     <p class="sq-hand-titel"><strong>Deine Hand:</strong> {{ lager | length }} Zettel aus dem Eingangskorb. Passt einer zu „{{ k.name }}“? Wirf ihn auf den Drachen!</p>
-    <form method="post" action="/steuer/{{ jahr }}/drache/schlag" class="sq-hand-faecher" data-stempel="TREFFER!">
+    <form method="post" action="/steuer/{{ jahr }}/drache/schlag" class="sq-hand-faecher" data-stempel="TREFFER!" data-beiseite="/steuer/{{ jahr }}/lager/beiseite">
       <input type="hidden" name="token" value="{{ token }}">
       <input type="hidden" name="stueck_id" value="{{ k.id }}">
       <input type="hidden" name="aktion" value="zettel">
       {% for f in hand %}{% set endung = f.suffix.lower().lstrip(".") %}
-      <button class="sq-handkarte" name="zettel" value="{{ f.name }}" data-name="{{ f.name }}" draggable="true" style="--i: {{ loop.index0 - (hand | length - 1) / 2 }}" title="„{{ f.name }}“ auf „{{ k.name }}“ werfen"><span class="art{% if endung in ['jpg', 'jpeg', 'png', 'heic'] %} bild{% endif %}">{{ (endung or "?")[:4] | upper }}</span><strong>{{ f.name }}</strong></button>
+      <button class="sq-handkarte" name="zettel" value="{{ f.name }}" data-name="{{ f.name }}" draggable="true" data-rueckfrage="„{{ f.name }}“ als „{{ k.name }}“ abgeben? Er kommt so in die Truhe für deine Beraterin." data-rueckfrage-ja="Ja, passt" style="--i: {{ loop.index0 - (hand | length - 1) / 2 }}" title="„{{ f.name }}“ auf „{{ k.name }}“ werfen"><span class="art{% if endung in ['jpg', 'jpeg', 'png', 'heic'] %} bild{% endif %}">{{ (endung or "?")[:4] | upper }}</span><strong>{{ f.name }}</strong></button>
       {% endfor %}
     </form>
     {% if lager | length > 8 %}<p class="sq-hand-titel">… und {{ lager | length - 8 }} weitere im Korb.</p>{% endif %}

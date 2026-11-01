@@ -354,8 +354,9 @@ def auftrag(
 ) -> Auftrag:
     """Genau ein klarer nächster Schritt, mit Belohnung.
 
-    Reihenfolge: Beute abholen, Eingangskorb leeren, dann der wache Drache (der Bosskampf
-    ist ab dem Erwachen das Ziel, sonst verpasst man ihn), sonst die nächste Provinz.
+    Reihenfolge: Beute abholen, dann der wache Drache (der Bosskampf ist ab dem Erwachen
+    das Ziel, sonst verpasst man ihn; der Korb ist dort die Hand), dann der Eingangskorb,
+    sonst die nächste Provinz.
     """
     basis = f"/steuer/{jahr}"
     if drache_.besiegt and stuecke:
@@ -366,6 +367,27 @@ def auftrag(
             "Zur Schatztruhe",
             f"{basis}/sieg",
             ("Mail an die Beraterin",),
+        )
+    if drache_wach and drache_.lp and stuecke:
+        lp = drache_.lp
+        return Auftrag(
+            "drache",
+            "Besiege den Papierdrachen",
+            (
+                "Er hat nur noch eine Karte. Ein letzter Treffer!"
+                if lp == 1
+                else f"Er hat noch {lp} Karten. Jede Antwort ist ein Treffer, auch eine Frage."
+            )
+            + (
+                f" Deine {zettel} Zettel aus dem Korb hast du als Hand dabei."
+                if zettel > 1
+                else (" Den Zettel aus dem Korb hast du als Hand dabei." if zettel else "")
+            ),
+            "Zum Drachenhort",
+            f"{basis}/drache",
+            ("Sieg", "Schatztruhe"),
+            erledigt=drache_.max_lp - lp,
+            gesamt=drache_.max_lp,
         )
     if zettel:
         return Auftrag(
@@ -381,22 +403,6 @@ def auftrag(
             ("+1 Beleg pro Zettel",),
             erledigt=0,
             gesamt=zettel,
-        )
-    if drache_wach and drache_.lp and stuecke:
-        lp = drache_.lp
-        return Auftrag(
-            "drache",
-            "Besiege den Papierdrachen",
-            (
-                "Er hat nur noch eine Karte. Ein letzter Treffer!"
-                if lp == 1
-                else f"Er hat noch {lp} Karten. Jede Antwort ist ein Treffer, auch eine Frage."
-            ),
-            "Zum Drachenhort",
-            f"{basis}/drache",
-            ("Sieg", "Schatztruhe"),
-            erledigt=drache_.max_lp - lp,
-            gesamt=drache_.max_lp,
         )
     offen = [p for p in staende if not p.stand.siegel]
     if not offen:

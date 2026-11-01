@@ -2,9 +2,11 @@
    kleine Zettel unten rechts, die von selbst verschwinden. So verrutscht nichts auf dem Tisch. #}
 {# Im Bosskampf führt nichts vom Drachen weg: dann sind nur Sieg und Erwachen ein großer Moment.
    Das Tagwerk ist nie ein Dialog: Wer gerade drin ist, soll nicht hinausgebeten werden. #}
-{% set gross_arten = (["sieg", "erwachen"] if im_kampf is defined and im_kampf else ["gruendung", "siegel", "zeitalter", "orden", "sieg", "erwachen"]) if auftrag is defined else [] %}
+{# Kampf heißt: der Drache ist wach und nicht besiegt, egal auf welcher Quest-Seite man gerade ist #}
+{% set kampf = (im_kampf is defined and im_kampf) or (drache_wach is defined and drache_wach and drache is defined and not drache.besiegt) %}
+{% set gross_arten = (["sieg", "erwachen"] if kampf else ["gruendung", "siegel", "zeitalter", "orden", "sieg", "erwachen", "gold"]) if auftrag is defined else [] %}
 {% set grosse = flashes | selectattr("kind", "in", gross_arten) | selectattr("text") | list %}
-{% set grosse = (grosse | selectattr("kind", "equalto", "sieg") | list) + (grosse | selectattr("kind", "equalto", "erwachen") | list) + (grosse | rejectattr("kind", "in", ["sieg", "erwachen"]) | list) %}
+{% set grosse = (grosse | selectattr("kind", "equalto", "sieg") | list) + (grosse | selectattr("kind", "equalto", "gold") | list) + (grosse | selectattr("kind", "equalto", "erwachen") | list) + (grosse | rejectattr("kind", "in", ["sieg", "gold", "erwachen"]) | list) %}
 {% set kleine = flashes | rejectattr("kind", "in", gross_arten) | selectattr("text") | list %}
 {% if kleine %}
 <div class="sq-zettelchen" role="status">
@@ -17,15 +19,15 @@
 <dialog class="sq-belohnung art-{{ erste }}{% if silber_siegel or (erste == 'sieg' and zweifel is defined and zweifel) %} silber{% endif %}" data-belohnung{% if finale is defined and finale %} data-spaet="1900"{% endif %}>
   <div class="sq-belohnung-licht" aria-hidden="true"></div>
   {% if erste in ["erwachen", "sieg"] %}
-  {% set drachen_bild = bild("drache-besiegt" if erste == "sieg" else "drache-getroffen") %}
+  {% set drachen_bild = bild("truhe" if erste == "sieg" else "drache-getroffen") %}
   <div class="sq-belohnung-drache" aria-hidden="true">{% if drachen_bild %}<img src="{{ drachen_bild }}" alt="">{% else %}<span class="sq-origami {{ 'besiegt' if erste == 'sieg' else '' }}"><i class="schwanz"></i><i class="fluegel"></i><i class="koerper"></i><i class="kopf"></i><i class="siegel"></i></span>{% endif %}</div>
   {% else %}
   {% set siegel_bild = bild("siegel") %}
   <div class="sq-belohnung-siegel" aria-hidden="true">{% if siegel_bild %}<img src="{{ siegel_bild }}" alt="">{% else %}✓{% endif %}</div>
   {% endif %}
-  <h2>{{ {"gruendung": "Dein Reich steht!", "siegel": ("Silber-Siegel!" if silber_siegel else "Gold-Siegel!"), "zeitalter": "Neues Zeitalter!", "orden": "Neuer Orden!", "sieg": ("Silber-Sieg!" if zweifel is defined and zweifel else "Sieg!"), "erwachen": "Der Drache erwacht!"}[erste] }}</h2>
+  <h2>{{ {"gruendung": "Dein Reich steht!", "siegel": ("Silber-Siegel!" if silber_siegel else "Gold-Siegel!"), "zeitalter": "Neues Zeitalter!", "orden": "Neuer Orden!", "sieg": ("Silber-Sieg!" if zweifel is defined and zweifel else "Sieg!"), "erwachen": "Der Drache erwacht!", "gold": "Aus Silber wird Gold!"}[erste] }}</h2>
   <ul class="sq-beute">
-    {% for f in grosse %}<li class="{{ f.kind }}">{{ f.text.replace("Gold-Siegel! ", "").replace("Silber-Siegel! ", "") if loop.first else f.text }}</li>{% endfor %}
+    {% for f in grosse %}<li class="{{ f.kind }}">{{ f.text.replace("Gold-Siegel! ", "").replace("Silber-Siegel! ", "").replace("Aus Silber wird Gold! ", "") if loop.first else f.text }}</li>{% endfor %}
   </ul>
   {% if erste not in ["erwachen", "sieg"] %}
   <div class="sq-naechster">
