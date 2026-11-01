@@ -17,10 +17,10 @@ ABOUT = {
     "projekt": [
         (
             "FRITS ist ein experimentelles, nicht-kommerzielles Projekt. "
-            "Marie entwickelt es für ihren Freund Fritz."
+            "Marie Kilg entwickelt es privat, in ihrer Freizeit, zuerst für einen Freund."
         ),
         (
-            "Fritz ist von Buchhaltung ziemlich gestresst, und Marie kann das gut nachfühlen. "
+            "Buchhaltung stresst viele Selbstständige, und Marie kann das gut nachfühlen. "
             "Deshalb soll FRITS den Papierkram leichter machen: Rechnungen, Angebote, "
             "Erinnerungen und die Steuer, Schritt für Schritt."
         ),
@@ -45,12 +45,12 @@ ABOUT = {
             "FRITS stecken, steht in LIZENZEN.txt neben der App."
         ),
     ],
-    "podcast_name": "Der KI-Podcast der ARD",
+    "podcast_name": "Ein privates Projekt",
     "podcast_text": (
-        "FRITS ist für eine Live-Folge vom ARD KI-Podcast entstanden. "
-        "Im Podcast besprechen Gregor Schmalzried, Marie Kilg und Fritz Espenlaub jeden Dienstag, "
-        "was hinter den wichtigsten KI-Entwicklungen steckt. "
-        "Eine ARD-Produktion von BR24 und SWR."
+        "Die Idee zu FRITS ist rund um eine Live-Folge vom KI-Podcast der ARD entstanden, "
+        "den Marie mitmoderiert. FRITS selbst ist aber kein Projekt der ARD und keins ihrer "
+        "Sender: Marie hat es als Privatperson gebaut, in ihrer Freizeit und auf eigene "
+        "Verantwortung."
     ),
     "podcast_link": "https://www.ardsounds.de/sendung/der-ki-podcast/urn:ard:show:65505255c703e51e/",
 }
