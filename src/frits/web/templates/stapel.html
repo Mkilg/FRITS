@@ -1,0 +1,287 @@
+{% extends "base.html" %}
+{% block title %}Stapel einlesen · FRITS{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/lernen.css"><link rel="stylesheet" href="/static/stapel.css"><script src="/static/stapel.js" defer></script>{% endblock %}
+{% set ki = "die lokale KI" if settings.strict_local else providers.get(settings.provider, settings.provider).split(" (")[0] %}
+{% block content %}
+<div class="stapel">
+
+{% if not s %}
+{# ================= Start: alles hineingeben ================= #}
+<section class="hello">
+  <div class="mascot-big">{{ mascot("welcome") }}</div>
+  <div>
+    <h1>Stapel einlesen</h1>
+    <p class="speech">Ein ganzer Ordner, ein ZIP oder viele Dateien auf einmal? Gib mir alles. Ich lese hier auf deinem Computer, schlage für jedes Dokument einen Platz vor, und du bestätigst. Danach sage ich dir, was noch fehlt.</p>
+  </div>
+</section>
+
+<form method="post" action="/stapel/neu" enctype="multipart/form-data" class="einwurf card form stapel-einwurf"
+      data-einwurf data-einwurf-haupt data-stapel-einwurf data-busy="Ich lege alles in den Stapel.">
+  <input type="hidden" name="token" value="{{ token }}">
+  <input type="hidden" name="back" value="/stapel">
+  <label class="dropzone" data-dropzone>
+    <input type="file" name="files" multiple accept="{{ supported }},.zip,.vcf" data-stapel-dateien aria-describedby="stapel-hilfe">
+    <span class="dz-titel">🗂️ Ordner, ZIP oder viele Dateien hierher ziehen</span>
+    <small class="muted" id="stapel-hilfe">Belege, Notizen, E-Mails, Steuerbriefe, Kontakte, alles durcheinander. Bis {{ 300 }} Dateien.
+      Kopiert? <kbd data-taste-cmd>⌘</kbd><kbd>V</kbd> geht auch. Oder <u>Dateien auswählen</u>.</small>
+  </label>
+  <div class="row stapel-knoepfe">
+    <label class="button quiet ordner-knopf">📁 Ganzen Ordner auswählen
+      <input type="file" name="files" webkitdirectory directory multiple data-stapel-ordner hidden>
+    </label>
+    <button class="primary" data-ohne-js>Einlesen</button>
+  </div>
+  <details class="dz-text">
+    <summary>Text einfügen, z. B. mehrere E-Mails hintereinander</summary>
+    <textarea name="text" rows="5" placeholder="Text hier hineinkopieren …" aria-label="Text einfügen"></textarea>
+    <div class="row"><button class="primary">In den Stapel</button></div>
+  </details>
+  <div class="stapel-fortschritt" data-stapel-fortschritt hidden>
+    <progress max="100" value="0"></progress>
+    <span data-stapel-fortschritt-text role="status">Ich lege alles in den Stapel …</span>
+  </div>
+</form>
+
+<section class="card schutz">
+  <h2>So läuft es</h2>
+  <ol class="schritte">
+    <li><strong>Hineinlegen.</strong> Alles bleibt auf deinem Computer, im Ordner „stapel“ in FRITS.</li>
+    <li><strong>Lesen, hier.</strong> Ich lese jede Datei selbst (Fotos mit der Texterkennung) und schlage vor: Rechnung schreiben, Ausgabe, neuer Kunde, Steuer-Quest oder beiseite. Ohne KI.</li>
+    <li><strong>Genauer mit KI, wenn du willst.</strong> Dann sieht {{ ki }} nur einen geschwärzten Auszug je Dokument, ohne Dateinamen. Was rausgeht, zeige ich dir vorher.</li>
+    <li><strong>Du bestätigst.</strong> Erst dann kommt jede Datei an ihren Platz. Steuer-Unterlagen landen im Eingangskorb der Steuer-Quest, mit Vorschlag für die Karte.</li>
+    <li><strong>Was fehlt noch?</strong> Zum Schluss zeige ich, welche Unterlagen noch fehlen, und welche Provinzen deiner Steuer-Quest dazukommen könnten.</li>
+  </ol>
+</section>
+
+{% if alle %}
+<section class="card">
+  <h2>Angefangene Stapel</h2>
+  <ul class="list">
+    {% for x in alle %}<li><a href="/stapel/{{ x.id }}"><span>{{ x.titel }}</span><span class="muted">{{ x.docs | length }} Dokumente</span><span class="badge {{ 'todo' if x.offen or x.ungelesen else 'ok' }}">{{ (x.offen | length) ~ " offen" if x.offen or x.ungelesen else "fertig sortiert" }}</span></a></li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% else %}
+{# ================= Ein Stapel ================= #}
+{% set zahl = s.zaehle() %}
+<section class="hello">
+  <div class="mascot-big">{{ mascot("thinking" if s.ungelesen else ("done" if not s.offen else "draft_ready")) }}</div>
+  <div>
+    <h1>{{ s.titel }}</h1>
+    <p class="speech">{% if s.ungelesen %}Ich lese gerade, Datei für Datei. Alles bleibt hier auf deinem Computer.{% elif s.offen %}{{ s.offen | length }} Dokumente warten auf deine Bestätigung. Prüf meine Vorschläge, dann ein Klick.{% else %}Alles hat seinen Platz. Unten steht, was noch fehlt.{% endif %}</p>
+  </div>
+</section>
+
+{% if s.ungelesen %}
+<section class="card" id="lesen">
+  <h2>Ich lese …</h2>
+  <form method="post" action="/stapel/{{ s.id }}/lesen" data-stapel-lesen data-busy="Ich lese. Das dauert einen Moment.">
+    <input type="hidden" name="token" value="{{ token }}">
+    <progress max="{{ s.docs | length }}" value="{{ (s.docs | length) - (s.ungelesen | length) }}"></progress>
+    <p role="status" data-stapel-lesen-text>{{ (s.docs | length) - (s.ungelesen | length) }} von {{ s.docs | length }} gelesen.</p>
+    <button class="primary">Weiter lesen</button>
+    <p class="hint">Fotos lese ich mit der Texterkennung, das braucht ein paar Sekunden pro Bild.</p>
+  </form>
+</section>
+{% endif %}
+
+{% if d %}
+{# ---------- ein Dokument im Detail ---------- #}
+<section class="card dok-detail" id="dok">
+  <p><a href="/stapel/{{ s.id }}#dok-{{ d.nr }}">← Zurück zur Übersicht</a></p>
+  <h2>{{ zeichen[d.ziel] }} {{ d.name }}</h2>
+  <p><strong>Mein Vorschlag:</strong> {{ ziele[d.ziel] }}{% if d.karte and karten_name.get(d.karte) %}, Karte „{{ karten_name[d.karte] }}“{% endif %}. <span class="muted">{{ s.reidentify(d.grund) }}</span>
+    {% if d.quelle == "ki" %}<span class="badge">Vorschlag der KI</span>{% elif d.quelle == "du" %}<span class="badge ok">deine Wahl</span>{% endif %}</p>
+  {% if d.fehlt %}<p class="fehlt">Fehlt oder unklar: {{ s.reidentify(d.fehlt) }}</p>{% endif %}
+  {% if d.doppelt %}<p class="hint warn-text">Diese Datei {{ d.doppelt }}.</p>{% endif %}
+  {% if d.status == "erledigt" %}<p class="lesson ok">{{ d.ergebnis }}{% if d.link %} <a href="{{ d.link }}">Ansehen</a>{% endif %}</p>
+  {% elif d.ist_bild %}<img class="dok-bild" src="/stapel/{{ s.id }}/datei/{{ d.nr }}" alt="Vorschau von {{ d.name }}">
+  {% elif d.ist_pdf %}<p><a class="button quiet" href="/stapel/{{ s.id }}/datei/{{ d.nr }}" target="_blank" rel="noopener">PDF öffnen</a></p>{% endif %}
+  {% if d.fehler %}<p class="hint warn-text">{{ d.fehler }}</p>{% endif %}
+  <div class="compare">
+    <div><h3>Gelesen (bleibt hier)</h3><pre>{{ d.text[:6000] or "(kein Text)" }}{% if d.text | length > 6000 %}
+…{% endif %}</pre></div>
+    <div><h3>Das sähe {{ ki }} <span class="muted">als „Dokument {{ d.nr }}“</span></h3>
+      {% if d.geschwaerzt %}<pre class="redacted">{{ d.geschwaerzt }}</pre>
+      {% else %}<p class="hint">{{ d.schwaerzen_fehler or "Von diesem Dokument geht nichts an die KI." }}</p>{% endif %}
+      {% if d.nr in s.ki_gesendet %}<p class="hint">Diesen Auszug hat {{ ki }} gesehen.</p>{% endif %}</div>
+  </div>
+  <p class="hint">Fragen zu diesem Dokument? Im <a href="/notfall">Notfall-Chat</a> kannst du es geschwärzt mit {{ ki }} besprechen.</p>
+</section>
+{% endif %}
+
+{% if ki_vorschau %}
+{# ---------- was an die KI ginge ---------- #}
+<section class="card ki-vorschau" id="ki">
+  <p><a href="/stapel/{{ s.id }}">← Zurück zur Übersicht</a></p>
+  <h2>Das geht an {{ ki }}</h2>
+  {% if not ki_docs %}
+  <p>Gerade gibt es nichts zu schicken: Alles, was sich sicher schwärzen ließ, hat die KI schon gesehen.</p>
+  {% else %}
+  <p>{{ ki_docs | length }} Dokumente, je ein geschwärzter Auszug, {{ "in einer Anfrage" if ki_pakete == 1 else "in " ~ ki_pakete ~ " Anfragen" }}. Keine Dateinamen, keine Bilder. Namen, Adressen und Nummern sind Platzhalter wie <code>[PERSON_1]</code>.</p>
+  <form method="post" action="/stapel/{{ s.id }}/ki" data-stapel-ki data-busy="{{ ki }} sortiert. Das dauert etwas.">
+    <input type="hidden" name="token" value="{{ token }}">
+    <div class="row"><button class="primary">Jetzt an {{ ki }} schicken</button><a class="button quiet" href="/stapel/{{ s.id }}">Lieber nicht</a></div>
+    <div class="stapel-fortschritt" data-stapel-fortschritt hidden><progress max="100" value="0"></progress> <span data-stapel-fortschritt-text role="status"></span></div>
+  </form>
+  <details class="lesson">
+    <summary>Genau dieser Text geht raus ({{ ki_text | length }} Zeichen)</summary>
+    <h3>Die Hausregeln für {{ ki }}</h3>
+    <pre>{{ ki_system }}</pre>
+    <h3>Die Anfrage{% if ki_pakete > 1 %} (das erste Paket von {{ ki_pakete }}){% endif %}</h3>
+    <pre class="redacted">{{ ki_text }}</pre>
+  </details>
+  <details class="lesson">
+    <summary>Noch etwas schwärzen?</summary>
+    <form method="post" action="/stapel/{{ s.id }}/schwaerzen">
+      <input type="hidden" name="token" value="{{ token }}">
+      <label>Diese Wörter auch schwärzen, durch Komma getrennt
+        <input name="extra" value="{{ s.extra | join(', ') }}" placeholder="z. B. Spitzname, Projektname"></label>
+      <button class="quiet">Neu schwärzen</button>
+    </form>
+    {% if s.auto_hidden %}<p class="hint">Von mir dazugenommen: {{ s.auto_hidden | join(", ") }}.</p>{% endif %}
+  </details>
+  {% set raus = s.docs | selectattr("schwaerzen_fehler") | list %}
+  {% if raus %}<p class="hint warn-text">{{ raus | length }} Dokument{{ "e bleiben" if raus | length > 1 else " bleibt" }} hier, weil ich sie nicht sicher schwärzen konnte. Für sie gilt mein eigener Vorschlag.</p>{% endif %}
+  {% endif %}
+</section>
+{% endif %}
+
+{% if not s.ungelesen and not d and not ki_vorschau %}
+{# ---------- Übersicht ---------- #}
+{% if s.offen %}
+<section class="card ki-karte">
+  <div class="zaehler">
+    {% for key, label in ziele.items() %}{% if zahl[key] %}<span class="chip ziel-{{ key }}">{{ zeichen[key] }} {{ zahl[key] }} {{ label }}</span>{% endif %}{% endfor %}
+  </div>
+  {% if s.ki_fehler %}<p class="hint warn-text">{{ s.ki_fehler }}</p>{% endif %}
+  {% if s.ki_wartet and ki_bereit %}
+  <p>Die Vorschläge sind von mir, ohne KI. {{ ki[0] | upper }}{{ ki[1:] }} kann genauer sortieren und sagt dir, was fehlt.</p>
+  <a class="button primary" href="/stapel/{{ s.id }}/ki">Genauer sortieren mit {{ ki }}</a>
+  <span class="hint">Ich zeige dir vorher, was rausgeht.</span>
+  {% elif s.ki_wartet %}
+  <p class="hint">Mit einer verbundenen KI würde ich genauer sortieren. <a href="/settings#ki">KI verbinden</a> (2 Minuten). Es geht auch ohne.</p>
+  {% elif s.ki_gesendet %}
+  <p class="hint">{{ s.ki_gesendet | length }} Dokumente hat {{ ki }} geschwärzt gesehen{% if s.ki_kosten %}, Kosten etwa {{ "%.2f" | format(s.ki_kosten) | replace(".", ",") }} US-Dollar{% endif %}.</p>
+  {% endif %}
+</section>
+
+<form method="post" action="/stapel/{{ s.id }}/uebernehmen" class="card uebersicht" id="uebersicht" data-busy="Ich räume ein.">
+  <input type="hidden" name="token" value="{{ token }}">
+  <div class="kopf"><h2>Wohin damit?</h2>
+    <label class="alle"><input type="checkbox" checked data-stapel-alle> alle</label></div>
+  <ul class="doks">
+    {% for d in s.offen %}
+    <li class="dok" id="dok-{{ d.nr }}" data-ziel="{{ d.ziel }}">
+      <label class="nimm" title="Übernehmen"><input type="checkbox" name="nimm_{{ d.nr }}" checked aria-label="{{ d.name }} übernehmen"></label>
+      <a class="vorschau" href="/stapel/{{ s.id }}/dok/{{ d.nr }}" title="Ansehen">
+        {% if d.ist_bild %}<img loading="lazy" src="/stapel/{{ s.id }}/datei/{{ d.nr }}" alt="">{% else %}<span class="symbol" aria-hidden="true">{{ {"pdf": "📄", "email": "✉️", "text": "📝", "docx": "📃", "kontakt": "👤", "xml": "🧾", "foto": "🖼️"}.get(d.art, "📄") }}</span>{% endif %}
+      </a>
+      <div class="info">
+        <a class="name" href="/stapel/{{ s.id }}/dok/{{ d.nr }}">{{ d.name }}</a>
+        <span class="grund">{{ s.reidentify(d.grund) }}{% if d.quelle == "ki" %} <span class="badge">KI</span>{% endif %}</span>
+        {% if d.fehlt %}<span class="fehlt">Fehlt: {{ s.reidentify(d.fehlt) }}</span>{% endif %}
+        {% if d.fehler %}<span class="fehler">{{ d.fehler }}</span>{% endif %}
+      </div>
+      <div class="wohin">
+        <select name="ziel_{{ d.nr }}" data-stapel-ziel aria-label="Wohin mit {{ d.name }}">
+          {% for key, label in ziele.items() %}<option value="{{ key }}" {{ "selected" if key == d.ziel }}>{{ zeichen[key] }} {{ label }}</option>{% endfor %}
+        </select>
+        {% if d.ziel == "steuer" %}
+        <div class="nur-steuer">
+          {% if karten %}
+          <select name="karte_{{ d.nr }}" aria-label="Welche Karte der Steuer-Quest">
+            <option value="">Ohne Karte, ich sortiere in der Quest</option>
+            {% for k in karten %}<option value="{{ k[0] }}" {{ "selected" if k[0] == d.karte }}>{{ k[1] }}: {{ k[2] }}{{ " ✓" if k[3] != "offen" }}</option>{% endfor %}
+          </select>
+          {% else %}<small class="muted">Kommt ins Lager der Steuer-Quest {{ lage.jahr }}.</small>{% endif %}
+        </div>
+        {% endif %}
+        <div class="nur-ausgabe">
+          <input name="gross_{{ d.nr }}" value="{{ d.felder.gross or '' }}" inputmode="decimal" placeholder="Betrag €" aria-label="Betrag in Euro">
+          <input name="date_{{ d.nr }}" type="date" value="{{ d.felder.date or '' }}" aria-label="Datum">
+          <input name="vendor_{{ d.nr }}" value="{{ d.felder.vendor or '' }}" placeholder="Laden" aria-label="Laden oder Firma">
+          <select name="category_{{ d.nr }}" aria-label="Kategorie">
+            <option value="">Kategorie …</option>
+            {% for key, c in kategorien.items() %}<option value="{{ key }}" {{ "selected" if key == d.felder.category }}>{{ c.label }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="nur-kunde"><small class="muted">{% if d.kontakt.name or d.kontakt.company %}{{ d.kontakt.company or d.kontakt.name }}{% if d.kontakt.email %} · {{ d.kontakt.email }}{% endif %}{% else %}Kein Name gefunden: leg den Kunden lieber von Hand an.{% endif %}</small></div>
+        <div class="nur-rechnung"><small class="muted">Kommt in den Eingang, die KI macht daraus einen Entwurf.</small></div>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  <div class="row unten">
+    <button class="primary">Angehakte übernehmen</button>
+    <span class="hint">Ausgaben mit Betrag, Datum und Kategorie buche ich gleich. Sonst warten sie bei Ausgaben.</span>
+  </div>
+</form>
+{% endif %}
+
+{% set luecke = luecken %}
+<section class="card fehlt-karte" id="fehlt">
+  <h2>Was noch fehlt</h2>
+  {% if luecke.provinzen %}
+  <div class="lesson anpassen">
+    <strong>Deine Steuer-Quest wächst mit.</strong> Im Stapel waren Unterlagen zu Bereichen, die in deiner Quest {{ lage.jahr }} noch aus sind:
+    <ul>{% for name, n in luecke.provinzen %}<li>{{ name }} ({{ n }} Dokument{{ "e" if n > 1 }})</li>{% endfor %}</ul>
+    <a class="button" href="/steuer/{{ lage.jahr }}/fragebogen">Im Fragebogen einschalten</a>
+  </div>
+  {% endif %}
+  {% if luecke.quest_fehlt %}
+  <div class="lesson">
+    <strong>Steuer-Unterlagen gefunden.</strong> Starte die Steuer-Quest {{ lage.jahr }}: Was ich dort ablege, wartet schon im Lager.
+    <a class="button" href="/steuer/{{ lage.jahr }}">Zur Steuer-Quest</a>
+  </div>
+  {% endif %}
+  {% if luecke.ki %}
+  <h3>{{ ki[0] | upper }}{{ ki[1:] }} meint</h3>
+  <ul class="plain hinweise">{% for h in luecke.ki %}<li>{{ h }}</li>{% endfor %}</ul>
+  {% endif %}
+  {% if luecke.steuer %}
+  <h3>Steuer-Quest {{ lage.jahr }}: offene Karten</h3>
+  <ul class="plain luecken">{% for l in luecke.steuer[:12] %}<li>{{ l.text }} <a href="{{ l.link }}">{{ l.link_text }}</a></li>{% endfor %}</ul>
+  {% if luecke.steuer | length > 12 %}<p class="hint">Und {{ luecke.steuer | length - 12 }} weitere Gebiete. <a href="/steuer/{{ lage.jahr }}">Zur Karte</a></p>{% endif %}
+  <p class="hint">Karten, für die dieser Stapel gerade etwas liefert, zähle ich nicht mit.</p>
+  {% endif %}
+  {% if luecke.alltag %}
+  <h3>Im Alltag</h3>
+  <ul class="plain luecken">{% for l in luecke.alltag %}<li>{{ l.text }} <a href="{{ l.link }}">{{ l.link_text }}</a></li>{% endfor %}</ul>
+  {% endif %}
+  {% if not (luecke.provinzen or luecke.quest_fehlt or luecke.ki or luecke.steuer or luecke.alltag) %}
+  <p>Mir fällt nichts auf, das fehlt. {% if not lage.profil %}Für die Steuer frag ich erst, wenn du die <a href="/steuer">Steuer-Quest</a> startest.{% endif %}</p>
+  {% endif %}
+</section>
+
+{% if s.erledigt %}
+<section class="card">
+  <details {{ "open" if not s.offen }}>
+    <summary><h2 class="inline">Erledigt ({{ s.erledigt | length }})</h2></summary>
+    <ul class="plain erledigt">{% for d in s.erledigt %}<li>{{ zeichen[d.ziel] }} <strong>{{ d.name }}</strong>: {{ d.ergebnis }}{% if d.link %} <a href="{{ d.link }}">Ansehen</a>{% endif %}</li>{% endfor %}</ul>
+  </details>
+</section>
+{% endif %}
+
+{% if s.uebersprungen %}
+<section class="card">
+  <details>
+    <summary>{{ s.uebersprungen | length }} Datei{{ "en" if s.uebersprungen | length > 1 }} kann ich nicht lesen</summary>
+    <p class="hint">Zum Beispiel Tabellen oder Programme. Sie bleiben, wo sie waren.</p>
+    <ul class="plain">{% for n in s.uebersprungen[:30] %}<li>{{ n }}</li>{% endfor %}</ul>
+  </details>
+</section>
+{% endif %}
+
+<section class="leise-links stapel-ende">
+  <a href="/stapel">Neuen Stapel anfangen</a>
+  <form method="post" action="/stapel/{{ s.id }}/schliessen">
+    <input type="hidden" name="token" value="{{ token }}">
+    <button title="Übrige Dateien kommen in „stapel/beiseite gelegt“. Nichts wird gelöscht.">Stapel schließen</button>
+  </form>
+</section>
+{% endif %}
+{% endif %}
+</div>
+{% endblock %}

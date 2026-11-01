@@ -1868,6 +1868,24 @@ def create_app(
         ai_ready=ai_ready,
         db=db,
     )
+
+    from frits.web.stapel import register_stapel
+
+    register_stapel(
+        app,
+        ws=ws,
+        page=page,
+        back=back,
+        flash=flash,
+        settings=settings,
+        customers=customers,
+        nlp=nlp,
+        guarded=guarded,
+        provider_for=provider_for,
+        ai_ready=ai_ready,
+        db=db,
+        today=today,
+    )
     return app
 
 

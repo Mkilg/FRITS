@@ -94,6 +94,7 @@
   {% endif %}
 </section>
 
+<p class="notfall-hinweis">Ein ganzer Ordner voller Belege und Briefe? <a href="/stapel">Stapel einlesen</a>: alles auf einmal hineingeben, ich sortiere es vor.</p>
 <p class="notfall-hinweis">Ein Brief, der Bauchweh macht? <a href="/notfall">Notfall-Chat öffnen</a>: Dokument reinlegen, geschwärzt mit {{ "der lokalen KI" if settings.strict_local else providers.get(settings.provider, settings.provider).split(" (")[0] }} besprechen.</p>
 
 {% if f %}{% include "_fritte_ecke.html" %}{% endif %}
