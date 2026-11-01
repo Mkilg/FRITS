@@ -114,10 +114,19 @@
       <p class="hint">Preise kommen aus der Kundennotiz oder deinen Einstellungen, nie von der KI. Du kannst jeden Wert ändern.</p>
 
       {% if draft.questions %}
-      <div class="questions">
+      <div class="questions" id="fragen">
         <h3>Fragen an dich</h3>
         <ul>{% for q in draft.questions %}<li>{{ q }}</li>{% endfor %}</ul>
-        {% if editable %}<label><input type="checkbox" name="questions_done"> Geklärt, Fragen ausblenden</label>{% endif %}
+        {% if editable and row.job_id and ai_on %}
+        <label class="field">Antworte einfach in deinen Worten
+          <textarea name="answers" rows="3" placeholder="z. B. Der KI-Report war Recherche und Text, fertig am 12.10. Ja, 3.000 € pauschal."></textarea>
+        </label>
+        <div class="row">
+          <button name="action" value="answer" class="primary" data-busy="Ich lese die Notiz mit deinen Antworten noch einmal. Das dauert meist 10 bis 30 Sekunden.">Mit meinen Antworten neu vorschlagen</button>
+          <label><input type="checkbox" name="questions_done"> Geklärt, Fragen ausblenden</label>
+        </div>
+        <p class="hint">Deine Antworten schwärze ich wie die Notiz, bevor die KI sie sieht. Danach schlage ich die Positionen neu vor; Preise rechnet weiter FRITS.{% if "Kundenliste" in draft.questions | join(" ") %} Einen neuen Kunden legst du am besten oben bei „Kunde“ mit „Neuer Kunde“ an.{% endif %}</p>
+        {% elif editable %}<label><input type="checkbox" name="questions_done"> Geklärt, Fragen ausblenden</label>{% endif %}
       </div>
       {% endif %}
 

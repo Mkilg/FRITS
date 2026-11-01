@@ -484,7 +484,7 @@ def test_quit_stops_the_server(ws, provider, nlp):
 def test_settings_offer_to_run_the_setup_again(client):
     page = client.get("/settings")
     assert 'href="/setup/welcome"' in page.text
-    assert "Einrichtung neu starten" in page.text
+    assert "Einführung wiederholen" in page.text
 
 
 def test_goodbye_page_offers_a_restart(ws, provider, nlp, monkeypatch):
@@ -769,3 +769,116 @@ def test_painted_pictures_keep_their_space_while_loading(tmp_path):
     html = tag("leer-eingang", "leer-bild")
     assert 'class="leer-bild"' in html and 'width="420" height="299"' in html
     assert tag("gibts-nicht", "x") == ""
+
+
+def test_check_me_file_can_be_seen_and_becomes_a_receipt(client, ws):
+    drop_and_read(client, ws, "20_kaputt.pdf")
+    page = client.get("/check-me").text
+    assert "Ein Beleg: als Ausgabe eintragen" in page and "Ansehen" in page
+    seen = client.get("/check-me/datei", params={"name": "20_kaputt.pdf"})
+    assert (
+        seen.status_code == 200
+        and seen.content == (FIXTURES / "docs" / "20_kaputt.pdf").read_bytes()
+    )
+    assert client.get("/check-me/datei", params={"name": "../settings.toml"}).status_code == 404
+    assert (
+        client.get("/check-me/datei", params={"name": "20_kaputt.pdf.grund.txt"}).status_code == 404
+    )
+    response = post(client, "/check-me/beleg", name="20_kaputt.pdf")
+    assert "Als Beleg übernommen" in response.text
+    assert "receipt=" in str(response.url)
+    assert not (ws.check_me / "20_kaputt.pdf").exists() and (ws.done / "20_kaputt.pdf").exists()
+    status = store.connect(ws.db).execute("SELECT status FROM jobs").fetchone()[0]
+    assert status == "receipt"
+
+
+def test_check_me_file_can_be_put_away(client, ws):
+    drop_and_read(client, ws, "20_kaputt.pdf")
+    response = post(client, "/check-me/weglegen", name="20_kaputt.pdf")
+    assert "zählt nirgends mit" in response.text and "Alles erledigt" in response.text
+    assert (ws.done / "20_kaputt.pdf").exists()
+
+
+def test_receipt_dropped_on_expenses_after_check_me_is_taken(client, ws):
+    drop_and_read(client, ws, "20_kaputt.pdf")
+    data = (FIXTURES / "docs" / "20_kaputt.pdf").read_bytes()
+    response = client.post(
+        "/expenses/beleg",
+        data={"token": client.token},
+        files={"files": ("20_kaputt.pdf", data, "application/pdf")},
+        follow_redirects=True,
+    )
+    assert "kenne ich schon" not in response.text and "receipt=" in str(response.url)
+    assert not any(ws.check_me.iterdir())
+    again = client.post(
+        "/expenses/beleg",
+        data={"token": client.token},
+        files={"files": ("20_kaputt.pdf", data, "application/pdf")},
+        follow_redirects=True,
+    )
+    assert "wartet hier aufs Eintragen" in again.text
+
+
+def test_ticket_that_redaction_is_unsure_about_becomes_a_receipt(client, ws, monkeypatch):
+    from frits import pipeline
+    from frits.redact import LeakError
+
+    def unsure(*args, **kwargs):
+        raise LeakError("etwas übrig")
+
+    monkeypatch.setattr(pipeline, "redact", unsure)
+    (ws.inbox / "DB_Ticket.txt").write_text(
+        "DB Fernverkehr Online-Ticket\nFahrkarte Berlin - Hamburg\nGesamtpreis 49,90 €\n"
+    )
+    response = post(client, "/inbox/process")
+    assert "1 Beleg" in response.text
+    assert (ws.done / "DB_Ticket.txt").exists()
+    row = store.connect(ws.db).execute("SELECT status, filename FROM jobs").fetchone()
+    assert tuple(row) == ("receipt", "DB_Ticket.txt")
+
+
+def test_questions_are_answered_in_free_text_and_redacted(client, ws, provider):
+    from frits.billing import load_draft, save_draft
+
+    drop_and_read(client, ws, "01_notiz_meier.txt")
+    draft_id = latest_draft(ws)
+    conn = store.connect(ws.db)
+    draft, _ = load_draft(conn, draft_id)
+    draft.questions = ["An welchem Tag war das?"]
+    save_draft(conn, draft_id, draft)
+    page = client.get(f"/drafts/{draft_id}").text
+    assert 'name="answers"' in page and "Mit meinen Antworten neu vorschlagen" in page
+
+    empty = post(client, f"/drafts/{draft_id}", action="answer", answers=" ")
+    assert "Schreib deine Antworten" in empty.text
+
+    shutil.copy(FIXTURES / "docs" / "01_notiz_meier.txt", ws.inbox)  # the recording to answer with
+    page = post(
+        client,
+        f"/drafts/{draft_id}",
+        action="answer",
+        answers="Am 12.10., Frau Meier hat zugeschaut.",
+    )
+    assert "Neu vorgeschlagen" in page.text
+    sent = provider.calls[-1]
+    assert "Antworten des Auftragnehmers" in sent and "Am 12.10." in sent
+    assert "Meier" not in sent  # the answers are redacted like the note
+    audit = conn.execute("SELECT COUNT(*) FROM audit").fetchone()[0]
+    assert audit == 2
+
+
+def test_hand_made_draft_has_nothing_to_read_again(client, ws):
+    post(client, "/drafts/new")
+    draft_id = latest_draft(ws)
+    page = post(client, f"/drafts/{draft_id}", action="answer", answers="Hallo")
+    assert "keine KI gelesen" in page.text
+
+
+def test_letter_under_check_me_opens_in_the_notfall_chat(client, ws):
+    (ws.check_me / "brief.txt").write_text(
+        "Sehr geehrter Herr Beispiel, bitte zahlen Sie bis 30.11."
+    )
+    page = post(client, "/check-me/notfall", name="brief.txt")
+    assert "Notfall-Chat" in page.text and "Das sieht" in page.text
+    assert "/notfall/" in str(page.url)
+    assert (ws.check_me / "brief.txt").exists()  # stays until Fritz puts it away

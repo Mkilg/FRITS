@@ -369,15 +369,17 @@ def create_app(
         cue: str | None = None,
         stamp: str | None = None,
         undo: dict | None = None,
+        link: tuple[str, str] | None = None,
     ) -> None:
         """A short note on the next page. `stamp` puts an ink stamp on it, e.g. "Bezahlt".
         `undo` remembers how to take the step back and puts a "Rückgängig" button on the note:
         undo beats "Are you sure?" (people click OK by habit; a way back always works)."""
         if undo:
             app.state.undo = undo
-        app.state.flashes.append(
-            {"text": text, "kind": kind, "cue": cue, "stamp": stamp, "undo": bool(undo)}
-        )
+        note = {"text": text, "kind": kind, "cue": cue, "stamp": stamp, "undo": bool(undo)}
+        if link:
+            note["link"], note["link_text"] = link
+        app.state.flashes.append(note)
 
     app.state.hinweise = []  # small notes other parts add to any page, e.g. Fritte's cards
 
@@ -386,6 +388,7 @@ def create_app(
         flashes, app.state.flashes = app.state.flashes, []
         for hinweis in app.state.hinweise:
             flashes += hinweis(request.url.path, current)
+        nav = context.pop("nav", None) or request.url.path  # which menu entry is lit
         context.update(
             request=request,
             token=app.state.token,
@@ -394,7 +397,7 @@ def create_app(
             sounds=app.state.sounds_url if current.sound else None,
             music=_music_track(current.music, request.url.path),
             moods=_music_moods(),
-            nav=request.url.path,
+            nav=nav,
             ai_on=ai_ready(current),
         )
         return templates.TemplateResponse(request, name, context)
@@ -554,6 +557,10 @@ def create_app(
             if outcome.status == "check-me" and path.exists():
                 flash(f"{path.name}: {outcome.message}", "error")
                 break  # e.g. the AI isn't reachable: the next files would fail the same way
+            if outcome.status == "check-me":
+                flash(
+                    f"{path.name}: {outcome.message}", link=("/check-me", "Ansehen und einordnen")
+                )
         parts = []
         if counts["drafted"]:
             parts.append(
@@ -609,7 +616,13 @@ def create_app(
                 return read_inbox(target, after_upload=True)
         if saved:
             names = ", ".join(p.name for p in saved)
-            flash(f"Im Eingang: {names}. Drück „Jetzt lesen lassen“, wenn du so weit bist.")
+            if ai_ready(settings()):
+                flash(f"Im Eingang: {names}. Drück „Jetzt lesen lassen“, wenn du so weit bist.")
+            else:
+                flash(
+                    f"Im Eingang: {names}. Sobald die KI verbunden ist, lese ich es. Ein Beleg "
+                    "geht auch ohne KI: Zieh ihn unter Ausgaben auf das Feld."
+                )
         for problem in problems:
             flash(problem, "error")
         if not saved and not problems:
@@ -619,6 +632,91 @@ def create_app(
     @app.get("/check-me", response_class=HTMLResponse)
     def check_me_page(request: Request):
         return page(request, "check_me.html", files=_check_me_files(ws))
+
+    def _check_me_file(name) -> Path:
+        path = (ws.check_me / Path(str(name or "")).name).resolve()
+        if not path.is_file() or ws.check_me.resolve() not in path.parents:
+            raise HTTPException(404)
+        if path.name.endswith(".grund.txt"):
+            raise HTTPException(404)
+        return path
+
+    @app.get("/check-me/datei")
+    def check_me_file(name: str = ""):
+        """Look at the file first, here on this computer, to decide where it belongs."""
+        return FileResponse(_check_me_file(name), content_disposition_type="inline")
+
+    def _check_me_done(path: Path, status: str) -> tuple[Path, int]:
+        """Move a file out of "Zum Prüfen" into "erledigt" and note what it became."""
+        from frits.pipeline import _move, file_hash
+
+        conn = db()
+        digest = file_hash(path)
+        path.with_name(path.name + ".grund.txt").unlink(missing_ok=True)
+        target = _move(path, ws.done)
+        row = conn.execute("SELECT id FROM jobs WHERE sha256 = ?", (digest,)).fetchone()
+        if row:
+            conn.execute(
+                "UPDATE jobs SET status = ?, filename = ? WHERE id = ?",
+                (status, target.name, row["id"]),
+            )
+            return target, row["id"]
+        return target, store.add_job(conn, digest, target.name, status)
+
+    @app.post("/check-me/beleg", dependencies=guarded)
+    async def check_me_receipt(request: Request):
+        """It's a ticket or a receipt: enter it on Ausgaben. FRITS reads amount and date here,
+        no AI involved, so nothing has to be redacted."""
+        path = _check_me_file((await request.form()).get("name"))
+        _, job_id = _check_me_done(path, "receipt")
+        flash(
+            "Als Beleg übernommen. Betrag und Datum lese ich hier auf deinem Computer, ganz "
+            "ohne KI. Bitte prüfen und speichern, dann zählt er in der EÜR."
+        )
+        return back(f"/expenses?receipt={job_id}#neu")
+
+    @app.post("/check-me/notfall", dependencies=guarded)
+    async def check_me_chat(request: Request):
+        """A letter or a notice: open it in the Notfall-Chat, redacted, to understand it.
+        The file stays under "Zum Prüfen" until Fritz puts it away."""
+        from frits import notfall
+        from frits.redact import LeakError
+
+        path = _check_me_file((await request.form()).get("name"))
+        current = settings()
+        known = list(customers()) + ([current.owner] if current.name else [])
+        try:
+            text = extract_text(path).text
+            g = notfall.neues_gespraech()
+            notfall.add_document(
+                g, path.name, path.suffix.lstrip(".") or "text", text, known, nlp()
+            )
+        except IngestError as exc:
+            flash(str(exc), "error")
+            return back("/check-me")
+        except LeakError:
+            flash(
+                "Ich konnte nicht alles sicher schwärzen, darum geht davon nichts raus. Im "
+                "Notfall-Chat kannst du selbst Wörter zum Schwärzen eintragen: Zieh die Datei "
+                "dort noch einmal auf das Feld.",
+                "error",
+            )
+            return back("/notfall")
+        except RuntimeError as exc:
+            flash(str(exc), "error")
+            return back("/check-me")
+        chats = app.state.notfall
+        chats[g.key] = g
+        while len(chats) > notfall.KEEP:
+            chats.popitem(last=False)
+        return back(f"/notfall/{g.key}")
+
+    @app.post("/check-me/weglegen", dependencies=guarded)
+    async def check_me_away(request: Request):
+        path = _check_me_file((await request.form()).get("name"))
+        target, _ = _check_me_done(path, "check-me-ignored")
+        flash(f"{target.name} liegt jetzt im Ordner „erledigt“ und zählt nirgends mit.")
+        return back("/check-me")
 
     @app.post("/check-me/retry", dependencies=guarded)
     async def check_me_retry(request: Request):
@@ -697,6 +795,9 @@ def create_app(
     async def draft_save(request: Request, draft_id: int):
         form = await request.form()
         conn = db()
+        action = form.get("action", "save")
+        if action == "answer":
+            return draft_answer(draft_id, str(form.get("answers") or ""))
         try:
             draft, _ = load_draft(conn, draft_id)
             _apply_form(draft, form, customer_by, settings())
@@ -704,7 +805,6 @@ def create_app(
         except BillingError as exc:
             flash(str(exc), "error")
             return back(f"/drafts/{draft_id}")
-        action = form.get("action", "save")
         current = settings()
         if action == "approve":
             try:
@@ -719,7 +819,7 @@ def create_app(
                 forget_mapping(ws, row["job_id"])
             flash(
                 f"Rechnung {number} ist fertig. Ein Punkt weniger im Kopf.",
-                cue="done",
+                cue="rechnung",
                 stamp="Fertig",
             )
             late = ustva.late_notice(ws.db, current, number, today())
@@ -736,6 +836,25 @@ def create_app(
             flash(f"Angebot {number} ist fertig.", cue="done", stamp="Fertig")
             return back(f"/quotes#a-{number}")
         flash("Gespeichert.")
+        return back(f"/drafts/{draft_id}")
+
+    def draft_answer(draft_id: int, answers: str):
+        """The answers to "Fragen an dich", in Fritz's words: the AI reads the note again."""
+        from frits.pipeline import AnswerError, answer_questions
+
+        if not answers.strip():
+            flash("Schreib deine Antworten in das Feld unter den Fragen.", "error")
+            return back(f"/drafts/{draft_id}#fragen")
+        current = settings()
+        try:
+            answer_questions(db(), ws, current, provider_for(current), nlp(), draft_id, answers)
+        except (AnswerError, ProviderError, RuntimeError, BillingError) as exc:
+            flash(str(exc), "error")
+            return back(f"/drafts/{draft_id}#fragen")
+        flash(
+            "Neu vorgeschlagen, mit deinen Antworten. Bitte schau die Positionen noch einmal an.",
+            cue="done",
+        )
         return back(f"/drafts/{draft_id}")
 
     @app.post("/drafts/{draft_id}/discard", dependencies=guarded)
@@ -1281,11 +1400,35 @@ def create_app(
             known = conn.execute(
                 "SELECT id, status FROM jobs WHERE sha256 = ?", (digest,)
             ).fetchone()
+            if known and known["status"] == "check-me":
+                # It waited under "Zum Prüfen": now Fritz says it's a receipt, so it is one.
+                for old in ws.check_me.glob("*"):
+                    waiting_there = old.is_file() and not old.name.endswith(".grund.txt")
+                    if waiting_there and file_hash(old) == digest:
+                        old.with_name(old.name + ".grund.txt").unlink(missing_ok=True)
+                        old.unlink()
+                conn.execute(
+                    "UPDATE jobs SET status = 'receipt', filename = ? WHERE id = ?",
+                    (path.name, known["id"]),
+                )
+                first = first or known["id"]
+                continue
             if known:
                 path.unlink()
-                flash(f"{path.name}: Diesen Beleg kenne ich schon.")
-                if known["status"] == "receipt":
+                waiting = {r["id"] for r in open_receipts(conn)}
+                if known["id"] in waiting:
+                    flash(f"{path.name}: Den kenne ich schon. Er wartet hier aufs Eintragen.")
                     first = first or known["id"]
+                elif known["status"] == "receipt":
+                    flash(
+                        f"{path.name}: Diesen Beleg hast du schon eingetragen. Er steht unten "
+                        "in der Liste, du musst nichts mehr tun."
+                    )
+                else:
+                    flash(
+                        f"{path.name}: Diese Datei habe ich schon einmal gelesen. Sie liegt im "
+                        "Ordner „erledigt“, du musst nichts mehr tun."
+                    )
                 continue
             job_id = store.add_job(conn, digest, path.name, "receipt")
             first = first or job_id

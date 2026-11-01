@@ -8,7 +8,7 @@
     var button = e.submitter;
     var message = (button && button.getAttribute("data-confirm")) || form.getAttribute("data-confirm");
     if (message && !window.confirm(message)) { e.preventDefault(); return; }
-    var busy = form.getAttribute("data-busy");
+    var busy = (button && button.getAttribute("data-busy")) || form.getAttribute("data-busy");
     if (busy) {
       // A disabled button's name and value are not sent, so keep which one was pressed.
       if (button && button.name) {
@@ -250,6 +250,9 @@
   // The Steuer-Quest uses the same sound.
   var audio = null;
   function stampSound() {
+    // With sound on, the player keeps one unlocked AudioContext for the whole visit
+    // (frits-sound.js), so the plopp also sounds right after a page change.
+    if (window.FritsSound && window.FritsSound.stamp) { window.FritsSound.stamp(); return; }
     var Ctx = window.AudioContext || window.webkitAudioContext;
     if (!Ctx) return;
     try { audio = audio || new Ctx(); } catch (e) { return; }
@@ -277,6 +280,11 @@
   function feedback(cue, stamped) {
     var sound = window.FritsSound;
     if (!sound || !sound.enabled()) return;
+    if (cue === "rechnung") {  // the big moment: stamp, then the till rings, in both modes
+      setTimeout(stampSound, 300);
+      setTimeout(function () { if (sound.ching) sound.ching(); else sound.cue("done"); }, 520);
+      return;
+    }
     if (!stamped) { sound.cue(cue); return; }
     setTimeout(stampSound, 300);
     if (playful()) setTimeout(function () { sound.cue(cue); }, 550);
@@ -363,6 +371,8 @@
       if (both[0].url && both[0].url !== location.href) {
         history.pushState({ feierabend: true }, "", both[0].url);
         swapped = true;
+      } else if (window.FritsSound && window.FritsSound.follow) {
+        window.FritsSound.follow();
       }
       window.scrollTo(0, 0);
       start();

@@ -1,19 +1,50 @@
 {% extends "base.html" %}
-{% block title %}Notfall-Chat · FRITS{% endblock %}
+{% block title %}{{ "Freier Chat" if frei else "Notfall-Chat" }} · FRITS{% endblock %}
 {% block head %}<link rel="stylesheet" href="/static/lernen.css"><link rel="stylesheet" href="/static/notfall.css">{% endblock %}
 {% block content %}
 <div class="notfall">
 <section class="hello">
   <div class="mascot-big">{{ mascot("thinking" if g else "welcome") }}</div>
   <div>
-    <h1>Notfall-Chat</h1>
-    <p class="speech">{% if not g and not ai_ready %}Ein Brief, der Bauchweh macht? Leg ihn hier rein. Ich schwärze Namen, Adressen und Nummern hier auf deinem Computer. Eine KI ist noch nicht verbunden, also kopierst du den geschwärzten Text danach selbst in einen Chat.{% elif not g %}Ein Brief, der Bauchweh macht? Leg ihn hier rein und frag {{ ki }}. Namen, Adressen und Nummern schwärze ich vorher hier auf deinem Computer.{% elif not g.messages %}Ich habe alles gelesen und geschwärzt. Schau kurz drüber, dann frag los.{% else %}Frag ruhig weiter. Alles bleibt geschwärzt.{% endif %}</p>
+    <h1>{{ "Freier Chat" if frei else "Notfall-Chat" }}</h1>
+    <p class="speech">{% if frei and not g and not ai_ready %}Frag mich, was du willst: zu Kunden, Formulierungen, Steuern oder deiner Woche. Namen und Nummern schwärze ich vorher hier auf deinem Computer. Eine KI ist noch nicht verbunden, also kopierst du den geschwärzten Text danach selbst in einen Chat.{% elif frei and not g %}Frag mich, was du willst: zu Kunden, Formulierungen, Steuern oder deiner Woche. {{ ki }} antwortet, Namen und Nummern schwärze ich vorher hier auf deinem Computer.{% elif not g and not ai_ready %}Ein Brief, der Bauchweh macht? Leg ihn hier rein. Ich schwärze Namen, Adressen und Nummern hier auf deinem Computer. Eine KI ist noch nicht verbunden, also kopierst du den geschwärzten Text danach selbst in einen Chat.{% elif not g %}Ein Brief, der Bauchweh macht? Leg ihn hier rein und frag {{ ki }}. Namen, Adressen und Nummern schwärze ich vorher hier auf deinem Computer.{% elif not g.messages %}Ich habe alles gelesen und geschwärzt. Schau kurz drüber, dann frag los.{% else %}Frag ruhig weiter. Alles bleibt geschwärzt.{% endif %}</p>
   </div>
 </section>
 
+{% if not g and frei %}
+{# ---------- start of a Freier Chat: just ask ---------- #}
+<section class="card frage" id="frage">
+  <h2>Was möchtest du wissen?</h2>
+  <form method="post" action="/chat/neu" enctype="multipart/form-data" class="form" data-busy="{{ ki }} liest und denkt nach. Das dauert meist 10 bis 40 Sekunden.">
+    <input type="hidden" name="token" value="{{ token }}">
+    <input type="hidden" name="modus" value="{{ 'senden' if ai_ready else 'kopieren' }}">
+    <div class="vorschlaege" role="group" aria-label="Schnelle Fragen">
+      {% for v in vorschlaege %}<button name="vorschlag" value="{{ v }}" class="chip">{{ v }}</button>{% endfor %}
+    </div>
+    <label class="field">Oder in deinen Worten
+      <textarea name="frage" rows="3" maxlength="4000" placeholder="z. B. Wie sage ich einem Kunden freundlich, dass mein Preis steigt?" data-frage></textarea>
+    </label>
+    <details class="dazu">
+      <summary>Ein Dokument dazulegen (freiwillig)</summary>
+      <label class="field">PDF, Word, Foto oder Text. Ich schwärze es und zeige es dir, bevor etwas rausgeht.
+        <input type="file" name="files" multiple>
+      </label>
+    </details>
+    <div class="row">
+      {% if ai_ready %}<button class="primary" name="action" value="senden">An {{ ki }} schicken</button>{% endif %}
+      <button class="{{ 'quiet' if ai_ready else 'primary' }}" name="action" value="kopieren">{{ "Lieber selbst kopieren" if ai_ready else "Schwärzen zum Kopieren" }}</button>
+      <span class="muted dz-tipp"><kbd data-taste-cmd>⌘</kbd><kbd>↩</kbd> schickt ab</span>
+    </div>
+    <p class="hint">Auch deine Frage schwärze ich, bevor sie rausgeht. Du siehst danach unter „So ging es raus“, was {{ ki }} bekommen hat. Für einen Brief, der Bauchweh macht, gibt es den <a href="/notfall">Notfall-Chat</a>.{% if not ai_ready %} <a href="/settings#ki">KI verbinden</a>, dann geht es mit einem Klick.{% endif %}</p>
+  </form>
+</section>
+{% endif %}
+
 {% if not g %}
+{% if not frei %}
 {# ---------- start: drop something in ---------- #}
 {% with dz_action="/notfall/neu", dz_back="/notfall", dz_id="notfall", dz_icon="🆘", dz_title="Dokument hierher ziehen oder einfügen", dz_hint="Briefe, Verträge, Mahnungen, E-Mails, PDFs, Word, Fotos.", dz_send="Schwärzen und ansehen", dz_busy="Ich lese und schwärze. Das dauert einen Moment.", dz_text_label="Text einfügen, z. B. aus einer E-Mail oder einem Brief" %}{% include "_dropzone.html" %}{% endwith %}
+{% endif %}
 
 <section class="card schutz">
   <h2>So bleibt es geschützt</h2>
@@ -44,6 +75,21 @@
 
 {% else %}
 {# ---------- one chat ---------- #}
+{% if not g.docs %}
+<section class="card" id="unterlagen">
+  <div class="kopf">
+    <h2>Ohne Dokument</h2>
+    <form method="post" action="/notfall/{{ g.key }}/vergessen">
+      <input type="hidden" name="token" value="{{ token }}">
+      <button class="quiet tiny" title="Löscht den Chat aus dem Arbeitsspeicher">Chat vergessen</button>
+    </form>
+  </div>
+  <details class="noch-eins">
+    <summary>Ein Dokument dazulegen</summary>
+    {% with dz_action="/notfall/" ~ g.key ~ "/dokument", dz_back="/notfall/" ~ g.key, dz_id="noch-eins", dz_class="form", dz_icon="➕", dz_title="Hierher ziehen oder einfügen", dz_hint="Ich schwärze es und zeige es dir, bevor es mit deiner nächsten Frage rausgeht.", dz_send="Dazulegen", dz_busy="Ich lese und schwärze." %}{% include "_dropzone.html" %}{% endwith %}
+  </details>
+</section>
+{% else %}
 <section class="card" id="unterlagen">
   <div class="kopf">
     <h2>Deine Unterlagen</h2>
@@ -112,6 +158,7 @@
     {% endif %}
   </div>
 </section>
+{% endif %}
 
 {# ---------- the conversation ---------- #}
 {% if g.messages %}

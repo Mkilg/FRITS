@@ -59,6 +59,22 @@ Versicherungen, Kredite). Du kannst erklären, was im Dokument steht, und sagen,
 - Du kannst nur antworten: nichts öffnen, nichts verschicken, nichts bezahlen. Entwürfe für \
 Antworten schreibst du so, dass er sie selbst kopieren und abschicken kann."""
 
+# The Freier Chat: the same protection, for any question, with or without a document.
+SYSTEM_FREI = SYSTEM.replace(
+    """Du hilfst einem Selbstständigen in Deutschland mit seinem Papierkram: Briefe vom Amt, \
+Verträge, Rechnungen, Mahnungen, E-Mails, Formulare.""",
+    """Du hilfst einem Selbstständigen in Deutschland bei Fragen rund um seine Arbeit: \
+Papierkram, Kunden, Formulierungen, Steuern, Planung. Manchmal legt er Unterlagen dazu: Briefe \
+vom Amt, Verträge, Rechnungen, Mahnungen, E-Mails, Formulare.""",
+)
+
+VORSCHLAEGE_FREI = (
+    "Was muss auf eine Rechnung drauf?",
+    "Hilf mir, eine freundliche Absage zu formulieren.",
+    "Welche Belege sollte ich für die Steuer aufheben?",
+    "Wie plane ich meine Woche mit einem festen Büro-Block?",
+)
+
 VORSCHLAEGE = (
     "Was wollen die von mir, und bis wann?",
     "Erklär mir das in einfachen Worten.",
@@ -120,6 +136,11 @@ class Gespraech:
     cost_usd: float = 0.0
     calls: int = 0
     entwurf: str = ""  # a question whose sending failed, shown again in the field
+    frei: bool = False  # started as Freier Chat: any question, documents optional
+
+    @property
+    def system(self) -> str:
+        return SYSTEM_FREI if self.frei else SYSTEM
 
     # ----- what Fritz sees -----
 
@@ -128,6 +149,9 @@ class Gespraech:
         if self.docs:
             first = self.docs[0].name
             return first if len(self.docs) == 1 else f"{first} und {len(self.docs) - 1} mehr"
+        if self.messages:
+            first = " ".join(self.messages[0].text.split())
+            return first if len(first) <= 50 else first[:49].rstrip() + "…"
         return "Neuer Chat"
 
     @property
@@ -176,11 +200,11 @@ class Gespraech:
         index = len(self.messages) - 1
         content = self._user_content(index, self.messages[index].sent)
         if index == 0:
-            return f"{SYSTEM}\n\n---\n\n{content}"
+            return f"{self.system}\n\n---\n\n{content}"
         return content
 
     def fingerprint(self) -> str:
-        payload = SYSTEM + "".join(m["content"] for m in self.api_messages())
+        payload = self.system + "".join(m["content"] for m in self.api_messages())
         return hashlib.sha256(payload.encode()).hexdigest()
 
     # ----- redaction -----
