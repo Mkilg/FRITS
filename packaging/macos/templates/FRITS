@@ -5,6 +5,14 @@ RES="$(cd "$(dirname "$0")/../Resources" && pwd)"
 LOG="$HOME/Library/Logs/FRITS.log"
 mkdir -p "$(dirname "$LOG")"
 
+# The start files are the last ones in the zip. If they are missing, unpacking stopped early,
+# usually because the disk was full. Say so instead of quietly closing.
+if [ ! -f "$RES/frits-launch.sh" ]; then
+  echo "$(date): FRITS.app is incomplete, $RES/frits-launch.sh is missing" >>"$LOG"
+  osascript -e 'display alert "FRITS ist nicht vollständig entpackt" message "Beim Entpacken hat wahrscheinlich der Speicherplatz nicht gereicht. Bitte etwa 2,5 GB frei machen, diesen FRITS-Ordner löschen und FRITS-macOS.zip noch einmal entpacken." as critical' >/dev/null 2>&1
+  exit 1
+fi
+
 if "$RES/frits-launch.sh" ui --help >/dev/null 2>&1; then
   exec "$RES/frits-launch.sh" ui >>"$LOG" 2>&1
 fi
