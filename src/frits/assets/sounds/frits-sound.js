@@ -26,11 +26,16 @@
   }
   function enabled() { return body().getAttribute("data-frits-sound") === "on"; }
 
+  // A new fade on the same audio replaces the old one, so fade-in and fade-out never fight.
+  // k is kept between 0 and 1: the first frame's time can lie just before `start`, and a
+  // volume below 0 makes the browser throw, which used to leave the music playing silently.
   function fade(audio, to, ms, done) {
-    var from = audio.volume, start = performance.now();
+    var from = audio.volume, start = performance.now(), id = {};
+    audio.fritsFade = id;
     function step(now) {
-      var k = Math.min(1, (now - start) / ms);
-      audio.volume = from + (to - from) * k;
+      if (audio.fritsFade !== id) return;
+      var k = Math.max(0, Math.min(1, (now - start) / ms));
+      audio.volume = Math.max(0, Math.min(1, from + (to - from) * k));
       if (k < 1) requestAnimationFrame(step); else if (done) done();
     }
     requestAnimationFrame(step);
@@ -62,7 +67,7 @@
       var p = a.play();
       if (p && p.catch) p.catch(function () {});
       fade(a, MUSIC_VOLUME, FADE_MS);
-      body().dispatchEvent(new CustomEvent("frits-music", { detail: { playing: name } }));
+      body().dispatchEvent(new CustomEvent("frits-music", { bubbles: true, detail: { playing: name } }));
     },
     stop: function () {
       var a = this.audio;
@@ -70,7 +75,7 @@
       this.audio = null;
       this.track = null;
       fade(a, 0, FADE_MS / 2, function () { a.pause(); });
-      body().dispatchEvent(new CustomEvent("frits-music", { detail: { playing: null } }));
+      body().dispatchEvent(new CustomEvent("frits-music", { bubbles: true, detail: { playing: null } }));
     },
     toggle: function (name) {
       if (this.audio && this.track === name) this.stop(); else this.play(name);
@@ -88,6 +93,20 @@
     if (!el) return;
     if (el.hasAttribute("data-frits-cue")) cue(el.getAttribute("data-frits-cue"));
     if (el.hasAttribute("data-frits-music")) music.toggle(el.getAttribute("data-frits-music"));
+  });
+
+  // Music buttons show whether their track is on (aria-pressed). A button with
+  // data-label-playing="♪ Musik läuft" also swaps to that text while it plays.
+  document.addEventListener("frits-music", function (e) {
+    var playing = e.detail && e.detail.playing;
+    document.querySelectorAll("[data-frits-music]").forEach(function (el) {
+      var on = el.getAttribute("data-frits-music") === playing;
+      el.setAttribute("aria-pressed", on ? "true" : "false");
+      var label = el.getAttribute("data-label-playing");
+      if (!label) return;
+      if (!el.hasAttribute("data-label")) el.setAttribute("data-label", el.textContent);
+      el.textContent = on ? label : el.getAttribute("data-label");
+    });
   });
 
   // htmx turns the HX-Trigger response header into an event on <body>.

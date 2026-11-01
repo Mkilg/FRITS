@@ -19,7 +19,7 @@
   </nav>
   <div class="top-actions">
     {% if sounds %}
-    <button type="button" class="quiet" data-frits-music="buero-block" title="Ruhige Musik zum Konzentrieren">♪ Musik</button>
+    <button type="button" class="quiet" data-frits-music="buero-block" data-label-playing="♪ Musik läuft" aria-pressed="false" title="Ruhige Musik zum Konzentrieren. Nochmal klicken schaltet sie aus.">♪ Musik</button>
     {% endif %}
     <form method="post" action="/sound">
       <input type="hidden" name="token" value="{{ token }}">

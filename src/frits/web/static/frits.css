@@ -101,6 +101,7 @@ button.primary, .button.primary { background: linear-gradient(#e6b65a, var(--ock
 button.primary:active, .button.primary:active { transform: translateY(2px); box-shadow: none; }
 button.quiet, .button.quiet { background: transparent; border-color: transparent; color: var(--muted); }
 button.quiet:hover { color: var(--ink); }
+button.quiet[aria-pressed="true"] { color: var(--ink); border-color: var(--line, currentColor); }
 button.danger { color: var(--ketchup); }
 button.tiny, .button.tiny { font-size: 0.8rem; padding: 0.2rem 0.6rem; }
 button.feierabend { background: var(--tinte); color: var(--papier); border-color: var(--tinte); }
