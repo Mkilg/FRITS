@@ -1,0 +1,67 @@
+/* KI-Werkstatt: the course pages. Uses the shared FRITS colours from frits.css. */
+
+.kapitel-leiste { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0 0 0.6rem; }
+.kapitel-leiste a { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.25rem 0.65rem;
+  border-radius: 999px; border: 1px solid var(--papier-schatten); background: var(--papier);
+  color: var(--ink); text-decoration: none; font-size: 0.85rem; }
+.kapitel-leiste a:hover { background: var(--creme); }
+.kapitel-leiste a[aria-current="step"] { background: var(--moos); border-color: var(--moos-dunkel); color: var(--papier); }
+.kapitel-leiste .nr { display: inline-grid; place-items: center; width: 1.3rem; height: 1.3rem; border-radius: 50%;
+  background: var(--creme); color: var(--eiche-tief); font-family: var(--schrift); font-weight: 700; font-size: 0.75rem; }
+.kapitel-leiste a[aria-current="step"] .nr { background: var(--papier); color: var(--moos-dunkel); }
+.kapitel-nr { margin: 0; font-size: 0.85rem; letter-spacing: 0.04em; }
+
+.werkstatt .card { margin-bottom: 1rem; }
+.werkstatt .card h2 { font-family: var(--schrift); }
+
+/* Copy boxes */
+.kopierbox { margin: 1rem 0; border: 1px solid var(--papier-schatten); border-radius: var(--radius);
+  background: var(--papier); padding: 0.7rem 0.9rem; }
+.kopierbox figcaption { display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.kopierbox .hint { margin: 0.3rem 0 0.5rem; }
+.kopierbox pre { white-space: pre-wrap; word-break: break-word; margin: 0; padding: 0.7rem 0.8rem;
+  border-radius: 6px; background: #fffdf6; border: 1px dashed var(--papier-schatten);
+  font-size: 0.85rem; line-height: 1.45; max-height: 26rem; overflow: auto; }
+.kopierbox pre.art-json, .kopierbox pre.art-sh, .kopierbox pre.art-toml { background: #f4f1ea; color: var(--tinte); }
+.kopierbox pre.redacted { background: #f3f0ff; }
+.kopierbox pre.art-json { max-height: none; }
+.kopieren.kopiert { border-color: var(--moos-dunkel); color: var(--moos-dunkel); }
+.kopieren.kopiert::before { content: "✓ "; }
+
+/* Lists with a bit more weight */
+ol.regeln, ol.weg { padding-left: 1.3rem; }
+ol.regeln li, ol.weg li { margin: 0.35rem 0; }
+ul.haken { list-style: none; padding: 0; }
+ul.haken li { padding: 0.3rem 0 0.3rem 1.8rem; position: relative; }
+ul.haken li::before { content: "☐"; position: absolute; left: 0.2rem; color: var(--moos-dunkel); font-size: 1.1rem; line-height: 1.2; }
+pre.baum { white-space: pre; overflow-x: auto; background: #f4f1ea; color: var(--tinte); padding: 0.8rem; border-radius: 6px; font-size: 0.85rem; }
+
+/* The staircase */
+ol.treppe { list-style: none; padding: 0; margin: 0.6rem 0 0; display: grid; gap: 0.4rem; }
+ol.treppe li { display: grid; grid-template-columns: 5.2rem 1fr; gap: 0.7rem; align-items: start;
+  padding: 0.55rem 0.7rem; border-radius: 8px; border: 1px solid var(--line); background: #fffdf6; }
+ol.treppe .stufe { font-family: var(--schrift); font-weight: 700; text-align: center; padding: 0.15rem 0.3rem;
+  border-radius: 5px; color: var(--papier); }
+.stufe-0 .stufe, .stufe-1 .stufe { background: var(--moos-dunkel); }
+.stufe-2 .stufe { background: var(--moos); }
+.stufe-3 .stufe { background: var(--ocker-dunkel); }
+.stufe-4 .stufe { background: var(--terrakotta); }
+.stufe-nie .stufe { background: var(--wachs); }
+ol.treppe li.stufe-nie { border-color: #eac3b0; background: #fbeee6; }
+
+/* Tables */
+.modi tr.gut td:first-child { box-shadow: inset 4px 0 0 var(--moos); }
+.modi tr.schlecht td:first-child { box-shadow: inset 4px 0 0 var(--wachs); }
+.papier td:first-child { min-width: 9rem; }
+kbd { font: inherit; font-size: 0.85em; padding: 0.05rem 0.4rem; border: 1px solid var(--papier-schatten);
+  border-bottom-width: 2px; border-radius: 4px; background: var(--papier); }
+
+.lernen-nav { margin: 1.5rem 0 0.5rem; }
+.lernen-nav .platz { flex: 1; }
+.lesson.warnung { background: #fbeee6; border-color: #eac3b0; color: var(--terrakotta-dunkel); }
+.spickzettel { background: linear-gradient(175deg, #fff8e2, var(--creme)); }
+
+@media (max-width: 800px) {
+  ol.treppe li { grid-template-columns: 1fr; }
+  ol.treppe .stufe { justify-self: start; }
+}
