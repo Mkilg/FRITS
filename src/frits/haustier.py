@@ -114,6 +114,8 @@ def ansehen(conn: sqlite3.Connection, heute: date, alte_datei: Path | None = Non
     """How Fritte is today. Also turns new paperwork into waiting cards."""
     wartend = stand.abgleichen(conn, heute, alte_datei)
     bereit = kassensturz.vorschau(conn, heute, aufgeraeumt=False)[1]["summe"] if wartend else 0
+    if wartend:  # the preview drops cards whose paperwork was deleted meanwhile
+        wartend = stand.wartende(conn)
     tage = stand.pflegetage(conn, heute)
     tage_ruhig = (heute - max(tage)).days if tage else None
     erster_besuch = not conn.execute("SELECT 1 FROM spiel_kassenstuerze LIMIT 1").fetchone()
