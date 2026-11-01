@@ -1,0 +1,4 @@
+{% import "kurs/_teile.html" as t with context %}
+
+{{ t.prompt("regeln") }}
+<div class="lesson ok"><strong>Wohin damit bei {{ werkzeug.name }}?</strong> In {{ werkzeug.hausordnung }}.{% if werkzeug.agent %} Dann liest {{ werkzeug.name }} sie bei jedem Start von selbst.{% else %} Bei ChatGPT und Claude kannst du dafür ein Projekt anlegen, dann gilt sie für jeden Chat darin.{% endif %}</div>

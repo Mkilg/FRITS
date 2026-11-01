@@ -1,0 +1,29 @@
+{% import "kurs/_teile.html" as t with context %}
+
+<div class="nebeneinander">
+  <div class="seite">
+    <p class="seite-kopf">🙏 Die Bitte</p>
+    <div class="zettel" aria-hidden="true">Bitte nicht in den Ordner Papierkram schauen!</div>
+    <ul class="plain kurz"><li>steht im Prompt oder in der Hausordnung</li><li>die KI hält sich meistens daran</li><li>ein geschickter Text kann sie umstimmen</li></ul>
+  </div>
+  <div class="seite gut">
+    <p class="seite-kopf">🔒 Das Schloss</p>
+    <div class="schloss-bild" aria-hidden="true">🔒</div>
+    <ul class="plain kurz"><li>steht in den Einstellungen des Werkzeugs</li><li>das Programm lässt es gar nicht zu</li><li>egal, was im Chat oder im Dokument steht</li></ul>
+  </div>
+</div>
+<h2>Bitte oder Schloss?</h2>
+<div class="quiz" data-quiz>
+  {{ t.frage("„Lies keine anderen Ordner“ im Prompt.", [("🙏 Bitte", true, "Genau. Nett gemeint, aber kein Schloss."), ("🔒 Schloss", false, "Leider nein. Das ist nur ein Satz, den die KI befolgen kann oder nicht.")]) }}
+  {{ t.frage("Die Originale liegen gar nicht in dem Ordner, in dem der Agent arbeitet.", [("🙏 Bitte", false, "Das ist sogar das stärkste Schloss: Was nicht da ist, kann niemand lesen."), ("🔒 Schloss", true, "Richtig, und zwar das stärkste von allen.")]) }}
+  {% if werkzeug.slug == "claude-code" %}
+  {{ t.frage("In settings.json: deny Read(~/Papierkram/**)", [("🙏 Bitte", false, "Nein, das setzt Claude Code selbst durch."), ("🔒 Schloss", true, "Ja. Claude Code lehnt solche Zugriffe ab, egal was im Chat steht.")]) }}
+  {% elif werkzeug.slug == "codex" %}
+  {{ t.frage("Codex mit --sandbox read-only starten.", [("🙏 Bitte", false, "Nein, das ist eine technische Sperre."), ("🔒 Schloss", true, "Ja. Codex kann dann nichts mehr schreiben.")]) }}
+  {% elif werkzeug.slug == "cursor" %}
+  {{ t.frage("In Cursor einstellen, dass jeder Befehl erst bestätigt wird.", [("🙏 Bitte", false, "Nein, das ist eine Einstellung im Programm."), ("🔒 Schloss", true, "Ja. Ohne deinen Klick läuft kein Befehl.")]) }}
+  {% else %}
+  {{ t.frage("Nur geschwärzten Text in den Chat kopieren.", [("🙏 Bitte", false, "Nein. Was du nicht hineinkopierst, kann der Chat gar nicht wissen."), ("🔒 Schloss", true, "Ja. Im Chat bist du selbst das Schloss.")]) }}
+  {% endif %}
+  <p class="quiz-stand" data-quiz-stand aria-live="polite"></p>
+</div>

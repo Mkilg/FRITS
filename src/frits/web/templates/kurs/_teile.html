@@ -1,0 +1,30 @@
+{# Shared pieces for the course bites. Import with: {% import "kurs/_teile.html" as t with context %} #}
+
+{% macro prompt(key) %}{% set p = prompts[key] %}
+<figure class="kopierbox" id="prompt-{{ key }}">
+  <figcaption>
+    <strong>{{ p.title }}</strong>
+    <button type="button" class="tiny kopieren" data-kopieren="#text-{{ key }}">Kopieren</button>
+  </figcaption>
+  <p class="hint">{{ p.when }}</p>
+  <pre id="text-{{ key }}" class="art-{{ p.kind }}" tabindex="0">{{ p.text }}</pre>
+</figure>
+{% endmacro %}
+
+{% macro quelle(key, label) %}<a href="{{ quellen[key] }}" target="_blank" rel="noopener">{{ label }}</a>{% endmacro %}
+
+{# The drawn graphic, unless Marie painted one (static/bilder/<name>.webp): lernen.html shows that on top. #}
+{% macro bild(name, alt="") %}{% if not (name and picture(name)) %}{{ caller() }}{% endif %}{% endmacro %}
+
+{# One question with answer buttons. answers: [(label, richtig, was Fritte dazu sagt)] #}
+{% macro frage(text, answers) %}
+<div class="frage" data-frage>
+  <p class="frage-text">{{ text }}</p>
+  <div class="antworten">
+    {% for label, richtig, sagt in answers %}
+    <button type="button" class="antwort" data-antwort{% if richtig %} data-richtig{% endif %} data-sagt="{{ sagt }}">{{ label }}</button>
+    {% endfor %}
+  </div>
+  <p class="rueckmeldung" aria-live="polite"></p>
+</div>
+{% endmacro %}

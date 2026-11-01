@@ -1,0 +1,8 @@
+{% import "kurs/_teile.html" as t with context %}
+
+<ul class="kacheln">
+  <li><span class="kachel-zeichen" aria-hidden="true">🔍</span><code>/permissions</code> zeigt alle Regeln und aus welcher Datei sie kommen.</li>
+  <li><span class="kachel-zeichen" aria-hidden="true">📋</span><code>/status</code> zeigt, welche Einstellungsdateien geladen sind.</li>
+  <li><span class="kachel-zeichen" aria-hidden="true">🧪</span>Den <a href="/lernen/prompts/trick-test">Trick-Test</a> in <code>geschwaerzt/</code> legen. Versucht Claude, <code>~/Papierkram</code> zu öffnen, siehst du „denied“.</li>
+</ul>
+<div class="lesson"><strong>Ehrlich gesagt:</strong> Die <code>deny</code>-Regeln erkennen die üblichen Befehle, aber kein Programm, das selbst Dateien öffnet. Darum gibt es die Sandbox dazu, und darum liegen die Originale ohnehin woanders.</div>

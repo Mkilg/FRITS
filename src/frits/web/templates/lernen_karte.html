@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}{{ titel }} · FRITS{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/lernen.css"><link rel="stylesheet" href="/static/kurs.css">{% endblock %}
+
+{% block content %}
+<div class="kurs kurs-karte" data-kurs>
+<section class="fritte-sagt gross">
+  <div class="mascot-big">{{ mascot("done" if alles else "welcome") }}</div>
+  <div class="blase">
+    <p class="muted happen-nr">Ein Kurs in kleinen Happen</p>
+    <h1>{{ titel }}</h1>
+    {% if alles %}
+    <p class="speech">Du hast alles geschafft! Du weißt jetzt, wie Agenten arbeiten und wie du sie für deinen Papierkram sicher einstellst. Schau gern jederzeit wieder rein.</p>
+    {% else %}
+    <p class="speech">Ich zeige dir, wie KI-Agenten arbeiten und wie du sie sicher einstellst. Damit du sie <strong>auch außerhalb von FRITS</strong> für deinen Papierkram nutzen kannst: Steuer, Miete, Briefe vom Amt. Jeder Happen dauert etwa eine Minute.</p>
+    {% endif %}
+    <div class="row kurs-start">
+      {% if not begonnen %}<a class="button primary" href="/lernen/start">Los geht's →</a>
+      {% elif not alles %}<a class="button primary" href="{{ weiter }}">Weiter, wo du warst →</a>{% endif %}
+      <a class="werkzeug-chip" href="/lernen/start/werkzeug?zurueck=/lernen">Du lernst mit: <strong>{{ werkzeug.name if gewaehlt else "noch keinem Werkzeug" }}</strong> <span class="aendern">{{ "ändern" if gewaehlt else "wählen" }}</span></a>
+      <span class="muted">etwa {{ minuten }} Minuten</span>
+    </div>
+  </div>
+</section>
+
+<ol class="pfad" aria-label="Die Etappen">
+  {% for stop in stops %}
+  {% set e = stop.e %}
+  <li class="halt{{ ' geschafft' if stop.geschafft }}{{ ' angefangen' if stop.gesehen and not stop.geschafft }}">
+    <a href="/lernen/{{ e.slug }}">
+      <span class="halt-nr">{{ loop.index }}</span>
+      <span class="halt-zeichen" aria-hidden="true">{{ e.symbol }}</span>
+      <span class="halt-text"><strong>{{ e.title }}</strong><span class="muted">{{ e.line }}</span></span>
+      <span class="halt-stand">{% if stop.geschafft %}<span class="stempel stempel-klein" aria-label="geschafft">Gelernt</span>{% else %}{{ stop.gesehen }} von {{ stop.happen | length }}{% endif %}</span>
+    </a>
+  </li>
+  {% endfor %}
+</ol>
+<p class="hint">Für jede geschaffte Etappe gibt es Salzkörner beim nächsten Kassensturz. Die Angaben zu den Werkzeugen sind auf dem Stand von November 2026, aus deren offizieller Anleitung. Programme ändern sich schnell, darum steht bei jedem Werkzeug der Link zum Nachschauen.</p>
+</div>
+{% endblock %}

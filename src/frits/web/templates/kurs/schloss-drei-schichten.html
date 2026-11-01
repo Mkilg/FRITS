@@ -1,0 +1,30 @@
+{% import "kurs/_teile.html" as t with context %}
+
+<div class="schichten" data-auswahl>
+  <svg class="kurs-svg kaese" viewBox="0 0 600 200" role="img" aria-label="Drei Scheiben hintereinander. Ein Fehler kommt durch ein Loch der ersten, bleibt aber an der zweiten hängen.">
+    <defs><marker id="pfeil2" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b3302a"/></marker></defs>
+    <g>
+      <path d="M150 20 l40 10 v150 l-40 -10 z" fill="#e9bd4f" stroke="#9c6f1f" stroke-width="2"/>
+      <ellipse cx="170" cy="80" rx="7" ry="13" fill="#9c6f1f" opacity=".55"/><ellipse cx="168" cy="140" rx="6" ry="10" fill="#9c6f1f" opacity=".55"/>
+      <path d="M300 20 l40 10 v150 l-40 -10 z" fill="#e9bd4f" stroke="#9c6f1f" stroke-width="2"/>
+      <ellipse cx="320" cy="55" rx="6" ry="11" fill="#9c6f1f" opacity=".55"/><ellipse cx="322" cy="150" rx="7" ry="12" fill="#9c6f1f" opacity=".55"/>
+      <path d="M450 20 l40 10 v150 l-40 -10 z" fill="#e9bd4f" stroke="#9c6f1f" stroke-width="2"/>
+      <ellipse cx="470" cy="110" rx="7" ry="13" fill="#9c6f1f" opacity=".55"/>
+    </g>
+    <path d="M40 82 H300" stroke="#b3302a" stroke-width="4" stroke-dasharray="9 7" fill="none" marker-end="url(#pfeil2)"/>
+    <text x="40" y="70" font-family="var(--schrift)" font-size="16" fill="#8e3f22">ein Fehler</text>
+    <text x="312" y="110" font-family="var(--schrift)" font-size="26" fill="#b3302a">✋</text>
+    <g font-family="var(--schrift)" font-size="15" fill="#3a2412" text-anchor="middle">
+      <text x="170" y="198">1 Hausordnung</text><text x="320" y="198">2 Schlösser</text><text x="470" y="198">3 Schleuse</text>
+    </g>
+  </svg>
+  <div class="auswahl-knoepfe" aria-label="Die drei Schichten">
+    <button type="button" data-zeige="h">1 Hausordnung</button>
+    <button type="button" data-zeige="s">2 Schlösser</button>
+    <button type="button" data-zeige="o">3 Schleuse</button>
+  </div>
+  <div class="tafel" data-tafel="h"><p><strong>Die Bitte.</strong> Die KI weiß, was du willst, und sagt Bescheid. Lücke: Sie kann ausgetrickst werden.</p></div>
+  <div class="tafel" data-tafel="s"><p><strong>Die Einstellungen.</strong> {% if werkzeug.agent %}{{ werkzeug.name }} lehnt Verbotenes ab.{% else %}Training aus, kein Gedächtnis, keine Verbindungen.{% endif %} Lücke: Regeln erkennen nicht jeden Umweg.</p></div>
+  <div class="tafel" data-tafel="o"><p><strong>Die Schleuse.</strong> Originale liegen gar nicht in Reichweite. Lücke: Du musst selbst darauf achten, nur Geschwärztes hineinzulegen.</p></div>
+</div>
+<div class="lesson ok"><strong>Darum alle drei.</strong> Jede Schicht fängt die Lücken der anderen. FRITS macht es genauso: Es schwärzt vorher, schickt nur Geschwärztes, und die KI darf nichts außer antworten.</div>

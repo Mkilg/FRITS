@@ -1,0 +1,9 @@
+{% import "kurs/_teile.html" as t with context %}
+
+<div class="quiz" data-quiz>
+  {{ t.frage("Einen Brief umformulieren, den du hineinkopierst.", [("💬 Chat", true, "Richtig, das kann schon der Chat. Dafür brauchst du keinen Agenten."), ("🤖 Agent", true, "Stimmt, das kann der Agent auch. Aber der Chat reicht hier völlig und sieht weniger.")]) }}
+  {{ t.frage("200 Belege in einem Ordner nach Monat sortieren.", [("💬 Chat", false, "Ein Chat kann keine Dateien verschieben. Er kann dir nur sagen, wie es ginge."), ("🤖 Agent", true, "Genau. Dafür sind Agenten gemacht: viele Dateien, viele kleine Schritte.")]) }}
+  {{ t.frage("Eine Datei auf deinem Computer löschen.", [("💬 Chat", false, "Ein Chat hat keine Hände, er kann nichts löschen."), ("🤖 Agent", true, "Ja. Und genau darum soll er vorher fragen, oder du löschst selbst.")]) }}
+  {{ t.frage("Dir erklären, was ein Bescheid vom Finanzamt bedeutet.", [("💬 Chat", true, "Richtig. Geschwärzt hineinkopieren, fragen, fertig."), ("🤖 Agent", true, "Kann er auch. Der Chat reicht aber, und du hast die volle Kontrolle.")]) }}
+  <p class="quiz-stand" data-quiz-stand aria-live="polite"></p>
+</div>

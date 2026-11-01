@@ -1,0 +1,26 @@
+{% import "kurs/_teile.html" as t with context %}
+
+<div class="auswahl sicht" data-auswahl>
+  <div class="auswahl-knoepfe" aria-label="Wer sieht was?">
+    <button type="button" data-zeige="chat">💬 Chat</button>
+    <button type="button" data-zeige="agent">🤖 Agent im ganzen Benutzerordner</button>
+    <button type="button" data-zeige="schleuse">🤖 Agent in der Schleuse</button>
+  </div>
+  <div class="sicht-bild" data-sicht="chat">
+    <div class="mini-chat" aria-label="Ein Chatfenster">
+      <p class="mini-titel">Chatfenster</p>
+      <p class="bubble du">Hier ist mein Brief: „Sehr geehrte Frau [PERSON_1], die Nachzahlung beträgt 214,60 €…“</p>
+      <p class="bubble ki">Das ist eine Nebenkostenabrechnung. Die Nachzahlung…</p>
+    </div>
+    <ul class="mini-ordner" aria-label="Dein Mac">
+      <li class="o-wurzel">🏠 dein Benutzerordner</li>
+      <li class="o-original">📁 Papierkram <span>steuer-2025.pdf, arztbrief.pdf, mietvertrag.pdf</span></li>
+      <li class="o-privat">📁 Fotos <span>urlaub, kinder</span></li>
+      <li class="o-privat">📁 Downloads <span>kontoauszug-märz.pdf</span></li>
+      <li class="o-werkstatt">📁 KI-Werkstatt <span>geschwaerzt/, ergebnis/</span></li>
+    </ul>
+  </div>
+  <div class="tafel" data-tafel="chat"><p><strong>Der Chat sieht nur die Sprechblase.</strong> Was du nicht hineinkopierst, kennt er nicht. Deine Ordner bleiben grau.</p></div>
+  <div class="tafel" data-tafel="agent"><p class="schlecht-text"><strong>Gestartet im Benutzerordner sieht ein Agent fast alles.</strong> Papierkram, Fotos, Downloads. Bequem, aber gefährlich.</p></div>
+  <div class="tafel" data-tafel="schleuse"><p class="gut-text"><strong>In einem eigenen Ordner sieht er nur das, was du ihm hingelegt hast.</strong> Wie das geht, zeige ich dir in der Etappe „Ordner-Schleuse“.</p></div>
+</div>

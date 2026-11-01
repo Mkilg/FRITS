@@ -1,0 +1,27 @@
+{% import "kurs/_teile.html" as t with context %}
+
+{{ t.prompt("claude_settings") }}
+<div class="zeilen-wahl" data-auswahl>
+  <div class="auswahl-knoepfe chips" aria-label="Was die Zeilen bedeuten">
+    <button type="button" data-zeige="mode"><code>defaultMode</code></button>
+    <button type="button" data-zeige="bypass"><code>disableBypass…</code></button>
+    <button type="button" data-zeige="block"><code>blockReads…</code></button>
+    <button type="button" data-zeige="read"><code>Read(~/Papierkram/**)</code></button>
+    <button type="button" data-zeige="netz"><code>curl, WebFetch</code></button>
+    <button type="button" data-zeige="ask"><code>ask: rm, mv</code></button>
+    <button type="button" data-zeige="sandbox"><code>sandbox</code></button>
+  </div>
+  <div class="tafel" data-tafel="mode"><p>Startet immer im Modus <strong>Manual</strong>: Claude fragt vor jedem Schritt.</p></div>
+  <div class="tafel" data-tafel="bypass"><p>Schaltet den gefährlichsten Modus ganz ab. Selbst du kannst ihn dann nicht aus Versehen wählen.</p></div>
+  <div class="tafel" data-tafel="block"><p>Verbietet das Lesen außerhalb des Arbeitsordners, in jedem Modus.</p></div>
+  <div class="tafel" data-tafel="read"><p>Verbietet, deine Originale zu lesen, und damit auch, sie zu ändern. Dasselbe für den FRITS-Ordner, SSH-Schlüssel und <code>.env</code>-Dateien mit Passwörtern.</p></div>
+  <div class="tafel" data-tafel="netz"><p>Nimmt das Internet weg. Für Papierkram braucht Claude es nicht.</p></div>
+  <div class="tafel" data-tafel="ask"><p>Löschen (<code>rm</code>) und Verschieben (<code>mv</code>) nur nach Nachfrage.</p></div>
+  <div class="tafel" data-tafel="sandbox"><p>Das stärkste Schloss: Der Mac selbst sperrt die Ordner für alle Befehle, die Claude startet, auch für Programme, die Claude schreibt. Einschalten geht auch mit <code>/sandbox</code>.</p></div>
+</div>
+<div class="nebeneinander drei">
+  <div class="seite"><p class="seite-kopf">deny</p><p>verboten. Gewinnt immer.</p></div>
+  <div class="seite"><p class="seite-kopf">ask</p><p>erst fragen.</p></div>
+  <div class="seite"><p class="seite-kopf">allow</p><p>ohne Fragen erlaubt.</p></div>
+</div>
+<p class="hint">Speichern als <code>~/KI-Werkstatt/.claude/settings.json</code>. Quellen: {{ t.quelle("claude_permissions", "Berechtigungen") }}, {{ t.quelle("claude_sandbox", "Sandbox") }}, {{ t.quelle("claude_settings", "Einstellungsdateien") }}</p>

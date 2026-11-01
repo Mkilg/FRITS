@@ -1,0 +1,8 @@
+{% import "kurs/_teile.html" as t with context %}
+
+<div class="nebeneinander">
+  <div class="seite gut"><p class="seite-kopf">Agent sucht selbst</p><p class="fluss">🔍 → <code>.cursorignore</code> → 🙈</p><p>Versteckt. Der Agent findet die Datei nicht.</p></div>
+  <div class="seite schlecht"><p class="seite-kopf">Agent startet einen Befehl</p><p class="fluss"><code>cat geheim.pdf</code> → 👀</p><p>Der Befehl sieht die Datei trotzdem. Laut Cursor ist <code>.cursorignore</code> <strong>kein Schloss</strong>.</p></div>
+</div>
+<div class="lesson ok"><strong>Darum:</strong> Originale gar nicht erst in den Projektordner. Öffne in Cursor nur <code>~/KI-Werkstatt</code>.</div>
+<p class="hint">Quelle: {{ t.quelle("cursor_security", "Cursor: Agent Security") }}</p>

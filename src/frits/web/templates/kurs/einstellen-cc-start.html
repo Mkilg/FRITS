@@ -1,0 +1,8 @@
+{% import "kurs/_teile.html" as t with context %}
+
+{{ t.prompt("claude_start") }}
+<div class="nebeneinander">
+  <div class="seite schlecht"><p class="seite-kopf">✗ Start im Benutzerordner</p><p class="fluss"><code>~ $ claude</code></p><p>Claude kann sich überall umschauen.</p></div>
+  <div class="seite gut"><p class="seite-kopf">✓ Start in der Schleuse</p><p class="fluss"><code>~/KI-Werkstatt $ claude</code></p><p>Claude sieht nur die Kopien.</p></div>
+</div>
+<p class="hint">In der Claude-App wählst du beim Start einen Ordner aus. Nimm auch dort <code>~/KI-Werkstatt</code>.</p>

@@ -1,0 +1,20 @@
+{% import "kurs/_teile.html" as t with context %}
+
+{% set reihen = [
+  ("claude-code", "Claude Code", "den Startordner", "Manual oder Plan, deny-Regeln, Sandbox", "CLAUDE.md"),
+  ("codex", "Codex", "den Startordner (lesen evtl. mehr)", "workspace-write + untrusted", "AGENTS.md"),
+  ("cursor", "Cursor", "den Projektordner", "Befehle bestätigen, Privacy Mode", "AGENTS.md"),
+  ("chat", "Chat im Browser", "nur, was du hineinkopierst", "geschwärzt, Training aus, vorübergehender Chat", "Prompt am Anfang"),
+  ("frits", "FRITS", "nur geschwärzten Text", "Strikter Modus mit lokaler KI", "eingebaut"),
+] %}
+<div class="table-wrap">
+<table class="table ueberblick">
+  <thead><tr><th>Werkzeug</th><th>Sieht</th><th>Sicherste Einstellung</th><th>Hausordnung</th></tr></thead>
+  <tbody>
+  {% for slug, name, sieht, sicher, regeln in reihen %}
+    <tr{% if slug == werkzeug.slug %} class="mein"{% endif %}><td><strong>{{ name }}</strong>{% if slug == werkzeug.slug %} <span class="mein-zeichen">deins</span>{% endif %}</td><td>{{ sieht }}</td><td>{{ sicher }}</td><td><code>{{ regeln }}</code></td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<p class="hint">Andere Werkzeuge ansehen? <a href="/lernen/start/werkzeug">Werkzeug wechseln</a>, dann zeige ich dir deren Happen.</p>
