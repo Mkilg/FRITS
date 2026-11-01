@@ -115,7 +115,7 @@ def finden(conn: sqlite3.Connection, ws: Workspace, jahr: int, tax_mode: str) ->
     quest.ensure_schema(conn)
     ernte = Ernte(jahr, rechnungen=_rechnungen(ws.db, jahr), belege=_belege(ws, jahr))
     summary = euer.summarize(ws.db, jahr, tax_mode)
-    if summary.invoice_count or summary.expense_count:
+    if summary.invoice_count or summary.credit_count or summary.expense_count:
         ernte.euer = summary
     bekannt = {
         r[0] for r in conn.execute("SELECT sha256 FROM steuer_dateien WHERE jahr = ?", (jahr,))

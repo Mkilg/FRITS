@@ -16,9 +16,9 @@ When an invoice counts:
 
 * ``ist`` (Istversteuerung, § 20 UStG, usual for freelancers and small firms on request):
   in the period the customer paid. A Storno counts when the money went back.
-* ``soll`` (Sollversteuerung, the legal default): in the period the invoice was written.
-  Strictly it is the period of the service; FRITS uses the invoice date, which is the
-  same period in almost every case. A Storno counts on its own date.
+* ``soll`` (Sollversteuerung, the legal default): in the period the service was done
+  (§ 13 Abs. 1 Nr. 1a UStG), read from the line dates; without dates the invoice date.
+  A Storno counts on its own date (§ 17 UStG).
 
 Vorsteuer counts on the day of the receipt, as entered in Ausgaben.
 
@@ -35,12 +35,12 @@ from decimal import ROUND_DOWN, ROUND_HALF_UP, Decimal
 from pathlib import Path
 
 from frits import gutschriften
-from frits.billing import Draft, _tax_from_invoice, totals
+from frits.billing import Draft, _tax_from_invoice, service_dates, totals
 from frits.expenses import CENT, list_expenses
 from frits.settings import Settings
 
 PERIODS = {"monat": "monatlich", "quartal": "vierteljährlich"}
-BASES = {"ist": "nach bezahlten Rechnungen (Ist)", "soll": "nach Rechnungsdatum (Soll)"}
+BASES = {"ist": "nach bezahlten Rechnungen (Ist)", "soll": "nach Leistungsdatum (Soll)"}
 QUARTER_CODES = {1: 41, 2: 42, 3: 43, 4: 44}  # how ELSTER numbers the quarters
 
 
@@ -85,10 +85,7 @@ class Voranmeldung:
         """10th of the following month (§ 18 Abs. 1 UStG), moved past a weekend.
 
         Holidays move it too; ELSTER knows those, FRITS doesn't."""
-        day = self.end + timedelta(days=10)
-        while day.weekday() >= 5:
-            day += timedelta(days=1)
-        return day
+        return due_date(self.year, self.period, self.number)
 
     def feld(self, kz: str) -> Feld | None:
         return next((f for f in self.felder if f.kz == kz), None)
@@ -136,6 +133,25 @@ def current(today: date, period: str) -> tuple[int, int]:
     return (today.year, today.month - 1) if today.month > 1 else (today.year - 1, 12)
 
 
+def due_date(year: int, period: str, number: int) -> date:
+    """10th of the month after the period (§ 18 Abs. 1 UStG), moved past a weekend."""
+    day = bounds(year, period, number)[1] + timedelta(days=10)
+    while day.weekday() >= 5:
+        day += timedelta(days=1)
+    return day
+
+
+def next_due(today: date, period: str) -> tuple[int, int]:
+    """The period whose deadline comes next: the one that just ended, unless its deadline
+    has passed already; then the running one."""
+    year, number = current(today, period)
+    if due_date(year, period, number) >= today:
+        return year, number
+    if period == "quartal":
+        return today.year, (today.month - 1) // 3 + 1
+    return today.year, today.month
+
+
 def _groups(conn: sqlite3.Connection, row, settings: Settings):
     """(kind, rate, net, vat) for one issued invoice, from the snapshot frozen at approval."""
     data = None
@@ -160,6 +176,18 @@ def _groups(conn: sqlite3.Connection, row, settings: Settings):
         yield kind, rate, net, vat
 
 
+def _service_day(conn: sqlite3.Connection, row) -> date:
+    """When the VAT arises with Sollversteuerung (§ 13 Abs. 1 Nr. 1a UStG): the end of the
+    service, from the line dates; without dates the invoice date, which then is the
+    Leistungsdatum printed on the invoice."""
+    issued = date.fromisoformat(row["issue_date"])
+    if row["cancels"] or row["draft_id"] is None:
+        return issued
+    found = conn.execute("SELECT data FROM drafts WHERE id = ?", (row["draft_id"],)).fetchone()
+    days = service_dates(Draft.from_json(found["data"]).lines) if found else []
+    return days[-1] if days else issued
+
+
 def _euros(amount: Decimal) -> Decimal:
     """Whole euros towards zero, as the form wants for the bases."""
     return amount.quantize(Decimal(1), rounding=ROUND_DOWN)
@@ -175,26 +203,49 @@ def voranmeldung(
 ) -> Voranmeldung:
     start, end = bounds(year, period, number)
     result = Voranmeldung(year, period, number, basis, start, end)
-    column = "paid_date" if basis == "ist" else "issue_date"
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     try:
-        rows = conn.execute(
-            f"SELECT * FROM invoices WHERE {column} >= ? AND {column} <= ?",
+        # By the day the service was done. That is the rule for Soll (§ 13 Abs. 1 Nr. 1a
+        # UStG) and, even with Ist, for turnover not taxable in Germany: § 18b Satz 2 UStG
+        # for EU customers (Kz 21, also the Zusammenfassende Meldung); for customers outside
+        # the EU (Kz 45) no tax arises that could wait for the payment, so the same day is
+        # used. A Storno corrects in its own period (§ 17 UStG).
+        near = conn.execute(
+            "SELECT * FROM invoices WHERE issue_date >= ? AND issue_date <= ?",
+            ((start - timedelta(days=400)).isoformat(), (end + timedelta(days=400)).isoformat()),
+        ).fetchall()
+        done_here = [row for row in near if start <= _service_day(conn, row) <= end]
+        paid_here = conn.execute(
+            "SELECT * FROM invoices WHERE paid_date >= ? AND paid_date <= ?",
             (start.isoformat(), end.isoformat()),
         ).fetchall()
         bases: dict[tuple[str, Decimal], Decimal] = {}
-        for row in rows:
-            result.invoices += 1
+        counted: set[str] = set()
+
+        def add(kind: str, rate: Decimal, net: Decimal, key: str) -> None:
+            slot = (kind, rate if kind == "inland" else Decimal(0))
+            bases[slot] = bases.get(slot, Decimal(0)) + net
+            counted.add(key)
+
+        for row in done_here:
             for kind, rate, net, _vat in _groups(conn, row, settings):
-                key = (kind, rate if kind == "inland" else Decimal(0))
-                bases[key] = bases.get(key, Decimal(0)) + net
-        for credit in gutschriften.listing(conn, column=column, start=start, end=end):
+                if basis == "soll" or kind != "inland":
+                    add(kind, rate, net, row["number"])
+        if basis == "ist":  # domestic VAT is due when the money came (§ 20 UStG)
+            for row in paid_here:
+                for kind, rate, net, _vat in _groups(conn, row, settings):
+                    if kind == "inland":
+                        add(kind, rate, net, row["number"])
+        result.invoices = len(counted)
+        for credit in gutschriften.listing(conn, start=start - timedelta(days=400)):
             if credit.vat_rate is None:
                 continue  # received while Kleinunternehmer
-            result.invoices += 1
-            key = (credit.kind, credit.vat_rate if credit.kind == "inland" else Decimal(0))
-            bases[key] = bases.get(key, Decimal(0)) + credit.net
+            day = credit.paid_date if basis == "ist" and credit.kind == "inland" else None
+            day = day or (credit.issue_date if basis == "soll" or credit.kind != "inland" else None)
+            if day and start <= day <= end:
+                add(credit.kind, credit.vat_rate, credit.net, f"gs-{credit.id}")
+        result.invoices = len(counted)
     finally:
         conn.close()
 
@@ -229,3 +280,36 @@ def voranmeldung(
     order = ["81", "86", "35", "21", "45", "66"]
     result.felder.sort(key=lambda f: order.index(f.kz))
     return result
+
+
+def period_of(day: date, period: str) -> tuple[int, int]:
+    return (day.year, (day.month - 1) // 3 + 1) if period == "quartal" else (day.year, day.month)
+
+
+def late_notice(db_path: str | Path, settings: Settings, number: str, today: date) -> str | None:
+    """A sentence for Fritz when a new invoice belongs to a Voranmeldung whose deadline has
+    passed (he may have to send a corrected one), else None."""
+    if settings.tax_mode != "regelbesteuerung":
+        return None
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        row = conn.execute("SELECT * FROM invoices WHERE number = ?", (number,)).fetchone()
+        if row is None:
+            return None
+        kinds = {kind for kind, *_ in _groups(conn, row, settings)}
+        if settings.vat_basis == "ist" and kinds <= {"inland"}:
+            return None  # counts when paid, which is still to come
+        day = _service_day(conn, row)
+    finally:
+        conn.close()
+    period = settings.vat_period if settings.vat_period in PERIODS else "quartal"
+    year, nr = period_of(day, period)
+    if due_date(year, period, nr) >= today:
+        return None
+    title = Voranmeldung(year, period, nr, settings.vat_basis, *bounds(year, period, nr)).title
+    return (
+        f"Rechnung {number} gehört in die Umsatzsteuer-Voranmeldung {title}, deren Frist "
+        "schon vorbei ist. Hast du die schon abgegeben, gib in ELSTER eine berichtigte "
+        "Voranmeldung für diesen Zeitraum ab."
+    )
