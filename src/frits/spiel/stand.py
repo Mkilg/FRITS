@@ -550,7 +550,7 @@ def pflegetage(conn, heute: date) -> set[date]:
         (
             "SELECT gesehen FROM spiel_karten"
             " WHERE (kassensturz IS NULL OR kassensturz != 0)"
-            " AND art NOT IN ('start', 'feierabend', 'aufgabe')"  # a click is no paperwork
+            " AND art NOT IN ('start', 'feierabend', 'aufgabe', 'lernen')"  # no paperwork
         ),
     ):
         for (value,) in rows(conn, sql):
