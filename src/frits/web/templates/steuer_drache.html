@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Papierdrache · Steuer-Quest{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/steuer.css"><script src="/static/steuer.js" defer></script>{% endblock %}
+{% block content %}
+<div class="sq sq-tisch nacht{% if frisch %} frisch wackeln-{{ [combo.combo, 3] | min }}{% endif %}" data-klang="{{ 'an' if klang else 'aus' }}" {% if frisch %}data-treffer="{{ frisch }}" data-combo="{{ combo.combo }}"{% endif %}{% include "_steuer_stil.html" %}>
+{% include "_steuer_kopf.html" %}
+<section class="sq-arena">
+  <div class="sq-drache-gross">{% include "_steuer_drache.html" %}</div>
+  <h1>{% if drache.besiegt %}Der Drache ist besiegt!{% elif drache.lp == drache.max_lp %}Der Papierdrache erwacht!{% else %}Der Papierdrache {{ "taumelt" if drache.stimmung == "taumelt" else "wankt" }}!{% endif %}</h1>
+  <p>Er hat nur noch die Karten, die du vorher nicht gefunden hast: {{ drache.lp }} von {{ drache.max_lp }}. Bonus-Schätze zählen nicht, die sind nur Extra-Gold.</p>
+  {% if drache.max_lp <= 60 %}
+  <ul class="sq-lp" aria-label="{{ drache.lp }} Lebenspunkte">{% for i in range(drache.max_lp) %}<li class="{{ '' if i < drache.lp else 'weg' }}"></li>{% endfor %}</ul>
+  {% else %}
+  <span class="sq-band rot" style="width: 320px"><span style="width: {{ drache.prozent }}%"></span></span>
+  {% endif %}
+  <span class="sq-lp-zahl"><b data-zaehler="lp">{{ drache.lp }}</b> Lebenspunkte</span>
+
+  {% if combo.combo %}
+  <div class="sq-combo" aria-live="polite"><span class="mult">×{{ combo.combo }}</span><span class="ruf">{{ combo.ruf }}</span></div>
+  {% endif %}
+
+  {% if drache.karte %}
+  {% set k = drache.karte %}
+  <div class="sq-wurf">
+    {% if drache.lp > 2 %}<span class="stapel zwei"></span>{% endif %}{% if drache.lp > 1 %}<span class="stapel"></span>{% endif %}
+    <article class="sq-karte" style="--r: -1.5deg">
+      <div class="sq-etiketten">
+        <span class="sq-etikett">{{ (gebiete | selectattr("id", "equalto", k.gebiet) | first).titel }}</span>
+        {% if k.wunsch %}<span class="sq-etikett wunsch">Wunsch der Beraterin</span>{% endif %}
+      </div>
+      <h3>{{ k.name }}</h3>
+      <p class="hinweis">{{ k.hinweis or "Hast du es? Gibt es das nicht? Oder fragst du lieber? Alles drei ist ein Treffer." }}</p>
+      <form method="post" action="/steuer/{{ jahr }}/drache/schlag" enctype="multipart/form-data" class="sq-schlag">
+        <input type="hidden" name="token" value="{{ token }}">
+        <input type="hidden" name="stueck_id" value="{{ k.id }}">
+        <div class="sq-ablage">
+          <label class="fach">Datei geben: kritischer Treffer, doppelte Combo!<input type="file" name="datei" multiple></label>
+        </div>
+        <div class="reihe">
+          <button class="sq-siegelknopf" name="aktion" value="datei">Ist drin</button>
+          <button class="sq-stempelknopf grau" name="aktion" value="gibts_nicht">Gibt's nicht</button>
+        </div>
+        <div class="reihe">
+          <input name="frage" placeholder="Frage an die Beraterin (darf leer bleiben)" aria-label="Frage an die Beraterin">
+          <button class="sq-stempelknopf" name="aktion" value="fragen">Lieber fragen</button>
+        </div>
+      </form>
+    </article>
+  </div>
+  {% else %}
+  <a class="button sq-siegelknopf" href="/steuer/{{ jahr }}/sieg">Zur Schatztruhe</a>
+  {% endif %}
+</section>
+{% if not drache.besiegt %}
+<form method="post" action="/steuer/{{ jahr }}/drache/notausgang" class="sq-notausgang">
+  <input type="hidden" name="token" value="{{ token }}">
+  <button>Frist drückt? Heute nur senden, der Drache wartet</button>
+</form>
+{% endif %}
+<p class="sq-fusszeile"><a href="/steuer/{{ jahr }}">← Zurück zur Insel</a></p>
+</div>
+{% endblock %}

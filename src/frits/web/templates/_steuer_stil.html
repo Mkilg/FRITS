@@ -1,0 +1,4 @@
+{# Gemalte Bilder des Kartentischs als CSS-Variablen (fehlt eins, malt CSS den Ersatz) #}
+{%- set teile = [] -%}
+{%- for name in ("tisch", "siegel", "stempel") -%}{%- if bild(name) -%}{%- set _ = teile.append("--" ~ name ~ "-bild: url(" ~ bild(name) ~ ")") -%}{%- endif -%}{%- endfor -%}
+{%- if teile %} style="{{ teile | join('; ') }}"{% endif -%}

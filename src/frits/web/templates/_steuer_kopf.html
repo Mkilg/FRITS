@@ -1,0 +1,16 @@
+{# Messingleiste der Steuer-Quest: oben auf jeder Quest-Seite. Die Zahlen tickern (steuer.js). #}
+<header class="sq-leiste" data-jahr="{{ jahr }}">
+  <a class="sq-titel" href="/steuer/{{ jahr }}">Steuer-Quest <span>{{ jahr }}</span></a>
+  <ul class="sq-marken">
+    <li class="sq-marke belege" title="Gesicherte Dokumente"><i></i><b data-zaehler="belege">{{ ressourcen.belege }}</b> Belege</li>
+    <li class="sq-marke briefe" title="Wünsche deiner Beraterin"><i></i><b data-zaehler="briefe">{{ ressourcen.briefe }}</b> Briefe</li>
+    <li class="sq-marke siegel" title="Komplette Provinzen"><i></i><b data-zaehler="siegel">{{ ressourcen.siegel }}</b> Siegel</li>
+    <li class="sq-marke fragen" title="Fragen an deine Beraterin"><i></i><b data-zaehler="fragen">{{ ressourcen.fragen }}</b> Fragen</li>
+    <li class="sq-marke gold" title="Bonus-Schätze: Belege, die Steuern sparen können"><i></i><b data-zaehler="gold">{{ ressourcen.gold }}</b> Gold</li>
+  </ul>
+  <div class="sq-zeitalter" title="{{ zeitalter[2] }}">
+    <span>{{ zeitalter[1] }}</span>
+    <span class="sq-band" role="progressbar" aria-label="Fortschritt" aria-valuenow="{{ gesamt.prozent }}" aria-valuemin="0" aria-valuemax="100"><span style="width: {{ gesamt.prozent }}%"></span></span>
+    <span><b data-zaehler="prozent">{{ gesamt.prozent }}</b> %</span>
+  </div>
+</header>

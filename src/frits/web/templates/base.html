@@ -7,12 +7,13 @@
   <title>{% block title %}FRITS{% endblock %}</title>
   <link rel="stylesheet" href="/static/frits.css">
   <link rel="icon" href="/static/fry.svg">
+  {% block head %}{% endblock %}
 </head>
 <body data-effekte="{{ settings.effects }}"{% if sounds %} data-frits-sound="on" data-frits-sound-base="{{ sounds }}"{% endif %}>
 <header class="top">
   <a class="brand" href="/"><span class="brand-fry">{{ mascot("welcome") }}</span><span>FRITS</span></a>
   <nav>
-    {% for href, label in [("/", "Heute"), ("/drafts", "Entwürfe"), ("/invoices", "Rechnungen"), ("/quotes", "Angebote"), ("/expenses", "Ausgaben"), ("/customers", "Kunden"), ("/settings", "Einstellungen")] %}
+    {% for href, label in [("/", "Heute"), ("/drafts", "Entwürfe"), ("/invoices", "Rechnungen"), ("/quotes", "Angebote"), ("/expenses", "Ausgaben"), ("/customers", "Kunden"), ("/steuer", "Steuer-Quest"), ("/settings", "Einstellungen")] %}
     <a href="{{ href }}" {% if nav == href or (href != "/" and nav.startswith(href)) %}aria-current="page"{% endif %}>{{ label }}</a>
     {% endfor %}
   </nav>

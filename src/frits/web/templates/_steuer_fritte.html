@@ -1,0 +1,3 @@
+{# Fritte, die Kartografin. Erwartet: stimmung (welcome|done|thinking|warning) #}
+{% set gemalt = bild("fritte-" ~ {"done": "jubelt", "warning": "keine-sorge"}.get(stimmung, "ruhig")) %}
+<div class="sq-fritte{% if not gemalt %} hut{% endif %}">{% if gemalt %}<img src="{{ gemalt }}" alt="Fritte">{% else %}{{ mascot(stimmung) }}{% endif %}</div>

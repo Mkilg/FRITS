@@ -1003,6 +1003,18 @@ def create_app(
     def mailto_page(request: Request):
         return page(request, "mailto.html", link=getattr(app.state, "mailto", ""))
 
+    from frits.web.steuer import register_steuer
+
+    register_steuer(
+        app,
+        ws=ws,
+        page=page,
+        back=back,
+        flash=flash,
+        settings=settings,
+        guarded=guarded,
+        today=today,
+    )
     return app
 
 
