@@ -31,9 +31,15 @@
   </div>
 
   {% if k.ausbau %}
-  <div class="ks-ausbau" data-ks="ausbau">
-    <span class="za-zeichen" aria-hidden="true">{{ k.ausbau.zeichen }}</span>
-    <div><strong>Ausbau fertig: {{ k.ausbau.name }}!</strong><br><span>{{ k.ausbau.text }}</span></div>
+  <div class="ks-ausbau mit-zimmer" data-ks="ausbau">
+    <div class="ks-zimmer">{% set zimmer_klasse = "klein" %}{% include "_fritte_zimmer.html" %}</div>
+    <div><span class="za-zeichen" aria-hidden="true">{{ k.ausbau.zeichen }}</span> <strong>Ausbau fertig: {{ k.ausbau.name }}!</strong><br><span>{{ k.ausbau.text }}</span></div>
+  </div>
+  {% endif %}
+  {% if k.saison %}
+  <div class="ks-ausbau ks-saison" data-ks="saison">
+    <span class="sticker-rund" aria-hidden="true">🏆</span>
+    <div><strong>Saisonziel {{ k.saison.name }} geschafft!</strong><br><span>{{ k.saison.ziel }} Salzkörner in dieser Saison. Dafür gibt es {{ k.saison.bonus }} Salzkörner extra und einen Pokal für Frittes Zimmer.</span></div>
   </div>
   {% endif %}
   {% if k.erfolge %}
@@ -45,7 +51,7 @@
   <div class="row ks-aktionen">
     <button type="button" class="quiet" data-ks="nochmal" hidden>Noch einmal ansehen</button>
     <button type="button" class="quiet" data-ks="weiter" hidden>Überspringen</button>
-    <a class="button primary" href="/fritte/laden">In den Laden ({{ guthaben }} 🧂)</a>
+    <a class="button primary" href="/fritte/laden">In den Laden</a>
     <a class="button" href="/fritte">Zu Fritte</a>
   </div>
 </section>

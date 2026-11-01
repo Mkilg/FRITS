@@ -10,7 +10,9 @@ from __future__ import annotations
 import random
 import sqlite3
 import tomllib
-from datetime import date
+from collections import Counter
+from datetime import date, timedelta
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from frits import store
@@ -59,6 +61,9 @@ GRUND = {
     "erinnerung": 1,  # a friendly payment reminder
     "ausgabe": 1,
     "feierabend": 1,  # the shutdown ritual, once a day
+    "steuer": 1,  # a piece collected in the Steuer-Quest
+    "steuerjahr": 25,  # the whole tax year done: the big one, once a year
+    "start": 3,  # Fritte moves in (only once, in the first Kassensturz)
 }
 ARTEN_TEXT = {
     "rechnung": "Rechnung geschrieben",
@@ -67,15 +72,21 @@ ARTEN_TEXT = {
     "erinnerung": "Zahlungserinnerung",
     "ausgabe": "Ausgabe eingetragen",
     "feierabend": "Feierabend gemacht (einmal am Tag)",
+    "steuer": "Steuer-Unterlage gesammelt",
+    "steuerjahr": "Steuerjahr in der Steuer-Quest geschafft",
 }
 # Where each kind of card comes from. Storno invoices are not cards.
+# Expenses and reminders have their own rules below.
 QUELLEN = {
     "rechnung": "SELECT number FROM invoices WHERE cancels IS NULL",
     "bezahlt": "SELECT number FROM invoices WHERE paid_date IS NOT NULL AND cancels IS NULL",
     "angebot": "SELECT number FROM quotes",
-    "erinnerung": "SELECT id FROM reminders",
-    "ausgabe": "SELECT id FROM expenses",
+    "steuer": "SELECT id FROM steuer_stuecke WHERE status = 'gesammelt'",
+    "steuerjahr": "SELECT DISTINCT jahr FROM steuer_chronik WHERE art = 'sieg'",
 }
+WILLKOMMEN_KARTEN = 25  # up to this many old cards are played as the first Kassensturz
+STARTGEWUERZ = "pfeffer"  # Fritte's present when she moves in
+ERINNERUNG_ABSTAND = 7  # at most one reminder card per invoice and week
 
 
 class SpielFehler(Exception):
@@ -122,7 +133,63 @@ def _gefunden(conn) -> list[tuple[str, str]]:
     found = []
     for art, sql in QUELLEN.items():
         found += [(f"{art}:{value}", art) for (value,) in rows(conn, sql)]
+    found += [(key, "ausgabe") for key in ausgaben(conn)]
+    found += [(f"erinnerung:{rid}", "erinnerung") for rid in erinnerungen(conn)]
     return found
+
+
+def ausgabe_inhalt(day, vendor, gross) -> str:
+    try:
+        amount = f"{Decimal(str(gross)):.2f}"
+    except (InvalidOperation, ValueError):
+        amount = str(gross)
+    return f"{str(day)[:10]}|{' '.join(str(vendor).split()).casefold()}|{amount}"
+
+
+def ausgaben(conn) -> dict[str, int]:
+    """Expense cards by what was paid (day, shop, amount), not by row id: an expense deleted
+    and entered again is the same expense, and never a second card. Two identical receipts
+    (two bus tickets) are still two cards."""
+    seen: Counter = Counter()
+    keys = {}
+    for rid, day, vendor, gross in rows(
+        conn, "SELECT id, date, vendor, gross FROM expenses ORDER BY id"
+    ):
+        inhalt = ausgabe_inhalt(day, vendor, gross)
+        seen[inhalt] += 1
+        keys[f"ausgabe:{inhalt}#{seen[inhalt]}"] = int(rid)
+    return keys
+
+
+def erinnerungen(conn) -> list[int]:
+    """Reminders that count as cards: one per invoice and week. Clicking four times in a
+    row is no reason for Fritte to be pleased; a friendly nudge now and then is."""
+    letzte: dict[str, date] = {}
+    zaehlt = []
+    for rid, number, created in rows(
+        conn, "SELECT id, invoice_number, created FROM reminders ORDER BY created, id"
+    ):
+        try:
+            day = date.fromisoformat(str(created)[:10])
+        except ValueError:
+            continue
+        if number in letzte and day - letzte[number] < timedelta(days=ERINNERUNG_ABSTAND):
+            continue
+        letzte[number] = day
+        zaehlt.append(int(rid))
+    return zaehlt
+
+
+def _neue_schluessel(conn) -> None:
+    """Expense cards used to be keyed by row id; move them to the content key once."""
+    if einstellung(conn, "schluessel_v2"):
+        return
+    for key, rid in ausgaben(conn).items():
+        conn.execute(
+            "UPDATE OR IGNORE spiel_karten SET schluessel = ? WHERE schluessel = ?",
+            (key, f"ausgabe:{rid}"),
+        )
+    setze(conn, "schluessel_v2", "1")
 
 
 def abgleichen(conn: sqlite3.Connection, heute: date, alte_datei: Path | None = None) -> int:
@@ -136,6 +203,7 @@ def abgleichen(conn: sqlite3.Connection, heute: date, alte_datei: Path | None = 
         if not einstellung(conn, "eingerichtet"):
             _einrichten(conn, tag, alte_datei)
         else:
+            _neue_schluessel(conn)
             conn.executemany(
                 "INSERT OR IGNORE INTO spiel_karten (schluessel, art, gesehen) VALUES (?, ?, ?)",
                 [(key, art, tag) for key, art in _gefunden(conn)],
@@ -144,18 +212,35 @@ def abgleichen(conn: sqlite3.Connection, heute: date, alte_datei: Path | None = 
 
 
 def _einrichten(conn, tag: str, alte_datei: Path | None) -> None:
+    """The first time. A short history becomes the first Kassensturz, with a jar of pepper
+    as a present, so the very first round already shows what Würze does. A long history
+    (or the first version's file) becomes a welcome gift instead: nobody wants to watch
+    two hundred cards."""
     found = _gefunden(conn)
+    alt = _alte_datei(alte_datei)
+    if not alt and len(found) < WILLKOMMEN_KARTEN:
+        conn.executemany(
+            "INSERT OR IGNORE INTO spiel_karten (schluessel, art, gesehen) VALUES (?, ?, ?)",
+            # No day for the old cards: they are not today's work, and no "zeitnah" either.
+            [(key, art, "") for key, art in found] + [("start:1", "start", tag)],
+        )
+        nimm(conn, STARTGEWUERZ, "gewuerz", tag, 0)
+        setze(conn, "willkommen", "kassensturz")
+        setze(conn, "schluessel_v2", "1")
+        setze(conn, "eingerichtet", tag)
+        return
     conn.executemany(
         "INSERT OR IGNORE INTO spiel_karten (schluessel, art, gesehen, kassensturz)"
         " VALUES (?, ?, ?, 0)",
         [(key, art, tag) for key, art in found],
     )
-    alt = _alte_datei(alte_datei)
     start = sum(GRUND[art] for _, art in found) + GRUND["feierabend"] * int(
         alt.get("feierabende", 0) or 0
     )
     if start:
         buche(conn, tag, start, "start", "Willkommensgeschenk für deinen bisherigen Papierkram")
+    setze(conn, "willkommen", "geschenk")
+    setze(conn, "schluessel_v2", "1")
     for ding in alt.get("gekauft", []):
         conn.execute(
             "INSERT OR IGNORE INTO spiel_besitz (id, art, gekauft, preis) VALUES (?, 'ding', ?, 0)",
@@ -211,7 +296,10 @@ def pflegetage(conn, heute: date) -> set[date]:
         "SELECT created FROM quotes",
         "SELECT created FROM reminders",
         "SELECT received FROM jobs",
-        "SELECT gesehen FROM spiel_karten WHERE kassensturz IS NULL OR kassensturz != 0",
+        (
+            "SELECT gesehen FROM spiel_karten"
+            " WHERE (kassensturz IS NULL OR kassensturz != 0) AND art != 'start'"
+        ),
     ):
         for (value,) in rows(conn, sql):
             try:
@@ -264,6 +352,12 @@ def besitz(conn, art: str) -> list[str]:
             "SELECT id FROM spiel_besitz WHERE art = ? ORDER BY rowid", (art,)
         ).fetchall()
     ]
+
+
+def besitz_preise(conn) -> dict[str, int]:
+    """What was paid for each thing Fritte owns (selling gives back half of that)."""
+    vorbereiten(conn)
+    return {r[0]: int(r[1]) for r in conn.execute("SELECT id, preis FROM spiel_besitz")}
 
 
 def besitzt(conn, ding_id: str) -> bool:

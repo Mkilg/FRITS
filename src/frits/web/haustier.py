@@ -10,10 +10,11 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
 from frits import haustier, store
-from frits.spiel import album, ausbau, kassensturz, stand
+from frits.spiel import album, ausbau, kassensturz, saison, stand
 from frits.spiel.gewuerze import GEWICHT, GEWUERZE, NACH_ID
 
 MARKT_GROESSE = 3
+PREIS_PRO_STUFE = 0.5  # spices cost 1×, 1.5×, 2× … as the house grows
 
 
 def fritte_datei(root: Path) -> Path:
@@ -21,25 +22,67 @@ def fritte_datei(root: Path) -> Path:
     return Path(root) / "fritte.toml"
 
 
-def wurf_preis(wuerfe: int) -> int:
-    return 2 + wuerfe
+def wurf_preis(conn, wuerfe: int) -> int:
+    return (2 + wuerfe) * ausbau.stufe(conn).nummer
 
 
-def verkaufs_preis(preis: int) -> int:
-    return max(1, preis // 2)
+def preis(conn, g) -> int:
+    """Spices cost more as the house grows, so there is always something to save up for."""
+    return round(g.preis * (1 + PREIS_PRO_STUFE * (ausbau.stufe(conn).nummer - 1)))
+
+
+def verkaufs_preis(bezahlt: int) -> int:
+    return max(1, bezahlt // 2)
 
 
 def markt(conn, heute: date) -> list:
-    """This week's spices at the market: the same all week, until Fritz rolls again."""
-    erlaubt = [g for g in GEWUERZE if g.seltenheit in ausbau.stufe(conn).seltenheiten]
-    ids = stand.angebot(
-        [g.id for g in erlaubt],
-        [GEWICHT[g.seltenheit] for g in erlaubt],
-        heute,
-        stand.wuerfe(conn, heute),
-        MARKT_GROESSE,
-    )
+    """This week's spices: the same all week, until Fritz rolls again. What is already on
+    the shelf is not offered. When the house grows mid-week, the offer stays and one spice
+    of the newly unlocked kind joins it."""
+    stand.vorbereiten(conn)
+    wurf = stand.wuerfe(conn, heute)
+    key = f"markt:{stand.woche(heute)}:{wurf}"
+    gespeichert = stand.einstellung(conn, key)
+    owned = set(stand.besitz(conn, "gewuerz"))
+    seltenheiten = ausbau.seltenheiten(conn)
+
+    def ziehen(erlaubt: set[str], ohne: set[str], n: int, salz: int) -> list[str]:
+        pool = [g for g in GEWUERZE if g.seltenheit in erlaubt and g.id not in ohne]
+        return stand.angebot(
+            [g.id for g in pool], [GEWICHT[g.seltenheit] for g in pool], heute, salz, n
+        )
+
+    if gespeichert:
+        teile, _, alt = gespeichert.partition("|")
+        ids = [i for i in teile.split(",") if i in NACH_ID]
+        alte = set(alt.split(",")) if alt else set(seltenheiten)
+    else:
+        ids, alte = ziehen(set(seltenheiten), owned, MARKT_GROESSE, wurf), set(seltenheiten)
+    neue = set(seltenheiten) - alte
+    if neue:
+        ids += ziehen(neue, owned | set(ids), 1, 1000 + wurf)
+    if not gespeichert or neue:
+        stand.setze(conn, key, f"{','.join(ids)}|{','.join(sorted(seltenheiten))}")
     return [NACH_ID[i] for i in ids]
+
+
+def wirkung(conn, heute: date, g, aufgeraeumt: bool) -> tuple[int, int, str]:
+    """What this spice would add, put at the right end of the shelf: with the cards
+    waiting now, or else with the last Kassensturz. (extra, cards, "warten"|"letzter")."""
+    karten, _ = kassensturz.vorschau(conn, heute, aufgeraeumt)
+    if karten:
+        dicts, quelle = [k.als_dict() for k in karten], "warten"
+    else:
+        letzte = kassensturz.chronik(conn, 1)
+        alt = kassensturz.laden(conn, letzte[0]["nummer"]) if letzte else None
+        if not alt or not alt.get("karten"):
+            return 0, 0, ""
+        dicts, quelle = alt["karten"], "letzter"
+    shelf = [x for x in kassensturz.regal(conn) if x.id != g.id]
+    umfeld = kassensturz.umfeld(conn, heute, aufgeraeumt)
+    ohne = kassensturz.berechnen(dicts, shelf, umfeld)["summe"]
+    mit = kassensturz.berechnen(dicts, [*shelf, g], umfeld)["summe"]
+    return mit - ohne, len(dicts), quelle
 
 
 def register_haustier(
@@ -64,6 +107,32 @@ def register_haustier(
         for e in album.neue(conn, today()):
             flash(f"Neu in Frittes Album: {e.zeichen} {e.name}", cue="done")
 
+    def karten_hinweis(path: str, current) -> list[dict]:
+        """Right after the work: a quiet note that Fritte got a card for it."""
+        if not current.haustier or not (current.setup_done or current.is_complete):
+            return []
+        conn = db()
+        stand.vorbereiten(conn)
+        if not stand.einstellung(conn, "eingerichtet"):
+            return []
+        n = stand.abgleichen(conn, today(), datei)
+        vorher = int(stand.einstellung(conn, "hinweis_wartend", "0") or 0)
+        if n != vorher:
+            stand.setze(conn, "hinweis_wartend", str(n))
+        if n <= vorher or path == "/" or path.startswith(("/fritte", "/feierabend")):
+            return []
+        neu = n - vorher
+        text = (
+            f"Fritte hat {'eine neue Karte' if neu == 1 else f'{neu} neue Karten'}"
+            f" für den Kassensturz ({n} {'wartet' if n == 1 else 'warten'})."
+        )
+        return [
+            {"text": text, "kind": "karte", "cue": None, "stamp": None, "undo": False,
+             "link": "/fritte#kassensturz", "link_text": "Zu Fritte"}
+        ]  # fmt: skip
+
+    app.state.hinweise.append(karten_hinweis)
+
     async def form_value(request: Request, name: str) -> str:
         return str((await request.form()).get(name, ""))
 
@@ -76,13 +145,26 @@ def register_haustier(
             f.bild = haustier.BILD["freut_sich"]
             f.satz = f"Danke! {_freude(ding)}"
         karten, vorschau = kassensturz.vorschau(conn, today(), aufgeraeumt())
+        pro_karte = kassensturz.pro_karte(vorschau, len(karten))
+        willkommen = stand.einstellung(conn, "willkommen") == "kassensturz" and not (
+            kassensturz.chronik(conn, 1)
+        )
         return page(
             request,
             "fritte.html",
             f=f,
             neu=ding.id if ding else "",
             karten=karten,
+            pro_karte=pro_karte,
             vorschau=vorschau,
+            willkommen=willkommen,
+            saison=saison.jetzt(conn, today()),
+            ort=ausbau.ort(conn),
+            orte=ausbau.ORTE,
+            naechster_ort=ausbau.naechster_ort(conn),
+            umzug_preis=ausbau.umzug_preis(conn),
+            ruf=ausbau.ruf(conn),
+            bau_preis=lambda st: ausbau.preis(conn, st),
             regal=kassensturz.regal(conn),
             plaetze=kassensturz.plaetze(conn),
             chronik=kassensturz.chronik(conn),
@@ -105,6 +187,22 @@ def register_haustier(
         )
         return back("/fritte#haus")
 
+    @app.post("/fritte/umziehen", dependencies=guarded)
+    def fritte_umziehen():
+        conn = db()
+        try:
+            ziel = ausbau.umziehen(conn, today())
+        except stand.SpielFehler as exc:
+            flash(str(exc), "error")
+            return back("/fritte#haus")
+        flash(
+            f"Fritte eröffnet eine neue Bude: {ziel.name}. Ihre Sachen, das Gewürzregal und ihr"
+            " guter Ruf ziehen mit.",
+            cue="done",
+        )
+        album_pruefen(conn)
+        return back("/fritte#haus")
+
     @app.post("/fritte/kassensturz", dependencies=guarded)
     def fritte_kassensturz():
         conn = db()
@@ -122,13 +220,7 @@ def register_haustier(
         ergebnis = kassensturz.laden(conn, nummer)
         if ergebnis is None:
             raise HTTPException(404)
-        return page(
-            request,
-            "kassensturz.html",
-            k=ergebnis,
-            f=fritte(conn),
-            guthaben=stand.guthaben(conn),
-        )
+        return page(request, "kassensturz.html", k=ergebnis, f=fritte(conn))
 
     @app.get("/fritte/album", response_class=HTMLResponse)
     def album_page(request: Request):
@@ -149,19 +241,25 @@ def register_haustier(
         f = fritte(conn)
         wuerfe = stand.wuerfe(conn, today())
         shelf = kassensturz.regal(conn)
+        bezahlt = stand.besitz_preise(conn)
+        ware = markt(conn, today())
+        sauber = aufgeraeumt()
         return page(
             request,
             "fritte_laden.html",
             f=f,
-            markt=markt(conn, today()),
+            markt=ware,
+            wirkung={g.id: wirkung(conn, today(), g, sauber) for g in ware},
+            preis=lambda g: preis(conn, g),
             regal=shelf,
             im_regal={g.id for g in shelf},
             plaetze=kassensturz.plaetze(conn),
-            wurf_preis=wurf_preis(wuerfe),
-            verkauf=verkaufs_preis,
+            wurf_preis=wurf_preis(conn, wuerfe),
+            verkauf=lambda g: verkaufs_preis(bezahlt.get(g.id, g.preis)),
             laden=haustier.LADEN,
             kassenbuch=stand.kassenbuch(conn),
             stufe=ausbau.stufe(conn),
+            ruf=ausbau.ruf(conn),
         )
 
     @app.post("/fritte/kaufen", dependencies=guarded)
@@ -198,9 +296,11 @@ def register_haustier(
                     raise stand.SpielFehler(
                         "Das Regal ist voll. Verkauf ein Gewürz oder bau Frittes Haus aus."
                     )
-                stand.bezahlen(conn, today().isoformat(), g.preis, f"{g.name} gekauft")
-                stand.nimm(conn, g.id, "gewuerz", today().isoformat(), g.preis)
+                kosten = preis(conn, g)
+                stand.bezahlen(conn, today().isoformat(), kosten, f"{g.name} gekauft")
+                stand.nimm(conn, g.id, "gewuerz", today().isoformat(), kosten)
                 stand.setze(conn, f"reife:{g.id}", "0")
+                stand.setze(conn, f"reifewoche:{g.id}", "")
         except stand.SpielFehler as exc:
             flash(str(exc), "error")
             return back("/fritte/laden#markt")
@@ -217,14 +317,13 @@ def register_haustier(
         stand.vorbereiten(conn)
         try:
             with store.transaction(conn):
-                stand.gib_ab(conn, g.id)
-                preis = verkaufs_preis(g.preis)
-                stand.buche(conn, today().isoformat(), preis, "verkauf", f"{g.name} verkauft")
+                erloes = verkaufs_preis(stand.gib_ab(conn, g.id))
+                stand.buche(conn, today().isoformat(), erloes, "verkauf", f"{g.name} verkauft")
                 stand.setze(conn, f"reife:{g.id}", "0")
         except stand.SpielFehler as exc:
             flash(str(exc), "error")
             return back("/fritte/laden#regal")
-        flash(f"{g.name} verkauft für {preis} Salzkörner.")
+        flash(f"{g.name} verkauft für {erloes} Salzkörner.")
         return back("/fritte/laden#regal")
 
     @app.post("/fritte/gewuerz/links", dependencies=guarded)
@@ -243,7 +342,7 @@ def register_haustier(
     def markt_wuerfeln():
         conn = db()
         try:
-            stand.neu_wuerfeln(conn, today(), wurf_preis(stand.wuerfe(conn, today())))
+            stand.neu_wuerfeln(conn, today(), wurf_preis(conn, stand.wuerfe(conn, today())))
         except stand.SpielFehler as exc:
             flash(str(exc), "error")
         return back("/fritte/laden#markt")

@@ -11,12 +11,12 @@ This module is about her: her mood, her room, her hats.
 from __future__ import annotations
 
 import sqlite3
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
 
 from frits import store
-from frits.spiel import ausbau, stand
+from frits.spiel import ausbau, saison, stand
 from frits.spiel.stand import SpielFehler as LadenFehler
 
 MUNTER_BIS = 4  # days since the last paperwork: up to here she's lively
@@ -100,6 +100,8 @@ class Fritte:
     gekauft: set[str]
     stufe: int = 1  # how far her house is built out
     bau: str = ""  # name of the stage being built, if any
+    ort: int = 1  # which of her places (1 = am Markt)
+    pokale: list[str] = field(default_factory=list)  # seasons whose goal was reached
 
     @property
     def laune_name(self) -> str:
@@ -141,6 +143,8 @@ def ansehen(conn: sqlite3.Connection, heute: date, alte_datei: Path | None = Non
         gekauft=set(gekauft),
         stufe=ausbau.stufe(conn).nummer,
         bau=bau.name if (bau := ausbau.im_bau(conn)) else "",
+        ort=ausbau.ort(conn).nummer,
+        pokale=saison.pokale(conn),
     )
 
 
