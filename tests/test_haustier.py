@@ -10,6 +10,7 @@ from frits import haustier, store
 from frits.settings import Settings
 from frits.spiel import kassensturz, stand
 from frits.spiel.gewuerze import NACH_ID
+from frits.web.haustier import markt
 
 
 def add_invoice(conn, number, issue, paid=None, due=None, work=None, cancels=None):
@@ -233,14 +234,15 @@ def test_pages_and_a_whole_round(client, ws):  # noqa: F811
 
     laden = client.get("/fritte/laden").text
     assert "Gewürzregal" in laden and "Markttag" in laden and "Frittes Kassenbuch" in laden
-    page = post(client, "/fritte/gewuerz/kaufen", gewuerz="meersalz")
-    assert "Meersalz steht jetzt im Gewürzregal" in page.text
-    assert stand.guthaben(conn) == 2
+    g = min(markt(conn, TODAY), key=lambda g: g.preis)
+    page = post(client, "/fritte/gewuerz/kaufen", gewuerz=g.id)
+    assert f"{g.name} steht jetzt im Gewürzregal" in page.text
+    assert stand.guthaben(conn) == 7 - g.preis
     page = post(client, "/fritte/gewuerz/kaufen", gewuerz="safran")
-    assert "fehlen noch 23" in page.text
-    page = post(client, "/fritte/gewuerz/verkaufen", gewuerz="meersalz")
-    assert "verkauft für 2" in page.text and stand.guthaben(conn) == 4
-
+    assert "gibt es diese Woche nicht" in page.text  # legendary: not at this stage's market
+    page = post(client, "/fritte/gewuerz/verkaufen", gewuerz=g.id)
+    assert f"verkauft für {max(1, g.preis // 2)}" in page.text
+    give(conn, 10)
     give(conn, 1)
     page = post(client, "/fritte/kaufen", ding="teetasse")
     assert "Die Teetasse hat jetzt einen schönen Platz" in page.text
@@ -252,12 +254,15 @@ def test_the_shelf_has_limited_places(client, ws):  # noqa: F811
     conn = store.connect(ws.db)
     client.get("/")
     give(conn, 100)
-    for gid in ("meersalz", "muskat", "schnittlauch"):
-        post(client, "/fritte/gewuerz/kaufen", gewuerz=gid)
-    page = post(client, "/fritte/gewuerz/kaufen", gewuerz="paprika")
+    offer = markt(conn, TODAY)
+    commons = ("meersalz", "muskat", "schnittlauch", "paprika", "rosmarin", "pfeffer")
+    others = [i for i in commons if NACH_ID[i] not in offer]
+    for gid in others[:3]:
+        stand.nimm(conn, gid, "gewuerz", TODAY.isoformat(), 5)
+    page = post(client, "/fritte/gewuerz/kaufen", gewuerz=offer[0].id)
     assert "Das Regal ist voll" in page.text
-    post(client, "/fritte/gewuerz/links", gewuerz="schnittlauch")
-    assert [g.id for g in kassensturz.regal(conn)] == ["meersalz", "schnittlauch", "muskat"]
+    post(client, "/fritte/gewuerz/links", gewuerz=others[2])
+    assert [g.id for g in kassensturz.regal(conn)] == [others[0], others[2], others[1]]
 
 
 def test_fritte_can_be_hidden(client, ws):  # noqa: F811
@@ -303,3 +308,24 @@ def test_later_stages_start_with_more_wuerze(conn):
     k = kassensturz.laden(conn, kassensturz.durchfuehren(conn, TODAY, aufgeraeumt=False))
     assert (k["koerner"], k["wuerze"], k["summe"]) == (1, 1.5, 1)
     assert ausbau.naechste(conn).name == "Frittenbude am Markt"
+
+
+def test_album_stickers_come_once(conn):
+    from frits.spiel import album
+
+    started(conn)
+    stand.feierabend(conn, TODAY)
+    k = kassensturz.laden(conn, kassensturz.durchfuehren(conn, TODAY, aufgeraeumt=False))
+    assert [e["name"] for e in k["erfolge"]] == ["Der erste Kassensturz"]
+    assert album.neue(conn, TODAY) == []
+    seiten = album.seiten(conn, TODAY)
+    assert sum(1 for s in seiten if s["seit"]) == 1 and len(seiten) == len(album.ERFOLGE)
+
+
+def test_album_page(client, ws):  # noqa: F811
+    conn = store.connect(ws.db)
+    client.get("/")
+    stand.setze(conn, "ausbau", "3")
+    stand.nimm(conn, "trueffelsalz", "gewuerz", TODAY.isoformat(), 22)
+    page = client.get("/fritte/album")
+    assert "Frittes Album" in page.text and "3 von" in page.text  # Stube, Werkstatt, Legendär

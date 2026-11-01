@@ -5,10 +5,7 @@
 {% block content %}
 <div class="spiel-kopf">
   <h1>Frittes Laden</h1>
-  <nav class="spiel-reiter" aria-label="Fritte">
-    <a href="/fritte">Zimmer &amp; Kassensturz</a>
-    <a href="/fritte/laden" aria-current="page">Laden &amp; Gewürzregal</a>
-  </nav>
+  {% include "_spiel_reiter.html" %}
   <p class="salz kopf-salz"><span aria-hidden="true">🧂</span> <strong>{{ f.guthaben }}</strong> Salzkörner</p>
 </div>
 

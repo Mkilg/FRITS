@@ -362,3 +362,17 @@ details[open] > summary::before { content: "▾ "; }
 .ks-ausbau .za-zeichen { font-size: 2.4rem; }
 .laeuft .ks-ausbau:not(.da) { visibility: hidden; }
 .ks-ausbau.da { animation: karte-hoch .6s cubic-bezier(.2, 1.5, .4, 1); }
+
+/* ---------- Frittes Album ---------- */
+.album { display: grid; grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr)); gap: .9rem; margin-top: .6rem; }
+.sticker { position: relative; display: flex; flex-direction: column; align-items: center; gap: .25rem; text-align: center;
+  padding: .9rem .6rem; border-radius: var(--radius); border: 2px dashed var(--papier-schatten); background: rgba(252, 246, 230, .6); }
+.sticker.da { border-style: solid; border-color: var(--ocker); background: var(--papierkarte); box-shadow: var(--karten-schatten); }
+.sticker-rund { display: grid; place-items: center; width: 3.6rem; height: 3.6rem; border-radius: 50%; font-size: 1.8rem;
+  background: var(--creme); color: var(--muted); border: 3px solid var(--papier-schatten); }
+.sticker.da .sticker-rund { background: radial-gradient(circle at 35% 30%, #fff6d8, var(--gold)); border-color: var(--ocker-dunkel); transform: rotate(-6deg); }
+.sticker strong { font-family: var(--schrift); color: var(--eiche-tief); }
+.sticker .hint { font-size: .8rem; }
+.sticker-tag { font-size: .72rem; color: var(--moos-dunkel); }
+.ks-sticker .sticker-rund { width: 2.8rem; height: 2.8rem; font-size: 1.4rem; background: radial-gradient(circle at 35% 30%, #fff6d8, var(--gold)); border-color: var(--ocker-dunkel); }
+.laeuft .ks-sticker:not(.da) { visibility: hidden; }

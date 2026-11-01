@@ -74,7 +74,7 @@
     wuerzeEl.textContent = zahl(data.grundwuerze || 1);
     summeEl.textContent = "?";
     stempel.classList.remove("drauf");
-    if (el("ausbau")) el("ausbau").classList.remove("da");
+    ["ausbau", "erfolge"].forEach(function (n) { if (el(n)) el(n).classList.remove("da"); });
     karten.forEach(function (k, i) { k.classList.add("verdeckt"); k.classList.remove("aktiv"); chip(i).textContent = "+0"; });
   }
   function finish() {
@@ -86,7 +86,7 @@
     summeEl.textContent = data.summe;
     karten.forEach(function (k, i) { k.classList.remove("verdeckt", "aktiv"); chip(i).textContent = "+" + data.pro_karte[i]; });
     stempel.classList.add("drauf");
-    if (el("ausbau")) el("ausbau").classList.add("da");
+    ["ausbau", "erfolge"].forEach(function (n) { if (el(n)) el(n).classList.add("da"); });
     el("weiter").hidden = true;
     el("nochmal").hidden = reduced;
   }

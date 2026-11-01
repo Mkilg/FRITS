@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 
 from frits import store
-from frits.spiel import ausbau, stand
+from frits.spiel import album, ausbau, stand
 from frits.spiel.gewuerze import NACH_ID, Gewuerz
 
 ZEITNAH_TAGE = 10  # GoBD: enter non-cash bookings within about ten days
@@ -305,6 +305,12 @@ def durchfuehren(conn: sqlite3.Connection, heute: date, aufgeraeumt: bool) -> in
         fertig = ausbau.fertigstellen(conn)
         if fertig:
             record["ausbau"] = {"name": fertig.name, "zeichen": fertig.zeichen, "text": fertig.text}
+        neu = album.neue(conn, heute)
+        if neu:
+            record["erfolge"] = [
+                {"name": e.name, "zeichen": e.zeichen, "text": e.text} for e in neu
+            ]
+        if fertig or neu:
             conn.execute(
                 "UPDATE spiel_kassenstuerze SET ergebnis = ? WHERE id = ?",
                 (json.dumps(record, ensure_ascii=False), nummer),

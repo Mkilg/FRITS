@@ -10,7 +10,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
 from frits import haustier, store
-from frits.spiel import ausbau, kassensturz, stand
+from frits.spiel import album, ausbau, kassensturz, stand
 from frits.spiel.gewuerze import GEWICHT, GEWUERZE, NACH_ID
 
 MARKT_GROESSE = 3
@@ -27,6 +27,19 @@ def wurf_preis(wuerfe: int) -> int:
 
 def verkaufs_preis(preis: int) -> int:
     return max(1, preis // 2)
+
+
+def markt(conn, heute: date) -> list:
+    """This week's spices at the market: the same all week, until Fritz rolls again."""
+    erlaubt = [g for g in GEWUERZE if g.seltenheit in ausbau.stufe(conn).seltenheiten]
+    ids = stand.angebot(
+        [g.id for g in erlaubt],
+        [GEWICHT[g.seltenheit] for g in erlaubt],
+        heute,
+        stand.wuerfe(conn, heute),
+        MARKT_GROESSE,
+    )
+    return [NACH_ID[i] for i in ids]
 
 
 def register_haustier(
@@ -46,6 +59,10 @@ def register_haustier(
 
     def fritte(conn) -> haustier.Fritte:
         return haustier.ansehen(conn, today(), datei)
+
+    def album_pruefen(conn) -> None:
+        for e in album.neue(conn, today()):
+            flash(f"Neu in Frittes Album: {e.zeichen} {e.name}", cue="done")
 
     async def form_value(request: Request, name: str) -> str:
         return str((await request.form()).get(name, ""))
@@ -113,25 +130,30 @@ def register_haustier(
             guthaben=stand.guthaben(conn),
         )
 
+    @app.get("/fritte/album", response_class=HTMLResponse)
+    def album_page(request: Request):
+        conn = db()
+        f = fritte(conn)
+        seiten = album.seiten(conn, today())
+        return page(
+            request,
+            "fritte_album.html",
+            f=f,
+            seiten=seiten,
+            geschafft=sum(1 for s in seiten if s["seit"]),
+        )
+
     @app.get("/fritte/laden", response_class=HTMLResponse)
     def laden_page(request: Request):
         conn = db()
         f = fritte(conn)
         wuerfe = stand.wuerfe(conn, today())
-        erlaubt = [g for g in GEWUERZE if g.seltenheit in ausbau.stufe(conn).seltenheiten]
-        markt = stand.angebot(
-            [g.id for g in erlaubt],
-            [GEWICHT[g.seltenheit] for g in erlaubt],
-            today(),
-            wuerfe,
-            MARKT_GROESSE,
-        )
         shelf = kassensturz.regal(conn)
         return page(
             request,
             "fritte_laden.html",
             f=f,
-            markt=[NACH_ID[i] for i in markt],
+            markt=markt(conn, today()),
             regal=shelf,
             im_regal={g.id for g in shelf},
             plaetze=kassensturz.plaetze(conn),
@@ -144,12 +166,14 @@ def register_haustier(
 
     @app.post("/fritte/kaufen", dependencies=guarded)
     async def fritte_kaufen(request: Request):
+        conn = db()
         try:
-            ding = haustier.kaufen(db(), today(), await form_value(request, "ding"))
+            ding = haustier.kaufen(conn, today(), await form_value(request, "ding"))
         except stand.SpielFehler as exc:
             flash(str(exc), "error")
             return back("/fritte/laden#einrichtung")
         flash(f"{ding.name} gekauft.", cue="done")
+        album_pruefen(conn)
         return back(f"/fritte?neu={ding.id}")
 
     @app.post("/fritte/hut", dependencies=guarded)
@@ -168,6 +192,8 @@ def register_haustier(
             with store.transaction(conn):
                 if stand.besitzt(conn, g.id):
                     raise stand.SpielFehler(f"{g.name} steht schon im Regal.")
+                if g not in markt(conn, today()):
+                    raise stand.SpielFehler(f"{g.name} gibt es diese Woche nicht auf dem Markt.")
                 if len(kassensturz.regal(conn)) >= kassensturz.plaetze(conn):
                     raise stand.SpielFehler(
                         "Das Regal ist voll. Verkauf ein Gewürz oder bau Frittes Haus aus."
@@ -179,6 +205,7 @@ def register_haustier(
             flash(str(exc), "error")
             return back("/fritte/laden#markt")
         flash(f"{g.name} steht jetzt im Gewürzregal.", cue="done")
+        album_pruefen(conn)
         return back("/fritte/laden#regal")
 
     @app.post("/fritte/gewuerz/verkaufen", dependencies=guarded)

@@ -36,6 +36,12 @@
     <div><strong>Ausbau fertig: {{ k.ausbau.name }}!</strong><br><span>{{ k.ausbau.text }}</span></div>
   </div>
   {% endif %}
+  {% if k.erfolge %}
+  <div class="ks-ausbau ks-sticker" data-ks="erfolge">
+    {% for e in k.erfolge %}<span class="sticker-rund" aria-hidden="true">{{ e.zeichen }}</span>{% endfor %}
+    <div><strong>Neu in Frittes Album:</strong> {{ k.erfolge | map(attribute="name") | join(", ") }}<br><a href="/fritte/album">Zum Album</a></div>
+  </div>
+  {% endif %}
   <div class="row ks-aktionen">
     <button type="button" class="quiet" data-ks="nochmal" hidden>Noch einmal ansehen</button>
     <button type="button" class="quiet" data-ks="weiter" hidden>Überspringen</button>

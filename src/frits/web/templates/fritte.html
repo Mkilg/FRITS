@@ -5,10 +5,7 @@
 {% block content %}
 <div class="spiel-kopf">
   <h1>Fritte zuhause</h1>
-  <nav class="spiel-reiter" aria-label="Fritte">
-    <a href="/fritte" aria-current="page">Zimmer &amp; Kassensturz</a>
-    <a href="/fritte/laden">Laden &amp; Gewürzregal</a>
-  </nav>
+  {% include "_spiel_reiter.html" %}
 </div>
 <section class="card fritte-haus">
   {% include "_fritte_zimmer.html" %}
