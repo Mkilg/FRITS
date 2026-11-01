@@ -694,8 +694,10 @@
   });
 })();
 
-// Zierde vom Hafenmarkt: Jede Figur sucht sich einen Platz, an dem keine Provinz, kein Schild
-// und keine andere Zierde steht. Erst dann wird sie sichtbar (so springt nichts).
+// Zierde vom Hafenmarkt: Jede Figur sucht sich auf der Wiese einen Platz, an dem keine
+// Provinz, kein Schild und keine andere Zierde steht, möglichst nah an ihrem Lieblingsplatz.
+// Gekauftes wird nie versteckt: Ist nichts frei, steht sie dort, wo sie am wenigsten verdeckt.
+// Erst danach wird sie sichtbar (so springt nichts).
 (function () {
   var zierde = document.querySelector(".sq-zierde");
   if (!zierde) return;
@@ -703,34 +705,48 @@
   function fertig() { ziere.forEach(function (z) { z.classList.add("platziert"); }); }
   function platzieren() {
     if (getComputedStyle(zierde).position !== "absolute") { fertig(); return; }
-    var plaetze = [];
-    try { plaetze = JSON.parse(zierde.getAttribute("data-plaetze") || "[]"); } catch (e) { plaetze = []; }
+    var wiese = (zierde.getAttribute("data-wiese") || "37,28,90,62").split(",").map(parseFloat);
+    var raster = [];
+    for (var y = wiese[3]; y >= wiese[1]; y -= 3) {
+      for (var x = wiese[0]; x <= wiese[2]; x += 2.5) raster.push([x, y]);
+    }
     var hindernisse = Array.prototype.map.call(
       document.querySelectorAll(".sq-insel .sq-parzelle, .sq-insel .sq-schild, .sq-hafen, .sq-hort-insel"),
       function (e) { return e.getBoundingClientRect(); }
     ).filter(function (r) { return r.width > 0; });
     var feld = zierde.getBoundingClientRect();
-    function kasten(z) {
-      // Ohne Transformationen gemessen: die Figur steht mit ihrem Fuß auf (--x, --y)
+    function kasten(z, p) {
+      // Gerechnet statt gemessen (kein Neu-Layout je Versuch): der Fuß steht auf (x, y)
       var w = z.offsetWidth, h = z.offsetHeight;
-      var l = feld.left + z.offsetLeft - w / 2, t = feld.top + z.offsetTop - h;
+      var l = feld.left + feld.width * p[0] / 100 - w / 2, t = feld.top + feld.height * p[1] / 100 - h;
       return { left: l, top: t, right: l + w, bottom: t + h };
     }
-    function frei(r) {
-      return hindernisse.every(function (h) {
-        return r.right < h.left + 4 || r.left > h.right - 4 || r.bottom < h.top + 4 || r.top > h.bottom - 4;
-      });
+    function deckung(r) {
+      // Wie viel Fläche die Figur verdeckt (4 px Luft sind erlaubt)
+      return hindernisse.reduce(function (summe, h) {
+        var b = Math.min(r.right, h.right - 4) - Math.max(r.left, h.left + 4);
+        var t = Math.min(r.bottom, h.bottom - 4) - Math.max(r.top, h.top + 4);
+        return summe + (b > 0 && t > 0 ? b * t : 0);
+      }, 0);
     }
     ziere.forEach(function (z) {
       var eigen = [parseFloat(z.style.getPropertyValue("--x")), parseFloat(z.style.getPropertyValue("--y"))];
-      var versuche = [eigen].concat(plaetze);
+      var versuche = [eigen].concat(raster.slice().sort(function (a, b) {
+        // Lieber seitlich rücken als nach hinten: Die vordere Reihe sieht man am besten
+        function weg(p) { var dx = p[0] - eigen[0], dy = (p[1] - eigen[1]) * 1.6; return dx * dx + dy * dy; }
+        return weg(a) - weg(b);
+      }));
+      var bester = null, wenigste = Infinity;
       for (var i = 0; i < versuche.length; i++) {
-        z.style.setProperty("--x", versuche[i][0] + "%");
-        z.style.setProperty("--y", versuche[i][1] + "%");
-        var r = kasten(z);
-        if (frei(r)) { hindernisse.push(r); z.classList.add("platziert"); return; }
+        var r = kasten(z, versuche[i]), d = deckung(r);
+        if (d < wenigste) { bester = { p: versuche[i], r: r }; wenigste = d; }
+        if (d === 0) break;
       }
-      z.hidden = true; // kein freier Platz: lieber nicht als halb verdeckt (im Markt bleibt sie sichtbar)
+      z.style.setProperty("--x", bester.p[0] + "%");
+      z.style.setProperty("--y", bester.p[1] + "%");
+      if (wenigste > 0) z.classList.add("eng"); // sichtbar bleiben, aber etwas kleiner
+      hindernisse.push(bester.r);
+      z.classList.add("platziert");
     });
   }
   function los() {
