@@ -10,8 +10,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
 from frits import haustier, store
-from frits.spiel import album, ausbau, kassensturz, saison, stand
-from frits.spiel import gewuerze as gewuerze_mod
+from frits.spiel import album, ausbau, kassensturz, saison, stand, truhen
 from frits.spiel.gewuerze import GEWICHT, GEWUERZE, NACH_ID
 
 MARKT_GROESSE = 3
@@ -89,6 +88,25 @@ def wirkung(conn, heute: date, g, aufgeraeumt: bool) -> tuple[int, int, str]:
     ohne = kassensturz.berechnen(dicts, shelf, umfeld)["summe"]
     mit = kassensturz.berechnen(dicts, [*shelf, g], umfeld)["summe"]
     return mit - ohne, len(dicts), quelle
+
+
+def gold_jahr(root: Path, heute: date) -> int | None:
+    """The Steuer-Quest year chest gold goes to: the newest year with a questionnaire.
+    None while Fritz doesn't use the quest (gold he can't use is no find)."""
+    from frits.steuer import quest
+
+    if getattr(quest, "gold_gutschreiben", None) is None:
+        return None
+    for jahr in range(heute.year, heute.year - 6, -1):
+        if quest.profil_datei(root, jahr).exists():
+            return jahr
+    return None
+
+
+def gold_gutschreiben():
+    from frits.steuer import quest
+
+    return getattr(quest, "gold_gutschreiben", None)
 
 
 def register_haustier(
@@ -178,16 +196,23 @@ def register_haustier(
             kassensturz.chronik(conn, 1)
         )
         regal = kassensturz.regal(conn)
-        extras = [gewuerze_mod.EINGEKOCHT] if kassensturz.eingekocht(conn) else []
+        extras = kassensturz.vorab(conn, None)
         dicts = [k.als_dict() for k in karten]
         gerichte = [] if willkommen or not karten else kassensturz.tagesgerichte(conn, today())
         gericht_summe = {
             g.id: kassensturz.vorschau(conn, today(), sauber, g.id)[1]["summe"] for g in gerichte
         }
+        geschaetzt = {d.id for d in haustier.SCHAETZE if d.id in f.gekauft}
         return page(
             request,
             "fritte.html",
             f=f,
+            truhen_zu=truhen.geschlossen(conn),
+            truhen_auf=truhen.geoeffnete(conn, 6),
+            fuellung=truhen.fuellung(conn),
+            pro_truhe=truhen.KARTEN_PRO_TRUHE,
+            chancen=truhen.chancen(conn),
+            schaetze=[(d, d.id in geschaetzt) for d in haustier.SCHAETZE],
             neu=ding.id if ding else "",
             karten=karten,
             pro_karte=pro_karte,
@@ -297,7 +322,50 @@ def register_haustier(
         ergebnis = kassensturz.laden(conn, nummer)
         if ergebnis is None:
             raise HTTPException(404)
-        return page(request, "kassensturz.html", k=ergebnis, f=fritte(conn))
+        return page(
+            request, "kassensturz.html", k=ergebnis, f=fritte(conn),
+            offene_truhen=len(truhen.geschlossen(conn)),
+        )  # fmt: skip
+
+    @app.post("/fritte/truhe/oeffnen", dependencies=guarded)
+    def truhe_oeffnen():
+        conn = db()
+        try:
+            t = truhen.oeffnen(conn, today(), gold_jahr(ws.root, today()))
+        except stand.SpielFehler as exc:
+            flash(str(exc), "error")
+            return back("/fritte#truhen")
+        if t is None:
+            flash("Gerade wartet keine Truhe. Echter Papierkram füllt die nächste.")
+            return back("/fritte#truhen")
+        truhen.gold_buchen(conn, t, gold_gutschreiben())
+        album_pruefen(conn)
+        return back(f"/fritte/truhe/{t.id}?neu=1")
+
+    @app.get("/fritte/truhe/{tid}", response_class=HTMLResponse)
+    def truhe_show(request: Request, tid: int, neu: str = ""):
+        conn = db()
+        t = truhen.laden(conn, tid)
+        if t is None or t.inhalt is None:
+            return back("/fritte#truhen")
+        truhen.gold_buchen(conn, t, gold_gutschreiben())  # if it didn't work the first time
+        fund = t.inhalt
+        bild = ""
+        if fund["art"] == "ding":
+            bild = f"ding-{fund['id']}"
+        elif fund["art"] == "gewuerz":
+            bild = f"gewuerz-{fund['id']}"
+        return page(
+            request,
+            "truhe.html",
+            t=t,
+            fund=fund,
+            bild=bild,
+            neu=neu == "1",
+            f=fritte(conn),
+            weitere=len(truhen.geschlossen(conn)),
+            chancen=truhen.chancen(conn),
+        )
 
     @app.get("/fritte/album", response_class=HTMLResponse)
     def album_page(request: Request):
@@ -339,6 +407,7 @@ def register_haustier(
             wurf_preis=wurf_preis(conn, wuerfe),
             verkauf=lambda g: verkaufs_preis(bezahlt.get(g.id, g.preis)),
             laden=haustier.LADEN,
+            schaetze=haustier.SCHAETZE,
             kassenbuch=stand.kassenbuch(conn),
             stufe=ausbau.stufe(conn),
             ruf=ausbau.ruf(conn),

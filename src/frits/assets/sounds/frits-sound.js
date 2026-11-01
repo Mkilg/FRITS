@@ -7,6 +7,7 @@
  * Play a cue from JavaScript:      FritsSound.cue("done")
  * The stamp "plopp":               FritsSound.stamp()
  * A finished invoice:              FritsSound.ching()
+ * One of Fritte's chests opens:    FritsSound.truhe("gewoehnlich" | "selten" | "legendaer")
  * Play a cue from the server:      HX-Trigger: {"frits-cue": "sent"}   (htmx response header)
  * Focus music:                     FritsSound.music.play("morgen") / .stop() / .toggle()
  * Buttons without any JavaScript:  <button data-frits-cue="done">, <button data-frits-music="morgen">
@@ -95,6 +96,7 @@
       cue: function (name) { if (enabled()) host.cue(name); },
       stamp: function () { if (enabled()) host.stamp(); },
       ching: function () { if (enabled()) host.ching(); },
+      truhe: function (stufe) { if (enabled() && host.truhe) host.truhe(stufe); },
       music: {
         play: function (name, from, ms) { if (enabled()) host.music.play(name, from, ms); },
         stop: function (switching) { host.music.stop(switching); },
@@ -226,6 +228,58 @@
       osc.start(at);
       osc.stop(at + 1.2);
     });
+  }
+
+  // A chest opens: the wooden lid creaks, then a little tune climbs up. The rarer the find,
+  // the longer the tune and the more it sparkles. Made right here, no file needed.
+  function truhe(stufe) {
+    if (!enabled()) return;
+    var c = context();
+    if (!c) return;
+    if (c.state === "suspended" && c.resume) c.resume();
+    var t = c.currentTime;
+    var length = Math.floor(c.sampleRate * 0.35);
+    var buffer = c.createBuffer(1, length, c.sampleRate);
+    var data = buffer.getChannelData(0);
+    for (var i = 0; i < length; i++) data[i] = (Math.random() * 2 - 1) * Math.sin(Math.PI * i / length);
+    var creak = c.createBufferSource(), bp = c.createBiquadFilter(), cg = c.createGain();
+    bp.type = "bandpass";
+    bp.Q.value = 9;
+    bp.frequency.setValueAtTime(380, t);
+    bp.frequency.exponentialRampToValueAtTime(900, t + 0.33);
+    cg.gain.value = 0.5;
+    creak.buffer = buffer;
+    creak.connect(bp).connect(cg).connect(c.destination);
+    creak.start(t);
+    var tunes = {
+      gewoehnlich: [523.25, 659.25, 783.99],
+      selten: [523.25, 659.25, 783.99, 1046.5],
+      legendaer: [523.25, 659.25, 783.99, 1046.5, 1318.5, 1568]
+    };
+    var notes = tunes[stufe] || tunes.gewoehnlich;
+    notes.forEach(function (f, n) {
+      var at = t + 0.38 + n * 0.09, osc = c.createOscillator(), g = c.createGain();
+      osc.type = n === notes.length - 1 ? "triangle" : "sine";
+      osc.frequency.setValueAtTime(f, at);
+      g.gain.setValueAtTime(0.0001, at);
+      g.gain.exponentialRampToValueAtTime(0.16, at + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, at + (n === notes.length - 1 ? 1.4 : 0.5));
+      osc.connect(g).connect(c.destination);
+      osc.start(at);
+      osc.stop(at + 1.5);
+    });
+    if (stufe === "legendaer") {  // a soft shimmer on top
+      [2093, 2637, 3136].forEach(function (f, n) {
+        var at = t + 0.95 + n * 0.12, osc = c.createOscillator(), g = c.createGain();
+        osc.frequency.setValueAtTime(f, at);
+        g.gain.setValueAtTime(0.0001, at);
+        g.gain.exponentialRampToValueAtTime(0.05, at + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, at + 0.9);
+        osc.connect(g).connect(c.destination);
+        osc.start(at);
+        osc.stop(at + 1);
+      });
+    }
   }
 
   // Every click in FRITS without the Klangrahmen loads a new page, which would cut the music
@@ -430,6 +484,7 @@
     cue: cue,
     stamp: stamp,
     ching: ching,
+    truhe: truhe,
     music: music,
     setEnabled: setEnabled,
     enabled: enabled,

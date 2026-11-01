@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Truhe · FRITS{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/haustier.css">{% endblock %}
+{% set klasse = fund.seltenheit | replace('ö', 'oe') | replace('ä', 'ae') %}
+{% set seltenheit_name = {"gewöhnlich": "Gewöhnlich", "selten": "Selten", "legendär": "Legendär"}[fund.seltenheit] %}
+{% block content %}
+<section class="card truhe-show selten-{{ klasse }}{{ ' offen' if not neu }}" data-truhe{% if neu %} data-neu{% endif %} data-seltenheit="{{ klasse }}">
+  <p class="hint truhe-herkunft">Truhe Nr. {{ t.id }} · {{ t.text }}</p>
+  <div class="truhe-buehne">
+    <span class="truhe-strahlen" aria-hidden="true"></span>
+    <div class="truhe-gross" aria-hidden="true">
+      {% if picture('truhe-zu') and picture('truhe-offen') %}
+      <img class="truhe-bild zu" src="{{ picture('truhe-zu') }}" alt="">
+      <img class="truhe-bild auf" src="{{ picture('truhe-offen') }}" alt="">
+      {% else %}
+      <span class="truhe-deckel"></span>
+      <span class="truhe-kiste"></span>
+      {% endif %}
+    </div>
+    <div class="fund" aria-live="polite">
+      <span class="fund-bild" aria-hidden="true">{% if bild and picture(bild) %}<img src="{{ picture(bild) }}" alt="">{% else %}{{ fund.zeichen }}{% endif %}</span>
+      <span class="fund-seltenheit">{{ seltenheit_name }}</span>
+      <strong class="fund-name">{{ fund.name }}</strong>
+      <span class="fund-text">{{ fund.text }}</span>
+      {% if fund.art == "ding" %}<span class="hint">{{ "Liegt im Hutschrank." if fund.wo == "hut" else "Steht jetzt in Frittes Zimmer." }}</span>{% endif %}
+      {% if fund.art == "gewuerz" %}<span class="hint">Steht jetzt im Gewürzregal.</span>{% endif %}
+      {% if fund.art == "gold" and not fund.gutgeschrieben %}<span class="hint">Das Gold kommt in die Steuer-Quest, sobald sie bereit ist.</span>{% endif %}
+    </div>
+  </div>
+  <div class="row truhe-aktionen">
+    <button type="button" class="quiet" data-truhe-skip hidden>Gleich zeigen</button>
+    {% if weitere %}
+    <form method="post" action="/fritte/truhe/oeffnen">
+      <input type="hidden" name="token" value="{{ token }}">
+      <button class="primary">🎁 Nächste Truhe öffnen ({{ weitere }})</button>
+    </form>
+    {% endif %}
+    {% if fund.art == "ding" %}<a class="button{{ '' if weitere else ' primary' }}" href="/fritte?neu={{ fund.id }}">Bei Fritte ansehen</a>
+    {% elif fund.art == "gewuerz" %}<a class="button{{ '' if weitere else ' primary' }}" href="/fritte/laden#regal">Zum Gewürzregal</a>
+    {% elif fund.art == "gold" %}<a class="button{{ '' if weitere else ' primary' }}" href="/steuer">Zur Steuer-Quest</a>
+    {% else %}<a class="button{{ '' if weitere else ' primary' }}" href="/fritte#kassensturz">Zu Fritte</a>{% endif %}
+  </div>
+  <p class="hint truhe-fair">Chancen: {% for name, p in chancen.prozent %}{{ p }} % {{ name }}{{ ", " if not loop.last }}{% endfor %}. Die nächste seltene kommt spätestens in {{ chancen.selten_in }}, die nächste legendäre spätestens in {{ chancen.legendaer_in }} {{ "Truhe" if chancen.legendaer_in == 1 else "Truhen" }}.</p>
+</section>
+<script src="/static/truhe.js"></script>
+{% endblock %}

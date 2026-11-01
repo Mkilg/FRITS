@@ -39,7 +39,7 @@
   <div class="haus-leiste">
     <p class="speech">{{ f.satz }}</p>
     <div class="haus-zahlen">
-      <p class="salz"><span aria-hidden="true">🧂</span> <strong data-zaehlen>{{ f.guthaben }}</strong> Salzkörner{% if f.bereit %} <a class="hint" href="#kassensturz">(+{{ f.bereit }} warten)</a>{% endif %}</p>
+      <p class="salz"><span aria-hidden="true">🧂</span> <strong data-zaehlen>{{ f.guthaben }}</strong> Salzkörner{% if f.bereit %} <a class="hint" href="#kassensturz">(+{{ f.bereit }} warten)</a>{% endif %}{% if truhen_zu %} <a class="truhe-wartet" href="#truhen">🎁 {{ "1 Truhe wartet" if truhen_zu | length == 1 else truhen_zu | length ~ " Truhen warten" }}</a>{% endif %}</p>
       <div class="wochen" title="In welchen der letzten {{ f.wochen | length }} Wochen du Papierkram gemacht hast">
         <span class="hint">Büro-Wochen</span>
         {% for w in f.wochen %}<span class="punkt{{ ' voll' if w }}" aria-label="{{ 'diese Woche' if loop.last else 'vor ' ~ (loop.length - loop.index) ~ ' Wochen' }}: {{ 'Papierkram gemacht' if w else 'Pause' }}"></span>{% endfor %}
@@ -93,6 +93,46 @@
   {% else %}
   <p>Gerade wartet keine Karte. Jede erledigte Rechnung, Gutschrift, Zahlung, Ausgabe, jedes Angebot, jeder Feierabend und jeder abgehakte Punkt auf deiner Liste (drei am Tag) wird zu einer Karte. Beim Kassensturz rechnet Fritte sie zusammen.</p>
   {% endif %}
+</section>
+
+{% macro seltenheit_name(s) %}{{ {"gewöhnlich": "Gewöhnlich", "selten": "Selten", "legendär": "Legendär"}[s] }}{% endmacro %}
+<section class="card truhen" id="truhen">
+  <h2>Frittes Truhen</h2>
+  <div class="truhen-kopf">
+    <div class="truhen-stapel" aria-hidden="true">
+      {% for t in truhen_zu[:3] %}<span class="truhe-klein voll">{% if picture('truhe-zu') %}<img src="{{ picture('truhe-zu') }}" alt="">{% else %}<i class="truhe-deckel"></i><i class="truhe-kiste"></i>{% endif %}</span>{% else %}<span class="truhe-klein leer"><i class="truhe-deckel"></i><i class="truhe-kiste"></i></span>{% endfor %}
+    </div>
+    <div class="truhen-text">
+      {% if truhen_zu %}
+      <p><strong>{{ "Eine Truhe wartet" if truhen_zu | length == 1 else truhen_zu | length ~ " Truhen warten" }}.</strong> {{ truhen_zu[0].text }}{% if truhen_zu | length > 1 %} und mehr{% endif %}.</p>
+      <form method="post" action="/fritte/truhe/oeffnen">
+        <input type="hidden" name="token" value="{{ token }}">
+        <button class="primary gross">🎁 Truhe öffnen</button>
+      </form>
+      {% else %}
+      <p>Gerade ist keine Truhe zu. Jede Karte echter Papierkram füllt die nächste ein Stück.</p>
+      {% endif %}
+      <p class="truhe-zeile"><span class="truhe-fuellung" role="img" aria-label="Nächste Truhe: {{ fuellung }} von {{ pro_truhe }} Karten">{% for i in range(pro_truhe) %}<i class="{{ 'voll' if i < fuellung }}"></i>{% endfor %}</span> Nächste Truhe: <strong>{{ fuellung }} von {{ pro_truhe }}</strong> Karten echter Papierkram</p>
+    </div>
+  </div>
+  {% if truhen_auf %}
+  <div class="truhen-funde">
+    <span class="hint">Zuletzt gefunden:</span>
+    {% for t in truhen_auf %}<a class="fund-chip selten-{{ t.inhalt.seltenheit | replace('ö', 'oe') | replace('ä', 'ae') }}" href="/fritte/truhe/{{ t.id }}" title="{{ seltenheit_name(t.inhalt.seltenheit) }}: {{ t.inhalt.name }}"><span aria-hidden="true">{{ t.inhalt.zeichen }}</span> {{ t.inhalt.name }}</a>{% endfor %}
+  </div>
+  {% endif %}
+  <div class="schaetze" aria-label="Schätze, die es nur in Truhen gibt">
+    <span class="hint">Schätze, die es nur in Truhen gibt:</span>
+    {% for d, da in schaetze %}<span class="schatz{{ ' da' if da }}" title="{{ d.name if da else 'Noch nicht gefunden' }}">{% if da %}{% if picture('ding-' ~ d.id) %}<img src="{{ picture('ding-' ~ d.id) }}" alt="">{% else %}{{ d.zeichen }}{% endif %}{% else %}❔{% endif %}<small>{{ d.name if da else seltenheit_name(d.truhe) }}</small></span>{% endfor %}
+  </div>
+  <details class="truhen-regeln">
+    <summary>Was in einer Truhe steckt und wie fair das ist</summary>
+    <p><strong>So kommt eine Truhe:</strong> Jede Rechnung, Gutschrift, Zahlung, Ausgabe, jedes angenommene Angebot, jede Erinnerung und jede gesammelte Steuer-Unterlage kommt beim Kassensturz in die Truhe. Fünf davon füllen sie. Ungefähr jede achte dieser Karten ist eine goldene <strong>Glückskarte</strong> und bringt gleich eine eigene Truhe mit. Abgehakte Punkte, Gelerntes, Feierabende und Korrekturen zählen hier nicht.</p>
+    <p><strong>Die Chancen</strong> für das, was drin ist: {% for name, p in chancen.prozent %}{{ p }} % {{ name }}{{ ", " if not loop.last }}{% endfor %}. Spätestens jede 4. Truhe ist mindestens selten, spätestens jede 12. legendär.
+      {% if chancen.geoeffnet %}Bei dir: die nächste seltene spätestens in {{ chancen.selten_in }} {{ "Truhe" if chancen.selten_in == 1 else "Truhen" }}, die nächste legendäre spätestens in {{ chancen.legendaer_in }}.{% endif %}</p>
+    <p><strong>Was drin sein kann:</strong> Salzkörner, eine Jokerkarte für den nächsten Kassensturz, ein Glas Truhenwürze, ein Gewürz fürs Regal (wenn Platz ist), etwas fürs Zimmer oder einen Hut, und ab „selten“ Drachengold für die Steuer-Quest, wenn du sie nutzt. Manche Schätze gibt es nur hier.</p>
+    <p class="hint">Was in einer Truhe steckt, wird beim Öffnen einmal ausgelost und gespeichert. Neu laden ändert nichts. Truhen laufen nie ab, und nichts davon kostet echtes Geld.</p>
+  </details>
 </section>
 
 <section class="card saison" id="saison">

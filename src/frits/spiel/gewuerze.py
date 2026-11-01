@@ -23,7 +23,7 @@ MALZESSIG_WOCHEN = 10  # Malzessig is fully matured after ten weeks
 CHILI_HOECHSTENS = 2.0
 CURRY_HOECHSTENS = 2.0
 # Cards that are no paperwork of their own: they don't make a pile or a mix bigger.
-NUR_KLICKS = frozenset({"korrektur", "aufgabe", "lernen"})
+NUR_KLICKS = frozenset({"korrektur", "aufgabe", "lernen", "joker"})  # joker: from a chest
 
 
 @dataclass(frozen=True)

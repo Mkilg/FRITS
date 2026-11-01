@@ -19,3 +19,6 @@ ding-bild, ding-sessel, ding-katze, ding-muetze, ding-sonnenhut, ding-zylinder, 
 (freigestellt, durchsichtiger Hintergrund; Hüte ohne Kopf, leicht von schräg oben)
 Gewürze im Kassensturz: gewuerz-<name> (meersalz, muskat, schnittlauch, paprika, rosmarin, pfeffer,
 knoblauch, zimt, curry, chili, malzessig, trueffelsalz, safran) ersetzt das Symbol im Glas.
+Frittes Truhen: truhe-zu und truhe-offen (beide nötig, sonst bleibt die gezeichnete Truhe),
+dazu die Schätze, die es nur in Truhen gibt: ding-kleeblatt, ding-schatzkarte, ding-waage,
+ding-seemannsmuetze, ding-sternenhut. Gewürz salbei: gewuerz-salbei.
