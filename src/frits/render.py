@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import date
 from decimal import Decimal
 from importlib.resources import files
@@ -18,6 +19,7 @@ from frits.billing import (
 from frits.settings import Settings
 
 FONTS = files("frits") / "assets" / "fonts"
+log = logging.getLogger(__name__)
 
 
 def eur(value: Decimal) -> str:
@@ -53,13 +55,37 @@ def render_invoice(
         original = f"{cancels} vom {_de(cancels_date)}" if cancels_date else cancels
         facts.append(("Storniert wird", original))
     facts.append(("Leistungsdatum", service_period(draft.lines) or SERVICE_DATE_FALLBACK))
+    if draft.customer_reference:
+        facts.append(("Ihre Referenz", draft.customer_reference))
     closing = []
     if due and not cancels:
         closing.append(
             f"Bitte überweisen Sie den Betrag bis zum {_de(due)} auf das unten genannte Konto "
             f"und geben Sie die Rechnungsnummer {number} an. Vielen Dank!"
         )
-    return _document(path, title, facts, draft, sums, settings, closing)
+    path = _document(path, title, facts, draft, sums, settings, closing)
+    _attach_e_invoice(path, number, draft, sums, settings, issued, due, cancels, cancels_date)
+    return path
+
+
+def _attach_e_invoice(
+    path: Path, number, draft, sums, settings, issued, due, cancels, cancels_date
+):
+    """Turn the PDF into a ZUGFeRD / Factur-X e-invoice. If that ever fails, the plain PDF stays:
+    it is still a valid invoice, and Fritz must never be stuck because of the XML."""
+    from frits.erechnung import embed, invoice_xml
+
+    try:
+        xml = invoice_xml(number, draft, sums, settings, issued, due, cancels, cancels_date)
+        combined = embed(Path(path).read_bytes(), xml)
+    except Exception:
+        log.warning(
+            "E-Rechnung für %s nicht erzeugt, die PDF bleibt ohne XML.", number, exc_info=True
+        )
+        return
+    temporary = Path(path).with_suffix(".tmp")
+    temporary.write_bytes(combined)
+    temporary.replace(path)
 
 
 def render_quote(
@@ -124,7 +150,7 @@ class _Paper(FPDF):
     """A4 with Fritz's bank and tax details at the bottom of every page."""
 
     def __init__(self, footer_lines: list[str]) -> None:
-        super().__init__(format="A4")
+        super().__init__(format="A4", enforce_compliance="PDFA_3B")
         self.footer_lines = footer_lines
 
     def footer(self) -> None:
