@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}USt-Voranmeldung · FRITS{% endblock %}
+{% block content %}
+<div class="head-row">
+  <h1>Umsatzsteuer-Voranmeldung</h1>
+  <div class="row">
+    <a class="button quiet" href="/ustva?year={{ prev[0] }}&nr={{ prev[1] }}">← zurück</a>
+    <a class="button quiet" href="/ustva?year={{ nxt[0] }}&nr={{ nxt[1] }}">weiter →</a>
+    <a class="button" href="/euer?year={{ m.year }}">EÜR {{ m.year }}</a>
+  </div>
+</div>
+
+{% if klein %}
+<section class="card">
+  <h2>Als Kleinunternehmer brauchst du keine</h2>
+  <p>Solange du nach § 19 UStG keine Umsatzsteuer berechnest, meldest du auch keine an. Das ändert sich erst, wenn du in den Einstellungen auf Regelbesteuerung umstellst.</p>
+</section>
+{% else %}
+<section class="card">
+  <h2>{{ m.title }}</h2>
+  <p class="hint">Abgeben bis <strong>{{ m.due | de_date }}</strong> über ELSTER: Formulare → Umsatzsteuer → Umsatzsteuer-Voranmeldung {{ m.year }}, Zeitraum „{{ m.elster_period }}“. {{ m.invoices }} Rechnung{{ "" if m.invoices == 1 else "en" }} und {{ m.receipts }} Beleg{{ "" if m.receipts == 1 else "e" }} in diesem Zeitraum.</p>
+  {% if m.felder %}
+  <table class="table ustva">
+    <thead><tr><th>Kz</th><th>Was</th><th class="amount">In ELSTER</th></tr></thead>
+    <tbody>
+    {% for f in m.felder %}
+    <tr>
+      <td><strong>{{ f.kz }}</strong></td>
+      <td>{{ f.label }}{% if f.tax is not none %}<br><span class="muted">Steuer darauf: {{ f.tax | eur }}</span>{% endif %}</td>
+      <td class="amount"><code id="kz-{{ f.kz }}">{{ f.amount | elster(f.whole_euros) }}</code><br><button type="button" class="tiny quiet kopieren" data-kopieren="#kz-{{ f.kz }}">Kopieren</button></td>
+    </tr>
+    {% endfor %}
+    <tr class="total"><td><strong>83</strong></td><td><strong>{{ "Zu zahlen" if m.zahllast >= 0 else "Bekommst du zurück" }}</strong><br><span class="muted">rechnet ELSTER selbst aus, hier zum Vergleichen</span></td><td class="amount"><strong>{{ m.zahllast | abs | eur }}</strong></td></tr>
+    </tbody>
+  </table>
+  <p class="hint">Bei 81 und 86 trägst du nur den Nettobetrag in vollen Euro ein, die Steuer rechnet ELSTER aus. Die Vorsteuer (66) trägst du mit Cent ein.</p>
+  {% if m.eu_customers %}
+  <p class="hint warn-text">Du hast Kunden in anderen EU-Ländern (Kennzahl 21). Diese Umsätze meldest du zusätzlich in der „Zusammenfassenden Meldung“ beim Bundeszentralamt für Steuern, auch über ELSTER, bis zum 25. des Folgemonats.</p>
+  {% endif %}
+  {% else %}
+  <p>In diesem Zeitraum gab es keine Umsätze und keine Vorsteuer. Abgeben musst du trotzdem: eine Meldung mit lauter Nullen.</p>
+  {% endif %}
+
+  {% if m.zahllast > 0 %}
+  <h2 class="spaced">Bezahlt?</h2>
+  {% if booked %}
+  <p><span class="badge ok">eingetragen am {{ booked.date | de_date }}</span> {{ booked.gross | eur }} ans Finanzamt. Es steht in den Ausgaben und zählt in der EÜR.</p>
+  {% else %}
+  <form method="post" action="/ustva/{{ m.year }}/{{ m.number }}/bezahlt" class="paid-form">
+    <input type="hidden" name="token" value="{{ token }}">
+    <button>Zahlung ans Finanzamt eintragen</button>
+    <input type="date" name="paid" value="{{ today_iso }}" max="{{ today_iso }}" aria-label="Bezahlt am">
+  </form>
+  <p class="hint">Wenn das Finanzamt das Geld abgebucht hat oder du überwiesen hast: einmal eintragen, dann zählt es in der EÜR als Ausgabe („An das Finanzamt gezahlte Umsatzsteuer“).</p>
+  {% endif %}
+  {% endif %}
+</section>
+{% endif %}
+
+<section class="card">
+  <h2>Wie oft und wonach</h2>
+  <form method="post" action="/ustva/art" class="form">
+    <input type="hidden" name="token" value="{{ token }}">
+    <label class="field">Abgabe
+      <select name="period">{% for key, label in periods.items() %}<option value="{{ key }}" {% if key == period %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+    </label>
+    <label class="field">Umsatzsteuer zählt
+      <select name="basis">{% for key, label in bases.items() %}<option value="{{ key }}" {% if key == basis %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+    </label>
+    <div class="row actions"><button>Merken</button></div>
+  </form>
+  <p class="hint">Das steht in dem Brief, mit dem dir das Finanzamt die Steuernummer gegeben hat. Vierteljährlich ist üblich, wenn im Vorjahr höchstens 9.000 € Umsatzsteuer anfielen. „Ist“ heißt: Die Steuer wird erst fällig, wenn der Kunde bezahlt hat (§ 20 UStG, muss beantragt sein). Ohne Antrag gilt „Soll“: fällig mit dem Rechnungsdatum.</p>
+  <p class="hint">Eine Hilfe, keine Steuerberatung: Bitte prüf die Zahlen, bevor du sie abschickst.</p>
+</section>
+<script src="/static/lernen.js"></script>
+{% endblock %}

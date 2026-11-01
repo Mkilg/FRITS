@@ -120,17 +120,21 @@ def test_older_work_is_the_first_kassensturz(conn):
     assert f.guthaben == 0 and f.wartend == 2 + 1 + 1  # two invoices, a payment, the move-in
     assert f.laune == "doest"  # old work doesn't make today a care day
     k = kassensturz.laden(conn, kassensturz.durchfuehren(conn, TODAY, aufgeraeumt=False))
-    # Rechnungen count double in autumn; three kinds of cards: the pepper adds +1 Würze.
-    assert (k["koerner"], k["wuerze"]) == (6 + 6 + 2 + 3, 2.0) and k["summe"] == 34
+    # Rechnungen count double in autumn. Moving in brings +1 Würze, and with three kinds
+    # of cards the pepper adds +1 more.
+    assert (k["koerner"], k["wuerze"]) == (6 + 6 + 2 + 3, 3.0) and k["summe"] == 51
     assert not any(c.get("zeitnah") or c.get("frisch") for c in k["karten"])
 
 
-def test_a_long_history_is_a_welcome_gift_instead(conn):
-    for n in range(stand.WILLKOMMEN_KARTEN):
-        add_invoice(conn, f"2026-{n:04}", date(2026, 1, 5))
+def test_a_long_history_is_a_mixed_table_and_a_gift(conn):
+    for n in range(30):
+        add_invoice(conn, f"2026-{n:04}", date(2026, 1, 5), paid=date(2026, 1, 9))
     f = haustier.ansehen(conn, TODAY)
-    assert f.wartend == 0 and f.guthaben == 3 * stand.WILLKOMMEN_KARTEN
-    assert stand.kassenbuch(conn)[0]["text"].startswith("Willkommensgeschenk")
+    assert f.wartend == stand.WILLKOMMEN_KARTEN + 1  # plus Fritte moving in
+    arten = [k.art for k in kassensturz.offene_karten(conn)]
+    assert arten.count("rechnung") == arten.count("bezahlt") == 12  # a mix of kinds
+    assert f.guthaben == 18 * 3 + 18 * 2
+    assert stand.kassenbuch(conn)[0]["text"] == "Willkommensgeschenk für 36 ältere Vorgänge"
 
 
 def test_the_first_version_moves_in(conn, tmp_path):
@@ -193,7 +197,9 @@ def test_undoing_work_never_earns(conn):
     add_invoice(conn, "2026-0002", TODAY, cancels="2026-0001")  # the Storno
     eid = add_expense(conn, TODAY)
     stand.abgleichen(conn, TODAY)
-    conn.execute("DELETE FROM expenses WHERE id = ?", (eid,))
+    conn.execute(
+        "UPDATE expenses SET struck = '2026-11-02T10:00:00' WHERE id = ?", (eid,)
+    )  # deleted in the app
     assert kassensturz.offene_karten(conn) == []
     assert stand.abgleichen(conn, TODAY) == 0  # gone for good
 
@@ -211,8 +217,12 @@ def test_spice_facts_follow_bookkeeping_rules(conn):
     facts = {k.schluessel: k.fakten for k in kassensturz.offene_karten(conn)}
     assert facts["rechnung:2026-0001"]["frisch"] and not facts["rechnung:2026-0002"]["frisch"]
     assert not facts["bezahlt:2026-0003"]["puenktlich"]
-    zeitnah = {key.split("|")[1]: f["zeitnah"] for key, f in facts.items() if "|" in key}
-    assert zeitnah == {"bahn": True, "post": False, "copyshop": False}
+    zeitnah = {
+        k.detail.split(" · ")[0]: k.fakten["zeitnah"]
+        for k in kassensturz.offene_karten(conn)
+        if k.art == "ausgabe"
+    }
+    assert zeitnah == {"Bahn": True, "Post": False, "Copyshop": False}
 
 
 def test_a_typed_date_never_pays_off(conn):
@@ -231,7 +241,9 @@ def test_the_same_expense_never_brings_a_second_card(conn):
     eid = add_expense(conn, TODAY, "Churn AG", "12.50")
     assert stand.abgleichen(conn, TODAY) == 1
     kassensturz.durchfuehren(conn, TODAY, aufgeraeumt=False)
-    conn.execute("DELETE FROM expenses WHERE id = ?", (eid,))
+    conn.execute(
+        "UPDATE expenses SET struck = '2026-11-02T10:00:00' WHERE id = ?", (eid,)
+    )  # deleted in the app
     add_expense(conn, TODAY, "churn  ag", "12.5")  # entered again, a little differently
     assert stand.abgleichen(conn, TODAY) == 0
     # Two identical bus tickets are still two expenses.
@@ -263,6 +275,16 @@ def test_reminders_count_once_a_week_and_not_after_a_storno(conn):
     assert arten.count("erinnerung") == 2
     add_invoice(conn, "2026-0008", TODAY, cancels="2026-0007")
     assert [k.art for k in kassensturz.offene_karten(conn)] == []
+
+
+def test_a_refund_is_not_a_payment(conn):
+    """A Storno whose money went back to the customer ("erstattet") carries a paid_date.
+    It is neither an invoice nor a payment card, and the original drops out too."""
+    started(conn)
+    add_invoice(conn, "2026-0001", TODAY - timedelta(days=9), paid=TODAY - timedelta(days=5))
+    add_invoice(conn, "2026-0002", TODAY, paid=TODAY, cancels="2026-0001")
+    stand.abgleichen(conn, TODAY)
+    assert kassensturz.offene_karten(conn) == []
 
 
 def test_garlic_rewards_a_payment_after_a_reminder(conn):
@@ -328,12 +350,14 @@ def test_pages_and_a_whole_round(client, ws):  # noqa: F811
     add_invoice(conn, "2026-0001", TODAY - timedelta(days=30))
     home = client.get("/").text
     assert "Fritte zuhause" in home and "2 Karten warten" in home  # old work + moving in
+    assert "etwa <strong>+18 Salzkörner</strong>" in home  # what they'd bring, right away
     fritte = client.get("/fritte").text
     assert "Willkommen bei Fritte" in fritte and "Ersten Kassensturz machen" in fritte
     assert "Vorschau:" in fritte and "Herbst 2026" in fritte
     page = post(client, "/fritte/kassensturz")
     assert "Kassensturz Nr. 1" in page.text and 'id="ks-daten"' in page.text
-    assert stand.guthaben(conn) == 6 + 3  # an autumn invoice counts double, plus moving in
+    # An autumn invoice counts double, plus moving in, and moving in brings +1 Würze.
+    assert stand.guthaben(conn) == (6 + 3) * 2
     assert "Willkommen bei Fritte" not in client.get("/fritte").text
 
     # New work: a quiet note says Fritte got a card for it.
@@ -346,7 +370,7 @@ def test_pages_and_a_whole_round(client, ws):  # noqa: F811
     assert '<button class="primary">FRITS beenden</button>' in feierabend
     assert "Kassensturz machen" not in feierabend  # the shutdown starts nothing new
     post(client, "/fritte/kassensturz")
-    assert stand.guthaben(conn) == 9 + 6 + 1
+    assert stand.guthaben(conn) == 18 + 6 + 1
 
     laden = client.get("/fritte/laden").text
     assert "Gewürzregal" in laden and "Markttag" in laden and "Frittes Kassenbuch" in laden
@@ -355,7 +379,7 @@ def test_pages_and_a_whole_round(client, ws):  # noqa: F811
     assert g.id != "pfeffer"  # what is on the shelf is not offered again
     page = post(client, "/fritte/gewuerz/kaufen", gewuerz=g.id)
     assert f"{g.name} steht jetzt im Gewürzregal" in page.text
-    assert stand.guthaben(conn) == 16 - g.preis
+    assert stand.guthaben(conn) == 25 - g.preis
     page = post(client, "/fritte/gewuerz/kaufen", gewuerz="safran")
     assert "gibt es diese Woche nicht" in page.text  # legendary: not at this stage's market
     page = post(client, "/fritte/gewuerz/verkaufen", gewuerz=g.id)
@@ -548,7 +572,10 @@ def test_a_new_place_after_the_frittenbude(conn):
     assert stand.guthaben(conn) == 5000 - 1200
     assert ausbau.stufe(conn).name == "Zimmer" and ausbau.ruf(conn) == 1
     # She keeps the big shelf and the market; the Ruf adds Würze; building costs more.
-    assert kassensturz.plaetze(conn) == 7 and ausbau.grundwuerze(conn) == 1.5
+    assert kassensturz.plaetze(conn) == 7 and ausbau.grundwuerze(conn) == 2.5  # never down
+    stand.setze(conn, "ausbau", "3")
+    assert ausbau.grundwuerze(conn) == 2.7  # each stage in the new place adds +0.1
+    stand.setze(conn, "ausbau", "1")
     assert "legendär" in ausbau.seltenheiten(conn)
     assert ausbau.preis(conn, ausbau.naechste(conn)) == 120
     assert ausbau.umzug_preis(conn) == 2400
@@ -565,3 +592,184 @@ def test_the_new_parts_show_on_the_pages(client, ws):  # noqa: F811
     page = post(client, "/fritte/umziehen")
     assert "Fritte eröffnet eine neue Bude: Am Hafen" in page.text
     assert "ort-2" in page.text and "Ruf 1" in page.text
+
+
+# ---------- round 2 of the playtest: corrections never pay more ----------
+
+
+def kassensturz_jetzt(conn, day=TODAY):
+    stand.abgleichen(conn, day)
+    return kassensturz.laden(conn, kassensturz.durchfuehren(conn, day, aufgeraeumt=False))
+
+
+def test_a_cancelled_and_rewritten_invoice_is_a_correction(conn):
+    started(conn)
+    add_invoice(conn, "2026-0005", TODAY - timedelta(days=3))
+    kassensturz_jetzt(conn)
+    add_invoice(conn, "2026-0006", TODAY, cancels="2026-0005")  # the Storno
+    add_invoice(conn, "2026-0007", TODAY)  # written again, correctly
+    stand.abgleichen(conn, TODAY)
+    [karte] = kassensturz.offene_karten(conn)
+    assert karte.art == "korrektur" and karte.koerner == 0 and "Korrektur" in karte.titel
+    # A second, unrelated invoice for the same customer is a normal card again.
+    add_invoice(conn, "2026-0008", TODAY)
+    stand.abgleichen(conn, TODAY)
+    assert sorted(k.art for k in kassensturz.offene_karten(conn)) == ["korrektur", "rechnung"]
+
+
+def test_a_corrected_expense_or_the_same_receipt_twice_is_one_card(conn):
+    started(conn)
+    eid = add_expense(conn, TODAY, "Copyshop", "12.34")
+    kassensturz_jetzt(conn)
+    conn.execute("UPDATE expenses SET struck = '2026-11-02T10:00:00' WHERE id = ?", (eid,))
+    add_expense(conn, TODAY, "Copyshop", "12.43")  # the amount fixed
+    assert stand.abgleichen(conn, TODAY) == 0
+    came = TODAY - timedelta(days=1)
+    add_expense(conn, TODAY - timedelta(days=5), "Bahn", came=came)
+    conn.execute(  # the same receipt file entered a second time
+        "INSERT INTO expenses (date, vendor, description, gross, category, source_file)"
+        " SELECT date, vendor, description, gross, category, source_file FROM expenses"
+        " WHERE vendor = 'Bahn'"
+    )
+    assert stand.abgleichen(conn, TODAY) == 1
+
+
+def test_only_accepted_quotes_are_cards(conn):
+    started(conn)
+    conn.execute(
+        "INSERT INTO quotes (number, created, valid_until, data, status) VALUES"
+        " ('AN-1', ?, ?, '{}', 'open'), ('AN-2', ?, ?, '{}', 'declined')",
+        (TODAY.isoformat(), TODAY.isoformat()) * 2,
+    )
+    assert stand.abgleichen(conn, TODAY) == 0
+    conn.execute("UPDATE quotes SET status = 'accepted' WHERE number = 'AN-1'")
+    assert stand.abgleichen(conn, TODAY) == 1
+
+
+def test_reminders_count_only_when_really_overdue(conn):
+    started(conn)
+    # Payment term of minus 30 days: still no card before two weeks after the invoice.
+    add_invoice(conn, "2026-0001", TODAY - timedelta(days=2), due=TODAY - timedelta(days=32))
+    add_reminder(conn, "2026-0001", TODAY)
+    add_invoice(conn, "2026-0002", TODAY - timedelta(days=5), due=TODAY + timedelta(days=9))
+    add_reminder(conn, "2026-0002", TODAY)  # not overdue yet
+    assert stand.abgleichen(conn, TODAY) == 2  # just the two invoice cards
+
+
+def test_curry_rewards_payments_not_early_clicks():
+    cards = [card("bezahlt", puenktlich=True), card("bezahlt", puenktlich=False)]
+    assert kassensturz.berechnen(cards, [NACH_ID["curry"]], {})["wuerze"] == 2.0
+
+
+def test_malzessig_is_ripe_after_ten_weeks():
+    cards = [card("feierabend")]
+    result = kassensturz.berechnen(cards, [NACH_ID["malzessig"]], {"reife": {"malzessig": 30}})
+    assert result["wuerze"] == 3.0
+
+
+def test_a_feierabend_click_alone_is_no_paperwork(conn):
+    started(conn)
+    stand.feierabend(conn, TODAY)
+    assert stand.pflegetage(conn, TODAY) == set()
+
+
+def test_cards_keep_the_theme_of_the_season_they_came_in(conn):
+    started(conn)
+    add_invoice(conn, "2026-0001", date(2026, 12, 30))
+    stand.abgleichen(conn, date(2026, 12, 30))  # autumn: invoices count double
+    k = kassensturz_jetzt(conn, date(2027, 1, 4))  # scored in winter
+    assert k["koerner"] == 6
+
+
+def test_the_season_goal_follows_fritz_own_pace(conn):
+    from frits.spiel import saison
+
+    started(conn)
+    for week in range(1, 9):  # eight weeks before winter, 100 a week
+        day = date(2027, 1, 1) - timedelta(weeks=week)
+        conn.execute(
+            "INSERT INTO spiel_kassenstuerze (tag, summe, ergebnis) VALUES (?, 100, '{}')",
+            (day.isoformat(),),
+        )
+    winter = saison.jetzt(conn, date(2027, 2, 1))
+    assert winter.ziel == round(100 * 90 / 7 * 0.9 / 10) * 10  # 90 days ≈ 12.9 weeks
+    stand.setze(conn, "ort", "3")  # moving house later changes nothing
+    assert saison.jetzt(conn, date(2027, 3, 1)).ziel == winter.ziel
+
+
+def test_the_welcome_round_always_shows_the_wuerze(conn):
+    k = kassensturz_jetzt(conn)  # a brand-new FRITS, nothing done yet
+    assert (k["koerner"], k["wuerze"], k["summe"]) == (3, 2.0, 6)
+    from frits.spiel import saison
+
+    assert saison.jetzt(conn, TODAY).erreicht == 0  # a present, not season progress
+
+
+# ---------- Gutschriften ----------
+
+
+def add_credit(conn, number, issue=TODAY, paid=None, customer="sender", gross="595.00"):
+    from decimal import Decimal
+
+    from frits import gutschriften
+
+    gutschriften.prepare(conn)
+    return gutschriften.add(
+        conn, customer_id=customer, customer="Sender GmbH", their_number=number,
+        issue_date=issue, gross=Decimal(gross), vat_rate=Decimal(19), paid_date=paid,
+    )  # fmt: skip
+
+
+def strike_credit(conn, cid):
+    from frits import gutschriften
+
+    assert gutschriften.strike(conn, cid)
+
+
+def test_a_gutschrift_counts_like_an_invoice_and_its_payment(conn):
+    started(conn)
+    add_credit(conn, "GS-2026-114", paid=TODAY)
+    add_credit(conn, "GS-2026-115")
+    stand.abgleichen(conn, TODAY)
+    karten = {k.schluessel: k for k in kassensturz.offene_karten(conn)}
+    assert sorted(k.art for k in karten.values()) == ["bezahlt", "rechnung", "rechnung"]
+    gs = karten["rechnung:gs:sender|gs-2026-114"]
+    assert gs.titel == "Gutschrift GS-2026-114" and gs.koerner == 3
+    assert not gs.fakten["frisch"]  # no note arrived for it
+    assert karten["bezahlt:gs:sender|gs-2026-114"].fakten == {
+        "puenktlich": False, "nach_erinnerung": False,
+    }  # fmt: skip
+
+
+def test_a_struck_gutschrift_never_earns_twice(conn):
+    started(conn)
+    cid = add_credit(conn, "GS-1", paid=TODAY)
+    kassensturz_jetzt(conn)
+    strike_credit(conn, cid)
+    add_credit(conn, "gs-1 ", paid=TODAY, gross="559.00")  # the same one, amount fixed
+    assert stand.abgleichen(conn, TODAY) == 0
+    # Entered again under a new number (a typo fixed): a correction without Körner.
+    strike_credit(conn, conn.execute("SELECT MAX(id) FROM credits").fetchone()[0])
+    add_credit(conn, "GS-2", paid=TODAY)
+    stand.abgleichen(conn, TODAY)
+    karten = kassensturz.offene_karten(conn)
+    assert [k.art for k in karten] == ["korrektur", "korrektur"]
+    assert all(k.koerner == 0 and "Gutschrift" in k.detail for k in karten)
+    # The next real one for the same customer is a normal card again.
+    add_credit(conn, "GS-3")
+    stand.abgleichen(conn, TODAY)
+    assert sorted(k.art for k in kassensturz.offene_karten(conn)) == [
+        "korrektur", "korrektur", "rechnung",
+    ]  # fmt: skip
+
+
+def test_a_gutschrift_struck_before_scoring_waits_again_once_fixed(conn):
+    started(conn)
+    cid = add_credit(conn, "GS-7", gross="100.00")
+    assert stand.abgleichen(conn, TODAY) == 1
+    strike_credit(conn, cid)
+    assert kassensturz.offene_karten(conn) == []  # struck: off the table
+    add_credit(conn, "GS-7", gross="110.00")  # entered again, right this time
+    assert stand.abgleichen(conn, TODAY) == 1
+    [karte] = kassensturz.offene_karten(conn)
+    assert karte.art == "rechnung" and "110,00" in karte.detail

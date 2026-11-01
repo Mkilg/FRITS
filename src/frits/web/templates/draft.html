@@ -58,7 +58,7 @@
       {% if draft.customer_address %}<p class="muted">{{ draft.customer_address }}</p>{% endif %}
 
       <div class="table-wrap">
-      <table class="lines">
+      <table class="lines"{% if editable %} data-live data-cols="{{ cols }}" data-rate="{{ (sums.vat_rate | qty | replace(',', '.')) if sums.vat_rate is not none else 0 }}" data-mode="{{ 'klein' if sums.vat_rate is none else ('regel' if rate_column else 'abroad') }}"{% endif %}>
         <thead><tr><th>Leistung</th><th>Datum</th><th>Menge</th><th>Einheit</th><th>Preis je Einheit</th>{% if rate_column %}<th>USt</th>{% endif %}<th class="amount">Betrag</th></tr></thead>
         <tbody>
         {% for line in draft.lines %}
@@ -107,7 +107,7 @@
       </table>
       </div>
       {% if sums.note %}<p class="hint">Steht auf der Rechnung: „{{ sums.note }}“</p>{% endif %}
-      {% if rate_column and editable %}<p class="hint">USt „normal“ ist dein Satz aus den Einstellungen. 7 % gilt zum Beispiel, wenn du Nutzungsrechte an Texten, Beiträgen oder Fotos einräumst (§ 12 Abs. 2 Nr. 7c UStG). Fahrt- und Recherchekosten zu so einem Artikel bekommen meist denselben Satz wie der Artikel selbst, weil sie dazugehören. Bahntickets rechnest du netto weiter, also ohne die Umsatzsteuer, die auf dem Ticket steht. Im Zweifel frag deine Steuerberatung.</p>{% endif %}
+      {% if rate_column and editable %}<details class="hint"{% if sums.groups|length > 1 %} open{% endif %}><summary>Wann 7 %?</summary>USt „normal“ ist dein Satz aus den Einstellungen. 7 % gilt zum Beispiel, wenn du Nutzungsrechte an Texten, Beiträgen oder Fotos einräumst (§ 12 Abs. 2 Nr. 7c UStG). Fahrt- und Recherchekosten zu so einem Artikel bekommen meist denselben Satz wie der Artikel selbst, weil sie dazugehören. Bahntickets rechnest du netto weiter, also ohne die Umsatzsteuer, die auf dem Ticket steht. Im Zweifel frag deine Steuerberatung.</details>{% endif %}
       {% for w in draft_hints or [] %}<p class="hint warn-text">{{ w }}</p>{% endfor %}
       {% for w in limit_warnings or [] %}<p class="hint warn-text">{{ w }}</p>{% endfor %}
       {% if editable and not is_quote and not period %}<p class="hint">Keine Position hat ein Datum. Dann steht auf der Rechnung „Leistungsdatum entspricht dem Rechnungsdatum“. Hast du früher gearbeitet, trag bitte bei den Positionen das Datum ein (Pflicht nach § 14 UStG).</p>{% endif %}
@@ -148,4 +148,5 @@
     {% endif %}
   </section>
 </div>
+{% if row.status == "draft" %}<script src="/static/entwurf.js"></script>{% endif %}
 {% endblock %}

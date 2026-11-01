@@ -7,12 +7,24 @@
   <h1>Fritte zuhause</h1>
   {% include "_spiel_reiter.html" %}
 </div>
+{% if willkommen %}
+<section class="card willkommen-spiel">
+  <span class="sticker-rund" aria-hidden="true">🎁</span>
+  <div>
+    <p><strong>Willkommen bei Fritte!</strong> Dein bisheriger Papierkram liegt schon als {{ karten | length }} Karten auf dem Tisch, und Fritte hat dir ein Glas Pfeffer ins Regal gestellt. Schau, was Würze daraus macht.</p>
+    <form method="post" action="/fritte/kassensturz">
+      <input type="hidden" name="token" value="{{ token }}">
+      <button class="primary gross">Ersten Kassensturz machen</button>
+    </form>
+  </div>
+</section>
+{% endif %}
 <section class="card fritte-haus">
   {% include "_fritte_zimmer.html" %}
   <div class="haus-leiste">
     <p class="speech">{{ f.satz }}</p>
     <div class="haus-zahlen">
-      <p class="salz"><span aria-hidden="true">🧂</span> <strong data-zaehlen>{{ f.guthaben }}</strong> Salzkörner</p>
+      <p class="salz"><span aria-hidden="true">🧂</span> <strong data-zaehlen>{{ f.guthaben }}</strong> Salzkörner{% if f.bereit %} <a class="hint" href="#kassensturz">(+{{ f.bereit }} warten)</a>{% endif %}</p>
       <div class="wochen" title="In welchen der letzten {{ f.wochen | length }} Wochen du Papierkram gemacht hast">
         <span class="hint">Büro-Wochen</span>
         {% for w in f.wochen %}<span class="punkt{{ ' voll' if w }}" aria-label="{{ 'diese Woche' if loop.last else 'vor ' ~ (loop.length - loop.index) ~ ' Wochen' }}: {{ 'Papierkram gemacht' if w else 'Pause' }}"></span>{% endfor %}
@@ -23,19 +35,13 @@
 
 <section class="card kassensturz-tisch" id="kassensturz">
   <h2>Kassensturz</h2>
-  {% if willkommen %}
-  <div class="willkommen-spiel">
-    <span class="sticker-rund" aria-hidden="true">🎁</span>
-    <p><strong>Willkommen bei Fritte!</strong> Dein bisheriger Papierkram liegt schon als Karten auf dem Tisch, und Fritte hat dir ein Glas Pfeffer ins Regal gestellt. Mach deinen ersten Kassensturz und schau, was Würze bewirkt.</p>
-  </div>
-  {% endif %}
   {% if karten %}
   <p>{{ karten | length }} {{ "Karte wartet" if karten | length == 1 else "Karten warten" }}. Jede bringt Körner, die Gewürze im Regal machen mehr daraus.</p>
   <div class="kartenreihe">
     {% for k in karten[:12] %}{{ spiel.karte(k.als_dict(), loop.index0, pro_karte[loop.index0]) }}{% endfor %}
     {% if karten | length > 12 %}<span class="hint">und {{ karten | length - 12 }} weitere</span>{% endif %}
   </div>
-  <p class="vorschau-zeile">Vorschau: <strong>{{ vorschau.koerner }}</strong> Körner × <strong>{{ spiel.zahl(vorschau.wuerze) }}</strong> Würze = etwa <strong>{{ vorschau.summe }}</strong> Salzkörner</p>
+  <p class="vorschau-zeile">Vorschau: <strong>{{ vorschau.koerner }}</strong> {{ "Korn" if vorschau.koerner == 1 else "Körner" }} × <strong>{{ spiel.zahl(vorschau.wuerze) }}</strong> Würze = <strong>{{ vorschau.summe }}</strong> {{ "Salzkorn" if vorschau.summe == 1 else "Salzkörner" }}</p>
   <div class="regal-vorschau">
     <span class="hint">Im Regal ({{ regal | length }} von {{ plaetze }}):</span>
     {% for g in regal %}{{ spiel.glas(g, klein=True) }}{% else %}<span class="hint">noch leer. Im <a href="/fritte/laden#markt">Laden</a> gibt es Gewürze.</span>{% endfor %}
@@ -50,7 +56,7 @@
   <p class="hint">Du kannst Karten auch sammeln: Manche Gewürze lohnen sich bei großen Stapeln mehr.</p>
   {% endif %}
   {% else %}
-  <p>Gerade wartet keine Karte. Jede erledigte Rechnung, Zahlung, Ausgabe, jedes Angebot und jeder Feierabend wird zu einer Karte. Beim Kassensturz rechnet Fritte sie zusammen.</p>
+  <p>Gerade wartet keine Karte. Jede erledigte Rechnung, Gutschrift, Zahlung, Ausgabe, jedes Angebot und jeder Feierabend wird zu einer Karte. Beim Kassensturz rechnet Fritte sie zusammen.</p>
   {% endif %}
 </section>
 
@@ -82,7 +88,7 @@
   <p>🚧 <strong>{{ f.bau }}</strong> wird gerade gebaut. Beim nächsten Kassensturz ist der Ausbau fertig.</p>
   {% elif naechste %}
   {% set kosten = bau_preis(naechste) %}
-  <p><strong>Nächster Ausbau: {{ naechste.name }}.</strong> {{ naechste.text }}</p>
+  <p><strong>Nächster Ausbau: {{ naechste.name }}.</strong> {{ stufen_text(naechste) }}</p>
   <form method="post" action="/fritte/ausbauen" data-confirm="{{ naechste.name }} für {{ kosten }} Salzkörner bauen?">
     <input type="hidden" name="token" value="{{ token }}">
     <button class="primary" {{ "disabled" if f.guthaben < kosten }}>Ausbauen für {{ kosten }} 🧂</button>

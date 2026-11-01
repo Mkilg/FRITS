@@ -30,14 +30,24 @@ def create_reminder(
     ).fetchone()
     if row is None:
         raise BillingError(f"Rechnung {number} gibt es nicht.")
-    if invoice_status(row, today) not in ("offen", "überfällig"):
+    status = invoice_status(row, today)
+    if status == "offen":
+        raise BillingError(
+            f"Rechnung {number} ist noch nicht fällig. Erinnern geht ab dem Tag danach."
+        )
+    if status != "überfällig":
         raise BillingError(f"Rechnung {number} ist nicht mehr offen.")
-    level = (
-        1
-        + conn.execute(
-            "SELECT COUNT(*) FROM reminders WHERE invoice_number = ?", (number,)
-        ).fetchone()[0]
-    )
+    earlier = conn.execute(
+        "SELECT COUNT(*), MAX(new_due_date) FROM reminders WHERE invoice_number = ?", (number,)
+    ).fetchone()
+    if earlier[1] and today <= date.fromisoformat(earlier[1]):
+        # The customer was given a new date; the next, sharper level only makes sense
+        # once that date has passed (and a second letter the same day reads as pressure).
+        raise BillingError(
+            f"Zu {number} läuft noch die letzte Erinnerung: Zahlungsziel "
+            f"{date.fromisoformat(earlier[1]):%d.%m.%Y}. Danach kannst du nachhaken."
+        )
+    level = 1 + earlier[0]
     new_due = today + timedelta(days=REMINDER_DAYS)
     pdf = Path(folder) / f"{number}_Erinnerung_{level}.pdf"
     render_reminder(pdf, dict(row), level, settings, today, new_due, customer_address)
