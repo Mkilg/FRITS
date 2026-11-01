@@ -1,5 +1,7 @@
 ## FRITS für den Mac
 
+Vorher prüfen: Zum Entpacken braucht der Mac etwa **2,5 GB freien Speicher** (danach 1,4 GB). Reicht der Platz nicht, fehlen am Ende Dateien und FRITS startet nicht.
+
 1. **FRITS-macOS.zip** unten herunterladen und doppelklicken. Es entsteht ein Ordner **FRITS** mit FRITS.app, Start-FRITS.command und LIESMICH.txt.
 2. Den Ordner dorthin legen, wo er bleiben soll (z. B. Programme oder USB-Stick).
 3. FRITS.app doppelklicken. Beim ersten Mal blockiert der Mac die App, weil sie nicht aus dem App Store kommt:

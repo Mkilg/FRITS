@@ -4,6 +4,7 @@ FRITS - Fantastisches Rechnungsschreibungs IT-System
 FRITS läuft komplett von diesem Ordner aus (auch vom USB-Stick).
 Es wird nichts auf dem Mac installiert, und es braucht kein Internet.
 Funktioniert auf Macs mit Apple-Chip (M1, M2, ...) und mit Intel-Chip, ab macOS 13.
+Zum Entpacken braucht der Mac etwa 2,5 GB freien Speicher (danach 1,4 GB).
 
 Starten
 -------
