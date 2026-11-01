@@ -573,8 +573,11 @@ def register_steuer(
         if not daten["drache"].besiegt and jahr not in app.state.steuer_notausgang:
             flash("Erst der Drache, dann die Beute. Oder nimm den Notausgang, wenn es eilt.")
             return back(f"/steuer/{jahr}/drache")
-        betreff, text = truhe.mail(daten["profil"], daten["gebiete"], daten["stuecke"])
         zip_pfad = truhe_pfad(jahr, daten["profil"])
+        mit_passwort = truhe.verschluesselt(zip_pfad) if zip_pfad.exists() else True
+        betreff, text = truhe.mail(
+            daten["profil"], daten["gebiete"], daten["stuecke"], mit_passwort=mit_passwort
+        )
         return seite(
             request,
             "steuer_sieg.html",
@@ -582,16 +585,18 @@ def register_steuer(
             mailtext=text,
             zip_pfad=zip_pfad if zip_pfad.exists() else None,
             passwort=app.state.steuer_passwort.get(jahr),
+            mit_passwort=mit_passwort,
             dateien=quest.dateien(conn(), jahr),
             **daten,
         )
 
     @app.post("/steuer/{jahr}/truhe", dependencies=guarded)
-    def truhe_packen(jahr: int):
+    async def truhe_packen(request: Request, jahr: int):
         daten = lage(jahr)
         if not daten["drache"].besiegt and jahr not in app.state.steuer_notausgang:
             return back(f"/steuer/{jahr}/drache")
-        kennwort = truhe.passwort()
+        form = await request.form()
+        kennwort = None if form.get("schloss") == "ohne" else truhe.passwort()
         ziel = truhe.packen(
             truhe_pfad(jahr, daten["profil"]),
             daten["profil"],
@@ -600,9 +605,13 @@ def register_steuer(
             quest.dateien(conn(), jahr),
             kennwort,
         )
-        app.state.steuer_passwort[jahr] = kennwort
+        if kennwort:
+            app.state.steuer_passwort[jahr] = kennwort
+            flash("Die Schatztruhe ist gepackt und mit Passwort verschlossen.", "erfolg", "done")
+        else:
+            app.state.steuer_passwort.pop(jahr, None)
+            flash("Die Schatztruhe ist gepackt, ohne Passwort.", "erfolg", "done")
         quest.notiere(conn(), jahr, "truhe", ziel.name)
-        flash("Die Schatztruhe ist gepackt und verschlossen.", "erfolg", "done")
         return back(f"/steuer/{jahr}/sieg")
 
     @app.post("/steuer/{jahr}/mail", dependencies=guarded)

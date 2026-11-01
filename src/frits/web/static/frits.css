@@ -103,6 +103,7 @@ button.primary, .button.primary { background: linear-gradient(#e6b65a, var(--ock
 button.primary:active, .button.primary:active { transform: translateY(2px); box-shadow: none; }
 button.quiet, .button.quiet { background: transparent; border-color: transparent; color: var(--muted); }
 button.quiet:hover { color: var(--ink); }
+button.quiet[aria-pressed="true"] { color: var(--ink); border-color: var(--line, currentColor); }
 button.danger { color: var(--ketchup); }
 button.tiny, .button.tiny { font-size: 0.8rem; padding: 0.2rem 0.6rem; }
 button.feierabend { background: var(--tinte); color: var(--papier); border-color: var(--tinte); }
@@ -122,6 +123,7 @@ form { margin: 0; }
 
 .muted, .hint { color: var(--muted); }
 .hint { font-size: 0.88rem; margin: 0.4rem 0; }
+.platzhalter { color: var(--muted); font-style: italic; }
 .note { display: block; color: var(--ketchup); font-size: 0.78rem; }
 .badge { display: inline-block; padding: 0.1rem 0.6rem; border-radius: 999px; font-size: 0.8rem;
   background: var(--creme); border: 1px solid var(--line); white-space: nowrap; }

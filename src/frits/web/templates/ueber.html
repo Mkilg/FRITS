@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Über FRITS · FRITS{% endblock %}
+{% block content %}
+<section class="hello">
+  <div class="mascot-big">{{ mascot("welcome") }}</div>
+  <p class="speech">Ich bin FRITS, das Fantastische Rechnungsschreibungs-IT-System. Schön, dass du hier bist!</p>
+</section>
+
+<section class="card">
+  <h2>Von Marie</h2>
+  <p class="{{ 'platzhalter' if placeholder(about.marie) }}">{{ about.marie }}</p>
+</section>
+
+<section class="card">
+  <h2>Für Fritz</h2>
+  <p class="{{ 'platzhalter' if placeholder(about.fritz) }}">{{ about.fritz }}</p>
+</section>
+
+<section class="card">
+  <h2>Der KI-Podcast</h2>
+  <p><strong class="{{ 'platzhalter' if placeholder(about.podcast_name) }}">{{ about.podcast_name }}</strong></p>
+  <p class="{{ 'platzhalter' if placeholder(about.podcast_text) }}">{{ about.podcast_text }}</p>
+  {% if about.podcast_link %}
+  <a class="button" href="{{ about.podcast_link }}" target="_blank" rel="noopener noreferrer">Zum Podcast</a>
+  {% endif %}
+</section>
+
+<section class="card accent" id="fehler">
+  <h2>Fehler melden</h2>
+  <p>Etwas klappt nicht oder sieht komisch aus? Dann schreib Marie kurz. FRITS öffnet dafür eine fertige E-Mail an {{ bug_address }} in deinem Mail-Programm. Du schreibst hinein, was passiert ist, und drückst selbst auf Senden.</p>
+  <p class="hint">In der E-Mail stehen nur die FRITS-Version ({{ version }}) und die Art deines Computers ({{ computer }}). Keine Kunden, keine Beträge. Bitte schreib auch selbst keine Kundennamen oder Kontonummern hinein.</p>
+  <form method="post" action="/ueber/fehler">
+    <input type="hidden" name="token" value="{{ token }}">
+    <button class="primary">Fehler-Mail öffnen</button>
+  </form>
+</section>
+
+<p class="hint">FRITS Version {{ version }}</p>
+{% endblock %}

@@ -97,6 +97,7 @@ def test_every_page_renders(client):
         "/customers/new",
         "/settings",
         "/check-me",
+        "/ueber",
         "/feierabend",
         "/customers/erika-meier",
     ):
@@ -548,3 +549,35 @@ def test_invoice_numbers_follow_the_pattern_and_continue(client, ws):
     assert "RE-26-042" in page.text
     page = post(client, "/settings", number_pattern="RE/JJ/NNN")
     assert "Nummern-Schema" in page.text
+
+
+def test_about_page_and_bug_report_without_personal_data(client, mails):
+    page = client.get("/ueber")
+    assert page.status_code == 200
+    assert "Über FRITS" in page.text and "Fehler melden" in page.text
+    assert 'aria-current="page"' in page.text
+
+    page = post(client, "/ueber/fehler")
+    assert "Fehler-Mail ist in Mail geöffnet" in page.text
+    mail = mails[-1]
+    assert mail["to"] == "hallo@kilg.de"
+    assert mail["subject"].startswith("[FRITS Fehler] Version ")
+    assert mail["attachment"] is None
+    assert "FRITS-Version:" in mail["body"] and "Computer:" in mail["body"]
+    # Nothing from Fritz's settings or customers goes into the mail.
+    for private in ("Fritz Beispiel", "Werkstattweg", "DE89370400440532013000", "Meier"):
+        assert private not in mail["body"]
+
+
+def test_bug_report_falls_back_to_a_mail_link(client, monkeypatch):
+    monkeypatch.setattr(
+        system,
+        "compose_email",
+        lambda to, subject, body, attachment: system.Composed(
+            False, system.mailto_link(to, subject, body)
+        ),
+    )
+    page = post(client, "/ueber/fehler")
+    assert "mailto:hallo%40kilg.de?subject=%5BFRITS%20Fehler%5D" in page.text
+    assert "PDF" not in page.text
+    assert "Rechnungsordner" not in page.text

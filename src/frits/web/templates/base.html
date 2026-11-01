@@ -13,13 +13,13 @@
 <header class="top">
   <a class="brand" href="/"><span class="brand-fry">{{ mascot("welcome") }}</span><span>FRITS</span></a>
   <nav>
-    {% for href, label in [("/", "Heute"), ("/drafts", "Entwürfe"), ("/invoices", "Rechnungen"), ("/quotes", "Angebote"), ("/expenses", "Ausgaben"), ("/customers", "Kunden"), ("/steuer", "Steuer-Quest"), ("/settings", "Einstellungen")] %}
+    {% for href, label in [("/", "Heute"), ("/drafts", "Entwürfe"), ("/invoices", "Rechnungen"), ("/quotes", "Angebote"), ("/expenses", "Ausgaben"), ("/customers", "Kunden"), ("/steuer", "Steuer-Quest"), ("/settings", "Einstellungen"), ("/ueber", "Über FRITS")] %}
     <a href="{{ href }}" {% if nav == href or (href != "/" and nav.startswith(href)) %}aria-current="page"{% endif %}>{{ label }}</a>
     {% endfor %}
   </nav>
   <div class="top-actions">
     {% if sounds %}
-    <button type="button" class="quiet" data-frits-music="buero-block" title="Ruhige Musik zum Konzentrieren">♪ Musik</button>
+    <button type="button" class="quiet" data-frits-music="buero-block" data-label-playing="♪ Musik läuft" aria-pressed="false" title="Ruhige Musik zum Konzentrieren. Nochmal klicken schaltet sie aus.">♪ Musik</button>
     {% endif %}
     <form method="post" action="/sound">
       <input type="hidden" name="token" value="{{ token }}">
