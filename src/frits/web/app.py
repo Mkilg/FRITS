@@ -1159,6 +1159,12 @@ def create_app(
         guarded=guarded,
         today=today,
     )
+
+    from frits.web.lernen import register_lernen
+
+    register_lernen(
+        app, page=page, settings=settings, customers=customers, nlp=nlp, guarded=guarded
+    )
     return app
 
 
