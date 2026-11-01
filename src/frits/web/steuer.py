@@ -26,6 +26,7 @@ from frits.steuer.katalog import (
     HAKEN,
     MACHT_BERATERIN,
     Profil,
+    angabe,
     fehlt_nie,
     fragen,
     gebiet,
@@ -246,6 +247,8 @@ def register_steuer(
             fehlt_nie=fehlt_nie,
             warum=warum,
             macht_beraterin=macht_beraterin,
+            angabe=angabe,
+            steuernummer=settings().steuernummer,
             MACHT_BERATERIN=MACHT_BERATERIN,
             datum=schoenes_datum,
             vermute=spiel.vermute,
@@ -300,6 +303,7 @@ def register_steuer(
                 silber=bool(zweifel),
             ),
             "naechstes": spiel.naechstes_zeitalter(gesamt.anteil),
+            "weg": spiel.weg_zum_zeitalter(gesamt),
             "drache": drache,
             "drache_wach": wach,
             "auftrag": spiel.auftrag(jahr, staende, drache, zettel, alle, wach),
@@ -756,6 +760,34 @@ def register_steuer(
         if belohnen(jahr, vorher):
             return back(f"/steuer/{jahr}/drache")
         return back(str(form.get("back") or f"/steuer/{jahr}/gebiet/{s['gebiet']}"))
+
+    @app.post("/steuer/{jahr}/stueck/{stueck_id}/angabe", dependencies=guarded)
+    async def angabe_eintippen(request: Request, jahr: int, stueck_id: int):
+        """Eintippen statt hochladen: "14 km einfach, 120 Tage". Die Angabe wird eine kleine
+        Textdatei bei der Karte, kommt so ins Zip und ins Inhaltsverzeichnis."""
+        form = await request.form()
+        s = stueck_im_jahr(jahr, stueck_id)
+        zurueck = str(form.get("back") or f"/steuer/{jahr}/gebiet/{s['gebiet']}")
+        text = str(form.get("text") or "").strip()[:2000]
+        if not text:
+            flash("Tipp kurz ein, was du weißt. Ein Stichwort reicht.")
+            return back(zurueck)
+        vorher = lage(jahr)
+        ablage = quest.lager(ws.root)
+        ablage.mkdir(parents=True, exist_ok=True)
+        original = f"Angabe {s['name']}.txt"
+        tmp = ablage / f".angabe-{s['id']}.txt"
+        tmp.write_text(f"{s['name']}\n\n{text}\n", encoding="utf-8")
+        c = conn()
+        fund = quest.sammeln(c, ws.root, s["id"], tmp, original=original, verschieben=True)
+        if fund.neu:
+            quest.notiere(c, jahr, "fund", f"{s['name']}: eingetippt")
+            flash(f"+1 Angabe! {s['name']} ist notiert und kommt so in die Truhe.", "beute", "done")
+        else:
+            flash("Genau diese Angabe liegt schon bei der Karte.")
+        if belohnen(jahr, vorher):
+            return back(f"/steuer/{jahr}/drache")
+        return back(zurueck)
 
     @app.post("/steuer/{jahr}/stueck/{stueck_id}/datei", dependencies=guarded)
     async def datei_hochladen(request: Request, jahr: int, stueck_id: int):

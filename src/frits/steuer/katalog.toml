@@ -15,21 +15,24 @@
 
 [[provinz]]
 key = "rathaus"
+wofuer = "Alles vom Finanzamt: Steuer-ID, Bescheide, Briefe. Was nirgends passt, kommt hier unter „Sonstiges für die Beraterin“."
 name = "Rathaus"
 bereich = "Persönliches und Finanzamt"
 frage = "immer"
 anlage = "Hauptvordruck (ESt 1 A)"
 woerter = ["finanzamt", "bescheid", "vorauszahlung", "steuer-id", "identifikationsnummer", "steuernummer"]
 stuecke = [
-  { key = "steuer-id", kern = true, fehlt_nie = true, name = "Steuer-ID", hinweis = "Steht auf jedem Steuerbescheid und auf der Lohnsteuerbescheinigung." },
+  { key = "steuer-id", angabe = "Steuer-ID: 11 Ziffern. Steuernummer, falls du eine hast.", kern = true, fehlt_nie = true, name = "Steuer-ID", hinweis = "Steht auf jedem Steuerbescheid und auf der Lohnsteuerbescheinigung." },
   { key = "bescheid", name = "Letzter Steuerbescheid", hinweis = "Der Bescheid vom Vorjahr hilft der Beraterin beim Vergleich." },
   { key = "vorauszahlungen", name = "Vorauszahlungsbescheide", hinweis = "Nur wenn du Steuern vorab zahlst." },
   { key = "briefe", name = "Weitere Briefe vom Finanzamt", hinweis = "Alles, was das Finanzamt dieses Jahr geschickt hat." },
+  { key = "sonstiges", name = "Sonstiges für die Beraterin", hinweis = "Alles, was nirgends passt. Deine Beraterin sortiert es ein.", art = "bonus" },
   { key = "kirchensteuer", name = "Gezahlte Kirchensteuer", hinweis = "Nur wenn du sie selbst gezahlt hast.", art = "bonus", wenn = "kirche" },
 ]
 
 [[provinz]]
 key = "kaserne"
+wofuer = "Angestellt: Lohnsteuerbescheinigung, Fahrten zur Arbeit, Arbeitsmittel."
 name = "Kaserne"
 bereich = "Angestellt"
 frage = "angestellt"
@@ -40,13 +43,14 @@ woerter = ["lohnsteuer", "gehalt", "arbeitgeber", "lohn", "arbeit", "pendeln", "
 stuecke = [
   { key = "lohnsteuerbescheinigung", woerter = ["lohnsteuer", "lstb"], kern = true, warum = "Jeder Arbeitgeber muss sie dir schicken und meldet sie auch selbst ans Finanzamt.", name = "Lohnsteuerbescheinigung", hinweis = "Schickt der Arbeitgeber meist bis Ende Februar." },
   { key = "arbeitsmittel", name = "Arbeitsmittel", hinweis = "Laptop, Fachbücher, Werkzeug, Berufskleidung.", art = "bonus", wenn = "arbeit" },
-  { key = "fahrten", name = "Fahrten zur Arbeit und Homeoffice-Tage", hinweis = "Kilometer einfach und Zahl der Tage reicht.", art = "bonus", wenn = "arbeit" },
+  { key = "fahrten", angabe = "z. B. 14 km einfach, 120 Tage im Büro, 90 Tage Homeoffice", name = "Fahrten zur Arbeit und Homeoffice-Tage", hinweis = "Kilometer einfach und Zahl der Tage reicht.", art = "bonus", wenn = "arbeit" },
   { key = "fortbildung", name = "Fortbildung", hinweis = "Kurse, Seminare, Prüfungsgebühren.", art = "bonus", wenn = "arbeit" },
   { key = "umzug", name = "Umzugskosten", hinweis = "Beruflich bedingter Umzug: zählt als Werbungskosten.", art = "bonus", wenn = "umzug" },
 ]
 
 [[provinz]]
 key = "werkstatt"
+wofuer = "Dein eigenes Geschäft: deine Rechnungen, Belege, Kontoauszüge, Honorare, VG Wort."
 name = "Werkstatt"
 bereich = "Freiberuflich"
 frage = "freiberuflich"
@@ -67,9 +71,9 @@ stuecke = [
   { key = "ausland", name = "Honorare aus dem Ausland", hinweis = "Rechnungen und Belege über einbehaltene Quellensteuer (Anlage AUS).", wenn = "ausland_honorar" },
   { key = "verlustvortrag", name = "Bescheid über den Verlustvortrag", hinweis = "Nur wenn du im Vorjahr Verlust gemacht hast.", wenn = "verlust" },
   { key = "anschaffungen", name = "Größere Anschaffungen", hinweis = "Geräte über 800 € netto, Auto, Möbel. Computer und Software dürfen sofort abgeschrieben werden.", art = "bonus" },
-  { key = "fahrten", name = "Fahrtenbuch oder Kilometerliste", hinweis = "Für Fahrten zu Kunden. Eigenes Auto: 0,30 € pro Kilometer.", art = "bonus" },
+  { key = "fahrten", angabe = "z. B. 2.300 km zu Kunden und Drehorten", name = "Fahrtenbuch oder Kilometerliste", hinweis = "Für Fahrten zu Kunden. Eigenes Auto: 0,30 € pro Kilometer.", art = "bonus" },
   { key = "reisen", name = "Dienstreisen und Reisekosten", hinweis = "Bahn, Hotel, Ort und Dauer. Pro Tag unterwegs gibt es 14 € (ab 8 Stunden) oder 28 € (ganzer Tag) für Verpflegung.", art = "bonus" },
-  { key = "arbeitszimmer", name = "Homeoffice oder Arbeitszimmer", hinweis = "Homeoffice: 6 € pro Tag, höchstens 1.260 € im Jahr. Die Zahl der Tage reicht.", art = "bonus" },
+  { key = "arbeitszimmer", angabe = "z. B. 160 Tage Homeoffice, oder: eigenes Arbeitszimmer, 14 m² von 70 m²", name = "Homeoffice oder Arbeitszimmer", hinweis = "Homeoffice: 6 € pro Tag, höchstens 1.260 € im Jahr. Die Zahl der Tage reicht.", art = "bonus" },
   { key = "beitraege", name = "Verbände, Presseausweis, Berufshaftpflicht", hinweis = "Zum Beispiel DJV, ver.di, Freischreiber und Versicherungen fürs Geschäft.", art = "bonus" },
   { key = "umzug", name = "Umzugskosten", hinweis = "Beruflich bedingter Umzug: zählt als Betriebsausgabe.", art = "bonus", wenn = "umzug" },
 ]
@@ -98,6 +102,7 @@ stuecke = [
 
 [[provinz]]
 key = "gilde"
+wofuer = "Die GbR: ihre Rechnungen und Belege, der Gesellschaftsvertrag, die Gewinnverteilung."
 name = "Gilde"
 bereich = "GbR / Gesellschaft"
 frage = "gesellschaft"
@@ -110,7 +115,7 @@ stuecke = [
   { key = "belege", kern = true, warum = "Ohne Belege zählen die Ausgaben der Gesellschaft nicht.", name = "Belege der Gesellschaft", hinweis = "Ausgaben, die die Gesellschaft bezahlt hat." },
   { key = "konto", kern = true, warum = "Deine Beraterin gleicht die Einnahmen mit dem Konto der Gesellschaft ab.", name = "Kontoauszüge Gesellschaftskonto", hinweis = "Jahres-Export des gemeinsamen Kontos." },
   { key = "vertrag", name = "Gesellschaftsvertrag und Änderungen", hinweis = "Vor allem, wenn sich dieses Jahr etwas geändert hat." },
-  { key = "verteilung", name = "Gewinnverteilung", hinweis = "Wer bekommt welchen Anteil." },
+  { key = "verteilung", angabe = "z. B. 50/50, wie im Vertrag", name = "Gewinnverteilung", hinweis = "Wer bekommt welchen Anteil." },
   { key = "umsatzsteuer", woerter = ["ustva", "voranmeldung", "ust"], name = "Umsatzsteuer der Gesellschaft", hinweis = "Nur wenn die Gesellschaft eine eigene Steuernummer hat und Umsatzsteuer berechnet: ihre Voranmeldungen und, falls schon da, die Jahreserklärung." },
   { key = "euer", name = "EÜR der Gesellschaft", beraterin = true, hinweis = "Einnahmen minus Ausgaben der Gesellschaft. Meist macht sie deine Beraterin aus Rechnungen, Belegen und Konto." },
   { key = "eigene-kosten", name = "Eigene Kosten für die Gesellschaft (Sonderbetriebsausgaben)", hinweis = "Was du privat für die Gesellschaft bezahlt hast, z. B. dein Laptop oder Fahrten. So heißt das bei der Beraterin.", art = "bonus" },
@@ -132,6 +137,7 @@ stuecke = [
 
 [[provinz]]
 key = "gehoeft"
+wofuer = "Eine vermietete Wohnung: Mieten, Nebenkosten, Grundsteuer, Kreditzinsen, Reparaturen."
 name = "Gehöft"
 bereich = "Vermietete Wohnung"
 frage = "wohnungen"
@@ -139,7 +145,7 @@ zaehlbar = true
 anlage = "Anlage V (eine pro Wohnung)"
 woerter = ["miete", "mieter", "wohnung", "nebenkosten", "hausgeld", "grundsteuer", "darlehen", "zins", "handwerker", "gebäude", "hausverwaltung", "vermietung"]
 stuecke = [
-  { key = "mieteinnahmen", kern = true, warum = "Mieteinnahmen gehören immer in die Steuererklärung, auch kleine.", name = "Mieteinnahmen", hinweis = "Kontoauszug oder Liste der Mietzahlungen. Auch die Nebenkosten-Vorauszahlungen der Mieter zählen als Einnahmen. Eine Liste für mehrere Wohnungen darfst du überall mitbenutzen." },
+  { key = "mieteinnahmen", angabe = "z. B. 850 € kalt plus 150 € Nebenkosten im Monat, ganzes Jahr vermietet", kern = true, warum = "Mieteinnahmen gehören immer in die Steuererklärung, auch kleine.", name = "Mieteinnahmen", hinweis = "Kontoauszug oder Liste der Mietzahlungen. Auch die Nebenkosten-Vorauszahlungen der Mieter zählen als Einnahmen. Eine Liste für mehrere Wohnungen darfst du überall mitbenutzen." },
   { key = "mietvertrag", name = "Mietvertrag bei Mieterwechsel", hinweis = "Nur wenn sich dieses Jahr etwas geändert hat." },
   { key = "nebenkosten", woerter = ["betriebskosten", "wohngeld"], name = "Nebenkosten- oder Hausgeldabrechnung", hinweis = "Kommt von der Hausverwaltung." },
   { key = "grundsteuer", name = "Grundsteuerbescheid", hinweis = "Kommt meist zum Jahresanfang per Post." },
@@ -147,7 +153,7 @@ stuecke = [
   { key = "versicherung", name = "Versicherungen", hinweis = "Gebäude, Haftpflicht für die Wohnung." },
   { key = "handwerker", name = "Handwerker und Reparaturen", hinweis = "Rechnungen fürs Jahr. Oft der größte Posten, der Steuern spart.", art = "bonus" },
   { key = "kaufvertrag", name = "Kaufvertrag und Kaufnebenkosten", hinweis = "Für die Abschreibung (AfA): nur im ersten Jahr der Vermietung oder bei einer neuen Beraterin. Kaufpreis, Notar, Grunderwerbsteuer.", art = "bonus" },
-  { key = "fahrten", name = "Fahrten zur Wohnung und Verwaltung", hinweis = "Besichtigungen, Übergaben, Kontoführung.", art = "bonus" },
+  { key = "fahrten", angabe = "z. B. 12 Fahrten, je 18 km einfach", name = "Fahrten zur Wohnung und Verwaltung", hinweis = "Besichtigungen, Übergaben, Kontoführung.", art = "bonus" },
 ]
 
 [[provinz]]
@@ -178,7 +184,7 @@ anlage = "Anlage V und V-FeWo"
 woerter = ["ferienwohnung", "airbnb", "booking", "gäste", "belegung", "kurtaxe", "kurzzeit"]
 stuecke = [
   { key = "einnahmen", kern = true, warum = "Jede Vermietung bringt Einnahmen. Airbnb und Co. melden sie inzwischen sogar selbst ans Finanzamt.", name = "Einnahmen der Plattformen", hinweis = "Jahresübersicht von Airbnb, Booking & Co." },
-  { key = "belegung", name = "Belegungskalender", hinweis = "Vermietete Tage, eigene Nutzung, Leerstand." },
+  { key = "belegung", angabe = "z. B. 84 Nächte vermietet, 10 Nächte selbst genutzt", name = "Belegungskalender", hinweis = "Vermietete Tage, eigene Nutzung, Leerstand." },
   { key = "nebenkosten", name = "Nebenkosten", hinweis = "Strom, Wasser, Reinigung, Hausgeld." },
   { key = "grundsteuer", name = "Grundsteuerbescheid", hinweis = "Kommt meist zum Jahresanfang per Post." },
   { key = "zinsen", name = "Zinsbescheinigung Kredit", hinweis = "Falls finanziert." },
@@ -188,6 +194,7 @@ stuecke = [
 
 [[provinz]]
 key = "schatzkammer"
+wofuer = "Depot in Deutschland: Jahressteuerbescheinigung der Bank."
 name = "Schatzkammer"
 bereich = "Depot oder Konto in Deutschland"
 frage = "depots_inland"
@@ -201,6 +208,7 @@ stuecke = [
 
 [[provinz]]
 key = "hafen"
+wofuer = "Depot im Ausland: Jahresübersicht des Brokers, Dividenden, Quellensteuer."
 name = "Überseehafen"
 bereich = "Depot im Ausland"
 frage = "depots_ausland"
@@ -270,6 +278,7 @@ stuecke = [
 
 [[provinz]]
 key = "burg"
+wofuer = "Privates, das Steuern spart: Versicherungen, Spenden, Handwerker im Haushalt, Kinderbetreuung. Alles freiwillig, jeder Fund bringt Gold."
 name = "Burg"
 bereich = "Privates, das Steuern spart"
 frage = "immer"

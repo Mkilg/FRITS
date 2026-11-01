@@ -1383,3 +1383,26 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
 .sq-schnell .name { font-weight: 600; font-size: 0.9rem; }
 .sq-schnell .reihe { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0; }
 .sq-schnell button { min-height: 36px; font-size: 0.8rem; }
+
+/* Zeitalter in der Leiste: Klick zeigt, was als Nächstes kommt */
+details.sq-zeitalter { position: relative; display: block; }
+details.sq-zeitalter > summary { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; list-style: none; }
+details.sq-zeitalter > summary::-webkit-details-marker { display: none; }
+.sq-zeitalter-info { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid currentColor; font: 700 0.72rem/1 system-ui, sans-serif; opacity: .7; }
+.sq-zeitalter-zettel { position: absolute; right: 0; top: calc(100% + 10px); z-index: 80; width: min(340px, calc(100vw - 32px)); background: var(--papier); color: var(--tinte); padding: 0.8rem 0.9rem; border-radius: 4px; box-shadow: 0 10px 24px rgba(25, 12, 3, .35); font: 400 0.88rem/1.45 system-ui, sans-serif; text-shadow: none; }
+.sq-zeitalter-zettel p { margin: 0 0 0.45rem; }
+.sq-zeitalter-zettel p:last-child { margin-bottom: 0; }
+
+/* Eintippen statt Datei, und wohin eine Frage geht */
+.sq-angabe { display: flex; flex-wrap: wrap; align-items: end; gap: 0.5rem; margin: 0.5rem 0 0; }
+.sq-angabe label { flex: 1 1 14rem; display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.82rem; font-weight: 600; }
+.sq-angabe textarea { width: 100%; font: 400 0.9rem/1.4 system-ui, sans-serif; padding: 0.4rem 0.5rem; border: 1.5px dashed #b9a57a; border-radius: 3px; background: #fffdf6; resize: vertical; }
+.sq-frage-hinweis { margin: 0 0 0.4rem; font-size: 0.82rem; color: #5a4a2c; }
+.sq-frage-ki { display: inline-block; margin-top: 0.4rem; font-size: 0.82rem; }
+
+/* Was gehört wohin? */
+.sq-wohin { margin: 0.8rem 0; padding: 0.6rem 0.8rem; font-size: 0.86rem; text-shadow: none; }
+.sq-wohin > summary { cursor: pointer; font: 700 1rem/1.3 var(--schrift); }
+.sq-wohin ul { list-style: none; padding: 0; margin: 0.5rem 0; display: grid; gap: 0.45rem; }
+.sq-wohin li { display: grid; gap: 0.1rem; line-height: 1.35; }
+.sq-wohin p { margin: 0.4rem 0; }

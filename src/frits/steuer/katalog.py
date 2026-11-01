@@ -77,6 +77,7 @@ class Stueck:
     warum: str = ""  # warum es das fast immer gibt: steht in der Rückfrage bei "Gibt's nicht"
     beraterin: bool = False  # kann die Beraterin selbst erstellen (EÜR): "Macht meine Beraterin"
     woerter: tuple[str, ...] = ()  # weitere Namen in Dateinamen ("UStVA", "1099"): für Vorschläge
+    angabe: str = ""  # Lässt sich eintippen statt hochladen: Beispiel für das Feld
 
 
 @dataclass(frozen=True)
@@ -90,6 +91,7 @@ class Provinz:
     zaehlbar: bool = False  # eine Provinz pro Stück (Wohnung, Arbeitgeber, Firma ...)
     person: bool = False  # gehört einer Person, nicht beiden
     anlage: str = ""
+    wofuer: str = ""  # Was gehört hierher? Für "Was gehört wohin?" auf der Karte
 
 
 @cache
@@ -111,6 +113,7 @@ def katalog() -> dict[str, Provinz]:
             zaehlbar=p.get("zaehlbar", False),
             person=p.get("person", False),
             anlage=p.get("anlage", ""),
+            wofuer=p.get("wofuer", ""),
         )
     return result
 
@@ -274,6 +277,14 @@ def warum(gebiet_id: str, key: str) -> str:
     if not provinz:
         return ""
     return next((s.warum for s in provinz.stuecke if s.key == key), "")
+
+
+def angabe(gebiet_id: str, key: str) -> str:
+    """Beispiel für das Feld "Eintippen statt Datei" ("" wenn es dafür ein Dokument braucht)."""
+    provinz = katalog().get(gebiet_id.split("-")[0])
+    if not provinz:
+        return ""
+    return next((s.angabe for s in provinz.stuecke if s.key == key), "")
 
 
 def macht_beraterin(gebiet_id: str, key: str) -> bool:

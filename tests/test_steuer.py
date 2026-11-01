@@ -3,6 +3,7 @@
 import sqlite3
 from datetime import date
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 import pyzipper
@@ -780,6 +781,8 @@ def test_siegel_kommt_als_belohnung_mit_naechstem_auftrag(client, ws):
     fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
     page = None
     for s in quest.stuecke(quest.ensure_schema(store.connect(ws.db)), 2025, "rathaus"):
+        if s["art"] == "bonus":
+            continue
         page = post(
             client,
             f"/steuer/2025/stueck/{s['id']}/status",
@@ -1717,3 +1720,60 @@ def test_ustva_ohne_gbr_gehoert_zum_eigenen_betrieb(conn):
     alle = list(reversed(quest.stuecke(conn, 2025)))  # die Reihenfolge der Ids zählt nicht
     assert spiel.ahnung("UStVA_Q1_2025.pdf", alle).stueck["gebiet"] == "werkstatt-1"
     assert spiel.ahnung("GbR_UStVA_Q1_2025.pdf", alle).stueck["gebiet"] == "gilde-1"
+
+
+def test_runde_14_eintippen_statt_datei_und_steuernummer_aus_den_einstellungen(client, ws):
+    """Maries Feedback: Pendel-km und Steuernummer direkt eintippen, ohne Dokument."""
+    from frits.settings import Settings
+
+    s = Settings.load(ws.settings_file)
+    s.steuernummer = "12/345/67890"
+    s.save(ws.settings_file)
+    fragebogen(
+        client,
+        teil1={"name": "Marie"},
+        teil2={"m_angestellt_0": "1", "m_freiberuflich_0": "1"},
+        teil3={"haken": ["arbeit"]},
+    )
+    conn = quest.ensure_schema(store.connect(ws.db))
+    rathaus = client.get("/steuer/2025/gebiet/rathaus").text
+    assert "Oder einfach eintippen" in rathaus and "Steuernummer: 12/345/67890" in rathaus
+    fahrten = next(x for x in quest.stuecke(conn, 2025, "kaserne-1") if x["key"] == "fahrten")
+    kaserne = client.get("/steuer/2025/gebiet/kaserne-1").text
+    assert "14 km einfach" in kaserne  # das Beispiel im Feld
+    seite = post(
+        client, f"/steuer/2025/stueck/{fahrten['id']}/angabe", text="18 km einfach, 130 Tage"
+    )
+    assert "+1 Angabe!" in seite.text
+    assert quest.stueck(conn, fahrten["id"])["status"] == "gesammelt"
+    datei = quest.dateien(conn, 2025, fahrten["id"])[0]
+    assert datei["original"] == "Angabe Fahrten zur Arbeit und Homeoffice-Tage.txt"
+    assert "18 km einfach, 130 Tage" in Path(datei["pfad"]).read_text(encoding="utf-8")
+    assert quest.lager_dateien(ws.root) == []  # nichts bleibt im Korb liegen
+    # Dieselbe Angabe noch einmal: nichts doppelt
+    seite = post(
+        client, f"/steuer/2025/stueck/{fahrten['id']}/angabe", text="18 km einfach, 130 Tage"
+    )
+    assert "liegt schon bei der Karte" in seite.text
+    # Leere Angabe: freundlicher Hinweis
+    assert (
+        "Ein Stichwort reicht" in post(client, f"/steuer/2025/stueck/{fahrten['id']}/angabe").text
+    )
+
+
+def test_runde_14_fragen_zeitalter_und_was_gehoert_wohin(client, ws):
+    fragebogen(client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1"})
+    karte = client.get("/steuer/2025").text
+    assert "Was gehört wohin?" in karte and "Sonstiges für die Beraterin" in karte
+    assert "Alles vom Finanzamt" in karte
+    assert "Nächstes: <strong>Zeitalter der Ordnung</strong>" in karte
+    assert "Dann wacht der Papierdrache auf" in karte
+    gebiet = client.get("/steuer/2025/gebiet/werkstatt-1").text
+    assert "kommt in die Mail an deine Beraterin" in gebiet and 'href="/notfall"' in gebiet
+    stand = spiel.Stand(gesamt=10, gesammelt=1, gibts_nicht=1, fragen=0)
+    assert spiel.weg_zum_zeitalter(stand) == (
+        "Zeitalter der Ordnung",
+        2,
+        spiel.ZEITALTER_BRINGT["Zeitalter der Ordnung"],
+    )
+    assert spiel.weg_zum_zeitalter(spiel.Stand(10, 10, 0, 0)) is None

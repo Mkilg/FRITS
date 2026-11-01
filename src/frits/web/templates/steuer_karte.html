@@ -109,6 +109,18 @@
       <p class="sq-sprechblase" style="font-size: .9rem">Keine Sorge: Was fehlt, kannst du einfach als Frage mitschicken.</p>
     </div>
 
+    <details class="sq-papier sq-wohin">
+      <summary>Was gehört wohin?</summary>
+      <p class="muted">Zieh ein Dokument auf die Provinz, zu der es gehört. Unsicher? Dann leg es im Rathaus unter „Sonstiges für die Beraterin“ ab.</p>
+      <ul>
+        {% for p in provinzen %}
+        <li><a href="/steuer/{{ jahr }}/gebiet/{{ p.gebiet.id }}"><strong>{{ p.gebiet.titel }}</strong></a>
+          <span>{{ p.gebiet.provinz.wofuer or (p.gebiet.bereich ~ ": " ~ (p.stuecke | rejectattr("art", "equalto", "bonus") | map(attribute="name") | list)[:3] | join(", ") ~ ".") }}</span></li>
+        {% endfor %}
+      </ul>
+      <p class="muted">So wächst eine Provinz: Jede beantwortete Karte baut weiter, sei es eine Datei, eine Angabe, „Gibt's nicht“ oder eine Frage. Sind alle Karten erledigt, bekommt sie ein Siegel.</p>
+    </details>
+
     {% if vergleich %}
     {% set fehlt = vergleich | rejectattr("jetzt", "in", ["gesammelt", "gibts_nicht", "fragen"]) | list %}
     <section class="sq-papier sq-schief sq-notiz" style="--r: 1.2deg">
