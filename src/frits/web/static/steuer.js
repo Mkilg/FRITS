@@ -338,13 +338,28 @@
     belohnung.addEventListener("click", function (e) { if (e.target === belohnung) belohnung.close(); });
   }
 
-  // Kleine Meldungen: verschwinden nach ein paar Sekunden von selbst
-  Array.prototype.forEach.call(document.querySelectorAll(".sq-meldung"), function (m, i) {
-    function weg() { m.classList.add("weg"); setTimeout(function () { m.remove(); }, 420); }
+  // Kleine Meldungen: immer nur eine auf einmal, die nächste kommt, wenn die vorige geht.
+  // Warnungen bleiben stehen, bis man sie wegklickt.
+  var meldungen = Array.prototype.slice.call(document.querySelectorAll(".sq-zettelchen .sq-meldung"));
+  function zeigeMeldung(i) {
+    var m = meldungen[i];
+    if (!m) return;
+    m.classList.remove("wartet");
+    var rest = meldungen.length - i - 1;
+    if (rest > 0) m.setAttribute("data-mehr", "+" + rest);
+    var fort = false;
+    function weg() {
+      if (fort) return;
+      fort = true;
+      m.classList.add("weg");
+      setTimeout(function () { m.remove(); zeigeMeldung(i + 1); }, 420);
+    }
     var knopf = m.querySelector(".sq-weg");
     if (knopf) knopf.addEventListener("click", weg);
-    if (!m.classList.contains("warn") && !m.classList.contains("fehler")) setTimeout(weg, 5200 + i * 900);
-  });
+    if (!m.classList.contains("warn") && !m.classList.contains("fehler")) setTimeout(weg, 4200);
+  }
+  meldungen.forEach(function (m, i) { if (i > 0) m.classList.add("wartet"); });
+  zeigeMeldung(0);
 
   // Auftrag "Eingangskorb": zum Korb springen und den ersten Zettel aufklappen
   Array.prototype.forEach.call(document.querySelectorAll('a[href="#sq-korb"]'), function (a) {
@@ -480,7 +495,7 @@
     if (knopf.classList.contains("rueckfrage-offen")) { schliessen(); return; }
     schliessen();
     knopf.classList.add("rueckfrage-offen");
-    var karte = knopf.closest(".sq-karte");
+    var karte = knopf.closest(".sq-karte") || knopf.closest(".sq-schnell li");
     var fragen = karte && karte.querySelector("button[value=fragen]");
     var blase = document.createElement("div");
     blase.className = "sq-rueckfrage-blase";
@@ -558,9 +573,10 @@
       blase.style.left = links + "px";
       blase.style.setProperty("--pfeil", Math.max(12, knopf.offsetLeft - links + knopf.offsetWidth / 2 - 9) + "px");
     }
-    // Oben kein Platz? Dann klappt die Blase nach unten auf
+    // Handkarten: Blase nach unten, damit sie Kartentitel und Kopfleiste nicht verdeckt.
+    // Sonst nach oben; ist dort kein Platz, klappt sie nach unten auf.
     var r = blase.getBoundingClientRect();
-    if (r.top < 8) blase.classList.add("unten");
+    if (knopf.classList.contains("sq-handkarte") || r.top < 8) blase.classList.add("unten");
     (reihe.querySelector(".sq-siegelknopf") || ja).focus();
   });
   document.addEventListener("keydown", function (e) { if (e.key === "Escape") schliessen(); });

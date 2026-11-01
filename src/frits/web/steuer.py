@@ -249,6 +249,7 @@ def register_steuer(
             MACHT_BERATERIN=MACHT_BERATERIN,
             datum=schoenes_datum,
             vermute=spiel.vermute,
+            ahnung=spiel.ahnung,
             ware=spiel.ware,
             **context,
         )
@@ -293,7 +294,11 @@ def register_steuer(
             "besitz": besitz,
             "helfer": frozenset(k for k, an in besitz.items() if an),
             "zierde": [w for w in spiel.MARKT if w.art == "zierde" and w.key in besitz],
-            "zeitalter": spiel.zeitalter(gesamt.anteil, silber=bool(zweifel)),
+            # Das Goldene Zeitalter kommt erst mit dem Sieg über den Drachen
+            "zeitalter": spiel.zeitalter(
+                gesamt.anteil if drache.besiegt else min(gesamt.anteil, 0.99),
+                silber=bool(zweifel),
+            ),
             "naechstes": spiel.naechstes_zeitalter(gesamt.anteil),
             "drache": drache,
             "drache_wach": wach,
@@ -806,6 +811,39 @@ def register_steuer(
         if belohnen(jahr, vorher):
             return back(f"/steuer/{jahr}/drache")
         return back(str(form.get("back") or f"/steuer/{jahr}"))
+
+    @app.post("/steuer/{jahr}/lager/vorschlaege", dependencies=guarded)
+    async def lager_vorschlaege(request: Request, jahr: int):
+        """Spürnase: alle Zettel mit einem Kartenvorschlag auf einmal abstempeln."""
+        form = await request.form()
+        zurueck = str(form.get("back") or f"/steuer/{jahr}")
+        c = conn()
+        if "spuernase" not in quest.helfer(c, jahr):
+            flash("Das kann nur die Spürnase. Du findest sie im Hafenmarkt.")
+            return back(zurueck)
+        vorher = lage(jahr)
+        alle = quest.stuecke(c, jahr)
+        gestempelt = 0
+        for quelle in quest.lager_dateien(ws.root):
+            karte = spiel.ahnung(quelle.name, alle).stueck
+            if karte is None:
+                continue
+            fund = quest.sammeln(c, ws.root, karte["id"], quelle, verschieben=True)
+            if fund.neu:
+                quest.notiere(c, jahr, "fund", f"{karte['name']}: {quelle.name}")
+                gestempelt += 1
+        if gestempelt:
+            flash(
+                f"Die Spürnase hat {gestempelt} Zettel abgestempelt. "
+                "Falsch gelandet? Bei der Karte „Zurücklegen“, nichts ist verloren.",
+                "beute",
+                "done",
+            )
+        else:
+            flash("Die Spürnase hat keinen Zettel gefunden, bei dem sie sicher ist.")
+        if belohnen(jahr, vorher):
+            return back(f"/steuer/{jahr}/drache")
+        return back(zurueck)
 
     @app.post("/steuer/{jahr}/datei/{datei_id}/entfernen", dependencies=guarded)
     async def datei_entfernen(request: Request, jahr: int, datei_id: int):

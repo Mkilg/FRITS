@@ -38,7 +38,7 @@ person = true
 anlage = "Anlage N"
 woerter = ["lohnsteuer", "gehalt", "arbeitgeber", "lohn", "arbeit", "pendeln", "homeoffice"]
 stuecke = [
-  { key = "lohnsteuerbescheinigung", kern = true, warum = "Jeder Arbeitgeber muss sie dir schicken und meldet sie auch selbst ans Finanzamt.", name = "Lohnsteuerbescheinigung", hinweis = "Schickt der Arbeitgeber meist bis Ende Februar." },
+  { key = "lohnsteuerbescheinigung", woerter = ["lohnsteuer", "lstb"], kern = true, warum = "Jeder Arbeitgeber muss sie dir schicken und meldet sie auch selbst ans Finanzamt.", name = "Lohnsteuerbescheinigung", hinweis = "Schickt der Arbeitgeber meist bis Ende Februar." },
   { key = "arbeitsmittel", name = "Arbeitsmittel", hinweis = "Laptop, Fachbücher, Werkzeug, Berufskleidung.", art = "bonus", wenn = "arbeit" },
   { key = "fahrten", name = "Fahrten zur Arbeit und Homeoffice-Tage", hinweis = "Kilometer einfach und Zahl der Tage reicht.", art = "bonus", wenn = "arbeit" },
   { key = "fortbildung", name = "Fortbildung", hinweis = "Kurse, Seminare, Prüfungsgebühren.", art = "bonus", wenn = "arbeit" },
@@ -60,9 +60,9 @@ stuecke = [
   { key = "buchungsliste", name = "Buchungsliste", hinweis = "Alle Zahlungen des Jahres als Tabelle, passend zur EÜR. Schreibst du mit FRITS, legt die FRITS-Ernte sie dazu.", art = "bonus" },
   { key = "verfahrensdoku", name = "Verfahrensdokumentation (GoBD)", hinweis = "Kurz beschrieben: wie deine Belege hereinkommen und wo sie sicher liegen. Schreibst du mit FRITS, legt die FRITS-Ernte sie dazu.", art = "bonus" },
   { key = "belege", kern = true, warum = "Ohne Belege zählen deine Ausgaben nicht, und du zahlst mehr Steuern als nötig.", name = "Belege und Quittungen", hinweis = "Alles, was du fürs Geschäft bezahlt hast. Ausgaben aus FRITS kommen mit der FRITS-Ernte." },
-  { key = "kontoauszuege", kern = true, warum = "Deine Beraterin gleicht die Einnahmen mit dem Konto ab. Ein Jahres-Export aus dem Online-Banking reicht.", name = "Kontoauszüge Geschäftskonto", hinweis = "Am einfachsten als Jahres-Export aus dem Online-Banking." },
-  { key = "umsatzsteuer", name = "Umsatzsteuer-Meldungen des Jahres", hinweis = "Voranmeldungen und, falls schon da, die Jahreserklärung. 7 % gilt für Texte und Beiträge mit Nutzungsrechten, 19 % z. B. für Moderation und Beratung.", wenn = "umsatzsteuer" },
-  { key = "sender", name = "Honorarabrechnungen der Sender", hinweis = "Jahresübersicht oder alle Abrechnungen. Hat ein Sender Lohnsteuer abgezogen, gibt es eine Lohnsteuerbescheinigung: Zähl ihn dann bei „Angestellt“ mit.", wenn = "sender" },
+  { key = "kontoauszuege", woerter = ["kontoauszug", "umsätze"], kern = true, warum = "Deine Beraterin gleicht die Einnahmen mit dem Konto ab. Ein Jahres-Export aus dem Online-Banking reicht.", name = "Kontoauszüge Geschäftskonto", hinweis = "Am einfachsten als Jahres-Export aus dem Online-Banking." },
+  { key = "umsatzsteuer", woerter = ["ustva", "voranmeldung", "ust"], name = "Umsatzsteuer-Meldungen des Jahres", hinweis = "Voranmeldungen und, falls schon da, die Jahreserklärung. 7 % gilt für Texte und Beiträge mit Nutzungsrechten, 19 % z. B. für Moderation und Beratung.", wenn = "umsatzsteuer" },
+  { key = "sender", woerter = ["honorar", "ard", "zdf", "wdr", "ndr", "swr", "mdr", "rbb", "deutschlandfunk"], name = "Honorarabrechnungen der Sender", hinweis = "Jahresübersicht oder alle Abrechnungen. Hat ein Sender Lohnsteuer abgezogen, gibt es eine Lohnsteuerbescheinigung: Zähl ihn dann bei „Angestellt“ mit.", wenn = "sender" },
   { key = "vgwort", name = "Ausschüttungen VG Wort, VG Bild-Kunst oder GVL", hinweis = "Die Abrechnungen des Jahres. Sie zählen als Einnahmen deines Geschäfts.", wenn = "verwertung" },
   { key = "ausland", name = "Honorare aus dem Ausland", hinweis = "Rechnungen und Belege über einbehaltene Quellensteuer (Anlage AUS).", wenn = "ausland_honorar" },
   { key = "verlustvortrag", name = "Bescheid über den Verlustvortrag", hinweis = "Nur wenn du im Vorjahr Verlust gemacht hast.", wenn = "verlust" },
@@ -91,7 +91,7 @@ stuecke = [
   { key = "verfahrensdoku", name = "Verfahrensdokumentation (GoBD)", hinweis = "Kurz beschrieben: wie deine Belege hereinkommen und wo sie sicher liegen. Schreibst du mit FRITS, legt die FRITS-Ernte sie dazu.", art = "bonus" },
   { key = "kontoauszuege", kern = true, warum = "Deine Beraterin gleicht die Einnahmen mit dem Konto ab. Ein Jahres-Export aus dem Online-Banking reicht.", name = "Kontoauszüge Geschäftskonto", hinweis = "Jahres-Export aus dem Online-Banking." },
   { key = "warenbestand", name = "Warenbestand zum Jahresende", hinweis = "Eine einfache Liste reicht oft." },
-  { key = "umsatzsteuer", name = "Umsatzsteuer-Meldungen des Jahres", hinweis = "Nur wenn du Umsatzsteuer ausweist.", wenn = "umsatzsteuer" },
+  { key = "umsatzsteuer", woerter = ["ustva", "voranmeldung", "ust"], name = "Umsatzsteuer-Meldungen des Jahres", hinweis = "Nur wenn du Umsatzsteuer ausweist.", wenn = "umsatzsteuer" },
   { key = "gewerbesteuer", name = "Gewerbesteuer-Bescheid", hinweis = "Von der Gemeinde, falls es einen gab." },
   { key = "verlustvortrag", name = "Bescheid über den Verlustvortrag", hinweis = "Nur wenn du im Vorjahr Verlust gemacht hast.", wenn = "verlust" },
 ]
@@ -111,7 +111,7 @@ stuecke = [
   { key = "konto", kern = true, warum = "Deine Beraterin gleicht die Einnahmen mit dem Konto der Gesellschaft ab.", name = "Kontoauszüge Gesellschaftskonto", hinweis = "Jahres-Export des gemeinsamen Kontos." },
   { key = "vertrag", name = "Gesellschaftsvertrag und Änderungen", hinweis = "Vor allem, wenn sich dieses Jahr etwas geändert hat." },
   { key = "verteilung", name = "Gewinnverteilung", hinweis = "Wer bekommt welchen Anteil." },
-  { key = "umsatzsteuer", name = "Umsatzsteuer der Gesellschaft", hinweis = "Nur wenn die Gesellschaft eine eigene Steuernummer hat und Umsatzsteuer berechnet: ihre Voranmeldungen und, falls schon da, die Jahreserklärung." },
+  { key = "umsatzsteuer", woerter = ["ustva", "voranmeldung", "ust"], name = "Umsatzsteuer der Gesellschaft", hinweis = "Nur wenn die Gesellschaft eine eigene Steuernummer hat und Umsatzsteuer berechnet: ihre Voranmeldungen und, falls schon da, die Jahreserklärung." },
   { key = "euer", name = "EÜR der Gesellschaft", beraterin = true, hinweis = "Einnahmen minus Ausgaben der Gesellschaft. Meist macht sie deine Beraterin aus Rechnungen, Belegen und Konto." },
   { key = "eigene-kosten", name = "Eigene Kosten für die Gesellschaft (Sonderbetriebsausgaben)", hinweis = "Was du privat für die Gesellschaft bezahlt hast, z. B. dein Laptop oder Fahrten. So heißt das bei der Beraterin.", art = "bonus" },
 ]
@@ -141,9 +141,9 @@ woerter = ["miete", "mieter", "wohnung", "nebenkosten", "hausgeld", "grundsteuer
 stuecke = [
   { key = "mieteinnahmen", kern = true, warum = "Mieteinnahmen gehören immer in die Steuererklärung, auch kleine.", name = "Mieteinnahmen", hinweis = "Kontoauszug oder Liste der Mietzahlungen. Auch die Nebenkosten-Vorauszahlungen der Mieter zählen als Einnahmen. Eine Liste für mehrere Wohnungen darfst du überall mitbenutzen." },
   { key = "mietvertrag", name = "Mietvertrag bei Mieterwechsel", hinweis = "Nur wenn sich dieses Jahr etwas geändert hat." },
-  { key = "nebenkosten", name = "Nebenkosten- oder Hausgeldabrechnung", hinweis = "Kommt von der Hausverwaltung." },
+  { key = "nebenkosten", woerter = ["betriebskosten", "wohngeld"], name = "Nebenkosten- oder Hausgeldabrechnung", hinweis = "Kommt von der Hausverwaltung." },
   { key = "grundsteuer", name = "Grundsteuerbescheid", hinweis = "Kommt meist zum Jahresanfang per Post." },
-  { key = "zinsen", name = "Zinsbescheinigung Kredit", hinweis = "Von der Bank, falls die Wohnung finanziert ist." },
+  { key = "zinsen", woerter = ["darlehen", "kredit", "baufinanzierung"], name = "Zinsbescheinigung Kredit", hinweis = "Von der Bank, falls die Wohnung finanziert ist." },
   { key = "versicherung", name = "Versicherungen", hinweis = "Gebäude, Haftpflicht für die Wohnung." },
   { key = "handwerker", name = "Handwerker und Reparaturen", hinweis = "Rechnungen fürs Jahr. Oft der größte Posten, der Steuern spart.", art = "bonus" },
   { key = "kaufvertrag", name = "Kaufvertrag und Kaufnebenkosten", hinweis = "Für die Abschreibung (AfA): nur im ersten Jahr der Vermietung oder bei einer neuen Beraterin. Kaufpreis, Notar, Grunderwerbsteuer.", art = "bonus" },
@@ -208,7 +208,7 @@ zaehlbar = true
 anlage = "Anlage KAP (ausländische Erträge und anrechenbare Quellensteuer) und KAP-INV (Fonds und ETFs)"
 woerter = ["depot", "dividende", "quellensteuer", "broker", "1099", "aktien", "verkauf", "ausland", "us", "activity", "etf", "fonds", "vorabpauschale"]
 stuecke = [
-  { key = "jahresuebersicht", kern = true, warum = "Ausländische Depots schicken keine deutsche Steuerbescheinigung. Die Jahresübersicht ist dann der einzige Beleg.", name = "Jahresübersicht des Depots", hinweis = "Eine deutsche Steuerbescheinigung gibt es hier nicht." },
+  { key = "jahresuebersicht", woerter = ["1099", "broker", "activity", "statement"], kern = true, warum = "Ausländische Depots schicken keine deutsche Steuerbescheinigung. Die Jahresübersicht ist dann der einzige Beleg.", name = "Jahresübersicht des Depots", hinweis = "Eine deutsche Steuerbescheinigung gibt es hier nicht." },
   { key = "dividenden", name = "Dividenden-Liste", hinweis = "Alle Ausschüttungen des Jahres." },
   { key = "quellensteuer", name = "Einbehaltene Quellensteuer", hinweis = "Steht oft in der Jahresübersicht. Sie wird in der Anlage KAP angerechnet, nicht in der Anlage AUS." },
   { key = "fonds", name = "ETF- und Fonds-Bestand", hinweis = "Für die Vorabpauschale (Anlage KAP-INV): Wert jedes Fonds am 1.1. und am 31.12. und alle Ausschüttungen. Nur wenn du ETFs oder Fonds im Depot hast." },
@@ -277,10 +277,10 @@ anlage = "Anlagen Vorsorgeaufwand, AV, Sonderausgaben, Haushaltsnahe Aufwendunge
 woerter = ["krankenversicherung", "rentenversicherung", "spende", "spenden", "spendenquittung", "zuwendungsbestätigung", "haushalt", "versicherung", "altersvorsorge", "riester", "rürup", "pflege", "krankheit", "steuerberatung", "ksk", "künstlersozialkasse"]
 stuecke = [
   { key = "ksk", name = "Beitragsbescheinigung der Künstlersozialkasse", hinweis = "Jahresbescheinigung der KSK. Dein Anteil zählt wie gesetzliche Renten- und Krankenversicherung.", art = "bonus", wenn = "ksk" },
-  { key = "krankenversicherung", name = "Kranken- und Pflegeversicherung", hinweis = "Jahresbescheinigung der Kasse.", art = "bonus", wenn = "vorsorge" },
+  { key = "krankenversicherung", woerter = ["krankenkasse", "aok", "barmer"], name = "Kranken- und Pflegeversicherung", hinweis = "Jahresbescheinigung der Kasse.", art = "bonus", wenn = "vorsorge" },
   { key = "altersvorsorge", name = "Altersvorsorge", hinweis = "Rürup, private Rentenversicherung. Für Riester die Bescheinigung des Anbieters (Anlage AV).", art = "bonus", wenn = "vorsorge" },
   { key = "versicherungen", name = "Weitere Versicherungen", hinweis = "Haftpflicht, Berufsunfähigkeit, Unfall.", art = "bonus", wenn = "vorsorge" },
-  { key = "spenden", name = "Spenden und Mitgliedsbeiträge", hinweis = "Bis 300 € reicht oft der Kontoauszug.", art = "bonus", wenn = "spenden" },
+  { key = "spenden", woerter = ["zuwendungsbestätigung", "spendenquittung", "spende"], name = "Spenden und Mitgliedsbeiträge", hinweis = "Bis 300 € reicht oft der Kontoauszug.", art = "bonus", wenn = "spenden" },
   { key = "haushalt", name = "Handwerker und Hilfe im Haushalt", hinweis = "Rechnung muss überwiesen worden sein.", art = "bonus", wenn = "haushalt" },
   { key = "sanierung", name = "Energetische Sanierung", hinweis = "Am selbst bewohnten Haus, mit Bescheinigung des Fachbetriebs.", art = "bonus", wenn = "sanierung" },
   { key = "krankheit", name = "Krankheitskosten", hinweis = "Zuzahlungen, Brille, Zahnersatz, Therapie.", art = "bonus", wenn = "krankheit" },

@@ -92,7 +92,13 @@ main:has(.sq-tisch) > .flash { max-width: 760px; margin: 0.8rem auto; position: 
 .sq-zettel.zieht > summary { opacity: .4; }
 .sq-zettel .art { grid-row: span 2; font: 700 0.65rem/1 var(--schrift); color: var(--papier); background: var(--terrakotta); padding: 0.3rem 0.25rem; border-radius: 2px; }
 .sq-zettel .art.bild { background: var(--moos-dunkel); }
-.sq-zettel strong { font-size: 0.82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sq-zettel strong { font-size: 0.82rem; overflow: hidden; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.sq-zettel-reihe { display: flex; flex-direction: column; align-items: stretch; }
+.sq-ahnung { align-self: flex-end; margin: -4px 6px 0 0; position: relative; z-index: 1; }
+.sq-ahnung button { font: 600 0.75rem/1 system-ui, sans-serif; padding: 0.35rem 0.6rem; min-height: 32px; border-radius: 3px; border: 1.5px solid var(--moos-dunkel); background: #eef3e2; color: var(--moos-dunkel); cursor: pointer; box-shadow: 0 2px 4px rgba(25, 12, 3, .25); }
+.sq-ahnung button:hover { background: var(--moos-dunkel); color: var(--papier); }
+.sq-spuernase { margin: 0 0 0.6rem; }
+.sq-spuernase button { width: 100%; }
 .sq-zettel small { color: #8a7a5c; font-size: 0.72rem; }
 .sq-zettel form { background: var(--papier); margin-top: 2px; padding: 0.6rem; display: flex; flex-direction: column; gap: 0.4rem; box-shadow: 0 6px 12px rgba(25, 12, 3, .3); }
 .sq-zettel select { width: 100%; }
@@ -650,6 +656,9 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
 .sq-meldung.warn, .sq-meldung.fehler { border-left-color: var(--wachs); }
 .sq-meldung.beute, .sq-meldung.treffer { border-left-color: var(--gold); }
 .sq-meldung.weg { animation: sq-zettel-raus .4s ease-in forwards; }
+.sq-meldung.wartet { display: none; }
+.sq-meldung[data-mehr] { position: relative; }
+.sq-meldung[data-mehr]::after { content: attr(data-mehr); position: absolute; top: -8px; left: -8px; font: 700 0.7rem/1 system-ui, sans-serif; background: var(--terrakotta); color: var(--papier); border-radius: 999px; padding: 0.2rem 0.4rem; }
 .sq-weg { position: absolute; right: 0.3rem; top: 0.2rem; border: 0; background: none; font-size: 1.2rem; color: #8a7a5c; cursor: pointer; }
 @keyframes sq-zettel-rein { from { opacity: 0; transform: translateX(40px) rotate(3deg); } }
 @keyframes sq-zettel-raus { to { opacity: 0; transform: translateX(40px) rotate(3deg); } }
@@ -1364,3 +1373,13 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
 .sq-gebietname { margin: 0.4rem 0 0.8rem; padding: 0.5rem 0.7rem; font-size: 0.88rem; background: var(--papier, #fbf3df); color: var(--tinte); border-radius: 4px; box-shadow: 0 3px 8px rgba(20, 10, 2, .3); }
 .sq-gebietname label { display: block; }
 .sq-gebietname input { width: 100%; max-width: 16rem; margin-top: 0.2rem; }
+
+/* Schnellschläge im Drachenkampf: mehrere Karten einer Provinz auf einen Blick */
+.sq-schnell { margin: 1rem auto 0; max-width: 640px; padding: 0.9rem 1rem; text-align: left; }
+.sq-schnell h2 { font: 700 1rem/1.2 var(--schrift); margin: 0 0 0.2rem; }
+.sq-schnell > p { margin: 0 0 0.5rem; font-size: 0.82rem; }
+.sq-schnell ul { list-style: none; margin: 0; padding: 0; }
+.sq-schnell li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.3rem 0.8rem; padding: 0.45rem 0; border-top: 1px dashed #d8c9a6; }
+.sq-schnell .name { font-weight: 600; font-size: 0.9rem; }
+.sq-schnell .reihe { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0; }
+.sq-schnell button { min-height: 36px; font-size: 0.8rem; }
