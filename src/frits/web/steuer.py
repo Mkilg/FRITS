@@ -246,6 +246,7 @@ def register_steuer(
             "drache": drache,
             "drache_wach": spiel.drache_wach(alle) or jahr in app.state.steuer_notausgang,
             "auftrag": spiel.auftrag(jahr, staende, drache, zettel, alle),
+            "tagwerk": spiel.tagwerk(alle, date.today()),
             "burg_fehlt": not any(g.provinz.key == "burg" for g in gebiete),
             "jahre": quest_jahre(),
             "vergleich": vergleich,
@@ -263,6 +264,11 @@ def register_steuer(
                 text = f"Gold-Siegel! {p.gebiet.titel} ist komplett."
                 quest.notiere(c, jahr, "siegel", text)
                 flash(text, "siegel", cue="done")
+        heute, ziel = nachher["tagwerk"]
+        if vorher["tagwerk"][0] < ziel <= heute:
+            text = f"{ziel} Karten heute. Mehr muss heute nicht sein, der Rest wartet bis morgen."
+            quest.notiere(c, jahr, "tagwerk", "Tagwerk geschafft")
+            flash(text, "tagwerk", cue="done")
         if nachher["zeitalter"][0] > vorher["zeitalter"][0]:
             text = f"Aufstieg ins {nachher['zeitalter'][1]}!"
             quest.notiere(c, jahr, "zeitalter", text)

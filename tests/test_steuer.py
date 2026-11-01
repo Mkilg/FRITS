@@ -836,3 +836,18 @@ def test_beraterin_steht_nicht_mehr_im_ersten_teil(client, ws):
     # Kaputtes Datum wird nicht gespeichert
     post(client, "/steuer/2025/beraterin/daten", beraterin_termin="morgen")
     assert Profil.load(quest.profil_datei(ws.root, 2025)).beraterin_termin == ""
+
+
+def test_tagwerk_feiert_drei_karten_am_tag(client, ws):
+    fragebogen(client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1"})
+    conn = store.connect(ws.db)
+    karte = client.get("/steuer/2025").text
+    assert "Tagwerk heute" in karte and "0/3" in karte
+    offen = [s for s in quest.stuecke(conn, 2025) if s["status"] == "offen"]
+    seite = None
+    for s in offen[:3]:
+        seite = post(client, f"/steuer/2025/stueck/{s['id']}/status", status="fragen")
+    assert "Tagwerk geschafft!" in seite.text and "Für heute Schluss" in seite.text
+    assert "Tagwerk geschafft" in client.get("/steuer/2025").text
+    heute, ziel = spiel.tagwerk(quest.stuecke(conn, 2025), date.today())
+    assert heute == 3 and ziel == 3

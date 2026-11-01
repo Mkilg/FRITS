@@ -572,7 +572,7 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
 /* ---------- Der Auftrag (immer ein klarer nächster Schritt) ---------- */
 .sq-auftrag {
   max-width: 920px; margin: -0.4rem auto 0.8rem; position: relative; z-index: 6;
-  display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 0.6rem 1.1rem; align-items: center;
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto auto; gap: 0.6rem 1.1rem; align-items: center;
   padding: 0.75rem 1.1rem 0.75rem 0.9rem; border-radius: 3px; color: var(--tinte);
   background: linear-gradient(175deg, #fffaf0, var(--creme)); border: 1px solid #d9c18a;
   box-shadow: 0 0 0 4px rgba(233, 189, 79, .35), 0 12px 24px rgba(20, 8, 2, .45);
@@ -870,3 +870,32 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
 .sq-beraterin-karte h2 { margin: 0; font-size: 1.1rem; }
 .sq-beraterin-karte .quiet { justify-self: start; }
 @media (prefers-reduced-motion: reduce) { .sq-felder.stapel-an .sq-frage { transition: none; } }
+
+/* Die Insel zeigt ihr Zeitalter: Chaos (Papierwirbel, blass), Ordnung (klar), Goldenes Zeitalter (Glanz) */
+.sq-insel.zeitalter-0 .sq-insel-gras { filter: saturate(.72) sepia(.12); }
+.sq-insel.mit-bild.zeitalter-0 .sq-insel-gras { filter: drop-shadow(0 30px 30px rgba(20, 8, 2, .45)) saturate(.72) sepia(.12); }
+.sq-insel.zeitalter-2 .sq-insel-gras { filter: saturate(1.15) brightness(1.05); }
+.sq-insel.mit-bild.zeitalter-2 .sq-insel-gras { filter: drop-shadow(0 0 36px rgba(255, 200, 80, .55)) drop-shadow(0 30px 30px rgba(20, 8, 2, .4)) saturate(1.15) brightness(1.05); }
+.sq-wirbel { position: absolute; left: 50%; top: 45%; width: 22px; height: 28px; background: var(--creme); border-radius: 2px; box-shadow: 0 3px 6px rgba(0,0,0,.25);
+  z-index: 3; pointer-events: none; opacity: .85;
+  animation: sq-wirbel 18s linear infinite; animation-delay: calc(var(--i) * -2.25s); }
+.sq-wirbel::after { content: ""; position: absolute; inset: 6px 4px auto; height: 2px; background: #c9b88e; box-shadow: 0 5px 0 #c9b88e, 0 10px 0 #c9b88e; }
+@keyframes sq-wirbel {
+  0% { transform: rotate(0deg) translateX(46%) translateX(240px) rotate(0deg) scale(.8); }
+  100% { transform: rotate(360deg) translateX(46%) translateX(240px) rotate(-720deg) scale(.8); }
+}
+.sq-funkeln { position: absolute; z-index: 3; pointer-events: none; width: 10px; height: 10px;
+  left: var(--x); top: var(--y);
+  background: radial-gradient(circle, #fff7d0 0 30%, rgba(255, 210, 90, .8) 40%, transparent 70%);
+  animation: sq-funkeln 2.6s ease-in-out infinite; animation-delay: calc(var(--i) * .31s); }
+@keyframes sq-funkeln { 0%, 100% { transform: scale(.2); opacity: 0; } 50% { transform: scale(1.4); opacity: 1; } }
+@media (max-width: 1100px) { .sq-wirbel, .sq-funkeln { display: none; } }
+
+/* Tagwerk: drei Karten am Tag reichen */
+.sq-tagwerk { display: flex; flex-direction: column; align-items: center; gap: 0.2rem; margin: 0; font: 600 0.72rem system-ui, sans-serif; color: var(--tinte); text-align: center; }
+.sq-tagwerk-ring { --anteil: 0; width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center;
+  background: conic-gradient(var(--moos) calc(var(--anteil) * 360deg), #e3d6b4 0); }
+.sq-tagwerk-ring b { width: 36px; height: 36px; border-radius: 50%; background: var(--papier); display: grid; place-items: center; font: 700 0.8rem var(--schrift); }
+.sq-tagwerk.geschafft .sq-tagwerk-ring { background: var(--moos); box-shadow: 0 0 0 3px rgba(110, 140, 60, .25); }
+.sq-tagwerk.geschafft .sq-tagwerk-ring b { color: var(--moos-dunkel); }
+@media (max-width: 900px) { .sq-tagwerk { grid-column: 1 / -1; flex-direction: row; justify-self: start; } }

@@ -372,8 +372,9 @@ def create_app(
     async def friendly_error(request: Request, exc: StarletteHTTPException):
         """Plain words instead of {"detail": "Not Found"}."""
         if exc.status_code == 404:
-            titel, text = "Diese Seite gibt es nicht", (
-                "Vielleicht ist sie umgezogen, oder der Link war nicht ganz vollständig."
+            titel, text = (
+                "Diese Seite gibt es nicht",
+                ("Vielleicht ist sie umgezogen, oder der Link war nicht ganz vollständig."),
             )
         elif exc.status_code == 403:
             titel, text = "Das hat nicht geklappt", str(exc.detail)

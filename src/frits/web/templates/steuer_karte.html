@@ -55,9 +55,11 @@
   {# Mitte: die schwebende Insel #}
   <section class="sq-meer" aria-label="Deine Insel">
     {% set n = provinzen | length %}
-    <div class="sq-insel{% if insel_bild %} mit-bild{% endif %}" style="--hoehe: {{ 430 + [0, n - 6] | max * 22 }}px; --massstab: {{ 1 if n <= 8 else (0.82 if n <= 13 else 0.7) }}{% if insel_bild %}; --insel-bild: url({{ insel_bild }}){% endif %}">
+    <div class="sq-insel zeitalter-{{ zeitalter[0] }}{% if insel_bild %} mit-bild{% endif %}" style="--hoehe: {{ 430 + [0, n - 6] | max * 22 }}px; --massstab: {{ 1 if n <= 8 else (0.82 if n <= 13 else 0.7) }}{% if insel_bild %}; --insel-bild: url({{ insel_bild }}){% endif %}">
       <div class="sq-insel-fels"></div>
       <div class="sq-insel-gras"></div>
+      {% if zeitalter[0] == 0 %}{% for i in range(8) %}<span class="sq-wirbel" style="--i: {{ i }}" aria-hidden="true"></span>{% endfor %}
+      {% elif zeitalter[0] == 2 %}{% for x, y in [(14, 30), (24, 52), (33, 22), (42, 60), (51, 34), (60, 18), (68, 55), (77, 28), (85, 46), (47, 12)] %}<span class="sq-funkeln" style="--i: {{ loop.index0 }}; --x: {{ x }}%; --y: {{ y }}%" aria-hidden="true"></span>{% endfor %}{% endif %}
       <div class="sq-provinzen">
         {% for p in provinzen %}{% set lage = plan[loop.index0] %}{% include "_steuer_parzelle.html" %}{% endfor %}
         {% if burg_fehlt %}{% set lage = plan[provinzen | length] %}

@@ -12,6 +12,7 @@ keine verlorenen Punkte und immer einen Notausgang.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date
 
 from frits.steuer.katalog import Gebiet
 
@@ -362,3 +363,17 @@ def auftrag(
         erledigt=ziel.stand.erledigt,
         gesamt=ziel.stand.gesamt,
     )
+
+
+# ---------- Tagwerk: ein kleines, festes Tagesziel (Slow Productivity statt Marathon) ----------
+
+TAGWERK = 3
+
+
+def tagwerk(stuecke: list[dict], heute: date, ziel: int = TAGWERK) -> tuple[int, int]:
+    """(heute erledigte Karten, Tagesziel). Erledigt heißt: nicht mehr im Nebel."""
+    tag = heute.isoformat()
+    n = sum(
+        1 for s in stuecke if s["status"] != "offen" and str(s.get("geaendert") or "")[:10] == tag
+    )
+    return n, ziel
