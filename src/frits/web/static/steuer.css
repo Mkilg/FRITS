@@ -834,3 +834,14 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
   .sq-insel.mit-bild .sq-insel-gras { background: linear-gradient(rgba(40, 60, 20, .25), rgba(40, 60, 20, .25)), var(--insel-bild) center / cover; border-radius: 28px; filter: none; box-shadow: 0 20px 30px rgba(20, 8, 2, .4); }
   .sq-insel.mit-bild .sq-provinzen { position: relative; left: auto; right: auto; top: auto; bottom: auto; }
 }
+
+/* Ablagefach im Eingangskorb: Dateien direkt aus dem Finder hineinziehen */
+.sq-ablagefach { position: relative; display: flex; align-items: center; gap: 0.7rem; padding: 0.7rem 0.9rem; border: 2px dashed rgba(246, 236, 210, .55); border-radius: 8px;
+  background: rgba(30, 14, 4, .35); color: var(--creme); cursor: pointer; transition: background .15s, border-color .15s, transform .15s; }
+.sq-ablagefach::before { content: "⇣"; font-size: 1.5rem; line-height: 1; color: var(--gold); }
+.sq-ablagefach span { font-size: 0.85rem; line-height: 1.3; text-shadow: 0 1px 2px rgba(0,0,0,.9); }
+.sq-ablagefach strong { display: block; font-family: var(--schrift); font-size: 0.95rem; }
+.sq-ablagefach input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+.sq-ablagefach:hover, .sq-ablagefach.over { border-color: var(--gold); background: rgba(212, 160, 23, .22); transform: scale(1.02); }
+.sq-ablagefach:focus-within { outline: 3px solid var(--gold); outline-offset: 3px; }
+.sq-korb-ablage { margin: 0.4rem 0; }

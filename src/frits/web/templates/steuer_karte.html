@@ -11,7 +11,7 @@
 
 <div class="sq-flaeche">
   {# Links: Eingangskorb und Dinge auf dem Tisch #}
-  <aside class="sq-rand sq-korb" id="sq-korb" aria-label="Eingangskorb">
+  <aside class="sq-rand sq-korb" id="sq-korb" aria-label="Eingangskorb" data-lager="{{ lager | length }}" data-lager-url="/steuer/{{ jahr }}/lager/anzahl">
     <div>
       <h2 class="sq-rand-titel">Eingangskorb</h2>
       {% if lager %}
@@ -19,7 +19,7 @@
       {% set zurueck = "/steuer/" ~ jahr %}
       {% include "_steuer_zettel.html" %}
       {% else %}
-      <p class="sq-leer">Leer. Leg Fotos, PDFs und Mails in deinen Lager-Ordner, dann tauchen sie hier als Zettel auf.</p>
+      <p class="sq-leer">Leer. Zieh Fotos, PDFs und Mails hier unten aufs Ablagefach oder leg sie in deinen Lager-Ordner. Dann tauchen sie als Zettel auf.</p>
       {% endif %}
     </div>
     {% if not ernte.leer %}
@@ -43,6 +43,13 @@
       {% endif %}
     </form>
     {% endif %}
+    <form method="post" action="/steuer/{{ jahr }}/lager/hochladen" enctype="multipart/form-data" class="sq-korb-ablage">
+      <input type="hidden" name="token" value="{{ token }}">
+      <label class="sq-ablagefach" data-dropzone>
+        <input type="file" name="datei" multiple data-autosubmit>
+        <span><strong>Hier ablegen</strong>Dateien hierher ziehen oder <u>auswählen</u></span>
+      </label>
+    </form>
     <form method="post" action="/steuer/{{ jahr }}/lager/oeffnen">
       <input type="hidden" name="token" value="{{ token }}">
       <button class="sq-ding"><span class="sq-ding-bild kiste"></span><span><strong>Lager-Ordner</strong>öffnen und Dateien hineinlegen</span></button>

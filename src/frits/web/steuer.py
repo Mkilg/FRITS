@@ -22,6 +22,7 @@ from frits.steuer import beraterin, ernte, quest, spiel, truhe
 from frits.steuer.katalog import FAMILIENSTAND, HAKEN, Profil, fragen, gebiet, ist_kern, reich
 
 AKTIONEN = {"gibts_nicht", "fragen", "offen"}
+MAX_LAGER = 30 * 1024 * 1024  # wie beim Eingang von FRITS
 
 BILDER = resources.files("frits.web") / "static" / "steuer"
 
@@ -139,8 +140,12 @@ def fritte_tipp(daten: dict, lager: list) -> tuple[str, str]:
         return "done", "Der Drache ist besiegt! Die Schatztruhe wartet auf dich."
     if lager:
         n = len(lager)
-        zettel = "ein Zettel" if n == 1 else f"{n} Zettel"
-        return "welcome", f"Im Eingangskorb liegen {zettel}. Zieh sie auf die Insel, ich stempel."
+        if n == 1:
+            return (
+                "welcome",
+                "Im Eingangskorb liegt ein Zettel. Zieh ihn auf die Insel, ich stempel.",
+            )
+        return "welcome", f"Im Eingangskorb liegen {n} Zettel. Zieh sie auf die Insel, ich stempel."
     fehlt_vorjahr = [v for v in daten["vergleich"] if v["jetzt"] == "offen"]
     if fehlt_vorjahr:
         name = fehlt_vorjahr[0]["name"]
@@ -539,6 +544,46 @@ def register_steuer(
         quest.entferne_datei(conn(), datei_id)
         flash("Die Datei liegt wieder im Lager. Nichts ist verloren.")
         return back(str(form.get("back") or f"/steuer/{jahr}"))
+
+    @app.post("/steuer/{jahr}/lager/hochladen", dependencies=guarded)
+    async def lager_hochladen(request: Request, jahr: int):
+        """Dateien, die auf den Eingangskorb fallen, landen im Lager wie im Finder hineingelegt."""
+        form = await request.form()
+        ablage = quest.lager(ws.root)
+        ablage.mkdir(parents=True, exist_ok=True)
+        gelegt, zu_gross = [], []
+        for upload in form.getlist("datei"):
+            name = Path(str(getattr(upload, "filename", "") or "").replace("\\", "/")).name.strip()
+            if not name or name.startswith("."):
+                continue
+            daten = await upload.read(MAX_LAGER + 1)
+            if len(daten) > MAX_LAGER:
+                zu_gross.append(name)
+                continue
+            ziel, n = ablage / name, 1
+            while ziel.exists():
+                ziel = ablage / f"{Path(name).stem} ({n}){Path(name).suffix}"
+                n += 1
+            ziel.write_bytes(daten)
+            gelegt.append(ziel.name)
+        if gelegt:
+            n = len(gelegt)
+            flash(
+                f"{n} neue{'r' if n == 1 else ''} Zettel im Eingangskorb. Zieh {'ihn' if n == 1 else 'sie'} auf eine Provinz.",
+                "beute",
+            )
+        for name in zu_gross:
+            flash(
+                f"{name} ist größer als 30 MB. Leg sie lieber direkt in den Lager-Ordner.", "error"
+            )
+        if not gelegt and not zu_gross:
+            flash("Es wurde keine Datei mitgeschickt.", "error")
+        return back(f"/steuer/{jahr}#sq-korb")
+
+    @app.get("/steuer/{jahr}/lager/anzahl")
+    def lager_anzahl(jahr: int):
+        """Wie viele Zettel im Lager liegen. Die Karte fragt das, wenn du aus dem Finder zurückkommst."""
+        return {"anzahl": len(quest.lager_dateien(ws.root))}
 
     @app.post("/steuer/{jahr}/lager/oeffnen", dependencies=guarded)
     def lager_oeffnen(jahr: int):

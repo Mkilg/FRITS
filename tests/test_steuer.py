@@ -789,3 +789,19 @@ def test_neuer_katalogtext_kommt_auch_in_alte_quests(conn):
     quest.start(conn, MARIE)
     hinweise = {s["hinweis"] for s in quest.stuecke(conn, MARIE.jahr, "rathaus")}
     assert "alt" not in hinweise
+
+
+def test_dateien_lassen_sich_auf_den_eingangskorb_ziehen(client, ws):
+    fragebogen(client, teil1={"name": "Marie"})
+    karte = client.get("/steuer/2025").text
+    assert "/steuer/2025/lager/hochladen" in karte and "data-dropzone" in karte
+    assert client.get("/steuer/2025/lager/anzahl").json() == {"anzahl": 0}
+    dateien = [("datei", ("bescheid.pdf", b"%PDF-1", "application/pdf"))] * 2
+    seite = post(client, "/steuer/2025/lager/hochladen", files=dateien)
+    assert "2 neue Zettel im Eingangskorb" in seite.text
+    namen = sorted(p.name for p in quest.lager_dateien(ws.root))
+    assert namen == ["bescheid (1).pdf", "bescheid.pdf"]
+    assert client.get("/steuer/2025/lager/anzahl").json() == {"anzahl": 2}
+    # Ein Pfad im Namen wird nie ein Pfad auf der Platte
+    post(client, "/steuer/2025/lager/hochladen", files=[("datei", ("../../boese.txt", b"x"))])
+    assert (quest.lager(ws.root) / "boese.txt").is_file()

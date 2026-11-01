@@ -447,3 +447,21 @@
     }, 5000);
   });
 })();
+
+// Zurück aus dem Finder: Liegen neue Dateien im Lager, holt die Karte sie als Zettel in den Korb
+(function () {
+  var korb = document.querySelector("[data-lager-url]");
+  if (!korb) return;
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState !== "visible") return;
+    fetch(korb.dataset.lagerUrl, { credentials: "same-origin" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (d && String(d.anzahl) !== korb.dataset.lager && !document.querySelector("dialog[open]")) {
+          location.hash = "sq-korb";
+          location.reload();
+        }
+      })
+      .catch(function () {});
+  });
+})();
