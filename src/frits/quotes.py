@@ -6,7 +6,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 from frits import store
-from frits.billing import BillingError, Draft, _slug, new_draft, totals
+from frits.billing import BillingError, Draft, _slug, draft_totals, new_draft
 from frits.settings import Settings
 
 VALID_DAYS = 30
@@ -47,7 +47,7 @@ def create_quote(conn, draft: Draft, settings: Settings, folder: Path, today: da
                 str(pdf),
             ),
         )
-        render_quote(pdf, number, draft, totals(draft.lines, settings), settings, today, valid)
+        render_quote(pdf, number, draft, draft_totals(draft, settings), settings, today, valid)
     return number, pdf
 
 

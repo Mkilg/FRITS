@@ -27,16 +27,21 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from jinja2 import Environment, PackageLoader, select_autoescape
 from markupsafe import Markup
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from frits import __version__, about, emails, euer, expenses, haustier, setup, store, system
 from frits.billing import (
+    CUSTOMER_TAX,
     DEFAULT_PATTERN,
+    VAT_RATES,
     BillingError,
     Draft,
     approve,
     blockers,
     cancel,
     discard_draft,
+    draft_totals,
+    limit_check,
     list_invoices,
     load_draft,
     mark_paid,
@@ -47,7 +52,6 @@ from frits.billing import (
     save_draft,
     service_period,
     set_customer,
-    totals,
     unit_price,
     valid_pattern,
 )
@@ -232,6 +236,7 @@ def _templates() -> Jinja2Templates:
     env.globals.update(
         mascot=mascot_markup,
         units=UNITS,
+        customer_tax=CUSTOMER_TAX,
         providers=PROVIDERS,
         supported=",".join(sorted(SUPPORTED)),
     )
@@ -263,6 +268,7 @@ def create_app(
     app = FastAPI(title="FRITS", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
     app.state.token = secrets.token_urlsafe(32)
     app.state.flashes = []
+    app.state.undo = None  # the last step that can still be taken back
     app.state.nlp = None
     app.state.tab_waiting = False  # a "FRITS ist aus" tab is waiting to come back
     app.state.files = ExitStack()
@@ -304,10 +310,20 @@ def create_app(
         return next((c for c in customers() if value in (c.id, c.display_name, c.name)), None)
 
     def flash(
-        text: str, kind: str = "ok", cue: str | None = None, stamp: str | None = None
+        text: str,
+        kind: str = "ok",
+        cue: str | None = None,
+        stamp: str | None = None,
+        undo: dict | None = None,
     ) -> None:
-        """A short note on the next page. `stamp` puts an ink stamp on it, e.g. "Bezahlt"."""
-        app.state.flashes.append({"text": text, "kind": kind, "cue": cue, "stamp": stamp})
+        """A short note on the next page. `stamp` puts an ink stamp on it, e.g. "Bezahlt".
+        `undo` remembers how to take the step back and puts a "Rückgängig" button on the note:
+        undo beats "Are you sure?" (people click OK by habit; a way back always works)."""
+        if undo:
+            app.state.undo = undo
+        app.state.flashes.append(
+            {"text": text, "kind": kind, "cue": cue, "stamp": stamp, "undo": bool(undo)}
+        )
 
     def page(request: Request, name: str, **context) -> HTMLResponse:
         current = settings()
@@ -351,6 +367,21 @@ def create_app(
         if host not in ("127.0.0.1", "localhost", "testserver"):
             return HTMLResponse("FRITS antwortet nur auf diesem Computer.", status_code=403)
         return await call_next(request)
+
+    @app.exception_handler(StarletteHTTPException)
+    async def friendly_error(request: Request, exc: StarletteHTTPException):
+        """Plain words instead of {"detail": "Not Found"}."""
+        if exc.status_code == 404:
+            titel, text = "Diese Seite gibt es nicht", (
+                "Vielleicht ist sie umgezogen, oder der Link war nicht ganz vollständig."
+            )
+        elif exc.status_code == 403:
+            titel, text = "Das hat nicht geklappt", str(exc.detail)
+        else:
+            titel, text = "Das hat nicht geklappt", "Versuch es gleich noch einmal."
+        response = page(request, "fehler.html", titel=titel, text=text)
+        response.status_code = exc.status_code
+        return response
 
     async def check_token(request: Request) -> None:
         form = await request.form()
@@ -542,14 +573,24 @@ def create_app(
                     original = extract_text(source).text
                 except IngestError:
                     original = None
+        problems, limit_warnings = [], []
+        if row["status"] == "draft":
+            problems = blockers(draft, current)
+            if draft.kind != "quote":
+                extra, limit_warnings = limit_check(
+                    conn, current, today().year, draft_totals(draft, current).net
+                )
+                problems += extra
         return page(
             request,
             "draft.html",
             draft=draft,
             row=row,
-            sums=totals(draft.lines, current, draft.tax),
+            sums=draft_totals(draft, current),
             period=service_period(draft.lines),
-            problems=blockers(draft, current) if row["status"] == "draft" else [],
+            problems=problems,
+            limit_warnings=limit_warnings,
+            vat_rates=VAT_RATES,
             customers=customers(),
             original=original,
             sent_text=job["sent_text"] if job else None,
@@ -601,7 +642,10 @@ def create_app(
     def draft_discard(draft_id: int):
         try:
             discard_draft(db(), draft_id)
-            flash("Entwurf verworfen. Es wurde keine Nummer verbraucht.")
+            flash(
+                "Entwurf verworfen. Es wurde keine Nummer verbraucht.",
+                undo={"kind": "draft", "id": draft_id},
+            )
         except BillingError as exc:
             flash(str(exc), "error")
         return back("/drafts")
@@ -700,7 +744,7 @@ def create_app(
         current = settings()
         quotes = list_quotes(db())
         for quote in quotes:
-            quote["gross"] = totals(quote["draft"].lines, current).gross
+            quote["gross"] = draft_totals(quote["draft"], current).gross
         return page(request, "quotes.html", quotes=quotes, customers=customers())
 
     @app.get("/quotes/{number}/pdf")
@@ -738,7 +782,7 @@ def create_app(
         current = settings()
         customer = customer_by(row["customer_id"])
         subject, body = emails.quote_email(
-            dict(row), totals(draft.lines, current).gross, customer, current
+            dict(row), draft_totals(draft, current).gross, customer, current
         )
         result = system.compose_email(
             customer.email if customer and customer.email else "",
@@ -845,6 +889,10 @@ def create_app(
             phone=str(form.get("phone", "")).strip() or None,
             hourly_rate=rate,
             aliases=tuple(a.strip() for a in str(form.get("aliases", "")).split(",") if a.strip()),
+            umsatzsteuer=where
+            if (where := str(form.get("umsatzsteuer", ""))) in CUSTOMER_TAX
+            else "",
+            ust_id=str(form.get("ust_id", "")).replace(" ", "").upper() or None,
         )
         save_note(ws.customers, customer)
         flash(f"{customer.display_name} ist gespeichert.")
@@ -1050,9 +1098,32 @@ def create_app(
 
     @app.post("/expenses/{expense_id}/delete", dependencies=guarded)
     def expense_delete(expense_id: int):
-        if expenses.delete_expense(ws.db, expense_id):
-            flash("Ausgabe gelöscht.")
-        return back("/expenses")
+        gone = next((e for e in expenses.list_expenses(ws.db) if e.id == expense_id), None)
+        if gone and expenses.delete_expense(ws.db, expense_id):
+            flash(
+                f"Ausgabe gelöscht: {eur(gone.gross)} bei {gone.vendor}.",
+                undo={"kind": "expense", "expense": replace(gone, id=None)},
+            )
+        return back(f"/expenses?year={gone.date.year}" if gone else "/expenses")
+
+    @app.post("/rueckgaengig", dependencies=guarded)
+    def undo_last():
+        """Take the last step back (a deleted expense, a discarded draft)."""
+        last, app.state.undo = app.state.undo, None
+        if last and last["kind"] == "expense":
+            expense = last["expense"]
+            expenses.add_expense(ws.db, expense)
+            flash(f"Wieder da: {eur(expense.gross)} bei {expense.vendor}.")
+            return back(f"/expenses?year={expense.date.year}")
+        if last and last["kind"] == "draft":
+            db().execute(
+                "UPDATE drafts SET status = 'draft' WHERE id = ? AND status = 'discarded'",
+                (last["id"],),
+            )
+            flash("Der Entwurf ist wieder da.")
+            return back(f"/drafts/{last['id']}")
+        flash("Da gibt es nichts mehr rückgängig zu machen.")
+        return back("/")
 
     @app.post("/receipts/{job_id}/ignore", dependencies=guarded)
     def receipt_ignore(job_id: int):
@@ -1113,6 +1184,7 @@ def create_app(
             "billing_links": setup.BILLING_LINKS,
             "inbox": ws.inbox,
             "sample": setup.sample_note(current),
+            "learning": step in setup.LEARNING_STEPS,
         }
         if step == "trick_document" and "demo" not in extra:
             try:  # no AI involved: show the result right away
@@ -1199,6 +1271,8 @@ def create_app(
                 flash(str(exc), "error")
                 return back(f"/setup/{step}")
             return setup_page(request, step, demo=demo)
+        if action == "skip_learning":
+            return back("/setup/first_invoice")
         if action == "sample":
             (ws.inbox / "beispiel-notiz.txt").write_text(setup.FIRST_NOTE, encoding="utf-8")
             flash("Die Beispielnotiz liegt im Eingang. Auf „Heute“ kannst du sie lesen lassen.")
@@ -1207,6 +1281,13 @@ def create_app(
             flash("Alles eingerichtet. Schön, dass du da bist.", cue="done")
             return back("/")
         return back(f"/setup/{following}")
+
+    @app.post("/setup-spaeter", dependencies=guarded)
+    def setup_later():
+        """Leave the setup for now. Heute then shows what's still missing."""
+        replace(settings(), setup_done=True).save(ws.settings_file)
+        flash("Du kannst die Einrichtung jederzeit in den Einstellungen fortsetzen.")
+        return back("/")
 
     @app.post("/sound", dependencies=guarded)
     async def sound_toggle(request: Request):
@@ -1475,7 +1556,7 @@ def _open_drafts(conn, current: Settings) -> list[dict]:
                 "id": row["id"],
                 "created": row["created"],
                 "draft": draft,
-                "sums": totals(draft.lines, current),
+                "sums": draft_totals(draft, current),
                 "ready": not blockers(draft, current),
             }
         )
@@ -1514,7 +1595,9 @@ def _apply_form(draft: Draft, form, customer_by, current: Settings) -> None:
         form.getlist("price"),
         strict=False,
     )
-    for description, when, quantity, unit, price in fields:
+    # The VAT column only shows with Regelbesteuerung; without it every line keeps the normal rate.
+    rates = [str(v) for v in form.getlist("vat")]
+    for index, (description, when, quantity, unit, price) in enumerate(fields):
         if not str(description).strip() and not str(quantity).strip():
             continue  # the empty row at the bottom
         amount = parse_amount(str(quantity))
@@ -1525,7 +1608,9 @@ def _apply_form(draft: Draft, form, customer_by, current: Settings) -> None:
         if given is None:  # an empty price field takes the price list's price, if one fits
             customer = customer_by(draft.customer_id) if draft.customer_id else None
             given = unit_price(unit, customer, current, str(description))
-        lines.append(reviewed_line(str(description), str(when), amount, unit, given))
+        chosen_rate = rates[index] if index < len(rates) else ""
+        rate = Decimal(chosen_rate) if chosen_rate in ("19", "7", "0") else None
+        lines.append(reviewed_line(str(description), str(when), amount, unit, given, rate))
     draft.lines = lines
     if form.get("questions_done") == "on":
         draft.questions = []

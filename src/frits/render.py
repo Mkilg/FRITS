@@ -10,7 +10,6 @@ from pathlib import Path
 from fpdf import FPDF
 
 from frits.billing import (
-    KLEINUNTERNEHMER_NOTE,
     SERVICE_DATE_FALLBACK,
     Draft,
     Totals,
@@ -198,6 +197,8 @@ def _document(
 ) -> Path:
     pdf = _start(settings, draft.customer_name, draft.customer_address)
     width = pdf.epw
+    if draft.customer_ust_id and draft.customer_tax in ("eu", "drittland"):
+        facts = [*facts, ("USt-IdNr. Kunde", draft.customer_ust_id)]
 
     pdf.set_font("DejaVu", "B", 16)
     pdf.cell(0, 9, title, new_x="LMARGIN", new_y="NEXT")
@@ -236,14 +237,21 @@ def _document(
         pdf.cell(cols[3], 7, eur(value), align="R", new_x="LMARGIN", new_y="NEXT")
 
     if sums.vat_rate is not None:
-        total_row("Nettobetrag", sums.net)
-        total_row(f"Umsatzsteuer {qty(sums.vat_rate)} %", sums.vat)
+        if len(sums.groups) > 1:  # several rates: net and VAT per rate (§ 14 Abs. 4 Nr. 7, 8)
+            for rate, part, _ in sums.groups:
+                total_row(f"Nettobetrag zu {qty(rate)} %", part)
+            for rate, _, vat in sums.groups:
+                total_row(f"Umsatzsteuer {qty(rate)} %", vat)
+        else:
+            rate = sums.groups[0][0] if sums.groups else sums.vat_rate
+            total_row("Nettobetrag", sums.net)
+            total_row(f"Umsatzsteuer {qty(rate)} %", sums.vat)
     total_row("Gesamtbetrag", sums.gross, bold=True)
     pdf.ln(6)
 
     pdf.set_font("DejaVu", size=10)
-    if sums.vat_rate is None:
-        pdf.multi_cell(0, 6, KLEINUNTERNEHMER_NOTE, new_x="LMARGIN", new_y="NEXT")
+    if sums.note:
+        pdf.multi_cell(0, 6, sums.note, new_x="LMARGIN", new_y="NEXT")
     for paragraph in closing:
         pdf.multi_cell(0, 6, paragraph, new_x="LMARGIN", new_y="NEXT")
     return _finish(pdf, path, settings)

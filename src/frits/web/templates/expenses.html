@@ -82,7 +82,7 @@
     <tr>
       <td>{{ e.date | de_date }}</td><td>{{ e.vendor }}</td><td>{{ e.description }}</td>
       <td>{{ categories[e.category].label }}</td><td class="amount">{{ e.gross | eur }}</td>
-      <td class="actions"><form method="post" action="/expenses/{{ e.id }}/delete" data-confirm="Diese Ausgabe löschen?"><input type="hidden" name="token" value="{{ token }}"><button class="tiny quiet danger">Löschen</button></form></td>
+      <td class="actions"><form method="post" action="/expenses/{{ e.id }}/delete"><input type="hidden" name="token" value="{{ token }}"><button class="tiny quiet danger">Löschen</button></form></td>
     </tr>
     {% endfor %}
     </tbody>

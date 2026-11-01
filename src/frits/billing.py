@@ -17,6 +17,24 @@ from frits.settings import Settings
 
 CENT = Decimal("0.01")
 KLEINUNTERNEHMER_NOTE = "Gemäß § 19 UStG wird keine Umsatzsteuer berechnet."
+REVERSE_CHARGE_NOTE = (
+    "Steuerschuldnerschaft des Leistungsempfängers (Reverse Charge): Die Umsatzsteuer "
+    "schuldet der Leistungsempfänger."
+)
+DRITTLAND_NOTE = (
+    "Nicht im Inland steuerbare Leistung: Der Leistungsort liegt beim Leistungsempfänger "
+    "im Ausland (§ 3a Abs. 2 UStG)."
+)
+VAT_RATES = (Decimal(19), Decimal(7), Decimal(0))
+# Where a customer sits, for VAT. "" is Germany.
+CUSTOMER_TAX = {
+    "": "In Deutschland",
+    "eu": "Firma in einem anderen EU-Land (Reverse Charge)",
+    "drittland": "Firma außerhalb der EU, z. B. in der Schweiz",
+}
+# § 19 UStG since 2025: last year's turnover at most 25,000 €, this year's at most 100,000 €.
+LIMIT_LAST_YEAR = Decimal(25_000)
+LIMIT_THIS_YEAR = Decimal(100_000)
 
 
 class BillingError(Exception):
@@ -32,6 +50,7 @@ class Line:
     unit_price: Decimal | None
     stated_price: Decimal | None = None
     flags: list[str] = field(default_factory=list)
+    vat_rate: Decimal | None = None  # None: the normal rate from the settings
 
     @property
     def net(self) -> Decimal | None:
@@ -53,6 +72,8 @@ class Draft:
     # How tax was worked out when this became an invoice, so a later Storno mirrors it exactly
     # even if Fritz changes his tax settings in between: {"mode": ..., "rate": "19"}.
     tax: dict | None = None
+    customer_tax: str = ""  # "", "eu" or "drittland", copied from the customer note
+    customer_ust_id: str | None = None
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), default=str, ensure_ascii=False)
@@ -62,8 +83,8 @@ class Draft:
         data = json.loads(raw)
         lines = []
         for line in data.pop("lines"):
-            for key in ("quantity", "unit_price", "stated_price"):
-                if line[key] is not None:
+            for key in ("quantity", "unit_price", "stated_price", "vat_rate"):
+                if line.get(key) is not None:
                     line[key] = Decimal(line[key])
             lines.append(Line(**line))
         return cls(lines=lines, **data)
@@ -74,7 +95,9 @@ class Totals:
     net: Decimal
     vat: Decimal
     gross: Decimal
-    vat_rate: Decimal | None
+    vat_rate: Decimal | None  # None: Kleinunternehmer, no VAT at all
+    groups: tuple[tuple[Decimal, Decimal, Decimal], ...] = ()  # (rate, net, vat) per rate
+    note: str | None = None  # the legal sentence the invoice must carry, if any
 
 
 def money(value: Decimal) -> Decimal:
@@ -131,6 +154,8 @@ def build_draft(
         customer_id=customer.id if customer else None,
         customer_name=customer.display_name if customer else customer_name,
         customer_address=customer.address if customer else None,
+        customer_tax=customer.umsatzsteuer if customer else "",
+        customer_ust_id=customer.ust_id if customer else None,
         lines=lines,
         questions=questions,
         warnings=warnings,
@@ -157,19 +182,75 @@ def unit_price(
     return None
 
 
-def tax_snapshot(settings: Settings) -> dict:
-    return {"mode": settings.tax_mode, "rate": str(settings.vat_rate)}
+def tax_snapshot(settings: Settings, customer_tax: str = "") -> dict:
+    return {"mode": settings.tax_mode, "rate": str(settings.vat_rate), "customer": customer_tax}
 
 
 def totals(lines: list[Line], settings: Settings, tax: dict | None = None) -> Totals:
-    """Net, VAT and gross. tax is the snapshot stored on an issued invoice; it wins over settings."""
+    """Net, VAT and gross. tax is the snapshot stored on an issued invoice; it wins over settings.
+
+    VAT is worked out once per rate (§ 14 Abs. 4 Nr. 7 und 8 UStG), not per line.
+    """
     tax = tax or tax_snapshot(settings)
     net = money(sum((line.net for line in lines if line.net is not None), Decimal(0)))
-    if tax["mode"] == "regelbesteuerung":
-        rate = Decimal(tax["rate"])
-        vat = money(net * rate / 100)
-        return Totals(net, vat, net + vat, rate)
-    return Totals(net, Decimal("0.00"), net, None)
+    zero = Decimal("0.00")
+    if tax["mode"] != "regelbesteuerung":
+        return Totals(net, zero, net, None, note=KLEINUNTERNEHMER_NOTE)
+    standard = Decimal(tax["rate"])
+    abroad = tax.get("customer", "")
+    if abroad in ("eu", "drittland"):
+        note = REVERSE_CHARGE_NOTE if abroad == "eu" else DRITTLAND_NOTE
+        return Totals(net, zero, net, standard, ((Decimal(0), net, zero),), note)
+    nets: dict[Decimal, Decimal] = {}
+    for line in lines:
+        if line.net is not None:
+            rate = standard if line.vat_rate is None else line.vat_rate
+            nets[rate] = nets.get(rate, Decimal(0)) + line.net
+    groups = tuple(
+        (rate, money(part), money(part * rate / 100))
+        for rate, part in sorted(nets.items(), reverse=True)
+    ) or ((standard, zero, zero),)
+    vat = money(sum((g[2] for g in groups), Decimal(0)))
+    return Totals(net, vat, net + vat, standard, groups)
+
+
+def draft_totals(draft: Draft, settings: Settings) -> Totals:
+    """Totals as the invoice shows them: frozen once issued, else from settings and customer."""
+    return totals(draft.lines, settings, draft.tax or tax_snapshot(settings, draft.customer_tax))
+
+
+def turnover(conn, year: int) -> Decimal:
+    """Net turnover invoiced in a year, Stornos included. Close enough for the § 19 limits."""
+    rows = conn.execute(
+        "SELECT net FROM invoices WHERE substr(issue_date, 1, 4) = ?", (str(year),)
+    ).fetchall()
+    return sum((Decimal(row["net"]) for row in rows), Decimal(0))
+
+
+def limit_check(conn, settings: Settings, year: int, adding: Decimal = Decimal(0)):
+    """§ 19 UStG limits for Kleinunternehmer. Returns (blocking problems, gentle warnings)."""
+    if settings.tax_mode != "kleinunternehmer":
+        return [], []
+    last, this = turnover(conn, year - 1), turnover(conn, year)
+    problems, warnings = [], []
+    if this + adding > LIMIT_THIS_YEAR:
+        problems.append(
+            f"Mit dieser Rechnung kommst du {year} über 100.000 € Umsatz. Ab dieser Rechnung "
+            "giltst du nicht mehr als Kleinunternehmer (§ 19 UStG) und musst Umsatzsteuer "
+            "ausweisen. Stell in den Einstellungen auf Regelbesteuerung um und sprich am besten "
+            "kurz mit deiner Steuerberatung."
+        )
+    if last > LIMIT_LAST_YEAR:
+        warnings.append(
+            f"{year - 1} hast du laut FRITS mehr als 25.000 € umgesetzt. Dann bist du {year} kein "
+            "Kleinunternehmer mehr. Bitte prüfe deine Einstellungen mit deiner Steuerberatung."
+        )
+    elif this + adding > LIMIT_LAST_YEAR:
+        warnings.append(
+            f"Dein Umsatz {year} liegt jetzt über 25.000 €. Dieses Jahr bleibst du Kleinunternehmer, "
+            f"aber ab {year + 1} wohl nicht mehr. FRITS erinnert dich im Januar."
+        )
+    return problems, warnings
 
 
 _ISO_DAY = re.compile(r"\d{4}-\d{2}-\d{2}")
@@ -213,6 +294,19 @@ def blockers(draft: Draft, settings: Settings) -> list[str]:
     problems = []
     if not settings.is_complete:
         problems.append("Deine eigenen Angaben (Name, Adresse, IBAN, Stundensatz) fehlen noch.")
+    abroad = settings.tax_mode == "regelbesteuerung" and draft.customer_tax == "eu"
+    if abroad and not settings.ust_id.strip():
+        problems.append(
+            "Für Reverse Charge in der EU brauchst du eine eigene USt-IdNr (beim Bundeszentralamt "
+            "für Steuern beantragen). Trag sie in den Einstellungen ein."
+        )
+    if abroad and not (draft.customer_ust_id or "").strip():
+        problems.append(
+            "Für Reverse Charge fehlt die USt-IdNr des Kunden. Trag sie beim Kunden ein."
+        )
+    for line in draft.lines:
+        if line.vat_rate is not None and line.vat_rate not in VAT_RATES:
+            problems.append(f"Steuersatz {line.vat_rate} % bei „{line.description}“ gibt es nicht.")
     if draft.kind != "quote" and not (settings.steuernummer.strip() or settings.ust_id.strip()):
         problems.append(
             "Deine Steuernummer oder USt-IdNr fehlt. Eine davon muss auf jeder Rechnung stehen "
@@ -284,8 +378,11 @@ def approve(conn, draft_id: int, settings: Settings, invoices_dir: Path, today: 
     if problems:
         raise BillingError(" ".join(problems))
 
-    draft.tax = tax_snapshot(settings)
+    draft.tax = tax_snapshot(settings, draft.customer_tax)
     sums = totals(draft.lines, settings, draft.tax)
+    limit_problems, _ = limit_check(conn, settings, today.year, sums.net)
+    if limit_problems:
+        raise BillingError(" ".join(limit_problems))
     due = today + timedelta(days=settings.payment_days)
     with store.transaction(conn):
         number = next_number(conn, today.year, settings.number_pattern, settings.last_number_before)
@@ -404,10 +501,17 @@ def set_customer(draft: Draft, customer: Customer | None) -> None:
     draft.customer_id = customer.id if customer else None
     draft.customer_name = customer.display_name if customer else draft.customer_name
     draft.customer_address = customer.address if customer else None
+    draft.customer_tax = customer.umsatzsteuer if customer else ""
+    draft.customer_ust_id = customer.ust_id if customer else None
 
 
 def reviewed_line(
-    description: str, when: str | None, quantity: Decimal, unit: str, price: Decimal | None
+    description: str,
+    when: str | None,
+    quantity: Decimal,
+    unit: str,
+    price: Decimal | None,
+    vat_rate: Decimal | None = None,
 ) -> Line:
     """A line Fritz has looked at and saved. His price counts as his OK, so old flags go."""
     if not description.strip():
@@ -423,6 +527,7 @@ def reviewed_line(
         unit=unit,
         unit_price=price,
         flags=[] if price is not None else ["needs_price"],
+        vat_rate=vat_rate,
     )
 
 

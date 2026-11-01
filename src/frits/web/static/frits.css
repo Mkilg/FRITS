@@ -146,6 +146,9 @@ form { margin: 0; }
 
 .muted, .hint { color: var(--muted); }
 .hint { font-size: 0.88rem; margin: 0.4rem 0; }
+.hint.warn-text { color: var(--ink); border-left: 3px solid #c98a00; padding-left: 0.6rem; }
+details.abroad { margin: 0.6rem 0; }
+details.abroad summary { cursor: pointer; font-weight: 600; }
 .platzhalter { color: var(--muted); font-style: italic; }
 .note { display: block; color: var(--ketchup); font-size: 0.78rem; }
 .badge { display: inline-block; padding: 0.1rem 0.6rem; border-radius: 999px; font-size: 0.8rem;
@@ -330,3 +333,6 @@ kbd { display: inline-block; min-width: 1.4em; padding: 0 0.3em; margin: 0 0.1em
 .leise-links button { background: none; border: 0; padding: 0; color: var(--tinte); text-decoration: underline;
   cursor: pointer; font: inherit; }
 p code, li code { overflow-wrap: anywhere; }
+.flash form.rueckgaengig { display: inline; margin-left: 0.6rem; }
+details.mehr-felder { margin: 0.4rem 0 0.8rem; }
+details.mehr-felder summary { cursor: pointer; color: var(--tinte); font-size: 0.92rem; margin-bottom: 0.4rem; }
