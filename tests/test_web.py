@@ -1,5 +1,6 @@
 import re
 import shutil
+import time
 from datetime import date
 from decimal import Decimal
 
@@ -512,14 +513,78 @@ def test_waiting_goodbye_tab_means_no_second_tab(ws, provider, nlp, monkeypatch)
     assert len(opened) == 1  # the old tab came back, so no new one
 
 
-def test_second_start_reopens_the_running_frits(monkeypatch):
+def test_second_start_reopens_the_running_frits(monkeypatch, tmp_path):
+    import json
+
     from frits import web
 
+    monkeypatch.setenv("FRITS_HOME", str(tmp_path))
+    (tmp_path / web.RUN_FILE).write_text(json.dumps(web._me() | {"pid": 1}))
     opened = []
     monkeypatch.setattr(web, "running_frits", lambda port=web.DEFAULT_PORT: True)
     monkeypatch.setattr(web.webbrowser, "open", opened.append)
+    monkeypatch.setattr(web, "stop_other_frits", lambda *a, **k: pytest.fail("same FRITS"))
     web.serve()
     assert opened == ["http://127.0.0.1:8765/"]
+
+
+def test_starting_a_new_version_ends_the_old_one(monkeypatch, tmp_path):
+    import json
+
+    import uvicorn
+
+    from frits import web
+
+    monkeypatch.setenv("FRITS_HOME", str(tmp_path))
+    (tmp_path / web.RUN_FILE).write_text(json.dumps({"pid": 1, "version": "1.3.0", "code": "x"}))
+    monkeypatch.setattr(web, "running_frits", lambda port=web.DEFAULT_PORT: True)
+    stopped, started, told = [], [], []
+    monkeypatch.setattr(web, "stop_other_frits", lambda port: stopped.append(port) or True)
+    monkeypatch.setattr(web, "free_port", lambda: web.DEFAULT_PORT)
+    monkeypatch.setattr(web, "_tell", told.append)
+    monkeypatch.setattr("frits.web.app.create_app", lambda: object())
+    monkeypatch.setattr(uvicorn, "run", lambda app, **kw: started.append(kw["port"]))
+    web.serve(open_browser=False)
+    assert stopped == [web.DEFAULT_PORT] and started == [web.DEFAULT_PORT] and not told
+    assert not (tmp_path / web.RUN_FILE).exists()  # cleaned up when this FRITS ends
+
+    # If the old one won't go, say so clearly and don't start a second FRITS.
+    monkeypatch.setattr(web, "stop_other_frits", lambda port: False)
+    web.serve(open_browser=False)
+    assert started == [web.DEFAULT_PORT] and "neu starten" in told[0]
+
+
+def test_an_old_frits_process_is_really_ended(monkeypatch, tmp_path):
+    """A real process standing in for an old FRITS that holds a port and answers /health."""
+    import json
+    import subprocess
+    import sys
+
+    from frits import web
+
+    script = tmp_path / "alte_frits.py"
+    script.write_text(
+        "import http.server, sys\n"
+        "class H(http.server.BaseHTTPRequestHandler):\n"
+        "    def do_GET(self):\n"
+        "        self.send_response(200); self.end_headers(); self.wfile.write(b'FRITS')\n"
+        "    def log_message(self, *a): pass\n"
+        "http.server.HTTPServer(('127.0.0.1', int(sys.argv[1])), H).serve_forever()\n"
+    )
+    port = web.free_port(18765)
+    old = subprocess.Popen([sys.executable, str(script), str(port)])
+    try:
+        for _ in range(50):
+            if web.running_frits(port):
+                break
+            time.sleep(0.1)
+        assert web.running_frits(port)
+        monkeypatch.setenv("FRITS_HOME", str(tmp_path))
+        (tmp_path / web.RUN_FILE).write_text(json.dumps({"pid": old.pid}))
+        assert web.stop_other_frits(port, wait=5)
+        assert old.wait(timeout=5) is not None and not web.running_frits(port)
+    finally:
+        old.kill()
 
 
 def test_files_dropped_in_the_browser_land_in_the_inbox(client, ws):

@@ -1,6 +1,6 @@
 [project]
 name = "frits"
-version = "1.4.0"
+version = "1.4.1"
 description = "FRITS - Fantastisches Rechnungsschreibungs IT-System: drop a note, get an invoice draft, with local PII redaction."
 readme = "README.md"
 license = "MIT"
