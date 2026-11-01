@@ -30,6 +30,7 @@
 </section>
 
 <section class="card happen" id="happen">
+{% if h.bild and picture(h.bild) %}<img class="kurs-bild" src="{{ picture(h.bild) }}" alt="">{% endif %}
 {% include "kurs/" ~ e.slug ~ "-" ~ h.slug ~ ".html" %}
 </section>
 

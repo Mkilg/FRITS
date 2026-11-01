@@ -13,8 +13,8 @@
 
 {% macro quelle(key, label) %}<a href="{{ quellen[key] }}" target="_blank" rel="noopener">{{ label }}</a>{% endmacro %}
 
-{# A painted picture if Marie made one (static/bilder/<name>.webp), else the drawn graphic. #}
-{% macro bild(name, alt="") %}{% if name and picture(name) %}<img class="kurs-bild" src="{{ picture(name) }}" alt="{{ alt }}">{% else %}{{ caller() }}{% endif %}{% endmacro %}
+{# The drawn graphic, unless Marie painted one (static/bilder/<name>.webp): lernen.html shows that on top. #}
+{% macro bild(name, alt="") %}{% if not (name and picture(name)) %}{{ caller() }}{% endif %}{% endmacro %}
 
 {# One question with answer buttons. answers: [(label, richtig, was Fritte dazu sagt)] #}
 {% macro frage(text, answers) %}

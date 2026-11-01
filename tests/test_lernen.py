@@ -276,3 +276,10 @@ def test_picking_a_tool_finishes_the_first_stage(client):  # noqa: F811
     assert "Du lernst jetzt mit Chat im Browser" in response.text
     assert response.url.path == "/lernen/einstellen"
     assert "Training ausschalten" in response.text
+
+
+def test_a_painted_picture_replaces_the_drawn_graphic(client):  # noqa: F811
+    drawn = client.get("/lernen/start/hallo").text
+    assert "<svg" in drawn and 'class="kurs-bild"' not in drawn
+    # Painted pictures for the course are named kurs-<name>, see frits/bilder/kurs-bild-prompts.md
+    assert all(h.bild.startswith("kurs-") for e in lernen.ETAPPEN for h in e.happen if h.bild)
