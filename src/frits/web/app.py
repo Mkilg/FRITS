@@ -465,8 +465,11 @@ def create_app(
             if not check_me and ready < len(drafts):
                 moment = (
                     moment[0],
-                    "Da liegen Entwürfe, die noch etwas von dir brauchen. Schau sie dir an, "
+                    "Da liegt ein Entwurf, der noch etwas von dir braucht. Schau ihn dir an, "
                     "wenn es dir passt."
+                    if len(drafts) == 1
+                    else "Da liegen Entwürfe, die noch etwas von dir brauchen. Schau sie dir "
+                    "an, wenn es dir passt."
                     if ready == 0
                     else f"{ready} von {len(drafts)} Entwürfen sind fertig, die anderen brauchen "
                     "noch etwas von dir.",

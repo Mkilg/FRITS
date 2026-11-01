@@ -124,7 +124,7 @@
       {% if problems %}
       <div class="problems">
         <h3>Bevor daraus {{ "ein Angebot" if is_quote else "eine Rechnung" }} wird</h3>
-        <ul>{% for p in problems %}<li{% if p.startswith("Die Rechnung hat keine Positionen") %} data-gone-when="lines"{% elif p.startswith("Kunde mit Adresse fehlt") %} data-gone-when="customer"{% endif %}>{{ p }}</li>{% endfor %}</ul>
+        <ul>{% for p in problems %}<li{% if p.startswith("Die Rechnung hat keine Positionen") %} data-gone-when="lines"{% elif p.startswith("Kunde mit Adresse fehlt") %} data-gone-when="customer"{% elif p.startswith(("Deine eigenen Angaben", "Für Reverse Charge in der EU", "Deine Steuernummer")) %} data-elsewhere{% elif p.startswith("Für Reverse Charge fehlt") %} data-elsewhere="customer"{% endif %}>{{ p }}</li>{% endfor %}</ul>
       </div>
       {% endif %}
 

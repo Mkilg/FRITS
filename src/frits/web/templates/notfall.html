@@ -7,7 +7,7 @@
   <div class="mascot-big">{{ mascot("thinking" if g else "welcome") }}</div>
   <div>
     <h1>Notfall-Chat</h1>
-    <p class="speech">{% if not g %}Ein Brief, der Bauchweh macht? Leg ihn hier rein und frag {{ ki }}. Namen, Adressen und Nummern schwärze ich vorher hier auf deinem Computer.{% elif not g.messages %}Ich habe alles gelesen und geschwärzt. Schau kurz drüber, dann frag los.{% else %}Frag ruhig weiter. Alles bleibt geschwärzt.{% endif %}</p>
+    <p class="speech">{% if not g and not ai_ready %}Ein Brief, der Bauchweh macht? Leg ihn hier rein. Ich schwärze Namen, Adressen und Nummern hier auf deinem Computer. Eine KI ist noch nicht verbunden, also kopierst du den geschwärzten Text danach selbst in einen Chat.{% elif not g %}Ein Brief, der Bauchweh macht? Leg ihn hier rein und frag {{ ki }}. Namen, Adressen und Nummern schwärze ich vorher hier auf deinem Computer.{% elif not g.messages %}Ich habe alles gelesen und geschwärzt. Schau kurz drüber, dann frag los.{% else %}Frag ruhig weiter. Alles bleibt geschwärzt.{% endif %}</p>
   </div>
 </section>
 
