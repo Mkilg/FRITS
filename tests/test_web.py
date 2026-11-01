@@ -583,3 +583,14 @@ def test_bug_report_falls_back_to_a_mail_link(client, monkeypatch):
     assert "mailto:hallo%40kilg.de?subject=%5BFRITS%20Fehler%5D" in page.text
     assert "PDF" not in page.text
     assert "Rechnungsordner" not in page.text
+
+
+def test_rare_pages_sit_behind_mehr_and_it_shows_where_you_are(client):
+    page = client.get("/").text
+    nav = page[page.index("<nav>") : page.index("</nav>")]
+    assert '<details class="mehr">' in nav
+    for label in ("KI-Werkstatt", "Einstellungen", "Über FRITS"):
+        assert label in nav[nav.index("mehr-liste") :]
+    settings_page = client.get("/settings").text
+    assert '<summary aria-current="page">Mehr</summary>' in settings_page
+    assert '<summary aria-current="page">' not in page

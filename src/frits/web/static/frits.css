@@ -56,21 +56,43 @@ h2 { font-size: 1.25rem; margin: 0 0 0.5rem; }
 h3 { font-size: 1rem; margin: 0.8rem 0 0.3rem; }
 
 .top {
-  display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;
-  padding: 0.6rem 1.5rem; background: var(--papierkarte); border-bottom: 1px solid var(--papier-schatten);
+  display: flex; align-items: center; gap: 1rem; flex-wrap: nowrap;
+  padding: 0.5rem 1.5rem; background: var(--papierkarte); border-bottom: 1px solid var(--papier-schatten);
   box-shadow: 0 2px 10px rgba(60, 35, 10, .10);
 }
 .brand { display: flex; align-items: center; gap: 0.4rem; font-weight: 700; font-size: 1.3rem; font-family: var(--schrift);
   color: var(--eiche-tief); text-decoration: none; letter-spacing: 0.06em; }
 .brand-fry svg, .brand-fry img, .brand-fry .fry-fallback { object-fit: contain; width: 32px; height: 32px; font-size: 26px; display: block; }
-nav { display: flex; gap: 0.2rem; flex-wrap: wrap; flex: 1; }
-nav a { padding: 0.35rem 0.7rem; border-radius: 999px; color: var(--ink); text-decoration: none; }
+/* One line of navigation on a normal Mac window; secondary pages sit behind "Mehr".
+   Very narrow windows wrap the row instead of hiding anything. */
+nav { display: flex; gap: 0.1rem; flex-wrap: wrap; flex: 1; min-width: 0; align-items: center; }
+nav a, nav summary { padding: 0.3rem 0.6rem; border-radius: 999px; color: var(--ink); text-decoration: none;
+  white-space: nowrap; font-size: 0.95rem; }
 /* Painted symbols appear before each label once they are there (see static/bilder). */
-nav a::before { content: ""; display: none; width: 22px; height: 22px; margin-right: 0.35rem;
-  vertical-align: -5px; background: center / contain no-repeat; }
+nav a::before { content: ""; display: none; width: 20px; height: 20px; margin-right: 0.3rem;
+  vertical-align: -4px; background: center / contain no-repeat; }
+@media (max-width: 1300px) { nav a[href]::before { display: none !important; } }
+details.mehr { position: relative; }
+nav details.mehr summary { list-style: none; cursor: pointer; margin: 0; color: var(--ink); display: block; }
+details.mehr summary::-webkit-details-marker { display: none; }
+details.mehr summary::after { content: " ▾"; font-size: 0.75em; }
+details.mehr summary:hover { background: var(--creme); }
+nav summary[aria-current="page"] { background: var(--fry); }
+.mehr-liste { position: absolute; right: 0; top: calc(100% + 0.3rem); z-index: 30; display: flex; flex-direction: column;
+  gap: 0.1rem; min-width: 12rem; padding: 0.4rem; background: var(--papierkarte); border: 1px solid var(--papier-schatten);
+  border-radius: var(--radius); box-shadow: 0 8px 20px rgba(60, 35, 10, .18); }
+.mehr-liste a { border-radius: 6px; }
+@media (max-width: 1150px) { .top-actions .breit { display: none; } }
 nav a:hover { background: var(--creme); }
 nav a[aria-current="page"] { background: var(--fry); }
-.top-actions { display: flex; gap: 0.4rem; align-items: center; }
+.top-actions { display: flex; gap: 0.4rem; align-items: center; flex: 0 0 auto; }
+.top-actions button { white-space: nowrap; }
+@media (max-width: 1100px) {
+  .top { flex-wrap: wrap; gap: 0.3rem 1rem; padding: 0.5rem 1rem; }
+  .top-actions { margin-left: auto; }
+  nav { order: 3; flex-basis: 100%; }
+  .mehr-liste { right: auto; left: 0; }
+}
 
 main { max-width: 1100px; margin: 0 auto; padding: 1.5rem; }
 .bottom { max-width: 1100px; margin: 0 auto 1.5rem; padding: 0.6rem 1.5rem; color: var(--muted); font-size: 0.85rem;
@@ -84,6 +106,7 @@ main { max-width: 1100px; margin: 0 auto; padding: 1.5rem; }
 
 .hello { display: flex; align-items: center; gap: 1.2rem; margin: 0.5rem 0 1.5rem; }
 .mascot-big svg, .mascot-big img, .mascot-big .fry-fallback { object-fit: contain; width: 120px; height: 120px; font-size: 90px; display: block; }
+.mascot-big, .mascot-small { flex: 0 0 auto; }
 .mascot-small svg, .mascot-small img, .mascot-small .fry-fallback { object-fit: contain; width: 64px; height: 64px; font-size: 48px; display: block; }
 .speech { position: relative; background: var(--papier); border: 1px solid var(--papier-schatten); border-radius: 18px;
   box-shadow: var(--karten-schatten); padding: 0.9rem 1.2rem; margin: 0; max-width: 34rem;
@@ -221,12 +244,13 @@ iframe.receipt { width: 100%; height: 32rem; border: 1px solid var(--line); bord
   60% { opacity: 0.95; }
   100% { transform: rotate(-8deg) scale(1); opacity: 0.9; } }
 
-img.leer-bild { display: block; width: 150px; max-width: 40%; margin: 0 0 0.4rem; }
-img.buendel { display: block; width: 120px; margin: 0.6rem 0 0; }
+img.leer-bild { float: right; width: 110px; max-width: 30%; margin: 0 0 0.4rem 1rem; }
+img.buendel { float: right; width: 100px; margin: 0 0 0.4rem 1rem; }
 /* Painted Fritte: a tall figure, so it keeps its own width */
-.mascot-big img.fritte { width: auto; height: 150px; }
-.mascot-small img.fritte { width: auto; height: 76px; }
-.brand-fry img.fritte { width: auto; height: 38px; }
+/* Painted Fritte: always the same box, whatever her pose, so nothing next to her moves */
+.mascot-big img.fritte { width: 84px; height: 112px; object-fit: contain; object-position: center bottom; }
+.mascot-small img.fritte { width: 48px; height: 64px; object-fit: contain; object-position: center bottom; }
+.brand-fry img.fritte { width: 20px; height: 32px; object-fit: contain; }
 /* A soft veil over the painted desk keeps text that sits directly on it readable */
 body { --schleier: linear-gradient(rgba(246, 236, 210, .5), rgba(246, 236, 210, .5)); }
 body:has(.feierabend-page) { background-image: var(--schleier, none), var(--feierabend-bild, none),
