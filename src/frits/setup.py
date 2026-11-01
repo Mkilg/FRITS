@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from decimal import Decimal
 
@@ -102,6 +103,13 @@ KEY_LINKS = {
     "openrouter": "https://openrouter.ai/keys",
 }
 
+# Where to top up credit: an empty account is the most common reason a first test fails.
+BILLING_LINKS = {
+    "claude": "https://console.anthropic.com/settings/billing",
+    "openai": "https://platform.openai.com/settings/organization/billing/overview",
+    "openrouter": "https://openrouter.ai/settings/credits",
+}
+
 
 def step_info(key: str) -> dict:
     try:
@@ -164,6 +172,8 @@ class TrickDemo:
     fooled_items: list[Item]  # what an AI that fell for the trick answered
     draft: Draft  # what FRITS made of it after its own checks
     sums: Totals
+    dropped: list[Item]  # suggestions FRITS threw out because the document doesn't say them
+    rate: Decimal  # the hourly rate FRITS used instead of the 500 € in the document
 
 
 def trick_demo(settings: Settings, nlp) -> TrickDemo:
@@ -211,8 +221,16 @@ def trick_demo(settings: Settings, nlp) -> TrickDemo:
     demo_settings = settings if settings.hourly_rate > 0 else _with_rate(settings, Decimal(40))
     checked = check(fooled, result.text, result.mapping)
     draft = build_draft(checked, result.mapping, [_TRICK_CUSTOMER], demo_settings, "Trick-Notiz")
+    kept = {line.description for line in draft.lines}
+    dropped = [item for item in fooled.items if item.description not in kept]
     return TrickDemo(
-        TRICK_NOTE, result.text, fooled.items, draft, totals(draft.lines, demo_settings)
+        TRICK_NOTE,
+        result.text,
+        fooled.items,
+        draft,
+        totals(draft.lines, demo_settings),
+        dropped,
+        demo_settings.hourly_rate,
     )
 
 
@@ -237,3 +255,63 @@ FIRST_NOTE = (
     "Beispielnotiz von FRITS (du kannst sie danach verwerfen)\n\n"
     "Bei Erika Meier am 3.11.2026: 2 Std Lampe im Flur montiert, 12 km Anfahrt.\n"
 )
+
+
+# ---------- Step 4: take over your details from an invoice you already wrote ----------
+
+_BANK = re.compile(
+    r"(?im)^[ \t]*(?:Bank|Kreditinstitut|Geldinstitut)[ \t]*:?[ \t]*([^\n|·]{3,60})$"
+    r"|\b((?:[A-ZÄÖÜ][\w-]*[ \t]){0,2}(?:Sparkasse|Volksbank|Raiffeisenbank|Postbank|Commerzbank"
+    r"|Deutsche Bank|GLS Bank|Sparda-Bank|DKB|ING|N26|Targobank|HypoVereinsbank)"
+    r"(?:[ \t][A-ZÄÖÜ][\w-]*){0,3})"
+)
+
+
+def own_details(text: str, nlp) -> dict[str, str]:
+    """Read Fritz's own details from one of his old invoices, on this computer and without AI.
+
+    It's a guess from patterns: the address and name that appear most often win, because the
+    sender shows up in the header and again in the footer, the customer only once.
+    He checks every field before saving.
+    """
+    from frits.redact import _PATTERNS, _iban_spans
+
+    found: dict[str, str] = {}
+
+    def first(label: str) -> str | None:
+        for kind, pattern in _PATTERNS:
+            if kind == label and (m := pattern.search(text)):
+                return re.sub(r"\s+", " ", m.group(0)).strip()
+        return None
+
+    for label, key in (
+        ("EMAIL", "email"),
+        ("TEL", "phone"),
+        ("STEUERNR", "steuernummer"),
+        ("USTID", "ust_id"),
+        ("BIC", "bic"),
+    ):
+        if value := first(label):
+            found[key] = value
+    if ibans := _iban_spans(text):
+        found["iban"] = re.sub(r"\s+", "", text[ibans[0].start : ibans[0].end])
+    if m := _BANK.search(text):
+        found["bank"] = (m.group(1) or m.group(2)).strip()
+
+    streets = [m for kind, p in _PATTERNS if kind == "ADRESSE" for m in p.finditer(text)]
+    towns = [m for kind, p in _PATTERNS if kind == "ORT" for m in p.finditer(text)]
+    addresses: list[tuple[str, int]] = []
+    for street in streets:
+        town = next((t for t in towns if 0 <= t.start() - street.end() <= 40), None)
+        if town:
+            one = f"{street.group(0).strip()}, {re.sub(r'\s+', ' ', town.group(0)).strip()}"
+            addresses.append((one, street.start()))
+    if addresses:
+        texts = [a for a, _ in addresses]
+        found["address"] = max(texts, key=lambda a: (texts.count(a), -texts.index(a)))
+
+    if nlp is not None:
+        people = [e.text.strip() for e in nlp(text).ents if e.label_ == "PER" and " " in e.text]
+        if people:
+            found["name"] = max(people, key=lambda p: (people.count(p), -people.index(p)))
+    return found

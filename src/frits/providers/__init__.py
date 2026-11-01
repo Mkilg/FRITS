@@ -33,11 +33,48 @@ KEY_ENV = {
     "openrouter": "OPENROUTER_API_KEY",
 }
 KEYCHAIN_SERVICE = "FRITS"
-_LABELS = {"claude": "Claude", "openai": "OpenAI", "openrouter": "OpenRouter"}
+_LABELS = {"claude": "Claude", "openai": "OpenAI", "openrouter": "OpenRouter", "ollama": "Ollama"}
 
 
 class ProviderError(Exception):
     """The AI call failed or returned something unusable. Message is shown to the user."""
+
+
+def explain_status(label: str, status: int, detail: str, model: str) -> str:
+    """Turn an HTTP error from an AI service into a sentence Fritz can act on."""
+    low = detail.lower()
+    if status == 402 or any(w in low for w in ("credit", "balance", "quota", "billing")):
+        text = (
+            f"{label} meldet: Auf deinem Konto ist kein Guthaben. Lade beim Anbieter etwas auf "
+            "(5 € reichen für viele Monate) und teste dann noch einmal."
+        )
+    elif status == 401:
+        text = (
+            f"{label} kennt diesen Schlüssel nicht. Wurde er vollständig kopiert? "
+            "Füge ihn am besten neu ein."
+        )
+    elif status == 403:
+        text = (
+            f"Dein Schlüssel darf bei {label} gerade nichts abfragen. Oft ist das Konto noch nicht "
+            "freigeschaltet oder es fehlt eine Zahlungsmethode."
+        )
+    elif status == 404:
+        text = (
+            f"{label} findet das Modell „{model}“ für deinen Zugang nicht (Fehler 404). Das "
+            "passiert meist bei neuen Konten ohne Guthaben oder Zahlungsmethode."
+        )
+    elif status == 429:
+        text = (
+            f"{label} sagt: zu viele Anfragen oder Limit erreicht. Warte eine Minute, und prüfe "
+            "beim Anbieter dein Guthaben und dein Monatslimit."
+        )
+    elif status >= 500:
+        text = f"Bei {label} gibt es gerade ein Problem (Fehler {status}). Versuch es später."
+    else:
+        text = f"{label} hat mit Fehler {status} geantwortet."
+    if detail:
+        text += f" Antwort von {label}: „{detail[:200]}“"
+    return text
 
 
 @dataclass(frozen=True)

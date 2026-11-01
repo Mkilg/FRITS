@@ -34,7 +34,15 @@
     <h2>Preise</h2>
     <label class="field">Stundensatz in € <input name="hourly_rate" inputmode="decimal" value="{{ settings.hourly_rate | qty }}"></label>
     <label class="field">Fahrtkosten pro km in € <input name="km_rate" inputmode="decimal" value="{{ settings.km_rate | qty }}"></label>
+    {% include "_prices.html" %}
     <label class="field">Zahlungsziel in Tagen <input name="payment_days" inputmode="numeric" value="{{ settings.payment_days }}"></label>
+  </section>
+  <section class="card">
+    <h2>Rechnungsnummern</h2>
+    <label class="field">Schema <input name="number_pattern" value="{{ settings.number_pattern }}" placeholder="JJJJ-NNNN"></label>
+    <p class="hint"><code>JJJJ</code> = Jahr, <code>JJ</code> = Jahr zweistellig, <code>NNNN</code> = laufende Nummer mit Nullen davor. Beispiele: <code>JJJJ-NNNN</code> → 2026-0001, <code>RE-JJ-NNN</code> → RE-26-001, <code>NNNNN</code> → 00001 (zählt über alle Jahre weiter). Mit Jahr im Schema beginnt jedes Jahr wieder bei 1.</p>
+    <label class="field">Deine letzte Rechnungsnummer vor FRITS (falls du schon Rechnungen geschrieben hast) <input name="last_number_before" value="{{ settings.last_number_before }}" placeholder="z. B. 2026-0042"></label>
+    <p class="hint">Die nächste Rechnung bekommt die Nummer <strong>{{ next_invoice_number }}</strong>. Rechnungsnummern müssen lückenlos und eindeutig sein, darum vergibt FRITS sie erst, wenn du eine Rechnung fertig machst.</p>
   </section>
   <section class="card">
     <h2>KI</h2>

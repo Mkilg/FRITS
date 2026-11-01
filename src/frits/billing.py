@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import asdict, dataclass, field
 from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal
@@ -104,7 +105,9 @@ def build_draft(
             date=item.date,
             quantity=Decimal(str(item.quantity)),
             unit=item.unit,
-            unit_price=unit_price(item.unit, customer, settings),
+            unit_price=unit_price(
+                item.unit, customer, settings, mapping.reidentify(item.description)
+            ),
             stated_price=stated,
             flags=list(checked_item.flags),
         )
@@ -132,8 +135,17 @@ def build_draft(
     )
 
 
-def unit_price(unit: str, customer: Customer | None, settings: Settings) -> Decimal | None:
-    """Prices come from the customer note, then settings. Never from the document or the AI."""
+def unit_price(
+    unit: str, customer: Customer | None, settings: Settings, description: str = ""
+) -> Decimal | None:
+    """Prices come from the price list, the customer note, then settings.
+
+    Never from the document or the AI.
+    """
+    if description:
+        for item in settings.price_list:
+            if item.matches(description, unit):
+                return item.price
     if unit == "Std":
         rate = customer.hourly_rate if customer and customer.hourly_rate else settings.hourly_rate
         return rate if rate and rate > 0 else None
@@ -165,13 +177,45 @@ def blockers(draft: Draft, settings: Settings) -> list[str]:
     return problems
 
 
-def next_number(conn, year: int) -> str:
-    row = conn.execute(
-        "SELECT number FROM invoices WHERE number LIKE ? ORDER BY number DESC LIMIT 1",
-        (f"{year}-%",),
-    ).fetchone()
-    last = int(row["number"].split("-")[1]) if row else 0
-    return f"{year}-{last + 1:04d}"
+DEFAULT_PATTERN = "JJJJ-NNNN"
+_PATTERN_OK = re.compile(r"[A-Za-z0-9._-]*N+[A-Za-z0-9._-]*")
+
+
+def valid_pattern(pattern: str) -> bool:
+    """A number pattern needs a counter (N...) and only characters that are safe in file names."""
+    return bool(_PATTERN_OK.fullmatch(pattern)) and len(re.findall(r"N+", pattern)) == 1
+
+
+def _pattern_parts(pattern: str, year: int) -> tuple[re.Pattern[str], str]:
+    """A regex that reads the counter out of a number, and a template that writes one."""
+    pattern = pattern if valid_pattern(pattern) else DEFAULT_PATTERN
+    regex, template = "", ""
+    for token in re.findall(r"JJJJ|JJ|N+|.", pattern):
+        if token == "JJJJ":
+            regex, template = regex + str(year), template + str(year)
+        elif token == "JJ":
+            regex, template = regex + f"{year % 100:02d}", template + f"{year % 100:02d}"
+        elif token.startswith("N"):
+            regex, template = regex + r"(\d+)", template + "{counter:0" + str(len(token)) + "d}"
+        else:
+            regex += re.escape(token)
+            template += token.replace("{", "{{").replace("}", "}}")
+    return re.compile(regex), template
+
+
+def next_number(conn, year: int, pattern: str = DEFAULT_PATTERN, last_before: str = "") -> str:
+    """The next invoice number: gapless, in Fritz's own pattern.
+
+    "JJJJ" is the year, "JJ" its last two digits, "NNNN" the counter with leading zeros.
+    A pattern with a year starts again at 1 each year; one without counts on forever.
+    last_before is the last number Fritz wrote before FRITS, so FRITS carries on from there.
+    """
+    regex, template = _pattern_parts(pattern, year)
+    numbers = [row["number"] for row in conn.execute("SELECT number FROM invoices")]
+    counters = [
+        int(m.group(1)) for n in numbers + [last_before.strip()] if (m := regex.fullmatch(n))
+    ]
+    return template.format(counter=max(counters, default=0) + 1)
 
 
 def approve(conn, draft_id: int, settings: Settings, invoices_dir: Path, today: date | None = None):
@@ -192,7 +236,7 @@ def approve(conn, draft_id: int, settings: Settings, invoices_dir: Path, today: 
     sums = totals(draft.lines, settings)
     due = today + timedelta(days=settings.payment_days)
     with store.transaction(conn):
-        number = next_number(conn, today.year)
+        number = next_number(conn, today.year, settings.number_pattern, settings.last_number_before)
         pdf_path = Path(invoices_dir) / f"{number}_{_slug(draft.customer_name)}.pdf"
         conn.execute(
             "INSERT INTO invoices (number, customer, issue_date, net, vat, gross, draft_id,"
@@ -236,7 +280,7 @@ def cancel(conn, number: str, settings: Settings, invoices_dir: Path, today: dat
         line.quantity = -line.quantity
     sums = totals(draft.lines, settings)
     with store.transaction(conn):
-        storno = next_number(conn, today.year)
+        storno = next_number(conn, today.year, settings.number_pattern, settings.last_number_before)
         pdf_path = Path(invoices_dir) / f"{storno}_Storno_{number}.pdf"
         conn.execute(
             "INSERT INTO invoices (number, customer, issue_date, net, vat, gross,"
