@@ -1,0 +1,18 @@
+{% import "kurs/_teile.html" as t with context %}
+
+{% set agent = werkzeug.agent %}
+<div class="weg-wahl" data-auswahl data-weiterknopf>
+  <div class="auswahl-knoepfe stationen" aria-label="Die Stationen">
+    <button type="button" data-zeige="w1"><span>1</span> 📄</button>
+    <button type="button" data-zeige="w2"><span>2</span> 🖤</button>
+    <button type="button" data-zeige="w3"><span>3</span> 📋</button>
+    <button type="button" data-zeige="w4"><span>4</span> {{ "🤖" if agent else "💬" }}</button>
+    <button type="button" data-zeige="w5"><span>5</span> ✅</button>
+  </div>
+  <div class="tafel" data-tafel="w1"><h3>1 · Original</h3><p>Es liegt {% if agent %}in <code>~/Papierkram</code>{% else %}bei dir, auf Papier oder als Datei{% endif %} und bleibt dort.</p></div>
+  <div class="tafel" data-tafel="w2"><h3>2 · Schwärzen</h3><p>Auf deinem Computer: mit der <a href="/lernen/werkbank">Werkbank</a> oder einem eigenen Schwärz-Programm.</p></div>
+  <div class="tafel" data-tafel="w3"><h3>3 · Kopie ablegen</h3><p>{% if agent %}Die geschwärzte Kopie kommt nach <code>~/KI-Werkstatt/geschwaerzt</code>.{% else %}Den geschwärzten Text kopierst du.{% endif %} Kurz drüberschauen: Ist wirklich alles weg?</p></div>
+  <div class="tafel" data-tafel="w4"><h3>4 · Arbeiten lassen</h3><p>{% if agent %}{{ werkzeug.name }} in <code>~/KI-Werkstatt</code> starten und arbeiten lassen.{% else %}In den Chat einfügen und deine Frage stellen.{% endif %}</p></div>
+  <div class="tafel" data-tafel="w5"><h3>5 · Ergebnis zurück</h3><p>{% if agent %}Ergebnis aus <code>ergebnis/</code> holen.{% else %}Die Antwort kopieren.{% endif %} Die echten Namen setzt du selbst wieder ein, die Werkbank kann das für dich.</p></div>
+  <button type="button" class="tiny" data-naechste>Nächste Station →</button>
+</div>

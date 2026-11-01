@@ -1,0 +1,24 @@
+{% import "kurs/_teile.html" as t with context %}
+
+{% set modi = [
+  ("default", "Manual", "gut", "Claude fragt vor jeder Änderung und jedem Befehl.", "Ja, das ist der richtige."),
+  ("plan", "Plan", "gut", "Claude schaut sich nur um und schreibt einen Plan, ändert aber nichts.", "Ja, prima zum Anfangen."),
+  ("acceptEdits", "Accept edits", "mittel", "Dateien ändern ohne Nachfrage, Befehle mit Nachfrage.", "Nur in der Schleuse."),
+  ("auto", "Auto", "mittel", "Keine Nachfragen. Eine zweite KI prüft im Hintergrund, ob ein Schritt zu deinem Auftrag passt.", "Lieber nicht. Du siehst nicht mehr, was passiert."),
+  ("dontAsk", "Don't ask", "mittel", "Alles, was fragen würde, wird abgelehnt. Nur ausdrücklich Erlaubtes läuft.", "Für Fortgeschrittene."),
+  ("bypassPermissions", "Bypass", "schlecht", "Fragt nie. Laut Anleitung nur für abgeschottete Test-Computer.", "Nein. Die Schlösser im nächsten Happen schalten ihn ganz ab."),
+] %}
+<div class="modus-wahl" data-auswahl data-start="default">
+  <p class="hint">Unten im Fenster steht, welcher Modus gerade an ist. Wechseln: <kbd>Shift</kbd>+<kbd>Tab</kbd></p>
+  <div class="auswahl-knoepfe ampel-knoepfe" aria-label="Die Modi von Claude Code">
+    {% for key, name, ampel, was, urteil in modi %}<button type="button" class="ampel-{{ ampel }}" data-zeige="{{ key }}">{{ name }}</button>{% endfor %}
+  </div>
+  {% for key, name, ampel, was, urteil in modi %}
+  <div class="tafel ampel-tafel ampel-{{ ampel }}" data-tafel="{{ key }}">
+    <h3>{{ name }} <code>{{ key }}</code></h3>
+    <p>{{ was }}</p>
+    <p class="urteil"><strong>Für Papierkram?</strong> {{ urteil }}</p>
+  </div>
+  {% endfor %}
+</div>
+<p class="hint">Quelle: {{ t.quelle("claude_modes", "Claude Code: Modi") }} (Stand {{ stand }})</p>

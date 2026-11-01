@@ -1,7 +1,7 @@
 import json
 import re
 
-from test_web import client, mails, post, provider, ws  # noqa: F401  (pytest fixtures)
+from test_web import TODAY, client, mails, post, provider, ws  # noqa: F401  (pytest fixtures)
 
 from frits import lernen
 from frits.customers import Customer
@@ -14,18 +14,154 @@ def shown(response, box: str) -> str:
     return found.group(1)
 
 
-def test_every_chapter_renders_with_its_neighbours(client):  # noqa: F811
-    for slug in lernen.SLUGS:
-        response = client.get(f"/lernen/{slug}")
-        assert response.status_code == 200, slug
-        assert lernen.kapitel_info(slug)["title"] in response.text
+def choose(client, tool):  # noqa: F811
+    data = {"token": client.token, "werkzeug": tool, "weiter": "/lernen/agent"}
+    return client.post("/lernen/wahl", data=data, follow_redirects=False)
+
+
+def every_bite(client):  # noqa: F811
+    """Every bite of every stage for every tool: (tool, address, page)."""
+    for tool in lernen.WERKZEUGE:
+        choose(client, tool)
+        for e in lernen.ETAPPEN:
+            for h in e.fuer(tool):
+                url = f"/lernen/{e.slug}/{h.slug}"
+                yield tool, url, client.get(url)
+
+
+def test_every_bite_renders_for_every_tool(client):  # noqa: F811
+    seen = set()
+    for tool, url, response in every_bite(client):
+        assert response.status_code == 200, (tool, url)
         assert 'href="/lernen"' in response.text  # in the main navigation
+        assert "So funktionieren KI-Agenten" in response.text
+        seen.add(url)
+    # every bite belongs to at least one tool
+    assert seen == {f"/lernen/{e.slug}/{h.slug}" for e in lernen.ETAPPEN for h in e.happen}
     assert client.get("/lernen").status_code == 200
     assert client.get("/lernen/gibts-nicht").status_code == 404
+    assert client.get("/lernen/agent/gibts-nicht").status_code == 404
+
+
+def test_old_chapter_addresses_still_work(client):  # noqa: F811
+    for old in (
+        "start",
+        "treppe",
+        "schleuse",
+        "claude-code",
+        "andere-tools",
+        "prompts",
+        "werkbank",
+        "papierkram",
+    ):
+        assert client.get(f"/lernen/{old}").status_code == 200, old
+
+
+def test_the_menu_uses_the_new_name(client):  # noqa: F811
+    page = client.get("/").text
+    assert "So funktionieren KI-Agenten" in page
+    assert "KI-Werkstatt" not in page
+
+
+def test_fritte_explains_the_goal_at_the_start(client):  # noqa: F811
+    page = client.get("/lernen").text
+    assert "außerhalb von FRITS" in page
+    assert "Los geht's" in page
+    first = client.get("/lernen/start").text
+    assert "außerhalb von FRITS" in first or "ohne mich" in first
+
+
+def test_the_tool_choice_filters_the_bites(client):  # noqa: F811
+    choose(client, "codex")
+    page = client.get("/lernen/einstellen").text
+    assert "Zwei Schalter" in page and "--sandbox" in page
+    assert "Du lernst mit: <strong>Codex</strong>" in page
+    choose(client, "chat")
+    page = client.get("/lernen/einstellen").text
+    assert "Training ausschalten" in page
+    assert "Zwei Schalter" not in page
+    # a bite for another tool still opens (old links), it just says so
+    assert "Für ein anderes Werkzeug" in client.get("/lernen/einstellen/codex-schalter").text
+
+
+def test_the_tool_choice_needs_the_token_and_a_known_tool(client):  # noqa: F811
+    response = client.post("/lernen/wahl", data={"token": "falsch", "werkzeug": "codex"})
+    assert response.status_code == 403
+    assert post(client, "/lernen/wahl", werkzeug="gibts-nicht").status_code == 400
+    # the way back can only be inside the course
+    response = client.post(
+        "/lernen/wahl",
+        data={"token": client.token, "werkzeug": "codex", "weiter": "https://example.org/"},
+        follow_redirects=False,
+    )
+    assert response.headers["location"] == "/lernen/agent"
+
+
+def test_bites_are_small(client):  # noqa: F811
+    """Marie: "zu viel Text pro Seite". Fritte says one or two sentences, a bite has little prose."""
+    for e in lernen.ETAPPEN:
+        for h in e.happen:
+            assert len(h.sagt) <= 220, h.slug
+    for tool, url, response in every_bite(client):
+        if url.endswith("/werkbank"):
+            continue
+        bite = re.search(
+            r'<section class="card happen" id="happen">(.*?)</section>\s*<div class="row kurs-weiter">',
+            response.text,
+            re.DOTALL,
+        ).group(1)
+        prose = re.sub(r"<pre.*?</pre>|<svg.*?</svg>|<[^>]+>", " ", bite, flags=re.DOTALL)
+        words = len(prose.split())
+        assert words <= 330, (tool, url, words)
+
+
+def test_finishing_a_stage_stamps_it_and_gives_a_card(client, ws):  # noqa: F811
+    choose(client, "claude-code")
+    client.get("/lernen/agent/haende")
+    response = post(client, "/lernen/agent/geschafft")
+    assert "Etappe 2 geschafft" in response.text
+    assert "Salzkörner" in response.text
+    assert "Er arbeitet in Runden" not in response.text  # moved on to the next stage
+    assert response.url.path == "/lernen/treppe"
+    karte = client.get("/lernen").text
+    assert "Gelernt" in karte
+    # The game sees the finished stage as a card, once
+    from frits import store
+    from frits.spiel import stand
+
+    conn = store.connect(ws.db)
+    stand.abgleichen(conn, TODAY)
+    post(client, "/lernen/agent/geschafft")
+    stand.abgleichen(conn, TODAY)
+    cards = conn.execute("SELECT schluessel FROM spiel_karten WHERE art = 'lernen'").fetchall()
+    # picking the tool finished stage 1, the button stage 2; pressing it again adds nothing
+    assert sorted(c[0] for c in cards) == ["lernen:agent", "lernen:start"]
+
+
+def test_the_last_stage_finishes_the_course(client):  # noqa: F811
+    for e in lernen.ETAPPEN:
+        response = post(client, f"/lernen/{e.slug}/geschafft")
+    assert "Kurs geschafft" in response.text
+    assert "Du hast alles geschafft" in client.get("/lernen").text
+
+
+def test_the_map_remembers_where_you_were(client):  # noqa: F811
+    choose(client, "chat")
+    assert "Los geht's" in client.get("/lernen").text
+    client.get("/lernen/start/hallo")
+    post(client, "/lernen/start/geschafft")
+    page = client.get("/lernen").text
+    assert "Weiter, wo du warst" in page
+    assert 'href="/lernen/agent"' in page
+
+
+def test_the_workbench_takes_a_task_from_the_paperwork_examples(client):  # noqa: F811
+    page = client.get("/lernen/werkbank?aufgabe=Was+wollen+die+von+mir").text
+    assert 'value="Was wollen die von mir"' in page
 
 
 def test_every_prompt_is_on_a_page_with_a_copy_button(client):  # noqa: F811
-    pages = "".join(client.get(f"/lernen/{slug}").text for slug in lernen.SLUGS)
+    pages = "".join(response.text for _, _, response in every_bite(client))
     for key in lernen.PROMPTS:
         assert f'id="text-{key}"' in pages, key
         assert f'data-kopieren="#text-{key}"' in pages, key
@@ -127,3 +263,16 @@ def test_a_surname_hiding_elsewhere_is_flagged(nlp):
     again = lernen.schwaerzen(stueck.original, [], nlp, extra="\n".join(stueck.suspicious))
     assert "König" not in again.redacted
     assert again.suspicious == ()
+
+
+def test_picking_a_tool_finishes_the_first_stage(client):  # noqa: F811
+    response = post(client, "/lernen/wahl", werkzeug="cursor", weiter="/lernen/agent")
+    assert "Etappe 1 geschafft" in response.text
+    assert response.url.path == "/lernen/agent"
+    # Changing the tool later just says so, and a bite the new tool lacks leads to its stage
+    response = post(
+        client, "/lernen/wahl", werkzeug="chat", weiter="/lernen/einstellen/cursor-modi"
+    )
+    assert "Du lernst jetzt mit Chat im Browser" in response.text
+    assert response.url.path == "/lernen/einstellen"
+    assert "Training ausschalten" in response.text

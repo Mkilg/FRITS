@@ -1,0 +1,34 @@
+{% import "kurs/_teile.html" as t with context %}
+
+{% set zeilen = [("read-only", "nur lesen"), ("workspace-write", "schreiben im Ordner, kein Internet"), ("danger-full-access", "alles")] %}
+{% set spalten = [("untrusted", "fragt vor fast allem"), ("on-request", "KI entscheidet"), ("never", "fragt nie")] %}
+{% set urteil = {
+  "read-only/untrusted": ("gut", "Zum Anschauen ideal: Codex kann nichts ändern und fragt trotzdem."),
+  "read-only/on-request": ("gut", "Gut zum Anschauen. Ändern kann Codex ohnehin nichts."),
+  "read-only/never": ("mittel", "Geht zum Lesen. Kaputtmachen kann er nichts, aber er fragt auch nie."),
+  "workspace-write/untrusted": ("bestens", "Die Empfehlung für Papierkram: schreiben nur im Ordner, kein Internet, und er fragt vor jedem Befehl, der nicht als harmlos bekannt ist."),
+  "workspace-write/on-request": ("mittel", "Ok in der Schleuse, aber die KI entscheidet selbst, wann sie fragt."),
+  "workspace-write/never": ("schlecht", "Lieber nicht: Er legt einfach los."),
+  "danger-full-access/untrusted": ("schlecht", "Nein. Alles erlaubt, auch wenn er fragt."),
+  "danger-full-access/on-request": ("schlecht", "Nein. Alles erlaubt."),
+  "danger-full-access/never": ("schlecht", "Auf keinen Fall. Das ist der Wegwerf-Computer-Modus."),
+} %}
+<div class="matrix-wahl" data-auswahl data-start="workspace-write-untrusted">
+  <div class="table-wrap">
+  <table class="matrix">
+    <thead><tr><th><span class="muted">--sandbox ↓ · --ask-for-approval →</span></th>{% for s, text in spalten %}<th><code>{{ s }}</code><br><span class="muted">{{ text }}</span></th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for z, ztext in zeilen %}
+      <tr><th><code>{{ z }}</code><br><span class="muted">{{ ztext }}</span></th>
+      {% for s, text in spalten %}{% set u = urteil[z ~ "/" ~ s] %}
+        <td><button type="button" class="feld ampel-{{ u[0] }}" data-zeige="{{ z }}-{{ s }}" aria-label="{{ z }} mit {{ s }}">{{ {"bestens": "★", "gut": "✓", "mittel": "~", "schlecht": "✗"}[u[0]] }}</button></td>
+      {% endfor %}</tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% for key, u in urteil.items() %}
+  <div class="tafel ampel-tafel ampel-{{ u[0] }}" data-tafel="{{ key | replace('/', '-') }}"><p><code>{{ key | replace('/', ' + ') }}</code>: {{ u[1] }}</p></div>
+  {% endfor %}
+</div>
+<p class="hint">Quelle: {{ t.quelle("codex_security", "Codex: Sicherheit und Sandbox") }} (Stand {{ stand }})</p>

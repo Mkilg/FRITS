@@ -1,0 +1,18 @@
+{% import "kurs/_teile.html" as t with context %}
+
+<form method="post" action="/lernen/wahl" class="werkzeug-wahl">
+  <input type="hidden" name="token" value="{{ token }}">
+  <input type="hidden" name="weiter" value="{{ request.query_params.get('zurueck') or '/lernen/agent' }}">
+  {% for w in werkzeuge.values() %}
+  <button class="werkzeug-karte{{ ' gewaehlt' if gewaehlt and w.slug == werkzeug.slug }}" name="werkzeug" value="{{ w.slug }}">
+    <span class="werkzeug-zeichen" aria-hidden="true">{{ {"chat": "💬", "claude-code": "✳️", "codex": "⌨️", "cursor": "🖱️"}[w.slug] }}</span>
+    <strong>{{ w.name }}</strong>
+    <span class="werkzeug-wer">{{ w.wer }}</span>
+    {% if w.slug == "chat" %}<span class="empfehlung">Fritte empfiehlt das zum Anfangen</span>{% endif %}
+    {% if gewaehlt and w.slug == werkzeug.slug %}<span class="empfehlung gewaehlt-text">✓ gewählt</span>{% endif %}
+  </button>
+  {% endfor %}
+</form>
+<div class="lesson">
+  <strong>Weiß nicht?</strong> Dann nimm den <strong>Chat im Browser</strong>. Den kennst du schon, und er ist am leichtesten sicher zu machen. Agenten wie Claude Code oder Codex kannst du später dazunehmen: einfach hier oben auf „ändern“ tippen.
+</div>

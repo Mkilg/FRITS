@@ -1961,7 +1961,15 @@ def create_app(
     from frits.web.lernen import register_lernen
 
     register_lernen(
-        app, page=page, settings=settings, customers=customers, nlp=nlp, guarded=guarded
+        app,
+        page=page,
+        back=back,
+        flash=flash,
+        db=db,
+        settings=settings,
+        customers=customers,
+        nlp=nlp,
+        guarded=guarded,
     )
 
     from frits.web.notfall import register_notfall

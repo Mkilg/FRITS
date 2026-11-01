@@ -1,0 +1,15 @@
+{% import "kurs/_teile.html" as t with context %}
+
+<div class="einstellung-mock">
+  <p class="mini-titel">Einstellungen › Datenkontrollen</p>
+  <div class="mock-zeile">
+    <span>Das Modell für alle verbessern</span>
+    <button type="button" class="schalter umgekehrt" data-schalter aria-pressed="true"><span class="schalter-knopf" aria-hidden="true"></span><span class="sr-only">Training</span></button>
+  </div>
+  <p class="schalter-lob" hidden>✓ Aus! Deine Chats werden nicht mehr zum Trainieren benutzt.</p>
+</div>
+<ul class="plain kurz">
+  <li><strong>ChatGPT:</strong> Einstellungen › Datenkontrollen › „Das Modell für alle verbessern“</li>
+  <li><strong>Claude:</strong> Einstellungen › Datenschutz</li>
+</ul>
+<p class="hint">Die Menüpunkte ändern sich manchmal. Quelle: {{ t.quelle("chatgpt_data", "OpenAI: Datenkontrollen") }}</p>
