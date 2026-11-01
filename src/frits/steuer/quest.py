@@ -267,6 +267,25 @@ def setze_status(
     return stueck(conn, stueck_id)
 
 
+def setze_frage(conn: sqlite3.Connection, stueck_id: int, frage: str) -> dict:
+    """Nur die Frage ändern, der Stempel bleibt: eine Frage zu einem Beleg, der schon da ist."""
+    stueck(conn, stueck_id)
+    with transaction(conn):
+        conn.execute(
+            "UPDATE steuer_stuecke SET frage = ?, geaendert = ? WHERE id = ?",
+            (frage.strip()[:500], _now(), stueck_id),
+        )
+    return stueck(conn, stueck_id)
+
+
+def datei(conn: sqlite3.Connection, jahr: int, datei_id: int) -> dict | None:
+    ensure_schema(conn)
+    row = conn.execute(
+        "SELECT * FROM steuer_dateien WHERE id = ? AND jahr = ?", (datei_id, jahr)
+    ).fetchone()
+    return dict(row) if row else None
+
+
 def markiere_wunsch(conn: sqlite3.Connection, stueck_id: int) -> None:
     with transaction(conn):
         conn.execute("UPDATE steuer_stuecke SET wunsch = 1 WHERE id = ?", (stueck_id,))
