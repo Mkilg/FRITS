@@ -46,7 +46,7 @@
       <form method="post" action="/invoices/{{ i.number }}/kopieren"><input type="hidden" name="token" value="{{ token }}"><button class="tiny quiet" title="Neuer Entwurf mit denselben Positionen, z. B. für den nächsten Monat">Kopieren</button></form>
       {% endif %}
       {% if i.status in ("offen", "überfällig", "bezahlt") %}
-      <form method="post" action="/invoices/{{ i.number }}/cancel" data-confirm="Rechnung {{ i.number }} stornieren? Es entsteht eine Stornorechnung mit eigener Nummer. Nichts wird gelöscht."><input type="hidden" name="token" value="{{ token }}"><button class="tiny quiet danger">Stornieren</button></form>
+      <form method="post" action="/invoices/{{ i.number }}/cancel" data-confirm="Rechnung {{ i.number }} stornieren? Es entsteht eine Stornorechnung mit eigener Nummer. Nichts wird gelöscht." data-confirm-ja="Stornieren"><input type="hidden" name="token" value="{{ token }}"><button class="tiny quiet danger">Stornieren</button></form>
       {% endif %}
     </td>
   </tr>

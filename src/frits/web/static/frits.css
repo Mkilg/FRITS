@@ -194,8 +194,8 @@ table { width: 100%; border-collapse: collapse; }
 /* The draft table needs room (Leistung, USt column): on wide screens the page grows and
    the original gets the smaller share. */
 @media (min-width: 1200px) {
-  main:has(> .review:not(.single)), body:has(main > .review:not(.single)) .bottom { max-width: 1340px; }
-  .review:not(.single) { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); }
+  main:has(> .review.entwurf:not(.single)), body:has(main > .review.entwurf:not(.single)) .bottom { max-width: 1340px; }
+  .review.entwurf:not(.single) { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); }
 }
 .source pre { white-space: pre-wrap; word-break: break-word; background: var(--bg); padding: 0.8rem;
   border-radius: 8px; font-size: 0.85rem; max-height: 28rem; overflow: auto; margin: 0.3rem 0; }
@@ -468,4 +468,10 @@ button.punkt-weg:hover, button.punkt-weg:focus-visible { opacity: 1; color: var(
 }
 .flash.flash-hier { margin: 0.4rem 0 0.6rem; }
 .liste-bild { width: 1.8rem; height: 1.8rem; object-fit: contain; vertical-align: -0.45rem; }
-tr:target > td { background: rgba(214, 164, 60, 0.18); }
+/* The question before a step that can't be undone: a card, not the browser's grey box. */
+dialog.rueckfrage-karte { max-width: min(30rem, calc(100vw - 2rem)); border: 1px solid var(--line);
+  border-radius: 14px; padding: 1.3rem 1.4rem 1.1rem; background: var(--card, #fffaf0); color: inherit;
+  box-shadow: 0 18px 50px rgba(60, 40, 10, 0.28); font-size: 1.02rem; line-height: 1.5; }
+dialog.rueckfrage-karte::backdrop { background: rgba(40, 28, 10, 0.35); }
+dialog.rueckfrage-karte p { margin: 0 0 1rem; }
+dialog.rueckfrage-karte .row { gap: 0.6rem; justify-content: flex-end; flex-wrap: wrap; }
