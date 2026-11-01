@@ -625,7 +625,30 @@ def register_steuer(
             if plus and not ferne:
                 # Der größte Treffer des Kampfes soll man sehen, auch wenn der Sieg ihn verdrängt
                 flash(f"Letzter Treffer: {basis} × {faktor} = +{basis * faktor} Gold.", "sieg")
+            if goldjahr and fritte_truhe(c, jahr, silber=bool(nachher["zweifel"])):
+                flash("Fritte hat eine Truhe für dich bekommen. Sie wartet auf Heute.", "sieg")
         return sieg
+
+    def fritte_truhe(c, jahr: int, silber: bool) -> bool:
+        """Der Sieg zahlt in den Alltag zurück: eine Truhe bei Fritte, einmal pro Steuerjahr.
+        Gold-Sieg: mindestens selten. Ohne Fritte (ausgeschaltet oder noch nicht da) nichts."""
+        if not settings().haustier:
+            return False
+        try:
+            from frits.spiel.truhen import truhe_geben
+        except ImportError:
+            return False
+        try:
+            return bool(
+                truhe_geben(
+                    c,
+                    f"drachensieg:{jahr}",
+                    seltenheit="gewöhnlich" if silber else "selten",
+                    text=f"Der Drache {jahr} ist besiegt!",
+                )
+            )
+        except Exception:  # noqa: BLE001 — der Sieg darf an Frittes Truhe nie scheitern
+            return False
 
     def stueck_im_jahr(jahr: int, stueck_id: int) -> dict:
         try:

@@ -2223,3 +2223,47 @@ def test_runde_18_gold_von_fritte_zahlt_jeden_grund_einmal(conn):
     assert quest.gold_gutschreiben(conn, 2025, 7, "Fritte-Truhe", "fritte-truhe:1") == 7
     assert quest.gold_gutschreiben(conn, 2025, 7, "Fritte-Truhe", "fritte-truhe:1") == 0
     assert quest.gold(conn, 2025) == 7
+
+
+def test_runde_18_drachensieg_gibt_fritte_eine_truhe(client, ws, monkeypatch):
+    # Brücke Quest -> Alltag: Der Sieg legt bei Fritte eine Truhe ab, einmal pro Jahr.
+    # frits.spiel.truhen kommt aus dem Fritte-Thread; bis dahin hier ein Stellvertreter.
+    import sys
+    import types
+
+    gegeben = []
+    attrappe = types.ModuleType("frits.spiel.truhen")
+
+    def truhe_geben(conn, grund, seltenheit=None, text="", heute=None):
+        neu = grund not in [g[0] for g in gegeben]
+        gegeben.append((grund, seltenheit, text))
+        return neu
+
+    attrappe.truhe_geben = truhe_geben
+    monkeypatch.setitem(sys.modules, "frits.spiel.truhen", attrappe)
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    _bis_wach(conn)
+    while spiel.drache(quest.stuecke(conn, 2025)).lp > 1:
+        k = spiel.drache(quest.stuecke(conn, 2025)).karte
+        post(client, "/steuer/2025/drache/schlag", stueck_id=str(k["id"]), aktion="fragen")
+    k = spiel.drache(quest.stuecke(conn, 2025)).karte
+    seite = post(client, "/steuer/2025/drache/schlag", stueck_id=str(k["id"]), aktion="fragen")
+    assert gegeben == [("drachensieg:2025", "selten", "Der Drache 2025 ist besiegt!")]
+    assert "Fritte hat eine Truhe für dich bekommen" in seite.text
+
+
+def test_runde_18_sieg_ohne_fritte_truhen_bricht_nicht(client, ws, monkeypatch):
+    import sys
+
+    monkeypatch.setitem(sys.modules, "frits.spiel.truhen", None)  # Import schlägt fehl
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    _bis_wach(conn)
+    while spiel.drache(quest.stuecke(conn, 2025)).lp > 1:
+        k = spiel.drache(quest.stuecke(conn, 2025)).karte
+        post(client, "/steuer/2025/drache/schlag", stueck_id=str(k["id"]), aktion="fragen")
+    k = spiel.drache(quest.stuecke(conn, 2025)).karte
+    seite = post(client, "/steuer/2025/drache/schlag", stueck_id=str(k["id"]), aktion="fragen")
+    assert seite.status_code == 200 and "Fritte hat eine Truhe" not in seite.text
+    assert spiel.drache(quest.stuecke(conn, 2025)).besiegt
