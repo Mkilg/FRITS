@@ -29,6 +29,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from jinja2 import Environment, PackageLoader, select_autoescape
 from markupsafe import Markup
+from PIL import Image
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from frits import (
@@ -144,6 +145,26 @@ def painted_pictures(static: Path) -> dict[str, str]:
         if path.suffix in (".png", ".webp") and re.fullmatch(r"[a-z0-9-]+", path.stem):
             found.setdefault(path.stem, f"/static/bilder/{path.name}")
     return found
+
+
+def picture_tag(static: Path, pictures: dict[str, str]):
+    """<img> for a painted picture with its own width and height, so the page keeps the
+    space for it while it loads (CSS sets the shown width, the browser keeps the ratio)."""
+
+    def tag(name: str, css_class: str) -> Markup:
+        url = pictures.get(name)
+        if url is None:
+            return Markup("")
+        try:
+            with Image.open(Path(static) / "bilder" / url.rsplit("/", 1)[1]) as im:
+                width, height = im.size
+        except OSError:
+            return Markup('<img class="{}" src="{}" alt="">').format(css_class, url)
+        return Markup('<img class="{}" src="{}" alt="" width="{}" height="{}">').format(
+            css_class, url, width, height
+        )
+
+    return tag
 
 
 NAV_SYMBOLS = {
@@ -391,6 +412,7 @@ def create_app(
     templates.env.globals.update(
         mascot=mascot_or_picture(pictures),
         picture=pictures.get,
+        picture_tag=picture_tag(static, pictures),
         picture_css=picture_css(pictures),
     )
 
@@ -465,8 +487,11 @@ def create_app(
             if not check_me and ready < len(drafts):
                 moment = (
                     moment[0],
-                    "Da liegen Entwürfe, die noch etwas von dir brauchen. Schau sie dir an, "
+                    "Da liegt ein Entwurf, der noch etwas von dir braucht. Schau ihn dir an, "
                     "wenn es dir passt."
+                    if len(drafts) == 1
+                    else "Da liegen Entwürfe, die noch etwas von dir brauchen. Schau sie dir "
+                    "an, wenn es dir passt."
                     if ready == 0
                     else f"{ready} von {len(drafts)} Entwürfen sind fertig, die anderen brauchen "
                     "noch etwas von dir.",

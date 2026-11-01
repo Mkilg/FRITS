@@ -440,6 +440,7 @@ main:has(.sq-tisch) > .flash { max-width: 760px; margin: 0.8rem auto; position: 
 .sq-combo .ruf { font: 700 1.5rem var(--schrift); color: var(--gold); text-shadow: 0 2px 0 #3a2412; }
 .frisch .sq-combo .mult { animation: sq-pop .45s cubic-bezier(.2, 1.9, .4, 1); }
 .sq-wurf { position: relative; width: min(440px, 100%); margin-top: 0.4rem; }
+.sq-wurf-stapel { position: relative; }
 .sq-wurf .sq-karte { color: var(--tinte); text-align: left; animation: sq-wurf .55s cubic-bezier(.2, 1.2, .4, 1) both; min-height: 0; }
 .sq-wurf .stapel { position: absolute; inset: 0; background: var(--creme); border-radius: 3px; transform: rotate(4deg) translate(10px, 6px); box-shadow: 0 8px 16px rgba(0,0,0,.3); }
 .sq-wurf .stapel.zwei { transform: rotate(-3deg) translate(-8px, 10px); }
@@ -732,6 +733,7 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
 .sq-intro-weiter { font: 700 1rem var(--schrift); padding: 0.55rem 1.2rem; border-radius: 999px; border: 0; cursor: pointer; background: var(--papierkarte); color: var(--tinte); box-shadow: 0 4px 0 #b39c68, 0 8px 16px rgba(0,0,0,.35); }
 .sq-intro-weiter kbd { font: 600 0.7rem system-ui, sans-serif; padding: 0.1rem 0.35rem; border: 1px solid #c9b88e; border-radius: 3px; margin-left: 0.4rem; color: #8a7a5c; }
 .sq-intro-skip { color: #ffe3a6; font-size: 0.85rem; text-shadow: 0 1px 3px #000; }
+.sq-intro-hinweis { margin: 0; max-width: 34rem; color: #ffe3a6; font-size: 0.85rem; line-height: 1.4; text-shadow: 0 1px 3px #000; }
 .sq-intro-punkte { position: relative; z-index: 1; display: none; gap: 0.5rem; list-style: none; padding: 0; margin: 1rem 0 0; }
 .sq-intro-punkte li { width: 10px; height: 10px; border-radius: 50%; background: rgba(246, 236, 210, .35); transition: background .3s, transform .3s; }
 .sq-intro-punkte li.an { background: var(--gold); transform: scale(1.3); }
@@ -752,7 +754,7 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
 @keyframes sq-verstreuen { from { transform: translate(-50%, -50%) rotate(0); opacity: 0; }
   to { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(var(--dreh)); opacity: 1; } }
 .sq-szene-bild.wachsen { grid-template-columns: auto 220px; gap: 1rem; }
-.sq-szene-bild.wachsen .fritte { height: 230px; }
+.sq-szene-bild.wachsen .fritte { height: 230px; width: auto; aspect-ratio: auto 172 / 480; }
 .sq-szene-bild.wachsen .haus { grid-column: 2; grid-row: 1; width: 220px; opacity: 0; }
 .sq-szene.jetzt .wachsen .haus.stufe1 { animation: sq-stufe 3.6s 0.3s infinite; }
 .sq-szene.jetzt .wachsen .haus.stufe2 { animation: sq-stufe 3.6s 1.5s infinite; }
@@ -1103,7 +1105,11 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
   .sq-handkarte { flex: none; }
 }
 .sq-hand-faecher.sq-rueckfrage-ort .sq-rueckfrage-blase { bottom: calc(100% - 4px); }
-.sq-wurf-zurueck { margin: 0.4rem 0 0; display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; font-size: 0.82rem; color: #6d6150; border-top: 1px dashed #d9c79c; padding-top: 0.4rem; }
+.sq-wurf-zurueck { position: relative; z-index: 2; margin: 0 0 0.7rem; display: flex; align-items: center; gap: 0.2rem 0.5rem; flex-wrap: wrap; font-size: 0.84rem; color: var(--tinte); text-align: left;
+  background: #e4efd2; border-left: 4px solid var(--moos, #6f9440); padding: 0.4rem 0.7rem; border-radius: 2px; box-shadow: 0 4px 10px rgba(0,0,0,.3); transform: rotate(-0.6deg); animation: sq-treffer-rein .4s ease-out both; }
+.sq-wurf-zurueck b { color: #3f5d22; }
+@keyframes sq-treffer-rein { from { opacity: 0; transform: translateY(-8px) rotate(-0.6deg); } }
+.sq-etikett.naechste { background: var(--tinte); color: var(--creme); }
 .sq-wurf-zurueck button { font-size: 0.82rem; }
 .sq-beiseite { margin-top: 0.3rem; text-align: right; }
 .sq-beiseite button { font-size: 0.78rem; }
@@ -1144,3 +1150,198 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
   .sq-hort.wach .sq-drache-klein { width: 124px; height: 110px; }
   .sq-hort.wach { margin: 1.4rem auto 0.4rem; }
 }
+
+/* ---------- Runde 8: eine Fritte für ganz FRITS ----------
+   Die Quest nimmt die gemalte Fritte aus static/bilder; der Entdeckerhut sitzt auf ihrer Spitze.
+   Feste Maße, damit nichts springt, wenn das Bild nachlädt. */
+.sq-fritte:has(img) { width: 96px; height: 150px; }
+.sq-fritte img.fritte { width: 100%; height: 100%; object-fit: contain; object-position: center bottom; }
+.sq-fritte.hut:has(img)::before { left: var(--hut-x, 50%); top: var(--hut-y, 2px); width: 34px; height: 13px; transform: translateX(-50%) rotate(var(--hut-dreh, 0deg)); }
+.sq-fritte.hut:has(img)::after { left: var(--hut-x, 50%); top: calc(var(--hut-y, 2px) + 10px); width: 48px; height: 5px; transform: translateX(-50%) rotate(var(--hut-dreh, 0deg)); }
+.sq-fritte.bild-welcome { --hut-x: 62%; --hut-y: 1px; --hut-dreh: 12deg; }
+.sq-fritte.bild-thinking { --hut-x: 60%; --hut-y: 1px; --hut-dreh: 12deg; }
+.sq-fritte.bild-done { --hut-x: 40%; --hut-y: 1px; --hut-dreh: -10deg; }
+.sq-fritte.bild-warning { --hut-x: 48%; --hut-y: 1px; --hut-dreh: -6deg; }
+
+/* Handy: die Messingleiste wird schmal (nur Zeichen und Zahlen, der Name steht im Tooltip),
+   damit Hand und Hort ohne Scrollen zu sehen sind */
+@media (max-width: 600px) {
+  .sq-leiste { gap: 0.25rem 0.7rem; padding: 0.4rem 0.7rem; margin-bottom: 0.7rem; }
+  .sq-titel { font-size: 1rem; }
+  .sq-marken { gap: 0.2rem 0.75rem; flex-wrap: nowrap; }
+  .sq-marke { font-size: 0; gap: 0.25rem; }
+  .sq-marke b { font-size: 1.05rem; }
+  .sq-marke i { width: 17px; height: 17px; }
+  .sq-zeitalter { width: 100%; font-size: 0.85rem; gap: 0.4rem; }
+  .sq-zeitalter > span:first-child { white-space: nowrap; }
+  .sq-zeitalter .sq-band { flex: 1; min-width: 60px; }
+  .sq-arena .sq-hand { margin-top: 0.9rem; }
+}
+
+/* =====================================================================
+   Runde 8: Gold-Wirtschaft. Die Serie multipliziert Gold, Gold baut die Insel aus.
+   ===================================================================== */
+.sq-marke.gold a { display: flex; align-items: center; gap: inherit; color: inherit; text-decoration: none; border-radius: 6px; padding: 0 0.2rem; margin: 0 -0.2rem; }
+.sq-marke.gold a:hover, .sq-marke.gold a:focus-visible { background: rgba(255, 255, 255, .45); }
+.sq-gold-plus { position: absolute; z-index: 30; font: 800 1rem var(--schrift); color: #7a5512; background: #fff3c4; border: 1px solid #c9a24a; border-radius: 999px; padding: 0.05rem 0.45rem; pointer-events: none; animation: sq-gold-steigt 1.6s ease-out forwards; }
+@keyframes sq-gold-steigt { 0% { opacity: 0; transform: translateY(6px) scale(.8); } 15% { opacity: 1; transform: translateY(0) scale(1.1); } 70% { opacity: 1; } 100% { opacity: 0; transform: translateY(-26px); } }
+
+/* Die Rechnung im Kampf: Grundwert × Serie = Gold */
+.sq-combo { flex-wrap: wrap; }
+.sq-rechnung { flex-basis: 100%; display: flex; align-items: center; justify-content: center; gap: 0.35rem; margin: 0.2rem 0 0; font: 700 1.05rem var(--schrift); color: var(--creme); }
+.sq-rechnung .chips, .sq-rechnung .faktor { min-width: 2ch; padding: 0.05rem 0.45rem; border-radius: 6px; text-align: center; color: #fff; }
+.sq-rechnung .chips { background: #2f5d8a; box-shadow: 0 3px 0 #1b3a5a; }
+.sq-rechnung .faktor { background: var(--wachs); box-shadow: 0 3px 0 #5e1612; }
+.sq-rechnung b { color: var(--gold); text-shadow: 0 2px 0 #3a2412; animation: sq-pop .5s .35s cubic-bezier(.2, 1.9, .4, 1) both; }
+.sq-rechnung small { font: 600 0.8rem system-ui, sans-serif; color: #f3e3c0; }
+
+/* Helfer: wie Joker in einer Reihe */
+.sq-helferreihe { display: flex; flex-wrap: wrap; gap: 0.4rem; justify-content: center; list-style: none; margin: 0.3rem 0 0; padding: 0; }
+.sq-helferreihe li { display: flex; align-items: center; gap: 0.3rem; font: 600 0.78rem system-ui, sans-serif; color: var(--tinte); background: var(--papierkarte); border-radius: 4px; padding: 0.2rem 0.5rem 0.2rem 0.3rem; box-shadow: 0 3px 8px rgba(0,0,0,.35); transform: rotate(-1.5deg); }
+.sq-helferreihe li:nth-child(2) { transform: rotate(1.2deg); }
+@media (min-width: 900px) { .sq-arena-boss .sq-helferreihe { justify-content: flex-start; } }
+.sq-ware-zeichen { width: 22px; height: 22px; flex: none; display: inline-grid; place-items: center; border-radius: 50%; background: var(--tinte); color: #ffe6a8; font: 700 0.8rem/1 var(--schrift); }
+.sq-ware-zeichen::before { content: "✦"; }
+.sq-ware-zeichen.spuernase::before { content: "⌕"; font-size: 1.35em; transform: translateY(-1px); }
+.sq-ware-zeichen.brieftaube::before { content: "✉\fe0e"; }
+.sq-ware-zeichen.goldwaage::before { content: "⚖\fe0e"; }
+.sq-ware-zeichen.sanduhr::before { content: "⧗"; }
+.sq-ware-zeichen.trommel::before { content: "×"; font-size: 1rem; }
+.sq-ware-zeichen.goldwaage { background: #8a6418; }
+.sq-ware-zeichen.trommel { background: var(--wachs); color: #fff; }
+.sq-ware-zeichen.brieftaube { background: #2f5d8a; }
+.sq-ware-zeichen.sanduhr { background: var(--moos-dunkel); }
+
+/* Spürnase */
+.sq-spur { display: block; font: italic 600 0.74rem system-ui, sans-serif; color: #2f6a2a; }
+.sq-zettel summary .sq-spur { margin-top: 0.1rem; }
+.sq-handkarte.passt { box-shadow: 0 0 0 3px var(--gold), 0 0 18px 4px rgba(233, 189, 79, .7), 0 8px 16px rgba(0,0,0,.4); }
+.sq-handkarte .sq-spur { margin-top: auto; font-size: 0.66rem; }
+
+/* Zierde auf der Insel: steht auf der Wiese, unter den Provinzschildern */
+.sq-zierde { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+.sq-zier { position: absolute; left: var(--x); top: var(--y); width: calc(62px * var(--massstab, 1)); transform: translate(-50%, -100%); pointer-events: auto; filter: drop-shadow(0 4px 3px rgba(20, 10, 2, .35)); animation: sq-zier-rein .7s calc(var(--i) * 90ms) cubic-bezier(.2, 1.5, .4, 1) both; }
+.sq-zier svg, .sq-zier img { display: block; width: 100%; height: auto; }
+.sq-zier:hover { filter: drop-shadow(0 0 8px rgba(255, 230, 160, .9)); }
+@keyframes sq-zier-rein { from { opacity: 0; transform: translate(-50%, -80%) scale(.6); } }
+.sq-zier .fluegel { animation: sq-drehen 9s linear infinite; }
+.sq-zier .glimmen { animation: sq-glimmen 3s ease-in-out infinite; }
+.sq-zier .wehen { animation: sq-wehen 2.6s ease-in-out infinite; transform-origin: 23px 20px; }
+@keyframes sq-drehen { to { transform: rotate(360deg); } }
+@keyframes sq-glimmen { 50% { opacity: .55; } }
+@keyframes sq-wehen { 50% { transform: skewY(-4deg) scaleX(.94); } }
+.sq-provinzen { z-index: 2; }
+/* Kachelansicht: Zierde als eigenes Wiesenstück unter den Provinzen, nicht auf den Wolken */
+@media (max-width: 1100px) {
+  .sq-zierde { position: relative; inset: auto; display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-end; gap: 0.6rem 1rem; margin: 0 0.8rem 1rem; padding: 0.8rem 1rem 0.5rem;
+    /* Ein Stück Wiese mit Blumentupfern, Grashalmen und einer Erdkante, damit es nicht flach wirkt */
+    background:
+      radial-gradient(circle at 9% 34%, #f6e7a8 0 2px, transparent 3px),
+      radial-gradient(circle at 23% 76%, #fff6dc 0 1.6px, transparent 2.6px),
+      radial-gradient(circle at 61% 18%, #f2b8c0 0 2px, transparent 3px),
+      radial-gradient(circle at 84% 62%, #f6e7a8 0 1.8px, transparent 2.8px),
+      radial-gradient(circle at 93% 24%, #fff6dc 0 1.5px, transparent 2.5px),
+      repeating-linear-gradient(97deg, rgba(52, 84, 26, .16) 0 2px, transparent 2px 11px),
+      radial-gradient(ellipse at 50% 0%, rgba(255, 246, 200, .35), transparent 60%),
+      radial-gradient(ellipse at 50% 120%, #8fb158, #6f9440 60%, #557a30);
+    border-radius: 22px 30px 26px 26px / 18px 22px 26px 26px; box-shadow: inset 0 -5px 0 #4b6a2a, inset 0 -11px 0 #7a5a34, 0 10px 18px rgba(20, 8, 2, .35); padding-bottom: 0.9rem; }
+  .sq-zier { position: relative; left: auto; top: auto; transform: none; width: 54px; }
+  @keyframes sq-zier-rein { from { opacity: 0; transform: scale(.6); } }
+}
+@media (prefers-reduced-motion: reduce) { .sq-zier, .sq-zier * { animation: none !important; } }
+.sq-ding-bild.markt { background: radial-gradient(circle at 35% 30%, #fff1b8, var(--gold) 45%, var(--ocker-dunkel)); border-radius: 50%; width: 42px; height: 42px; margin: 0 6px; box-shadow: 10px 6px 0 -4px #c9a24a, -8px 8px 0 -6px #e9bd4f; }
+
+/* Der Hafenmarkt */
+.sq-markt-seite { display: flex; flex-direction: column; gap: 1.2rem; }
+.sq-markt-seite > section, .sq-markt-seite > header.sq-markt-kopf, .sq-markt-zurueck { width: min(1100px, 100%); margin-left: auto; margin-right: auto; }
+.sq-markt-zurueck { margin-top: -0.6rem; margin-bottom: -0.4rem; }
+.sq-markt-kopf { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; padding: 1.1rem 1.4rem; }
+.sq-markt-kopf h1 { margin: 0.1rem 0 0.4rem; font-size: 1.7rem; }
+.sq-markt-kopf p:not(.sq-kicker):not(.sq-beutel) { margin: 0; max-width: 40rem; }
+.sq-beutel { display: flex; flex-direction: column; align-items: center; margin: 0; flex: none; font-family: var(--schrift); }
+.sq-beutel i { width: 54px; height: 54px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff1b8, var(--gold) 45%, var(--ocker-dunkel)); border: 2px solid #7a5512; box-shadow: 0 6px 12px rgba(0,0,0,.3); }
+.sq-beutel b { font-size: 2rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.sq-beutel span { font-size: 0.85rem; color: #6d6150; }
+.sq-markt-teil > h2 { margin: 0 0 0.3rem; color: #ffe6a8; text-shadow: 0 2px 4px rgba(0,0,0,.7); }
+.sq-markt-teil > h2 small { font: 600 0.85rem system-ui, sans-serif; color: #f3e3c0; margin-left: 0.5rem; }
+.sq-markt-hinweis { margin: 0 0 0.8rem; color: #f3e3c0; font-size: 0.9rem; text-shadow: 0 1px 2px rgba(0,0,0,.95); }
+.sq-waren { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 1rem; }
+.sq-ware { position: relative; display: flex; flex-direction: column; gap: 0.35rem; padding: 0.9rem 0.9rem 0.8rem; background: linear-gradient(175deg, var(--papier), var(--creme)); border-radius: 3px; transform: rotate(var(--r, 0deg)); box-shadow: 0 1px 0 var(--papier-schatten), 0 8px 16px rgba(25, 12, 3, .32); transition: transform .2s; }
+.sq-ware:hover { transform: rotate(0) translateY(-3px); }
+.sq-ware h3 { margin: 0; font-size: 1.05rem; }
+.sq-ware p { margin: 0; font-size: 0.88rem; line-height: 1.4; color: #4a4033; flex: 1; }
+.sq-ware form { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.3rem; }
+.sq-ware.helfer .sq-ware-zeichen { width: 34px; height: 34px; font-size: 1.1rem; }
+.sq-ware.an { outline: 3px solid var(--gold); outline-offset: -3px; box-shadow: 0 0 22px 4px rgba(233, 189, 79, .55), 0 8px 16px rgba(25, 12, 3, .32); }
+.sq-ware.hat:not(.an) { opacity: .92; }
+.sq-ware-bild { display: block; width: 70px; height: 80px; margin: 0 auto 0.2rem; }
+.sq-ware-bild svg, .sq-ware-bild img { width: 100%; height: 100%; }
+.sq-ware-bild svg { filter: url(#sq-gouache); }
+.sq-ware-stand { font: 700 0.85rem var(--schrift); color: #3f5d22; margin-top: 0.3rem; }
+.sq-preis { display: inline-flex; align-items: center; gap: 0.35rem; font: 800 1.05rem var(--schrift); color: #3a2a08; background: linear-gradient(#ffe7a0, #e9bd4f); border: 1px solid #a8823a; border-radius: 999px; padding: 0.3rem 0.9rem 0.3rem 0.4rem; cursor: pointer; box-shadow: 0 3px 0 #8a6418; }
+.sq-preis i { width: 20px; height: 20px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff1b8, var(--gold) 45%, var(--ocker-dunkel)); border: 1px solid #7a5512; }
+.sq-preis:hover:not([disabled]) { transform: translateY(-1px); }
+.sq-preis[disabled] { cursor: not-allowed; filter: grayscale(.8); opacity: .65; box-shadow: none; }
+.sq-noch { font-size: 0.78rem; color: #6d6150; }
+.sq-goldregeln { display: grid; grid-template-columns: 1.2fr 1fr; gap: 1.2rem; align-items: start; }
+.sq-goldregeln .sq-papier { padding: 1rem 1.2rem; }
+.sq-goldregeln ul { margin: 0 0 0.5rem; padding-left: 1.1rem; display: grid; gap: 0.25rem; }
+.sq-goldregeln b { font-family: var(--schrift); }
+.sq-goldbuch ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.2rem; font-size: 0.88rem; }
+.sq-goldbuch li { display: flex; justify-content: space-between; gap: 0.8rem; border-bottom: 1px dotted #d9c79c; padding: 0.15rem 0; }
+.sq-goldbuch li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sq-goldbuch .plus { color: #3f5d22; }
+.sq-goldbuch .minus { color: var(--terrakotta-dunkel); }
+@media (max-width: 720px) {
+  .sq-markt-kopf { flex-direction: column-reverse; align-items: flex-start; }
+  .sq-beutel { flex-direction: row; gap: 0.5rem; align-items: center; }
+  .sq-beutel i { width: 34px; height: 34px; }
+  .sq-goldregeln { grid-template-columns: 1fr; }
+  .sq-waren { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.8rem; }
+}
+
+.sq-wurf-zurueck .sq-rechnung { flex-basis: 100%; justify-content: flex-start; margin: 0.15rem 0 0; color: var(--tinte); font-size: 0.98rem; }
+.sq-wurf-zurueck .sq-rechnung b { color: #7a5512; text-shadow: none; }
+.sq-wurf-zurueck .sq-rechnung small { color: #5c5040; }
+.sq-wurf-zurueck form { display: inline; margin: 0; }
+.sq-wurf { scroll-margin-top: 14px; }
+
+/* =====================================================================
+   Runde 8b (Bericht 2a)
+   ===================================================================== */
+/* Rückfrage unter 900 px: ein Blatt unten am Bildschirm, über allem */
+.sq-rueckfrage-blase.sheet { position: fixed; left: 12px; right: 12px; bottom: 12px; top: auto; width: auto; max-width: 560px; margin: 0 auto; z-index: 500;
+  box-shadow: 0 0 0 100vmax rgba(10, 4, 0, .35), 0 18px 40px rgba(10, 4, 0, .55); animation: sq-blatt-hoch .25s ease-out both; }
+.sq-rueckfrage-blase.sheet::after { display: none; }
+.sq-rueckfrage-blase.sheet .knoepfe > * { min-height: 44px; }
+@keyframes sq-blatt-hoch { from { transform: translateY(30px); opacity: 0; } }
+
+/* Zierde: erst sichtbar, wenn sie einen freien Platz hat (steuer.js prüft gegen die Provinzen) */
+.sq-js .sq-zier:not(.platziert) { visibility: hidden; }
+.sq-zier.eng { width: calc(46px * var(--massstab, 1)); }
+.sq-zier svg { filter: url(#sq-gouache); }
+.sq-zier.neu { animation: sq-zier-neu 1.4s .3s cubic-bezier(.2, 1.6, .4, 1) both; z-index: 3; }
+.sq-zier.neu::after { content: ""; position: absolute; inset: -30% -40%; border-radius: 50%; background: radial-gradient(circle, rgba(255, 236, 160, .85), transparent 65%); z-index: -1; animation: sq-feuer 1.6s ease-in-out 3; pointer-events: none; }
+@keyframes sq-zier-neu { 0% { opacity: 0; transform: translate(-50%, -160%) scale(.4); } 60% { opacity: 1; transform: translate(-50%, -96%) scale(1.15); } 100% { transform: translate(-50%, -100%) scale(1); } }
+@media (max-width: 1100px) { @keyframes sq-zier-neu { 0% { opacity: 0; transform: translateY(-40px) scale(.4); } 60% { opacity: 1; transform: scale(1.15); } } }
+
+/* Hafenmarkt als Ort an der Insel: ohne Scrollen zu sehen */
+.sq-hafen { position: absolute; left: 0; top: 36%; z-index: 60; display: flex; flex-direction: column; align-items: center; gap: 0.2rem; text-decoration: none; }
+.sq-hafen .sq-schild { color: var(--tinte); }
+.sq-hafen-muenze { width: 44px; height: 44px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff1b8, var(--gold) 45%, var(--ocker-dunkel)); border: 2px solid #7a5512;
+  box-shadow: 12px 6px 0 -5px #c9a24a, -10px 8px 0 -7px #e9bd4f, 0 8px 12px rgba(0,0,0,.4); transition: transform .2s; }
+.sq-hafen:hover .sq-hafen-muenze { transform: translateY(-3px) rotate(-8deg); }
+@media (max-width: 1100px) { .sq-hafen { position: relative; left: auto; top: auto; margin: 0.8rem auto 0; width: max-content; } }
+
+/* Helfer haben einen Haken */
+.sq-ware p.sq-haken { flex: none; font-size: 0.8rem; color: var(--terrakotta-dunkel); border-top: 1px dashed #d9c79c; padding-top: 0.3rem; }
+.sq-goldsumme { display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; margin: -0.2rem 0 0.6rem; font-size: 0.85rem; color: #5c5040; }
+.sq-goldsumme b { font-family: var(--schrift); color: var(--tinte); font-size: 1rem; }
+
+/* Die Karte, zu der die Spürnase rät, liegt vorn */
+.sq-handkarte.passt { position: relative; z-index: 4; }
+/* Touch: auch die kleinen Intro-Links bekommen eine 44-px-Trefferfläche */
+@media (pointer: coarse) { .sq-intro-skip, .sq-intro-zurueck { display: inline-flex; align-items: center; min-height: 44px; padding-left: 0.5rem; padding-right: 0.5rem; } }
+/* Messingleiste auf Touch: Titel und Gold-Link mit voller Fingerbreite */
+@media (pointer: coarse) { .sq-leiste .sq-titel, .sq-marke.gold a { display: inline-flex; align-items: center; min-height: 44px; } }
+.sq-markt-alt { margin: 0.6rem 0 0; padding: 0.5rem 0.7rem; border-left: 3px solid var(--terrakotta-dunkel); background: rgba(196, 98, 58, .08); font-size: 0.92rem; }

@@ -12,6 +12,7 @@ double-click and it runs, with no installing, no Terminal setup and no internet.
 | `FRITS.app` | Double-click to start. Opens the FRITS window once `frits ui` exists; until then it opens a Terminal window. |
 | `Start-FRITS.command` | Opens FRITS in a Terminal window, where you can type `frits ...` commands. |
 | `LIESMICH.txt` | Short German guide for Fritz, including the first-start security prompt. |
+| `LIZENZEN.txt` | Licenses of every library and program shipped inside (made by `tools/third_party_licenses.py`; also in `FRITS.app/Contents/Resources`). |
 
 It works on Apple Silicon (M1 and newer) and Intel Macs with macOS 13 or newer.
 

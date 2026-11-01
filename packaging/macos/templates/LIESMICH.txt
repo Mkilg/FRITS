@@ -24,3 +24,8 @@ ins Terminal-Fenster ziehen, dann Enter.)
 
 Wenn etwas nicht klappt, steht ein Protokoll in:
   ~/Library/Logs/FRITS.log
+
+FRITS ist kostenlos und steht unter der MIT-Lizenz. Welche Programme und
+Bibliotheken anderer Leute in FRITS stecken, steht in LIZENZEN.txt.
+FRITS hilft beim Papierkram, ist aber keine Steuer-, Rechts- oder
+Finanzberatung. Prüf bitte alle Zahlen, bevor du sie ans Finanzamt schickst.

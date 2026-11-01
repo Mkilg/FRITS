@@ -5,6 +5,7 @@
 #   FRITS/FRITS.app           double-click to start
 #   FRITS/Start-FRITS.command opens FRITS in a Terminal window
 #   FRITS/LIESMICH.txt        short guide in German
+#   FRITS/LIZENZEN.txt        licenses of everything shipped inside (also in the app)
 #
 # Inside FRITS.app sit two copies of Python (Apple Silicon and Intel), each with
 # FRITS and its libraries, two copies of Tesseract (reads photos of receipts),
@@ -115,6 +116,17 @@ else
   echo "==> Skipping Tesseract (needs macOS with otool and micromamba)"
 fi
 
+# 4b. License notices: FRITS's own and those of every library and program shipped inside.
+echo "==> License notices"
+conda_args=()
+for env_dir in "$WORK"/tess-*; do [ -d "$env_dir" ] && conda_args+=(--conda-env "$env_dir"); done
+[ -d "$WORK/mamba/pkgs" ] && conda_args+=(--conda-pkgs "$WORK/mamba/pkgs")
+site_args=(--site "$RES/shared")
+for arch in $ARCHES; do site_args+=(--site "$RES/runtime/$arch/lib/python${PY_VERSION}/site-packages"); done
+"$(uv python find "$PY_VERSION")" "$REPO/tools/third_party_licenses.py" "$RES/LIZENZEN.txt" \
+    "${site_args[@]}" ${conda_args[@]+"${conda_args[@]}"}
+cp "$REPO/LICENSE" "$RES/LICENSE.txt"
+
 # 5. USB sticks (exFAT/FAT32) cannot store symbolic links: replace each with a real copy.
 echo "==> Replacing symbolic links with real files"
 while IFS= read -r link; do
@@ -130,6 +142,7 @@ cp "$HERE/templates/frits-terminal.command" "$RES/frits-terminal.command"
 cp "$HERE/templates/FRITS"                "$APP/Contents/MacOS/FRITS"
 cp "$HERE/templates/Start-FRITS.command"  "$STAGE/Start-FRITS.command"
 cp "$HERE/templates/LIESMICH.txt"         "$STAGE/LIESMICH.txt"
+cp "$RES/LIZENZEN.txt"                    "$STAGE/LIZENZEN.txt"
 mkdir -p "$RES/bin"
 printf '#!/bin/bash\nexec "$(cd "$(dirname "$0")/.." && pwd)/frits-launch.sh" "$@"\n' > "$RES/bin/frits"
 sed "s/@VERSION@/$VERSION/g" "$HERE/templates/Info.plist" > "$APP/Contents/Info.plist"

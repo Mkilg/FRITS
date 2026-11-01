@@ -607,6 +607,8 @@ def test_about_page_and_bug_report_without_personal_data(client, mails):
     assert "nicht-kommerzielles Projekt" in page.text and "ARD KI-Podcast" in page.text
     assert "Platzhalter" not in page.text
     assert 'href="https://www.ardsounds.de/sendung/der-ki-podcast/' in page.text
+    assert "keine Steuer-, Rechts- oder Finanzberatung" in page.text
+    assert "Vorsatz und grober Fahrlässigkeit" in page.text
 
     page = post(client, "/ueber/fehler")
     assert "Fehler-Mail ist in Mail geöffnet" in page.text
@@ -652,3 +654,50 @@ def test_painted_fritte_has_a_fixed_size_and_settings_preview_the_effects(client
     assert 'width="84" height="112"' in html
     page = client.get("/settings").text
     assert "So sieht's aus" in page and "data-vorschau" in page
+
+
+def test_hints_from_tester_round_3(client, ws, nlp):
+    from dataclasses import replace
+
+    from frits.billing import Draft, Line, new_draft
+
+    settings = Settings.load(ws.settings_file)
+    replace(settings, tax_mode="regelbesteuerung", vat_rate=Decimal(19)).save(ws.settings_file)
+    conn = store.connect(ws.db)
+    eu = Draft(
+        "wien",
+        "ORF",
+        "Würzburggasse 30, 1136 Wien, Österreich",
+        [Line("Beitrag", "2026-10-20", Decimal(1), "pauschal", Decimal(800))],
+        [],
+        [],
+        "notiz.txt",
+        customer_tax="eu",
+        customer_ust_id="",
+    )
+    draft_id = new_draft(conn, eu)
+    # One draft that needs something: singular, not "Da liegen Entwürfe".
+    assert "Da liegt ein Entwurf, der noch etwas von dir braucht" in client.get("/").text
+    # Hints only solvable on another page are marked, so the page points there instead of
+    # asking "jetzt erstellen?" first.
+    page = client.get(f"/drafts/{draft_id}").text
+    assert 'data-elsewhere="customer">Für Reverse Charge fehlt' in page
+
+    # Notfall-Chat says up front that no AI is connected.
+    replace(Settings.load(ws.settings_file), strict_local=True).save(ws.settings_file)
+    app = create_app(ws, nlp_loader=lambda: nlp, today=lambda: TODAY)
+    with TestClient(app) as plain:
+        assert "Eine KI ist noch nicht verbunden" in plain.get("/notfall").text
+
+
+def test_painted_pictures_keep_their_space_while_loading(tmp_path):
+    from PIL import Image
+
+    from frits.web.app import picture_tag
+
+    (tmp_path / "bilder").mkdir()
+    Image.new("RGB", (420, 299)).save(tmp_path / "bilder" / "leer-eingang.webp")
+    tag = picture_tag(tmp_path, {"leer-eingang": "/static/bilder/leer-eingang.webp"})
+    html = tag("leer-eingang", "leer-bild")
+    assert 'class="leer-bild"' in html and 'width="420" height="299"' in html
+    assert tag("gibts-nicht", "x") == ""

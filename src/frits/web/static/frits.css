@@ -197,6 +197,9 @@ table { width: 100%; border-collapse: collapse; }
 details summary { cursor: pointer; margin-top: 0.8rem; color: var(--tinte); }
 .questions, .problems { background: var(--warn-bg); border-radius: 8px; padding: 0.4rem 1rem 0.8rem; margin-top: 1rem; }
 .problems { background: #fdeeee; }
+.problems.nudge { animation: nudge 0.5s ease-in-out 2; outline: 2px solid #c0392b; }
+@keyframes nudge { 50% { transform: translateX(4px); } }
+@media (prefers-reduced-motion: reduce) { .problems.nudge { animation: none; } }
 
 .form .field { display: flex; flex-direction: column; gap: 0.2rem; margin-bottom: 0.8rem; font-size: 0.92rem; color: var(--muted); }
 .field input, .field select, .field textarea { font: inherit; color: var(--ink); padding: 0.5rem 0.6rem;
@@ -261,8 +264,8 @@ iframe.receipt { width: 100%; height: 32rem; border: 1px solid var(--line); bord
   60% { opacity: 0.95; }
   100% { transform: rotate(-8deg) scale(1); opacity: 0.9; } }
 
-img.leer-bild { float: right; width: 110px; max-width: 30%; margin: 0 0 0.4rem 1rem; }
-img.buendel { float: right; width: 100px; margin: 0 0 0.4rem 1rem; }
+img.leer-bild { float: right; width: 110px; max-width: 30%; height: auto; margin: 0 0 0.4rem 1rem; }
+img.buendel { float: right; width: 100px; height: auto; margin: 0 0 0.4rem 1rem; }
 /* Painted Fritte: a tall figure, so it keeps its own width */
 /* Painted Fritte: always the same box, whatever her pose, so nothing next to her moves */
 .mascot-big img.fritte { width: 84px; height: 112px; object-fit: contain; object-position: center bottom; }
@@ -368,6 +371,9 @@ input[type=checkbox], input[type=radio] { width: 1.15rem; height: 1.15rem; verti
   .brand { min-height: 44px; }
   details > summary { padding-top: 0.6rem; padding-bottom: 0.6rem; }
   .salz a { display: inline-block; padding: 0.7rem 0.2rem; margin: -0.7rem 0; }
+  /* Links inside a sentence or a table cell: a taller hit area without moving the text */
+  :where(p, td, .bottom, .hint, ul.plain li) a:not(.button) { padding-block: 0.8rem; }
+  .kapitel-leiste a { min-height: 44px; }
 }
 
 /* First setup: the logo left, "Später einrichten" on the right */
@@ -393,6 +399,7 @@ input[type=checkbox], input[type=radio] { width: 1.15rem; height: 1.15rem; verti
 body:has(.sq-tisch) { background: #7f512c; }
 main:has(.sq-tisch) { overflow-x: clip; }
 body:has(.sq-tisch) .bottom { max-width: none; margin: 0; border-radius: 0; background: var(--eiche-tief); color: var(--creme); }
+body:has(.sq-tisch) .bottom a { color: var(--gold); }
 
 /* Settings: preview of "Ruhig" and "Verspielt" */
 .vorschau-zeile { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; margin: 0.2rem 0 0.8rem; }

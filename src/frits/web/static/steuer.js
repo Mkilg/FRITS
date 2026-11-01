@@ -101,6 +101,17 @@
   function erinnern(name) {
     try { return sessionStorage.getItem("sq-" + jahr + "-" + name); } catch (e) { return null; }
   }
+  // Ein kleines "+6" steigt am Goldbeutel auf, wenn Gold dazukam
+  function goldPlus(el, plus) {
+    var r = el.getBoundingClientRect();
+    var p = document.createElement("span");
+    p.className = "sq-gold-plus";
+    p.textContent = "+" + plus;
+    p.style.left = (r.right + window.scrollX + 4) + "px";
+    p.style.top = (r.top + window.scrollY - 6) + "px";
+    document.body.appendChild(p);
+    setTimeout(p.remove.bind(p), ruhig ? 2500 : 1800);
+  }
   var tonhoehe = 0;
   document.querySelectorAll("[data-zaehler]").forEach(function (el) {
     var name = el.getAttribute("data-zaehler");
@@ -110,6 +121,7 @@
     if (!el.hasAttribute("data-von")) merken(name, ziel);
     if (von === null || parseInt(von, 10) === ziel) return;
     von = parseInt(von, 10);
+    if (name === "gold" && ziel > von) goldPlus(el, ziel - von);
     if (ruhig) { el.classList.add("sq-pop"); return; }
     var schritte = Math.min(Math.abs(ziel - von), 24);
     var dauer = 650;
@@ -529,6 +541,14 @@
     ja.addEventListener("click", function () { schliessen(); abschicken(knopf); });
     if (fragen) reihe.appendChild(ja);
     blase.appendChild(reihe);
+    // Schmale Fenster (Handy, halbes Mac-Fenster): als Blatt unten am Bildschirm, über allem.
+    // Am <body>, weil wackelnde oder gedrehte Eltern sonst Stapel und Position verbiegen.
+    if (window.matchMedia && window.matchMedia("(max-width: 899px)").matches) {
+      blase.classList.add("sheet");
+      document.body.appendChild(blase);
+      (reihe.querySelector(".sq-siegelknopf") || ja).focus();
+      return;
+    }
     var ort = knopf.parentNode;
     ort.classList.add("sq-rueckfrage-ort");
     ort.appendChild(blase);
@@ -672,4 +692,70 @@
     });
     if (form) form.addEventListener("submit", function () { try { speicher.removeItem(schluessel); } catch (e) {} });
   });
+})();
+
+// Zierde vom Hafenmarkt: Jede Figur sucht sich auf der Wiese einen Platz, an dem keine
+// Provinz, kein Schild und keine andere Zierde steht, möglichst nah an ihrem Lieblingsplatz.
+// Gekauftes wird nie versteckt: Ist nichts frei, steht sie dort, wo sie am wenigsten verdeckt.
+// Erst danach wird sie sichtbar (so springt nichts).
+(function () {
+  var zierde = document.querySelector(".sq-zierde");
+  if (!zierde) return;
+  var ziere = Array.prototype.slice.call(zierde.querySelectorAll(".sq-zier"));
+  function fertig() { ziere.forEach(function (z) { z.classList.add("platziert"); }); }
+  function platzieren() {
+    if (getComputedStyle(zierde).position !== "absolute") { fertig(); return; }
+    var wiese = (zierde.getAttribute("data-wiese") || "37,28,90,62").split(",").map(parseFloat);
+    var raster = [];
+    for (var y = wiese[3]; y >= wiese[1]; y -= 3) {
+      for (var x = wiese[0]; x <= wiese[2]; x += 2.5) raster.push([x, y]);
+    }
+    var hindernisse = Array.prototype.map.call(
+      document.querySelectorAll(".sq-insel .sq-parzelle, .sq-insel .sq-schild, .sq-hafen, .sq-hort-insel"),
+      function (e) { return e.getBoundingClientRect(); }
+    ).filter(function (r) { return r.width > 0; });
+    var feld = zierde.getBoundingClientRect();
+    function kasten(z, p) {
+      // Gerechnet statt gemessen (kein Neu-Layout je Versuch): der Fuß steht auf (x, y)
+      var w = z.offsetWidth, h = z.offsetHeight;
+      var l = feld.left + feld.width * p[0] / 100 - w / 2, t = feld.top + feld.height * p[1] / 100 - h;
+      return { left: l, top: t, right: l + w, bottom: t + h };
+    }
+    function deckung(r) {
+      // Wie viel Fläche die Figur verdeckt (4 px Luft sind erlaubt)
+      return hindernisse.reduce(function (summe, h) {
+        var b = Math.min(r.right, h.right - 4) - Math.max(r.left, h.left + 4);
+        var t = Math.min(r.bottom, h.bottom - 4) - Math.max(r.top, h.top + 4);
+        return summe + (b > 0 && t > 0 ? b * t : 0);
+      }, 0);
+    }
+    ziere.forEach(function (z) {
+      var eigen = [parseFloat(z.style.getPropertyValue("--x")), parseFloat(z.style.getPropertyValue("--y"))];
+      var versuche = [eigen].concat(raster.slice().sort(function (a, b) {
+        // Lieber seitlich rücken als nach hinten: Die vordere Reihe sieht man am besten
+        function weg(p) { var dx = p[0] - eigen[0], dy = (p[1] - eigen[1]) * 1.6; return dx * dx + dy * dy; }
+        return weg(a) - weg(b);
+      }));
+      var bester = null, wenigste = Infinity;
+      for (var i = 0; i < versuche.length; i++) {
+        var r = kasten(z, versuche[i]), d = deckung(r);
+        if (d < wenigste) { bester = { p: versuche[i], r: r }; wenigste = d; }
+        if (d === 0) break;
+      }
+      z.style.setProperty("--x", bester.p[0] + "%");
+      z.style.setProperty("--y", bester.p[1] + "%");
+      if (wenigste > 0) z.classList.add("eng"); // sichtbar bleiben, aber etwas kleiner
+      hindernisse.push(bester.r);
+      z.classList.add("platziert");
+    });
+  }
+  function los() {
+    try { platzieren(); } catch (e) { fertig(); }
+    var neu = zierde.querySelector(".sq-zier.neu");
+    if (neu && neu.scrollIntoView) {
+      var ruhig = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      neu.scrollIntoView({ block: "center", behavior: ruhig ? "auto" : "smooth" });
+    }
+  }
+  if (document.readyState === "complete") los(); else window.addEventListener("load", los);
 })();

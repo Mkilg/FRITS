@@ -11,6 +11,7 @@ keine verlorenen Punkte und immer einen Notausgang.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from datetime import date
 
@@ -166,7 +167,8 @@ class Ressourcen:
     briefe: int  # Wünsche der Beraterin
     siegel: int  # fertige Provinzen
     fragen: int
-    gold: int = 0  # gefundene Bonus-Schätze
+    schaetze: int = 0  # gefundene Bonus-Schätze
+    gold: int = 0  # Gold im Beutel (aus dem Goldbuch, siehe quest.gold)
 
 
 def ressourcen(stuecke: list[dict], provinzstaende: list[Provinzstand]) -> Ressourcen:
@@ -175,7 +177,7 @@ def ressourcen(stuecke: list[dict], provinzstaende: list[Provinzstand]) -> Resso
         briefe=sum(1 for s in stuecke if s["wunsch"]),
         siegel=sum(1 for p in provinzstaende if p.stand.siegel and not p.nur_bonus),
         fragen=sum(1 for s in stuecke if s["status"] == "fragen"),
-        gold=sum(1 for s in stuecke if ist_bonus(s) and s["status"] == "gesammelt"),
+        schaetze=sum(1 for s in stuecke if ist_bonus(s) and s["status"] == "gesammelt"),
     )
 
 
@@ -303,7 +305,7 @@ def erfolge(
             "Alles, was letztes Jahr da war, ist wieder da.",
             vorjahr_ok,
         ),
-        Erfolg("schatzsucherin", "Schatzsucherin", "3 Bonus-Schätze gefunden.", r.gold >= 3),
+        Erfolg("schatzsucherin", "Schatzsucherin", "3 Bonus-Schätze gefunden.", r.schaetze >= 3),
         Erfolg(
             "mutig-gefragt",
             "Mutig gefragt",
@@ -461,3 +463,312 @@ def tagwerk(stuecke: list[dict], heute: date, ziel: int = TAGWERK) -> tuple[int,
 def zweifel(stuecke: list[dict]) -> list[dict]:
     """Wichtige Unterlagen, die als "Gibt's nicht" gestempelt sind: die soll die Beraterin prüfen."""
     return [s for s in stuecke if s["status"] == "gibts_nicht" and ist_kern(s["gebiet"], s["key"])]
+
+
+# ---------- Gold: die Wirtschaft der Insel ----------
+# Balatro rechnet "Chips mal Multiplikator": Jede Karte bringt etwas Gold, die Serie im
+# Drachenkampf multipliziert es. Age of Empires: Mit dem Gold baust du dein Reich aus.
+# Ehrlich bleibt es trotzdem: Finden bringt am meisten, Fragen mehr als Wegstempeln,
+# und jede Karte zahlt nur einmal aus (Stempel zurücknehmen und neu setzen bringt nichts).
+
+GOLD_FUND = 3  # eine Unterlage gesichert
+GOLD_SCHATZ = 10  # ein Bonus-Schatz: kann Steuern sparen
+GOLD_FRAGE = 1  # lieber gefragt (ohne Serien-Multiplikator)
+GOLD_GIBTS_NICHT = 1  # gibt es nicht (wichtige Unterlagen: 0)
+GOLD_SIEGEL = 10  # höchstens, für eine Provinz voller Funde (siehe siegel_gold)
+GOLD_TAGWERK = 5  # das Tagwerk geschafft
+MAX_MULT = 8
+HELFER_PLAETZE = 2
+TAUSCH_PREIS = 5  # einen Helfer an den Tisch holen, der gerade Pause macht
+WUNSCH_DECKEL = 5  # so viele erfüllte Wünsche der Beraterin zahlen Gold, pro Jahr
+GOLD_JAHRE = 2  # Gold gibt es für dieses Jahr und die zwei davor (Abgabe mit Beraterin)
+
+
+def gold_jahr(jahr: int, heute: date) -> bool:
+    """Bringt eine Quest für dieses Steuerjahr Gold? Nur die letzten Jahre: Mit Beraterin
+    gibt man die Erklärung oft erst im übernächsten Frühjahr ab (2025 also bis Anfang 2027).
+    Ältere Jahre darf man trotzdem nachholen, sie füllen nur nicht mehr den Beutel. Sonst
+    ließe sich mit erfundenen Jahren beliebig Gold für die Insel sammeln."""
+    return heute.year - GOLD_JAHRE <= jahr <= heute.year
+
+
+@dataclass(frozen=True)
+class Ware:
+    key: str
+    name: str
+    preis: int
+    art: str  # "zierde" (steht auf der Insel, in allen Jahren) oder "helfer" (pro Jahr)
+    text: str
+    haken: str = ""  # Helfer haben wie gute Joker immer auch einen Nachteil
+    platz: tuple[float, float] = (0.0, 0.0)  # Zierde: Lieblingsplatz auf der gemalten Insel
+
+
+MARKT: tuple[Ware, ...] = (
+    Ware(
+        "spuernase",
+        "Spürnase",
+        12,
+        "helfer",
+        "Schnuppert an jedem Zettel im Korb und sagt, wohin er vielleicht gehört.",
+        haken="Sie frisst mit: Funde bringen 2 Gold statt 3.",
+    ),
+    Ware(
+        "brieftaube",
+        "Brieftaube",
+        8,
+        "helfer",
+        "Fragen an die Beraterin bringen 2 Gold statt 1.",
+        haken="„Gibt's nicht“ bringt kein Gold mehr.",
+    ),
+    Ware(
+        "goldwaage",
+        "Goldwaage",
+        15,
+        "helfer",
+        "Bonus-Schätze wiegen doppelt: 20 Gold statt 10.",
+        haken="Fragen bringen kein Gold mehr.",
+    ),
+    Ware(
+        "sanduhr",
+        "Sanduhr",
+        8,
+        "helfer",
+        "Das Tagwerk bringt 15 Gold statt 5. Wenig am Tag, aber jeden Tag.",
+        haken="Im Drachenkampf zählt die Serie höchstens ×3.",
+    ),
+    Ware(
+        "trommel",
+        "Kriegstrommel",
+        18,
+        "helfer",
+        "Im Drachenkampf zählt die Serie eins mehr: aus ×2 wird ×3.",
+        haken="„Gibt's nicht“ im Kampf setzt die Serie auf null.",
+    ),
+    Ware(
+        "laternen",
+        "Laternen",
+        10,
+        "zierde",
+        "Ein warmer Lichterweg über die Wiese.",
+        platz=(44.0, 61.0),
+    ),
+    Ware(
+        "kirschbaum",
+        "Kirschbaum",
+        15,
+        "zierde",
+        "Blüht jedes Steuerjahr wieder.",
+        platz=(52.0, 62.0),
+    ),
+    Ware(
+        "wappenfahne",
+        "Wappenfahne",
+        20,
+        "zierde",
+        "Dein Wappen weht über der Insel.",
+        platz=(60.0, 61.0),
+    ),
+    Ware(
+        "bienen",
+        "Bienenstöcke",
+        25,
+        "zierde",
+        "Fleißig, aber in ihrem eigenen Tempo.",
+        platz=(68.0, 62.0),
+    ),
+    Ware("windmuehle", "Windmühle", 35, "zierde", "Mahlt langsam und stetig.", platz=(78.0, 61.0)),
+    Ware(
+        "leuchtturm",
+        "Leuchtturm",
+        50,
+        "zierde",
+        "Zeigt dir auch nächstes Jahr den Weg zurück.",
+        platz=(88.0, 58.0),
+    ),
+)
+
+# Die Wiese der gemalten Insel (Prozent: links, oben, rechts, unten) für die Füße der Zierde.
+# Ist der Lieblingsplatz belegt, sucht steuer.js den nächsten freien Fleck auf dieser Wiese.
+# Gekauftes wird nie versteckt: Ist gar nichts frei, steht es dort, wo es am wenigsten stört.
+WIESE: tuple[float, float, float, float] = (37.0, 28.0, 90.0, 62.0)
+
+
+def ware(key: str) -> Ware | None:
+    return next((w for w in MARKT if w.key == key), None)
+
+
+def multiplikator(combo: int, helfer: frozenset[str] | set[str] = frozenset()) -> int:
+    """Die Serie im Drachenkampf als Multiplikator: ×1 bis ×8.
+
+    Kriegstrommel: eins mehr. Sanduhr: höchstens ×3."""
+    deckel = 3 if "sanduhr" in helfer else MAX_MULT
+    mult = max(1, min(combo, deckel))
+    if combo and "trommel" in helfer:
+        mult += 1
+    return mult
+
+
+def ist_wunsch(stueck: dict) -> bool:
+    return str(stueck.get("key", "")).startswith("wunsch-")
+
+
+def gold_fuer(stueck: dict, status: str, helfer: frozenset[str] | set[str] = frozenset()) -> int:
+    """Grundwert einer Karte. Nur Funde werden im Kampf mit der Serie multipliziert.
+
+    Wünsche der Beraterin zahlen erst, wenn eine Datei dranhängt: Sonst ließe sich mit einer
+    erfundenen "Beraterin-Mail" beliebig viel Gold erfragen."""
+    if status == "gesammelt":
+        if ist_bonus(stueck):
+            return GOLD_SCHATZ * (2 if "goldwaage" in helfer else 1)
+        return GOLD_FUND - (1 if "spuernase" in helfer else 0)
+    if ist_wunsch(stueck):
+        return 0
+    if status == "fragen":
+        wert = GOLD_FRAGE + (1 if "brieftaube" in helfer else 0)
+        return 0 if "goldwaage" in helfer else wert
+    if status == "gibts_nicht":
+        if ist_kern(stueck["gebiet"], stueck["key"]) or "brieftaube" in helfer:
+            return 0
+        return GOLD_GIBTS_NICHT
+    return 0
+
+
+def siegel_gold(funde: int) -> int:
+    """Ein Siegel zahlt nach Funden: 2 Gold und 2 je gefundener Unterlage, höchstens 10.
+    Eine Provinz voller "Gibt's nicht" bekommt ihr Siegel, aber kaum Gold."""
+    return min(GOLD_SIEGEL, 2 + 2 * funde)
+
+
+def tagwerk_gold(helfer: frozenset[str] | set[str] = frozenset()) -> int:
+    return GOLD_TAGWERK * (3 if "sanduhr" in helfer else 1)
+
+
+def karten_grund(stueck: dict, art: str) -> str:
+    """Der Grund im Goldbuch hängt an der Karte selbst (Gebiet und Schlüssel), nicht an der
+    Datenbank-Nummer: Wer eine Karte über den Fragebogen löscht und neu anlegt, bekommt sie
+    nicht zweimal bezahlt. Wünsche heißen nach ihrem Text."""
+    ding = f"wunsch:{stueck['name']}" if ist_wunsch(stueck) else stueck["key"]
+    return f"{art}:{stueck['gebiet']}:{ding}"
+
+
+@dataclass(frozen=True)
+class Verdienst:
+    grund: str  # einmalig pro Jahr, z. B. "fund:werkstatt-1:belege" (siehe quest.verdiene)
+    basis: int
+    mult: int
+    text: str
+
+    @property
+    def betrag(self) -> int:
+        return self.basis * self.mult
+
+
+def verdienste(
+    vorher: list[dict],
+    nachher: list[dict],
+    mult: int = 1,
+    helfer: frozenset[str] | set[str] = frozenset(),
+) -> list[Verdienst]:
+    """Was diese Änderung an Gold bringen kann. Ob es schon einmal ausgezahlt wurde,
+    entscheidet das Goldbuch (gleicher Grund zahlt nie zweimal)."""
+    alt = {s["id"]: s["status"] for s in vorher}
+    neu = []
+    for s in nachher:
+        status, war = s["status"], alt.get(s["id"], "offen")
+        if status == war or status == "offen":
+            continue
+        basis = gold_fuer(s, status, helfer)
+        if not basis:
+            continue
+        # Finden zahlt extra aus, auch wenn die Karte vorher als Frage erledigt war
+        art = "fund" if status == "gesammelt" else "antwort"
+        # Fragen und Wünsche füttern keine Gold-Serie (Wünsche kann man selbst erfinden)
+        faktor = mult if status == "gesammelt" and not ist_wunsch(s) else 1
+        neu.append(Verdienst(karten_grund(s, art), basis, faktor, s["name"]))
+    return neu
+
+
+def rueckbuchungen(vorher: list[dict], nachher: list[dict]) -> list[tuple[str, str]]:
+    """Karten, die wieder offen sind: ihr Gold geht zurück (Grund, Text). So bringt ein
+    Fehlwurf bei ×8 nichts, und die Karte darf danach ehrlich neu verdienen."""
+    alt = {s["id"]: s for s in vorher}
+    zurueck = []
+    for s in nachher:
+        war = alt.get(s["id"])
+        if s["status"] == "offen" and war and war["status"] != "offen":
+            zurueck += [(karten_grund(war, art), war["name"]) for art in ("fund", "antwort")]
+    return zurueck
+
+
+# ---------- Spürnase: welcher Zettel passt zu welcher Karte? ----------
+
+_UMLAUTE = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"})
+_LEERWOERTER = {
+    "scan",
+    "scans",
+    "foto",
+    "fotos",
+    "bild",
+    "datei",
+    "dokument",
+    "kopie",
+    "img",
+    "image",
+    "seite",
+    "neu",
+    "final",
+    "version",
+    "screenshot",
+    "pdf",
+    "jpg",
+    "jpeg",
+    "png",
+    "heic",
+    "mail",
+    "anhang",
+    "und",
+    "der",
+    "die",
+    "das",
+    "fuer",
+    "von",
+}
+
+
+def _woerter(text: str) -> set[str]:
+    text = text.lower().translate(_UMLAUTE)
+    return {w for w in re.findall(r"[a-z]{4,}", text) if w not in _LEERWOERTER}
+
+
+def _naehe(a: str, b: str) -> int:
+    if a == b:
+        return len(a) + 2
+    kurz, lang = sorted((a, b), key=len)
+    if len(kurz) >= 6 and kurz in lang:
+        return len(kurz)
+    gemeinsam = 0
+    for x, y in zip(a, b):
+        if x != y:
+            break
+        gemeinsam += 1
+    return gemeinsam if gemeinsam >= 5 else 0
+
+
+def vermute(dateiname: str, stuecke: list[dict]) -> dict | None:
+    """Die Karte, zu der ein Zettel am ehesten passt, nur nach dem Dateinamen.
+
+    Keine KI und nichts verlässt den Computer: Es vergleicht Wörter, mehr nicht.
+    Darum heißt es auch "vielleicht". Offene Karten haben Vorrang."""
+    woerter = _woerter(dateiname.rsplit(".", 1)[0])
+    if not woerter:
+        return None
+    beste, punkte = None, 0
+    for s in stuecke:
+        ziel = _woerter(f"{s['name']} {s['key'].replace('-', ' ')}")
+        wert = max((_naehe(a, b) for a in woerter for b in ziel), default=0)
+        if not wert:
+            continue
+        wert = wert * 2 + (1 if s["status"] == "offen" else 0)
+        if wert > punkte:
+            beste, punkte = s, wert
+    return beste
