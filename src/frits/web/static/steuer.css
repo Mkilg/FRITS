@@ -1342,6 +1342,20 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
 .sq-handkarte.passt { position: relative; z-index: 4; }
 /* Touch: auch die kleinen Intro-Links bekommen eine 44-px-Trefferfläche */
 @media (pointer: coarse) { .sq-intro-skip, .sq-intro-zurueck { display: inline-flex; align-items: center; min-height: 44px; padding-left: 0.5rem; padding-right: 0.5rem; } }
+/* Auf Touch gibt es keine Leertaste */
+@media (pointer: coarse) { .sq-intro-weiter kbd { display: none; } }
 /* Messingleiste auf Touch: Titel und Gold-Link mit voller Fingerbreite */
 @media (pointer: coarse) { .sq-leiste .sq-titel, .sq-marke.gold a { display: inline-flex; align-items: center; min-height: 44px; } }
 .sq-markt-alt { margin: 0.6rem 0 0; padding: 0.5rem 0.7rem; border-left: 3px solid var(--terrakotta-dunkel); background: rgba(196, 98, 58, .08); font-size: 0.92rem; }
+
+/* Runde 10: Kärtchen der Beraterin, Passwort kopieren, mitbenutzte Dateien */
+.sq-anrede { border: 0; padding: 0; margin: 0 0 0.6rem; min-width: 0; }
+.sq-anrede legend { padding: 0; margin-bottom: 0.2rem; font-size: 0.9rem; }
+.sq .sq-anrede label { display: inline-flex; width: auto; align-items: center; gap: 0.35rem; min-height: 36px; margin: 0 1.2rem 0 0; }
+.sq .sq-anrede input { width: auto; margin: 0; }
+.sq-passwort { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
+.sq-dateien li.verweis small { display: block; color: var(--tinte-hell, #6b5a40); font-style: italic; }
+.sq-anrede-hinweis { margin: -0.2rem 0 0.6rem; font-size: 0.9rem; }
+.sq-gebietname { margin: 0.4rem 0 0.8rem; padding: 0.5rem 0.7rem; font-size: 0.88rem; background: var(--papier, #fbf3df); color: var(--tinte); border-radius: 4px; box-shadow: 0 3px 8px rgba(20, 10, 2, .3); }
+.sq-gebietname label { display: block; }
+.sq-gebietname input { width: 100%; max-width: 16rem; margin-top: 0.2rem; }

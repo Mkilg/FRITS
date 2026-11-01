@@ -67,6 +67,13 @@ CREATE TABLE IF NOT EXISTS steuer_gold (
     text TEXT NOT NULL,
     UNIQUE (jahr, grund)
 );
+CREATE TABLE IF NOT EXISTS steuer_verweise (
+    id INTEGER PRIMARY KEY,        -- eine Datei gilt auch für diese Karte (z. B. beide Wohnungen)
+    jahr INTEGER NOT NULL,
+    stueck_id INTEGER NOT NULL REFERENCES steuer_stuecke(id),
+    datei_id INTEGER NOT NULL REFERENCES steuer_dateien(id),
+    UNIQUE (stueck_id, datei_id)
+);
 CREATE TABLE IF NOT EXISTS steuer_besitz (
     jahr INTEGER NOT NULL,
     ware TEXT NOT NULL,            -- siehe spiel.MARKT
@@ -266,9 +273,14 @@ def markiere_wunsch(conn: sqlite3.Connection, stueck_id: int) -> None:
 
 
 def _anzahl_dateien(conn: sqlite3.Connection, stueck_id: int) -> int:
-    return conn.execute(
+    """Eigene Dateien und mitbenutzte (Verweise) zusammen."""
+    eigene = conn.execute(
         "SELECT COUNT(*) FROM steuer_dateien WHERE stueck_id = ?", (stueck_id,)
     ).fetchone()[0]
+    verweise = conn.execute(
+        "SELECT COUNT(*) FROM steuer_verweise WHERE stueck_id = ?", (stueck_id,)
+    ).fetchone()[0]
+    return eigene + verweise
 
 
 # ---------- Dateien sammeln ----------
@@ -279,6 +291,7 @@ class Fund:
     neu: bool  # False: genau diese Datei war schon gesammelt
     pfad: Path
     stueck: dict
+    verweis: dict | None = None  # die Karte, bei der die Datei liegt (wird mitbenutzt)
 
 
 def _hash(path: Path) -> str:
@@ -295,6 +308,21 @@ def _slug(text: str) -> str:
     )
     text = re.sub(r"[^A-Za-z0-9]+", "-", text.translate(table)).strip("-")
     return text[:60] or "Dokument"
+
+
+def _ablagename(gebiet_id: str) -> str:
+    """Klartext statt Spielname für Dateinamen, die die Beraterin sieht:
+    "gehoeft-2" wird "Vermietete-Wohnung-2", "kaserne-p2-1" wird "Angestellt-Partner-1"."""
+    from frits.steuer.katalog import katalog
+
+    teile = gebiet_id.split("-")
+    provinz = katalog().get(teile[0])
+    name = _slug(provinz.bereich if provinz else teile[0])
+    if len(name) > 32:
+        name = name[:33].rsplit("-", 1)[0]  # an einer Wortgrenze kürzen
+    for t in teile[1:]:
+        name += "-Partner" if t == "p2" else f"-{t}"
+    return name
 
 
 def sammeln(
@@ -322,12 +350,28 @@ def sammeln(
     if vorhanden:
         if verschieben:
             quelle.unlink()
-        return Fund(False, Path(vorhanden["pfad"]), stueck(conn, vorhanden["stueck_id"]))
+        bei = stueck(conn, vorhanden["stueck_id"])
+        if bei["id"] != s["id"] and darf_mitbenutzen(s, bei):
+            # Eine Liste für beide Wohnungen: die Datei bleibt, wo sie ist, und zählt hier mit
+            datei_id = conn.execute(
+                "SELECT id FROM steuer_dateien WHERE jahr = ? AND sha256 = ?", (jahr, sha)
+            ).fetchone()["id"]
+            with transaction(conn):
+                cur = conn.execute(
+                    "INSERT OR IGNORE INTO steuer_verweise (jahr, stueck_id, datei_id)"
+                    " VALUES (?, ?, ?)",
+                    (jahr, s["id"], datei_id),
+                )
+                conn.execute(
+                    "UPDATE steuer_stuecke SET status = 'gesammelt', geaendert = ? WHERE id = ?",
+                    (_now(), s["id"]),
+                )
+            return Fund(bool(cur.rowcount), Path(vorhanden["pfad"]), stueck(conn, s["id"]), bei)
+        return Fund(False, Path(vorhanden["pfad"]), bei)
 
     ziel_ordner = ordner(root, jahr) / s["gebiet"]
     ziel_ordner.mkdir(parents=True, exist_ok=True)
-    gebiet_name = s["gebiet"].capitalize()
-    basis = f"{jahr}_{_slug(gebiet_name)}_{_slug(s['name'])}"
+    basis = f"{jahr}_{_ablagename(s['gebiet'])}_{_slug(s['name'])}"
     endung = quelle.suffix.lower()
     ziel = ziel_ordner / f"{basis}{endung}"
     n = 2
@@ -349,6 +393,49 @@ def sammeln(
             (_now(), stueck_id),
         )
     return Fund(True, ziel, stueck(conn, stueck_id))
+
+
+def darf_mitbenutzen(karte: dict, bei: dict) -> bool:
+    """Darf eine Datei für zwei Karten zählen? Nur für dieselbe Unterlage in Geschwister-
+    Provinzen, z. B. eine Mietliste für Wohnung 1 und 2. Sonst ließe sich eine Datei auf
+    jede Karte legen."""
+    return karte["key"] == bei["key"] and (
+        karte["gebiet"].split("-")[0] == bei["gebiet"].split("-")[0]
+    )
+
+
+def verweise(conn: sqlite3.Connection, jahr: int, stueck_id: int | None = None) -> list[dict]:
+    """Mitbenutzte Dateien: für welche Karte, welche Datei, und bei welcher Karte sie liegt."""
+    ensure_schema(conn)
+    sql = (
+        "SELECT v.id, v.stueck_id, v.datei_id, d.pfad, d.original, d.stueck_id AS bei_id,"
+        " s.name AS bei_name, s.gebiet AS bei_gebiet"
+        " FROM steuer_verweise v JOIN steuer_dateien d ON d.id = v.datei_id"
+        " JOIN steuer_stuecke s ON s.id = d.stueck_id WHERE v.jahr = ?"
+    )
+    werte: tuple = (jahr,)
+    if stueck_id is not None:
+        sql += " AND v.stueck_id = ?"
+        werte = (jahr, stueck_id)
+    return [dict(r) for r in conn.execute(sql + " ORDER BY v.id", werte)]
+
+
+def _offen_wenn_leer(conn: sqlite3.Connection, stueck_id: int) -> None:
+    if not _anzahl_dateien(conn, stueck_id):
+        conn.execute(
+            "UPDATE steuer_stuecke SET status = 'offen' WHERE id = ? AND status = 'gesammelt'",
+            (stueck_id,),
+        )
+
+
+def entferne_verweis(conn: sqlite3.Connection, verweis_id: int) -> None:
+    """Die Karte benutzt die Datei nicht mehr mit. Die Datei selbst bleibt, wo sie ist."""
+    row = conn.execute("SELECT * FROM steuer_verweise WHERE id = ?", (verweis_id,)).fetchone()
+    if not row:
+        return
+    with transaction(conn):
+        conn.execute("DELETE FROM steuer_verweise WHERE id = ?", (verweis_id,))
+        _offen_wenn_leer(conn, row["stueck_id"])
 
 
 def dateien(conn: sqlite3.Connection, jahr: int, stueck_id: int | None = None) -> list[dict]:
@@ -376,12 +463,14 @@ def entferne_datei(conn: sqlite3.Connection, datei_id: int) -> None:
             ziel = ziel.with_name(f"{ziel.stem}_{row['id']}{ziel.suffix}")
         shutil.move(str(pfad), ziel)
     with transaction(conn):
+        # Wer die Datei mitbenutzt hat, verliert sie auch (die andere Wohnung ist dann offen)
+        mit = conn.execute(
+            "SELECT stueck_id FROM steuer_verweise WHERE datei_id = ?", (datei_id,)
+        ).fetchall()
+        conn.execute("DELETE FROM steuer_verweise WHERE datei_id = ?", (datei_id,))
         conn.execute("DELETE FROM steuer_dateien WHERE id = ?", (datei_id,))
-        if not _anzahl_dateien(conn, row["stueck_id"]):
-            conn.execute(
-                "UPDATE steuer_stuecke SET status = 'offen' WHERE id = ? AND status = 'gesammelt'",
-                (row["stueck_id"],),
-            )
+        for r in [row, *mit]:
+            _offen_wenn_leer(conn, r["stueck_id"])
 
 
 def lager_dateien(root: Path) -> list[Path]:

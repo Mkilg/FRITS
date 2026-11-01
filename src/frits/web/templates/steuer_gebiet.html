@@ -20,6 +20,13 @@
     <h1>{{ g.titel }}</h1>
     <p class="bereich">{{ g.bereich }}{% if g.provinz.anlage %} · {{ g.provinz.anlage }}{% endif %}</p>
     <p class="bereich">{{ provinzstand.stand.erledigt }} von {{ provinzstand.stand.gesamt }} · {{ provinzstand.stufe_name }}</p>
+    {% if g.zeige_nummer or g.name %}
+    <form method="post" action="/steuer/{{ jahr }}/gebiet/{{ g.id }}/name" class="sq-gebietname" data-leise>
+      <input type="hidden" name="token" value="{{ token }}">
+      <label>Eigener Name für deine Beraterin <input name="name" value="{{ g.name }}" maxlength="40" placeholder="{{ 'z. B. Lindenstraße' if g.provinz.key in ('gehoeft', 'kontorhaus', 'ferienhaus') else 'z. B. Podcast' }}" autocomplete="off"></label>
+      <button class="quiet">Merken</button> <span class="sq-gemerkt" data-gemerkt aria-live="polite"></span>
+    </form>
+    {% endif %}
     <div class="sq-fritte-platz">
       {% set fehlt = vorjahr | rejectattr("jetzt", "in", ["gesammelt", "gibts_nicht", "fragen"]) | list %}
       {% set stimmung = "done" if provinzstand.stand.siegel else ("thinking" if fehlt else "welcome") %}
@@ -39,12 +46,19 @@
         {% if s.wunsch %}<span class="sq-etikett wunsch">Wunsch der Beraterin</span>{% endif %}
         {% if s.herkunft == "vorjahr" %}<span class="sq-etikett vorjahr">wie letztes Jahr</span>{% endif %}
       </div>
-      {% if s.status in schild %}<span class="sq-abdruck {{ s.status }}">{{ schild[s.status] }}</span>{% endif %}
+      {% if s.status in schild %}<span class="sq-abdruck {{ s.status }}">{{ "Macht die Beraterin" if s.frage == MACHT_BERATERIN else schild[s.status] }}</span>{% endif %}
       <h3>{{ s.name }}</h3>
       {% if s.hinweis %}<p class="hinweis">{{ s.hinweis }}</p>{% endif %}
       {% if s.frage %}<p class="hinweis"><strong>Deine Frage:</strong> {{ s.frage }}</p>{% endif %}
-      {% if s.datei_liste %}
+      {% if s.datei_liste or s.verweis_liste %}
       <ul class="sq-dateien">
+        {% for v in s.verweis_liste %}
+        <li class="verweis"><span>{{ v.original }} <small>liegt bei {{ v.bei_titel }}, zählt hier mit</small></span>
+          <form method="post" action="/steuer/{{ jahr }}/verweis/{{ v.id }}/loesen">
+            <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back" value="{{ zurueck }}">
+            <button class="quiet" title="Die Datei bleibt bei {{ v.bei_titel }}">nicht mitbenutzen</button>
+          </form></li>
+        {% endfor %}
         {% for d in s.datei_liste %}
         <li><span>{{ d.original }}</span>
           <form method="post" action="/steuer/{{ jahr }}/datei/{{ d.id }}/entfernen">
@@ -62,6 +76,13 @@
       {% if s.status != "gesammelt" %}
       <div class="sq-aktionen">
         {% if s.status == "offen" %}
+        {% if macht_beraterin(s.gebiet, s.key) %}
+        <form method="post" action="/steuer/{{ jahr }}/stueck/{{ s.id }}/status" data-stempel="BERATERIN" data-farbe="blau">
+          <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back" value="{{ zurueck }}">
+          <input type="hidden" name="frage" value="{{ MACHT_BERATERIN }}">
+          <button class="sq-stempelknopf" name="status" value="fragen" title="Zählt als erledigt. In der Mail steht, dass sie das wie immer macht.">Macht meine Beraterin</button>
+        </form>
+        {% endif %}
         {% if fehlt_nie(s.gebiet, s.key) %}
         <form method="post" action="/steuer/{{ jahr }}/stueck/{{ s.id }}/status" data-stempel="FRAGE" data-farbe="blau">
           <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back" value="{{ zurueck }}">
