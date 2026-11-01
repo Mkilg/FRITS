@@ -90,3 +90,18 @@ def open_path(path: Path) -> bool:
     except (OSError, subprocess.SubprocessError):
         return False
     return True
+
+
+def choose_folder(prompt: str) -> Path | None:
+    """The Mac's own "choose folder" window. None if cancelled or not on a Mac."""
+    if sys.platform != "darwin":
+        return None
+    script = f'POSIX path of (choose folder with prompt "{prompt.replace(chr(34), "")}")'
+    try:
+        done = subprocess.run(
+            ["osascript", "-e", script], check=True, capture_output=True, text=True, timeout=600
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    chosen = done.stdout.strip()
+    return Path(chosen) if chosen else None

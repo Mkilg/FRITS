@@ -236,7 +236,7 @@ def test_dropped_receipt_photo_opens_ready_to_check(client, ws, needs_ocr):  # n
     assert (ws.done / "bon.jpg").exists()
     # The same receipt again is recognised, not counted twice.
     again = send(client, "/expenses/beleg", files=[("files", ("bon2.jpg", photo, "image/jpeg"))])
-    assert "Diesen Beleg kenne ich schon" in again.text
+    assert "Den kenne ich schon. Er wartet hier aufs Eintragen" in again.text
     assert not (ws.done / "bon2.jpg").exists()
 
 
@@ -246,3 +246,10 @@ def test_pasted_receipt_text_is_kept_as_a_receipt(client, ws):  # noqa: F811
     conn = store.connect(ws.db)
     row = conn.execute("SELECT filename, status FROM jobs").fetchone()
     assert row["status"] == "receipt" and row["filename"].startswith("beleg-")
+
+
+def test_hotel_abroad_has_no_german_vorsteuer():
+    text = "Hotel Am Ring\n1010 Wien, Österreich\nUID ATU12345678\nNächtigung 113,30\nMwSt 10 %\n"
+    assert beleg.guess(text, date(2026, 11, 2))["vat_rate"] == ""
+    berlin = "Café Wiener Straße\nBerlin\nSumme 12,00\nMwSt 19 %\n"
+    assert beleg.guess(berlin, date(2026, 11, 2))["vat_rate"] == "0.19"

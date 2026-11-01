@@ -1,0 +1,71 @@
+{% import "kurs/_teile.html" as t with context %}
+
+{% set aufgabe_feld = aufgabe if aufgabe is defined else request.query_params.get("aufgabe", "") %}
+<p class="hint">Erkennt deine Kunden, IBAN, E-Mail, Telefon, Adressen und Namen. Alles auf diesem Computer.</p>
+<form method="post" action="/lernen/werkbank" class="form">
+  <input type="hidden" name="token" value="{{ token }}">
+  <label class="field">Dein Text (ein Brief, eine E-Mail, eine Notiz)
+    <textarea name="text" rows="9">{{ text if text is defined else beispiel }}</textarea>
+  </label>
+  <label class="field">Auch schwärzen (ein Wort pro Zeile oder mit Komma, zum Beispiel Aktenzeichen oder Spitznamen)
+    {% set extra_feld = extra if extra is defined else "NK-2025-0815" %}
+    {% if stueck and stueck.suspicious %}{% set extra_feld = (extra_feld ~ "\n" ~ stueck.suspicious | join("\n")) | trim %}{% endif %}
+    <textarea name="extra" rows="2">{{ extra_feld }}</textarea>
+  </label>
+  <label class="field">Was soll die KI damit machen? (optional, kommt in den fertigen Prompt)
+    <input name="aufgabe" value="{{ aufgabe_feld }}" placeholder="z. B. Prüf, ob die Nachzahlung plausibel ist, und schreib mir eine kurze Rückfrage.">
+  </label>
+  <button class="primary" name="action" value="schwaerzen">Schwärzen</button>
+</form>
+{% if fehler %}<div class="flash error" role="alert">{{ fehler }}</div>{% endif %}
+
+{% if stueck %}
+<h2 id="ergebnis">Das Ergebnis</h2>
+<div class="compare">
+  <div><h3>Original (bleibt hier)</h3><pre>{{ stueck.original }}</pre></div>
+  <div><h3>Das darf die KI sehen</h3><pre class="redacted">{{ stueck.redacted }}</pre></div>
+</div>
+{% if stueck.suspicious %}
+<div class="lesson warnung" role="alert">
+  <strong>Halt, schau genau hin:</strong> {{ stueck.suspicious | join(", ") }} {{ "steht" if stueck.suspicious | length == 1 else "stehen" }} noch im Text. Das ist ein Teil eines Namens, den ich woanders gefunden habe. Ich habe {{ "es" if stueck.suspicious | length == 1 else "sie" }} oben bei „Auch schwärzen“ eingetragen. Drück noch einmal auf <strong>Schwärzen</strong>, bevor du etwas kopierst.
+</div>
+{% endif %}
+<figure class="kopierbox" id="fertiger-prompt">
+  <figcaption>
+    <strong>Fertiger Prompt mit deinem geschwärzten Text</strong>
+    <button type="button" class="tiny kopieren primary" data-kopieren="#text-fertig">Kopieren</button>
+  </figcaption>
+  <p class="hint">In {{ werkzeug.name if not werkzeug.agent else "einen Chat oder " ~ werkzeug.name }} einfügen. Lies vorher kurz drüber, ob wirklich nichts durchgerutscht ist.</p>
+  <pre id="text-fertig" class="redacted" tabindex="0">{{ stueck.prompt }}</pre>
+</figure>
+{% if stueck.mapping.entries %}
+<details>
+  <summary>Wer ist wer? ({{ stueck.mapping.entries | length }} Platzhalter, nur hier zu sehen)</summary>
+  <ul class="plain">{% for p, e in stueck.mapping.entries.items() %}<li><code>{{ p }}</code> ← {{ e.surface | join(" / ") }}</li>{% endfor %}</ul>
+</details>
+{% endif %}
+
+<h2>Die Antwort der KI zurückholen</h2>
+<p class="hint">Antwort der KI hier einfügen, FRITS setzt die echten Namen wieder ein.</p>
+<form method="post" action="/lernen/werkbank" class="form">
+  <input type="hidden" name="token" value="{{ token }}">
+  <input type="hidden" name="stueck" value="{{ stueck.key }}">
+  <input type="hidden" name="extra" value="{{ extra }}">
+  <input type="hidden" name="aufgabe" value="{{ aufgabe }}">
+  <label class="field">Antwort der KI
+    <textarea name="antwort" rows="6" placeholder="Hier einfügen …">{{ antwort if antwort is defined else '' }}</textarea>
+  </label>
+  <button name="action" value="zurueck">Namen wieder einsetzen</button>
+</form>
+{% if zurueck is defined %}
+<figure class="kopierbox">
+  <figcaption>
+    <strong>Mit echten Namen</strong>
+    <button type="button" class="tiny kopieren" data-kopieren="#text-zurueck">Kopieren</button>
+  </figcaption>
+  <pre id="text-zurueck" tabindex="0">{{ zurueck }}</pre>
+</figure>
+{% endif %}
+<p class="hint">Die Zuordnung „wer ist wer“ liegt nur im Arbeitsspeicher und ist weg, wenn du FRITS schließt.</p>
+{% endif %}
+<p class="hint">Bequemer: Im <a href="/notfall">Chat von FRITS</a> passiert dasselbe, auch mit PDFs und Fotos.</p>

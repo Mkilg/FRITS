@@ -215,3 +215,20 @@ def test_list_works_without_fritte(client, ws):  # noqa: F811
 def test_other_websites_cannot_change_the_list(client):
     r = client.post("/aufgaben", data={"text": "Hack"}, follow_redirects=False)
     assert r.status_code == 403
+
+
+def test_course_stages_are_no_paperwork_either(tmp_path):
+    """Learning in the course brings its own cards, but it doesn't stand in for bookkeeping."""
+    from frits.spiel import gewuerze, saison
+
+    assert gewuerze.NACH_ID["chili"].plus_wuerze([{"art": "lernen"}] * 10, {}) == 0
+    mix = [{"art": "lernen"}, {"art": "feierabend"}, {"art": "rechnung"}]
+    assert gewuerze.NACH_ID["pfeffer"].plus_wuerze(mix, {}) == 0
+    assert "lernen" in saison.NICHT_GEZAEHLT
+    conn = store.connect(tmp_path / "frits.db")
+    stand.vorbereiten(conn)
+    conn.execute(
+        "INSERT INTO spiel_karten (schluessel, art, gesehen) VALUES ('lernen:x', 'lernen', ?)",
+        (TODAY.isoformat(),),
+    )
+    assert TODAY not in stand.pflegetage(conn, TODAY)

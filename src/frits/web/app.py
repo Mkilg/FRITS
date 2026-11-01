@@ -372,6 +372,7 @@ def create_app(
         cue: str | None = None,
         stamp: str | None = None,
         undo: dict | None = None,
+        link: tuple[str, str] | None = None,
         aktion: dict | None = None,
     ) -> None:
         """A short note on the next page. `stamp` puts an ink stamp on it, e.g. "Bezahlt".
@@ -381,16 +382,11 @@ def create_app(
         "link", "link_text"}; the note then stays until it is closed."""
         if undo:
             app.state.undo = undo
-        app.state.flashes.append(
-            {
-                "text": text,
-                "kind": kind,
-                "cue": cue,
-                "stamp": stamp,
-                "undo": bool(undo),
-                "aktion": aktion,
-            }
-        )
+        note = {"text": text, "kind": kind, "cue": cue, "stamp": stamp, "undo": bool(undo)}
+        if link:
+            note["link"], note["link_text"] = link
+        note["aktion"] = aktion
+        app.state.flashes.append(note)
 
     app.state.hinweise = []  # small notes other parts add to any page, e.g. Fritte's cards
 
@@ -399,6 +395,7 @@ def create_app(
         flashes, app.state.flashes = app.state.flashes, []
         for hinweis in app.state.hinweise:
             flashes += hinweis(request.url.path, current)
+        nav = context.pop("nav", None) or request.url.path  # which menu entry is lit
         context.update(
             request=request,
             token=app.state.token,
@@ -407,7 +404,7 @@ def create_app(
             sounds=app.state.sounds_url if current.sound else None,
             music=_music_track(current.music, request.url.path),
             moods=_music_moods(),
-            nav=request.url.path,
+            nav=nav,
             ai_on=ai_ready(current),
         )
         return templates.TemplateResponse(request, name, context)
@@ -668,6 +665,10 @@ def create_app(
             if outcome.status == "check-me" and path.exists():
                 flash(f"{path.name}: {outcome.message}", "error")
                 break  # e.g. the AI isn't reachable: the next files would fail the same way
+            if outcome.status == "check-me":
+                flash(
+                    f"{path.name}: {outcome.message}", link=("/check-me", "Ansehen und einordnen")
+                )
         parts = []
         if counts["drafted"]:
             parts.append(
@@ -723,7 +724,13 @@ def create_app(
                 return read_inbox(target, after_upload=True)
         if saved:
             names = ", ".join(p.name for p in saved)
-            flash(f"Im Eingang: {names}. Drück „Jetzt lesen lassen“, wenn du so weit bist.")
+            if ai_ready(settings()):
+                flash(f"Im Eingang: {names}. Drück „Jetzt lesen lassen“, wenn du so weit bist.")
+            else:
+                flash(
+                    f"Im Eingang: {names}. Sobald die KI verbunden ist, lese ich es. Ein Beleg "
+                    "geht auch ohne KI: Zieh ihn unter Ausgaben auf das Feld."
+                )
         for problem in problems:
             flash(problem, "error")
         if not saved and not problems:
@@ -733,6 +740,91 @@ def create_app(
     @app.get("/check-me", response_class=HTMLResponse)
     def check_me_page(request: Request):
         return page(request, "check_me.html", files=_check_me_files(ws))
+
+    def _check_me_file(name) -> Path:
+        path = (ws.check_me / Path(str(name or "")).name).resolve()
+        if not path.is_file() or ws.check_me.resolve() not in path.parents:
+            raise HTTPException(404)
+        if path.name.endswith(".grund.txt"):
+            raise HTTPException(404)
+        return path
+
+    @app.get("/check-me/datei")
+    def check_me_file(name: str = ""):
+        """Look at the file first, here on this computer, to decide where it belongs."""
+        return FileResponse(_check_me_file(name), content_disposition_type="inline")
+
+    def _check_me_done(path: Path, status: str) -> tuple[Path, int]:
+        """Move a file out of "Zum Prüfen" into "erledigt" and note what it became."""
+        from frits.pipeline import _move, file_hash
+
+        conn = db()
+        digest = file_hash(path)
+        path.with_name(path.name + ".grund.txt").unlink(missing_ok=True)
+        target = _move(path, ws.done)
+        row = conn.execute("SELECT id FROM jobs WHERE sha256 = ?", (digest,)).fetchone()
+        if row:
+            conn.execute(
+                "UPDATE jobs SET status = ?, filename = ? WHERE id = ?",
+                (status, target.name, row["id"]),
+            )
+            return target, row["id"]
+        return target, store.add_job(conn, digest, target.name, status)
+
+    @app.post("/check-me/beleg", dependencies=guarded)
+    async def check_me_receipt(request: Request):
+        """It's a ticket or a receipt: enter it on Ausgaben. FRITS reads amount and date here,
+        no AI involved, so nothing has to be redacted."""
+        path = _check_me_file((await request.form()).get("name"))
+        _, job_id = _check_me_done(path, "receipt")
+        flash(
+            "Als Beleg übernommen. Betrag und Datum lese ich hier auf deinem Computer, ganz "
+            "ohne KI. Bitte prüfen und speichern, dann zählt er in der EÜR."
+        )
+        return back(f"/expenses?receipt={job_id}#neu")
+
+    @app.post("/check-me/notfall", dependencies=guarded)
+    async def check_me_chat(request: Request):
+        """A letter or a notice: open it in the Notfall-Chat, redacted, to understand it.
+        The file stays under "Zum Prüfen" until Fritz puts it away."""
+        from frits import notfall
+        from frits.redact import LeakError
+
+        path = _check_me_file((await request.form()).get("name"))
+        current = settings()
+        known = list(customers()) + ([current.owner] if current.name else [])
+        try:
+            text = extract_text(path).text
+            g = notfall.neues_gespraech()
+            notfall.add_document(
+                g, path.name, path.suffix.lstrip(".") or "text", text, known, nlp()
+            )
+        except IngestError as exc:
+            flash(str(exc), "error")
+            return back("/check-me")
+        except LeakError:
+            flash(
+                "Ich konnte nicht alles sicher schwärzen, darum geht davon nichts raus. Im "
+                "Notfall-Chat kannst du selbst Wörter zum Schwärzen eintragen: Zieh die Datei "
+                "dort noch einmal auf das Feld.",
+                "error",
+            )
+            return back("/notfall")
+        except RuntimeError as exc:
+            flash(str(exc), "error")
+            return back("/check-me")
+        chats = app.state.notfall
+        chats[g.key] = g
+        while len(chats) > notfall.KEEP:
+            chats.popitem(last=False)
+        return back(f"/notfall/{g.key}")
+
+    @app.post("/check-me/weglegen", dependencies=guarded)
+    async def check_me_away(request: Request):
+        path = _check_me_file((await request.form()).get("name"))
+        target, _ = _check_me_done(path, "check-me-ignored")
+        flash(f"{target.name} liegt jetzt im Ordner „erledigt“ und zählt nirgends mit.")
+        return back("/check-me")
 
     @app.post("/check-me/retry", dependencies=guarded)
     async def check_me_retry(request: Request):
@@ -811,6 +903,9 @@ def create_app(
     async def draft_save(request: Request, draft_id: int):
         form = await request.form()
         conn = db()
+        action = form.get("action", "save")
+        if action == "answer":
+            return draft_answer(draft_id, str(form.get("answers") or ""))
         try:
             draft, _ = load_draft(conn, draft_id)
             _apply_form(draft, form, customer_by, settings())
@@ -818,7 +913,6 @@ def create_app(
         except BillingError as exc:
             flash(str(exc), "error")
             return back(f"/drafts/{draft_id}")
-        action = form.get("action", "save")
         current = settings()
         if action == "approve":
             try:
@@ -833,7 +927,7 @@ def create_app(
                 forget_mapping(ws, row["job_id"])
             flash(
                 f"Rechnung {number} ist fertig. Ein Punkt weniger im Kopf.",
-                cue="done",
+                cue="rechnung",
                 stamp="Fertig",
             )
             late = ustva.late_notice(ws.db, current, number, today())
@@ -850,6 +944,25 @@ def create_app(
             flash(f"Angebot {number} ist fertig.", cue="done", stamp="Fertig")
             return back(f"/quotes#a-{number}")
         flash("Gespeichert.")
+        return back(f"/drafts/{draft_id}")
+
+    def draft_answer(draft_id: int, answers: str):
+        """The answers to "Fragen an dich", in Fritz's words: the AI reads the note again."""
+        from frits.pipeline import AnswerError, answer_questions
+
+        if not answers.strip():
+            flash("Schreib deine Antworten in das Feld unter den Fragen.", "error")
+            return back(f"/drafts/{draft_id}#fragen")
+        current = settings()
+        try:
+            answer_questions(db(), ws, current, provider_for(current), nlp(), draft_id, answers)
+        except (AnswerError, ProviderError, RuntimeError, BillingError) as exc:
+            flash(str(exc), "error")
+            return back(f"/drafts/{draft_id}#fragen")
+        flash(
+            "Neu vorgeschlagen, mit deinen Antworten. Bitte schau die Positionen noch einmal an.",
+            cue="done",
+        )
         return back(f"/drafts/{draft_id}")
 
     @app.post("/drafts/{draft_id}/discard", dependencies=guarded)
@@ -926,7 +1039,7 @@ def create_app(
     @app.get("/invoices/{number}/pdf")
     def invoice_pdf(number: str):
         row = db().execute("SELECT pdf_path FROM invoices WHERE number = ?", (number,)).fetchone()
-        return _pdf(row["pdf_path"] if row else None, ws.invoices)
+        return _pdf(ws.find(row["pdf_path"]) if row else None, ws.invoices)
 
     @app.post("/invoices/{number}/paid", dependencies=guarded)
     async def invoice_paid(request: Request, number: str):
@@ -988,7 +1101,7 @@ def create_app(
             customer.email if customer and customer.email else "",
             subject,
             body,
-            Path(row["pdf_path"]),
+            ws.find(row["pdf_path"]) or Path(row["pdf_path"]),
         )
         return _after_compose(conn, "invoices", number, result, "/invoices")
 
@@ -1059,7 +1172,7 @@ def create_app(
     @app.get("/quotes/{number}/pdf")
     def quote_pdf(number: str):
         row = db().execute("SELECT pdf_path FROM quotes WHERE number = ?", (number,)).fetchone()
-        return _pdf(row["pdf_path"] if row else None, ws.quotes)
+        return _pdf(ws.find(row["pdf_path"]) if row else None, ws.quotes)
 
     @app.post("/quotes/{number}/accept", dependencies=guarded)
     def quote_accept(number: str):
@@ -1097,7 +1210,7 @@ def create_app(
             customer.email if customer and customer.email else "",
             subject,
             body,
-            Path(row["pdf_path"]),
+            ws.find(row["pdf_path"]) or Path(row["pdf_path"]),
         )
         return _after_compose(conn, "quotes", number, result, "/quotes")
 
@@ -1442,11 +1555,35 @@ def create_app(
             known = conn.execute(
                 "SELECT id, status FROM jobs WHERE sha256 = ?", (digest,)
             ).fetchone()
+            if known and known["status"] == "check-me":
+                # It waited under "Zum Prüfen": now Fritz says it's a receipt, so it is one.
+                for old in ws.check_me.glob("*"):
+                    waiting_there = old.is_file() and not old.name.endswith(".grund.txt")
+                    if waiting_there and file_hash(old) == digest:
+                        old.with_name(old.name + ".grund.txt").unlink(missing_ok=True)
+                        old.unlink()
+                conn.execute(
+                    "UPDATE jobs SET status = 'receipt', filename = ? WHERE id = ?",
+                    (path.name, known["id"]),
+                )
+                first = first or known["id"]
+                continue
             if known:
                 path.unlink()
-                flash(f"{path.name}: Diesen Beleg kenne ich schon.")
-                if known["status"] == "receipt":
+                waiting = {r["id"] for r in open_receipts(conn)}
+                if known["id"] in waiting:
+                    flash(f"{path.name}: Den kenne ich schon. Er wartet hier aufs Eintragen.")
                     first = first or known["id"]
+                elif known["status"] == "receipt":
+                    flash(
+                        f"{path.name}: Diesen Beleg hast du schon eingetragen. Er steht unten "
+                        "in der Liste, du musst nichts mehr tun."
+                    )
+                else:
+                    flash(
+                        f"{path.name}: Diese Datei habe ich schon einmal gelesen. Sie liegt im "
+                        "Ordner „erledigt“, du musst nichts mehr tun."
+                    )
                 continue
             job_id = store.add_job(conn, digest, path.name, "receipt")
             first = first or job_id
@@ -1857,6 +1994,7 @@ def create_app(
             letzte=sicherung.letzte(current.backup_dir),
             faellig=sicherung.faellig(current.backup_dir),
             vorschlaege=sicherung.vorschlaege(),
+            zettel=request.query_params.get("zettel") == "1",
             **extra,
         )
 
@@ -1867,24 +2005,54 @@ def create_app(
     @app.post("/sicherung", dependencies=guarded)
     async def sicherung_jetzt(request: Request):
         form = await request.form()
-        ziel = str(form.get("ziel") or settings().backup_dir).strip()
+        ziel = str(form.get("anderer") or form.get("ziel") or settings().backup_dir).strip()
         if not ziel:
             flash("Wähl zuerst aus, wohin die Sicherung soll.", "error")
             return back("/sicherung")
+        vom_zettel = str(form.get("passwort") or "").strip()
         try:
-            path = sicherung.sichern(ws, Path(ziel), sicherung.kennwort())
+            if vom_zettel:
+                sicherung.kennwort_merken(vom_zettel, ziel)
+                passwort = vom_zettel
+            else:
+                passwort = sicherung.kennwort(ziel=ziel)
+            path = sicherung.sichern(ws, Path(ziel), passwort)
+        except sicherung.KennwortFehlt as exc:
+            flash(str(exc), "error")
+            return back("/sicherung?zettel=1#sichern")
         except sicherung.SicherungError as exc:
             flash(str(exc), "error")
             return back("/sicherung")
         if ziel != settings().backup_dir:
             replace(settings(), backup_dir=ziel).save(ws.settings_file)
-        flash(f"Gesichert: {path.name} in {path.parent}.", cue="saved")
+        flash(f"Gesichert: {path.name} in {path.parent}.", cue="saved", stamp="Gesichert")
+        if sicherung.selbe_platte(ws, Path(ziel)):
+            flash(
+                "Achtung: Diese Sicherung liegt auf derselben Festplatte wie FRITS. Geht der Mac "
+                "kaputt, ist sie mit weg. Nimm besser einen USB-Stick, eine externe Festplatte "
+                "oder iCloud Drive.",
+                "error",
+            )
         return back(str(form.get("back") or "/sicherung"))
+
+    @app.post("/sicherung/waehlen", dependencies=guarded)
+    def sicherung_waehlen():
+        """The Mac's own folder window, so nobody has to type a path."""
+        chosen = system.choose_folder("Wohin soll die FRITS-Sicherung?")
+        if chosen is None:
+            flash("Kein Ordner gewählt. Du kannst den Ort auch unten eintippen.")
+            return back("/sicherung#sichern")
+        replace(settings(), backup_dir=str(chosen)).save(ws.settings_file)
+        flash(f"Die Sicherung kommt nach {chosen}. Drück jetzt „Jetzt sichern“.")
+        return back("/sicherung#sichern")
 
     @app.post("/sicherung/kennwort", dependencies=guarded)
     def sicherung_kennwort(request: Request):
         try:
-            shown = sicherung.kennwort()
+            shown = sicherung.kennwort(ziel=settings().backup_dir or None)
+        except sicherung.KennwortFehlt as exc:
+            flash(str(exc), "error")
+            return back("/sicherung?zettel=1#sichern")
         except sicherung.SicherungError as exc:
             flash(str(exc), "error")
             return back("/sicherung")
@@ -2021,7 +2189,15 @@ def create_app(
     from frits.web.lernen import register_lernen
 
     register_lernen(
-        app, page=page, settings=settings, customers=customers, nlp=nlp, guarded=guarded
+        app,
+        page=page,
+        back=back,
+        flash=flash,
+        db=db,
+        settings=settings,
+        customers=customers,
+        nlp=nlp,
+        guarded=guarded,
     )
 
     from frits.web.notfall import register_notfall
@@ -2045,6 +2221,7 @@ def create_app(
 # ---------- helpers ----------
 
 TEXT_FIELDS = ("name", "company", "email", "phone", "steuernummer", "ust_id", "bank", "iban", "bic")
+NOTIZ_MAX = 1500
 CHECKBOXES = ("strict_local", "sound", "haustier", "auto_read")
 EFFECTS = ("ruhig", "verspielt")
 
@@ -2060,6 +2237,10 @@ def settings_from_form(current: Settings, form) -> Settings:
         changes["iban"] = changes["iban"].replace(" ", "").upper()
     if "address" in form:
         changes["address"] = _one_line(form.get("address")) or ""
+    if "verfahren_notiz" in form:
+        changes["verfahren_notiz"] = " ".join(str(form.get("verfahren_notiz", "")).split())[
+            :NOTIZ_MAX
+        ]
     for key, empty in (("hourly_rate", 0), ("km_rate", 0), ("vat_rate", 19)):
         if key in form:
             changes[key] = parse_amount(str(form.get(key))) or Decimal(empty)
@@ -2339,7 +2520,7 @@ def _one_line(value) -> str | None:
     return ", ".join(p for p in parts if p) or None
 
 
-def _pdf(path: str | None, folder: Path) -> FileResponse:
+def _pdf(path: str | Path | None, folder: Path) -> FileResponse:
     if not path:
         raise HTTPException(404)
     pdf = Path(path).resolve()

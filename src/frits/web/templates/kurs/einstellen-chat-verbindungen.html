@@ -1,0 +1,11 @@
+{% import "kurs/_teile.html" as t with context %}
+
+<div class="quiz" data-quiz>
+  {{ t.frage("Du verbindest den Chat mit deinem Postfach. Was ist er jetzt?", [("Immer noch ein Chat", false, "Nicht mehr ganz: Er kann jetzt selbst in deine Mails schauen."), ("Ein Agent mit Zugriff auf deine Mails", true, "Genau. Ab jetzt gilt alles, was du über Agenten gelernt hast.")]) }}
+  <p class="quiz-stand" data-quiz-stand aria-live="polite"></p>
+</div>
+<ul class="kacheln">
+  <li><span class="kachel-zeichen" aria-hidden="true">🔌</span>Nur verbinden, was du wirklich brauchst.</li>
+  <li><span class="kachel-zeichen" aria-hidden="true">👀</span>Lieber nur lesen lassen als schreiben.</li>
+  <li><span class="kachel-zeichen" aria-hidden="true">✋</span>Verschicken nie ohne deinen Klick.</li>
+</ul>

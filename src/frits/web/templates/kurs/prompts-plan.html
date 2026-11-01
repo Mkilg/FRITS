@@ -1,0 +1,7 @@
+{% import "kurs/_teile.html" as t with context %}
+
+<ol class="pfeil-reihe" aria-label="Erst Plan, dann Ok, dann machen">
+  <li>📝 Plan</li><li>👍 dein Ok</li><li>✋ machen</li>
+</ol>
+{{ t.prompt("plan") }}
+{% if werkzeug.slug == "claude-code" %}<p class="hint">Bei Claude Code geht es noch einfacher: im Modus <strong>Plan</strong> starten. Dann ändert Claude ohnehin nichts.</p>{% endif %}

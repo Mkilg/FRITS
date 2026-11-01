@@ -521,6 +521,44 @@ EARLIER_TAX = {
 _EARLIER_NUMBER = re.compile(r"[A-Za-z0-9][A-Za-z0-9 ._/-]{0,39}")
 
 
+def _earlier_fits_sequence(conn, number: str, issue_date: date, pattern: str) -> None:
+    """A number in FRITS's own pattern must keep the series in time order.
+
+    Fritz may have used the same pattern before FRITS. Such an invoice may be entered, but a
+    lower counter cannot be newer than a higher one (§ 14 Abs. 4 Nr. 4 UStG: fortlaufend),
+    and it cannot jump ahead of the next number FRITS would give.
+    """
+    regex, _template = _pattern_parts(pattern, issue_date.year)
+    mine = regex.fullmatch(number)
+    if not mine:
+        return
+    counter = int(mine.group(1))
+    newest = 0
+    for row in conn.execute("SELECT number, issue_date FROM invoices"):
+        other = regex.fullmatch(row["number"])
+        if not other:
+            continue
+        theirs, day = int(other.group(1)), row["issue_date"]
+        newest = max(newest, theirs)
+        if theirs < counter and day > issue_date.isoformat():
+            raise BillingError(
+                f"{number} kann nicht vom {issue_date:%d.%m.%Y} sein: Die kleinere Nummer "
+                f"{row['number']} ist erst vom {date.fromisoformat(day):%d.%m.%Y}. "
+                "Rechnungsnummern laufen mit der Zeit mit. Prüf Nummer und Datum."
+            )
+        if theirs > counter and day < issue_date.isoformat():
+            raise BillingError(
+                f"{number} kann nicht vom {issue_date:%d.%m.%Y} sein: Die größere Nummer "
+                f"{row['number']} ist schon vom {date.fromisoformat(day):%d.%m.%Y}. "
+                "Rechnungsnummern laufen mit der Zeit mit. Prüf Nummer und Datum."
+            )
+    if newest and counter > newest + 1:
+        raise BillingError(
+            f"{number} würde eine Lücke in deine Nummern reißen: Die letzte ist "
+            f"{_template.format(counter=newest)}. Prüf die Nummer."
+        )
+
+
 def add_earlier(
     conn,
     *,
@@ -565,6 +603,7 @@ def add_earlier(
         raise BillingError("Bitte das Zahldatum prüfen.")
     if conn.execute("SELECT 1 FROM invoices WHERE number = ?", (number,)).fetchone():
         raise BillingError(f"Die Rechnungsnummer {number} gibt es in FRITS schon.")
+    _earlier_fits_sequence(conn, number, issue_date, settings.number_pattern)
     snapshot = {
         "19": {"mode": "regelbesteuerung", "rate": "19", "customer": ""},
         "7": {"mode": "regelbesteuerung", "rate": "7", "customer": ""},

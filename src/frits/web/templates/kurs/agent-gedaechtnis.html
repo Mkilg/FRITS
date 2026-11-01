@@ -1,0 +1,21 @@
+{% import "kurs/_teile.html" as t with context %}
+
+<div class="rucksack">
+  <svg class="kurs-svg rucksack-bild" viewBox="0 0 160 180" aria-hidden="true">
+    <path d="M50 40 q30 -36 60 0" fill="none" stroke="#5b391d" stroke-width="8" stroke-linecap="round"/>
+    <rect x="22" y="40" width="116" height="128" rx="26" fill="#b07a45" stroke="#5b391d" stroke-width="3"/>
+    <rect x="40" y="96" width="80" height="52" rx="10" fill="#8a5a32" stroke="#5b391d" stroke-width="3"/>
+    <path d="M22 80 q58 26 116 0" fill="none" stroke="#5b391d" stroke-width="3"/>
+    <circle cx="80" cy="118" r="5" fill="#e9bd4f"/>
+  </svg>
+  <ul class="klappkarten">
+    <li><details><summary>📝 Dein Auftrag</summary><p>Was du ihm in dieser Sitzung schreibst.</p></details></li>
+    <li><details><summary>📄 Was er gelesen hat</summary><p>{% if werkzeug.agent %}Die Dateien, die er in seinem Ordner geöffnet hat.{% else %}Der Text, den du hineinkopiert oder hochgeladen hast.{% endif %}</p></details></li>
+    <li><details><summary>📜 Die Hausordnung</summary><p>Bei {{ werkzeug.name }}: {{ werkzeug.hausordnung }}. Die liest er am Anfang jeder Sitzung.</p></details></li>
+  </ul>
+</div>
+<div class="nebeneinander">
+  <div class="seite gut"><p class="seite-kopf">Gut daran</p><p>Was nicht im Rucksack ist, kann er nicht verraten.</p></div>
+  <div class="seite"><p class="seite-kopf">Darum</p><p>Schreib deine Regeln einmal in die Hausordnung, statt sie jedes Mal neu zu tippen. Wie das geht, kommt in „Prompts, die schützen“.</p></div>
+</div>
+{% if not werkzeug.agent %}<p class="hint">Viele Chats haben inzwischen ein <strong>Gedächtnis</strong> (Memory). Was dort landet, steckt bei jedem neuen Chat mit im Rucksack. Dazu mehr in „Dein Werkzeug einstellen“.</p>{% endif %}

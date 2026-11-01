@@ -111,8 +111,21 @@ def guess_date(text: str, today: date) -> str | None:
     return None
 
 
+# A receipt from abroad: its VAT is not German Vorsteuer (§ 15 UStG covers German VAT only),
+# so the whole amount is the cost. Hotels in Vienna, trains in Switzerland, ...
+_ABROAD = re.compile(
+    r"\b(österreich|oesterreich|austria|wien|vienna|schweiz|suisse|svizzera|switzerland|"
+    r"z[üu]rich|italia|france|nederland|belgi[eë]|danmark|polska|česk|espa[ñn]a)\b"
+    r"|\bATU\s?\d{8}\b|\bCHE-?\d{3}|\bMWST-?Nr\b|\bUID\b|\bTVA\b|\bBTW\b|\bIVA\b",
+    re.IGNORECASE,
+)
+
+
 def guess_vat(text: str) -> str | None:
-    """ "0.07" or "0.19" when the receipt names exactly one of them."""
+    """ "0.07" or "0.19" when the receipt names exactly one of them; "" for a receipt from
+    abroad, whose VAT FRITS must not count as Vorsteuer."""
+    if _ABROAD.search(text):
+        return ""
     rates = set()
     for m in re.finditer(r"(?<![\d,.])(19|7)(?:[,.]0{1,2})?\s*%", text):
         rates.add("0.19" if m.group(1) == "19" else "0.07")
@@ -168,4 +181,20 @@ def guess(text: str, today: date) -> dict[str, str]:
         "vat_rate": guess_vat(text),
         "category": guess_category(text),
     }
-    return {key: value for key, value in found.items() if value}
+    return {
+        key: value for key, value in found.items() if value or (key == "vat_rate" and value == "")
+    }
+
+
+# Words that only a bought ticket or a till receipt carries, not a note about a job.
+_RECEIPT_WORDS = re.compile(
+    r"\b(fahrkarte|fahrschein|online-ticket|ticket|bahncard|quittung|kassenbon|kassenbeleg|"
+    r"tankbeleg|bewirtungsbeleg|deutsche bahn|db fernverkehr|db regio|flixbus|bon-nr)\b",
+    re.IGNORECASE,
+)
+
+
+def looks_like_receipt(text: str) -> bool:
+    """A ticket or till receipt: a receipt word and a paid amount. Then FRITS can take it as
+    a Beleg without any AI, even if the AI may not see it (e.g. redaction wasn't sure)."""
+    return bool(_RECEIPT_WORDS.search(text)) and guess_total(text) is not None

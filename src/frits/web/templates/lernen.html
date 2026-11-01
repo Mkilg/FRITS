@@ -1,413 +1,67 @@
 {% extends "base.html" %}
-{% block title %}{{ k.title }} · KI-Werkstatt · FRITS{% endblock %}
-{% block head %}<link rel="stylesheet" href="/static/lernen.css">{% endblock %}
-
-{% macro prompt(key) %}{% set p = prompts[key] %}
-<figure class="kopierbox" id="prompt-{{ key }}">
-  <figcaption>
-    <strong>{{ p.title }}</strong>
-    <button type="button" class="tiny kopieren" data-kopieren="#text-{{ key }}">Kopieren</button>
-  </figcaption>
-  <p class="hint">{{ p.when }}</p>
-  <pre id="text-{{ key }}" class="art-{{ p.kind }}" tabindex="0">{{ p.text }}</pre>
-</figure>
-{% endmacro %}
-
-{% macro quelle(key, label) %}<a href="{{ quellen[key] }}" target="_blank" rel="noopener">{{ label }}</a>{% endmacro %}
+{% block title %}{{ h.title }} · {{ titel }} · FRITS{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/lernen.css"><link rel="stylesheet" href="/static/kurs.css">{% endblock %}
 
 {% block content %}
-<div class="werkstatt">
-<nav class="kapitel-leiste" aria-label="Kapitel der KI-Werkstatt">
-  {% for slug, title, mood, line in kapitel %}
-  <a href="/lernen/{{ slug }}" {% if slug == k.slug %}aria-current="step"{% endif %}><span class="nr">{{ loop.index }}</span> {{ title }}</a>
+<div class="kurs" data-kurs data-token="{{ token }}" data-happen="{{ e.slug }}/{{ h.slug }}"{% if h.uebung %} data-uebung data-salz="{{ 1 if settings.haustier else 0 }}"{% endif %} data-offen="{{ offen | tojson | forceescape }}">
+<div class="kurs-kopf">
+  <a class="kurs-heim" href="/lernen">← {{ titel }}</a>
+  <span class="kurs-etappe"><span aria-hidden="true">{{ e.symbol }}</span> Etappe {{ etappe_nr }} von {{ etappen | length }} · {{ e.title }}</span>
+  <a class="werkzeug-chip" href="/lernen/start/werkzeug?zurueck={{ request.url.path | urlencode }}" title="Anderes Werkzeug wählen">Du lernst mit: <strong>{{ werkzeug.name if gewaehlt else "noch keinem Werkzeug" }}</strong> <span class="aendern">ändern</span></a>
+</div>
+
+{% if bites | length > 1 %}
+<ol class="happen-punkte" aria-label="Happen dieser Etappe">
+  {% for b in bites %}
+  {% set key = e.slug ~ "/" ~ b.slug %}
+  <li><a href="/lernen/{{ e.slug }}/{{ b.slug }}" title="{{ loop.index }}. {{ b.title }}"
+    class="{% if b == h %}jetzt{% elif key in gesehen %}gesehen{% endif %}"{% if b == h %} aria-current="step"{% endif %}><span class="sr-only">{{ loop.index }}. {{ b.title }}</span></a></li>
   {% endfor %}
-</nav>
-
-<section class="hello">
-  <div class="mascot-big">{{ mascot(k.mood) }}</div>
-  <div>
-    <p class="muted kapitel-nr">KI-Werkstatt · Kapitel {{ k.number }} von {{ k.total }}</p>
-    <h1>{{ k.title }}</h1>
-    <p class="speech">{{ k.line }}</p>
-  </div>
-</section>
-
-{% if k.slug == "start" %}
-<section class="card">
-  <h2>Ein Agent ist eine KI mit Händen</h2>
-  <p>Eine Chat-KI wie ChatGPT oder Claude im Browser sieht nur, was du ihr hineinkopierst oder hochlädst. Ein <strong>Agent</strong> wie Claude Code, Codex oder Cursor kann mehr: Er liest selbst Dateien auf deinem Computer, schreibt neue, und führt Befehle aus. Das ist praktisch für Papierkram, denn er kann einen ganzen Ordner voller Belege sortieren. Es heißt aber auch: Er sieht alles, was in seiner Reichweite liegt.</p>
-  <p>FRITS ist selbst so gebaut, dass eine KI nur das Nötigste sieht. In dieser Werkstatt lernst du, wie du dieselben Tricks bei anderen Werkzeugen anwendest.</p>
-</section>
-
-<section class="card">
-  <h2>Die drei Grundregeln</h2>
-  <ol class="regeln">
-    <li><strong>Weniger zeigen.</strong> Was die KI nie gesehen hat, kann sie nicht weitergeben. Schwärze vorher, auf deinem Computer.</li>
-    <li><strong>Weniger erlauben.</strong> Gib einem Agenten nur einen Ordner, nur die Befehle, die er braucht, und kein Internet, wenn er keins braucht.</li>
-    <li><strong>Selbst klicken.</strong> Löschen, Verschicken, Bezahlen und alles, was man nicht rückgängig machen kann, machst du. Die KI schlägt nur vor.</li>
-  </ol>
-  <div class="lesson">
-    <strong>Bitten oder abschließen?</strong> Ein Satz im Prompt wie „Lies den Ordner Papierkram nicht“ ist eine <em>Bitte</em>. Die KI hält sich meistens daran, aber ein geschickter Text in einem Dokument kann sie umstimmen. Eine Einstellung im Werkzeug ist ein <em>Schloss</em>: Das Programm lässt es gar nicht zu. Gut ist beides zusammen, und das Schloss ist wichtiger.
-  </div>
-</section>
-
-<section class="card">
-  <h2>So siehst du es in FRITS</h2>
-  <ul class="plain">
-    <li>Im <a href="/setup/redaction_test">Datenschutz-Test</a> der Einrichtung siehst du links dein Original und rechts, was die KI bekommt.</li>
-    <li>Der <a href="/setup/trick_document">Trick-Test</a> zeigt, wie ein Dokument versucht, der KI Befehle zu geben, und warum FRITS trotzdem richtig rechnet.</li>
-    <li>Bei jedem Entwurf kannst du „Das hat die KI gesehen“ aufklappen.</li>
-  </ul>
-  <p class="hint">Die Angaben zu den Werkzeugen in diesem Kurs sind auf dem Stand von {{ stand }} und aus deren offizieller Anleitung. Programme ändern sich schnell. Bei jedem Werkzeug steht der Link, wo du nachschauen kannst.</p>
-</section>
-
-{% elif k.slug == "treppe" %}
-<section class="card">
-  <h2>Die Treppe: von ganz sicher bis riskant</h2>
-  <p>Je höher die Stufe, desto bequemer, aber desto mehr sieht die KI. Nimm für jede Aufgabe die niedrigste Stufe, die reicht.</p>
-  <ol class="treppe">
-    <li class="stufe-0"><span class="stufe">Stufe 0</span><div><strong>Gar keine KI.</strong> Bei Gesundheitsdaten, Unterlagen anderer Leute und allem, was dir Bauchweh macht, ist das oft die beste Wahl.</div></li>
-    <li class="stufe-1"><span class="stufe">Stufe 1</span><div><strong>Lokale KI.</strong> Eine KI auf deinem eigenen Computer (zum Beispiel Ollama). Nichts verlässt den Rechner. Langsamer und etwas ungenauer. In FRITS: Einstellungen, „Lokale KI“ und „Strikter Modus“.</div></li>
-    <li class="stufe-2"><span class="stufe">Stufe 2</span><div><strong>Erst schwärzen, dann Chat.</strong> Du schwärzt auf deinem Computer (mit der <a href="/lernen/werkbank">Werkbank</a>) und kopierst nur den geschwärzten Text in ChatGPT oder Claude. So arbeitet FRITS selbst.</div></li>
-    <li class="stufe-3"><span class="stufe">Stufe 3</span><div><strong>Agent mit Schleuse.</strong> Ein Agent arbeitet in einem eigenen Ordner, in dem nur geschwärzte Kopien liegen, und die Originale sind abgeschlossen. Siehe <a href="/lernen/schleuse">Kapitel 3</a> und <a href="/lernen/claude-code">Kapitel 4</a>.</div></li>
-    <li class="stufe-4"><span class="stufe">Stufe 4</span><div><strong>Agent auf Originalen.</strong> Nur, wenn es nicht anders geht, und dann im vorsichtigsten Modus, in dem er vor jedem Schritt fragt.</div></li>
-    <li class="stufe-nie"><span class="stufe">Nie</span><div><strong>Agent mit allen Rechten im ganzen Benutzerordner.</strong> Modi wie „bypass permissions“, „Full Access“ oder „Run Everything“ sind für Wegwerf-Computer gedacht, nicht für deinen Mac mit deinen Unterlagen.</div></li>
-  </ol>
-</section>
-
-<section class="card">
-  <h2>Was gilt als sensibel?</h2>
-  <div class="compare">
-    <div>
-      <h3>Immer schwärzen</h3>
-      <ul class="plain">
-        <li>Namen, Adressen, Telefon, E-Mail</li>
-        <li>IBAN, Kreditkarten, Kundennummern</li>
-        <li>Steuer-ID, Steuernummer, Sozialversicherungsnummer</li>
-        <li>Geburtsdaten, Ausweisnummern, Aktenzeichen</li>
-      </ul>
-    </div>
-    <div>
-      <h3>Besonders heikel: lieber Stufe 0 oder 1</h3>
-      <ul class="plain">
-        <li>Gesundheit: Diagnosen, Arztbriefe, Krankenkasse</li>
-        <li>Religion, politische Meinung, Gewerkschaft</li>
-        <li>Unterlagen von Kindern</li>
-        <li>Passwörter, PINs, API-Schlüssel: nie in eine KI</li>
-      </ul>
-    </div>
-  </div>
-  <div class="lesson">
-    <strong>Und die Daten deiner Kunden?</strong> Wenn du Namen deiner Kunden an einen KI-Anbieter schickst, gibst du fremde Daten weiter. Schwärzen hilft am meisten: Der Anbieter kann den geschwärzten Text keiner Person mehr zuordnen. Fachleute nennen das „pseudonymisiert“. Weil du die Zuordnung hast, gehst du trotzdem sorgsam damit um. Schau außerdem in den Datenschutz-Einstellungen deines Anbieters nach, ob deine Chats zum Trainieren benutzt werden dürfen, und schalte das aus.
-  </div>
-</section>
-
-{% elif k.slug == "schleuse" %}
-<section class="card">
-  <h2>Zwei Ordner, die sich nie mischen</h2>
-  <p>Ein Agent sieht, was in seinem Ordner liegt. Also legst du ihm einen eigenen Ordner hin, in dem nur das liegt, was er sehen darf. Die Originale bleiben woanders, und der Agent wird dort nie gestartet.</p>
-  <pre class="baum">~/Papierkram/                 Originale. Hier startest du nie einen Agenten.
-~/KI-Werkstatt/               Hier arbeitet der Agent.
-    geschwaerzt/              nur geschwärzte Kopien
-    ergebnis/                 hier schreibt die KI hin
-    CLAUDE.md / AGENTS.md     die Hausordnung (Kapitel 6)
-    .claude/settings.json     die Schlösser für Claude Code (Kapitel 4)</pre>
-  <p class="hint"><code>~</code> heißt „dein Benutzerordner“, auf dem Mac also <code>/Users/deinname</code>.</p>
-  {{ prompt("ordner") }}
-</section>
-
-<section class="card">
-  <h2>Der Weg eines Dokuments</h2>
-  <ol class="weg">
-    <li><strong>Original</strong> liegt in <code>~/Papierkram</code>.</li>
-    <li><strong>Schwärzen</strong> auf deinem Computer, mit der <a href="/lernen/werkbank">Werkbank</a> oder einem eigenen Schwärz-Programm (Prompt in Kapitel 6).</li>
-    <li><strong>Kopie</strong> in <code>~/KI-Werkstatt/geschwaerzt</code> legen. Kurz drüberschauen: Ist wirklich alles weg?</li>
-    <li><strong>Agent</strong> in <code>~/KI-Werkstatt</code> starten und arbeiten lassen.</li>
-    <li><strong>Ergebnis</strong> aus <code>ergebnis/</code> holen und die echten Namen selbst wieder einsetzen. Die Werkbank kann das für dich.</li>
-  </ol>
-  <div class="lesson ok">
-    <strong>Warum zwei Ordner und nicht nur eine Regel?</strong> Weil ein Fehler dann nichts kaputt macht. Selbst wenn der Agent eine Regel vergisst oder ausgetrickst wird, liegen die Originale nicht in seiner Reichweite. Das ist dieselbe Idee wie in FRITS: lieber nichts tun als das Falsche.
-  </div>
-</section>
-
-{% elif k.slug == "claude-code" %}
-<section class="card">
-  <h2>Schritt 1: Im richtigen Ordner starten</h2>
-  <p>Der Ordner, in dem du Claude Code startest, ist sein Arbeitsordner. Dort liest es ohne zu fragen. Starte es deshalb immer in <code>~/KI-Werkstatt</code>, nie in deinem ganzen Benutzerordner. Die Schlösser in Schritt 3 sorgen dafür, dass es außerhalb gar nicht erst liest.</p>
-  {{ prompt("claude_start") }}
-</section>
-
-<section class="card">
-  <h2>Schritt 2: Den richtigen Modus wählen</h2>
-  <p>Mit <kbd>Shift</kbd>+<kbd>Tab</kbd> wechselst du während der Arbeit zwischen den Modi. Unten in der Zeile steht, welcher gerade an ist. Achtung: Neuere Versionen starten von sich aus im Modus „auto“. Für Papierkram stellst du deshalb bewusst um.</p>
-  <div class="table-wrap">
-  <table class="table modi">
-    <thead><tr><th>Modus</th><th>Was passiert</th><th>Für Papierkram?</th></tr></thead>
-    <tbody>
-      <tr class="gut"><td><strong>Manual</strong><br><code>default</code></td><td>Claude fragt vor jeder Änderung und jedem Befehl.</td><td>Ja, das ist der richtige.</td></tr>
-      <tr class="gut"><td><strong>Plan</strong><br><code>plan</code></td><td>Claude schaut sich nur um und schreibt einen Plan, ändert aber nichts.</td><td>Ja, prima zum Anfangen.</td></tr>
-      <tr><td><strong>Accept edits</strong><br><code>acceptEdits</code></td><td>Dateien ändern ohne Nachfrage, Befehle mit Nachfrage.</td><td>Nur in der Schleuse.</td></tr>
-      <tr><td><strong>Auto</strong><br><code>auto</code></td><td>Keine Nachfragen. Eine zweite KI prüft im Hintergrund, ob ein Schritt zu deinem Auftrag passt.</td><td>Lieber nicht. Du siehst nicht mehr, was passiert.</td></tr>
-      <tr><td><strong>Don't ask</strong><br><code>dontAsk</code></td><td>Alles, was fragen würde, wird abgelehnt. Nur ausdrücklich Erlaubtes läuft.</td><td>Für Fortgeschrittene.</td></tr>
-      <tr class="schlecht"><td><strong>Bypass</strong><br><code>bypassPermissions</code></td><td>Fragt nie. Laut Anleitung nur für abgeschottete Test-Computer.</td><td>Nein. Die Schlösser unten schalten ihn ganz ab.</td></tr>
-    </tbody>
-  </table>
-  </div>
-</section>
-
-<section class="card">
-  <h2>Schritt 3: Die Schlösser einbauen</h2>
-  <p>In der Datei <code>.claude/settings.json</code> stehen Regeln, die Claude Code selbst durchsetzt, egal was im Chat oder in einem Dokument steht. Es gibt drei Sorten: <strong>deny</strong> (verboten), <strong>ask</strong> (erst fragen) und <strong>allow</strong> (ohne Fragen erlaubt). Verboten gewinnt immer.</p>
-  {{ prompt("claude_settings") }}
-  <h3>Was die Zeilen bedeuten</h3>
-  <ul class="plain">
-    <li><code>defaultMode: default</code> startet im Modus Manual. <code>disableBypassPermissionsMode</code> schaltet den gefährlichsten Modus ganz ab. <code>blockReadsOutsideWorkingDirectories</code> verbietet das Lesen außerhalb des Arbeitsordners, in jedem Modus.</li>
-    <li><code>Read(~/Papierkram/**)</code> verbietet, deine Originale und alles darunter zu lesen. Damit ist auch Ändern und Schreiben dort verboten. Dasselbe für den FRITS-Ordner, deine SSH-Schlüssel und <code>.env</code>-Dateien mit Passwörtern.</li>
-    <li><code>Bash(curl *)</code>, <code>WebFetch</code> und <code>WebSearch</code> nehmen das Internet weg. Für Papierkram braucht Claude es nicht.</li>
-    <li><code>ask</code> bei <code>rm</code> (löschen) und <code>mv</code> (verschieben): Claude muss immer erst fragen.</li>
-    <li><code>sandbox</code> ist das stärkste Schloss. Das Betriebssystem selbst sperrt die Ordner für alle Befehle, die Claude startet, auch für Programme, die Claude schreibt. Auf dem Mac ist dafür nichts extra zu installieren. Du kannst sie auch mit <code>/sandbox</code> einschalten.</li>
-  </ul>
-  <div class="lesson">
-    <strong>Ehrlich gesagt:</strong> Die <code>deny</code>-Regeln erkennen die üblichen Befehle, aber kein Programm, das selbst Dateien öffnet. Darum gibt es die Sandbox dazu, und darum liegen die Originale ohnehin in einem anderen Ordner. Drei Schlösser hintereinander, jedes fängt die Lücken des anderen.
-  </div>
-</section>
-
-<section class="card">
-  <h2>Schritt 4: Prüfen</h2>
-  <ul class="plain">
-    <li><code>/permissions</code> zeigt alle Regeln und aus welcher Datei sie kommen.</li>
-    <li><code>/status</code> zeigt, welche Einstellungsdateien geladen sind.</li>
-    <li>Leg den <a href="/lernen/prompts#prompt-trick">Trick-Test</a> in <code>geschwaerzt/</code> und bitte Claude, die Dateien zusammenzufassen. Claude sollte dich warnen. Und wenn es doch versucht, <code>~/Papierkram</code> zu öffnen, siehst du „denied“.</li>
-  </ul>
-  <p class="hint">Quellen: {{ quelle("claude_permissions", "Berechtigungen") }}, {{ quelle("claude_modes", "Modi") }}, {{ quelle("claude_sandbox", "Sandbox") }}, {{ quelle("claude_settings", "Einstellungsdateien") }} (Stand {{ stand }}).</p>
-</section>
-
-{% elif k.slug == "andere-tools" %}
-<section class="card">
-  <h2>Codex (OpenAI)</h2>
-  <p>Codex hat zwei Schalter: die <strong>Sandbox</strong> (was es technisch darf) und die <strong>Nachfrage</strong> (wann es dich fragt).</p>
-  <div class="compare">
-    <div>
-      <h3>Sandbox <code>--sandbox</code></h3>
-      <ul class="plain">
-        <li><code>read-only</code>: nur lesen</li>
-        <li><code>workspace-write</code>: schreiben nur im Arbeitsordner, Internet aus</li>
-        <li><code>danger-full-access</code>: alles. Nicht für Papierkram.</li>
-      </ul>
-    </div>
-    <div>
-      <h3>Nachfrage <code>--ask-for-approval</code></h3>
-      <ul class="plain">
-        <li><code>untrusted</code>: fragt vor jedem Befehl, der nicht als harmlos bekannt ist</li>
-        <li><code>on-request</code>: die KI entscheidet, wann sie fragt</li>
-        <li><code>never</code>: fragt nie. Nicht für Papierkram.</li>
-      </ul>
-    </div>
-  </div>
-  {{ prompt("codex_start") }}
-  {{ prompt("codex_config") }}
-  <p>Mit <code>/permissions</code> wechselst du während der Arbeit. Codex liest die Hausordnung aus einer Datei <code>AGENTS.md</code> im Arbeitsordner.</p>
-  <div class="lesson"><strong>Wichtig:</strong> Die Sandbox von Codex begrenzt vor allem das Schreiben und das Internet. Verlass dich nicht darauf, dass Codex außerhalb des Ordners nichts lesen kann. Darum ist die Schleuse aus Kapitel 3 hier besonders wichtig.</div>
-  <p class="hint">Quelle: {{ quelle("codex_security", "Codex: Sicherheit und Sandbox") }}</p>
-</section>
-
-<section class="card">
-  <h2>Cursor</h2>
-  <ul class="plain">
-    <li>Bei den <strong>Run Modes</strong> des Agenten den Modus wählen, in dem du Befehle erst bestätigst. Nur wenige, harmlose Befehle auf die Erlaubt-Liste setzen. „Run Everything“ nicht benutzen.</li>
-    <li>Eine Datei <code>.cursorignore</code> versteckt Dateien vor dem Agenten. Laut Cursor ist sie aber <strong>kein Schloss</strong>: Befehle im Terminal sehen die Dateien trotzdem. Also auch hier: Originale gar nicht erst in den Projektordner.</li>
-    <li>Den <strong>Privacy Mode</strong> einschalten, damit dein Inhalt nicht zum Training benutzt wird.</li>
-    <li>Cursor liest Regeln aus <code>AGENTS.md</code> oder aus seinen eigenen Projekt-Regeln. Die Hausordnung aus Kapitel 6 passt da hinein.</li>
-  </ul>
-  <p class="hint">Quellen: {{ quelle("cursor_security", "Agent Security") }}, {{ quelle("cursor_run_modes", "Run Modes") }}</p>
-</section>
-
-<section class="card">
-  <h2>ChatGPT, Claude und andere Chats im Browser</h2>
-  <p>Ein Chat sieht nur, was du ihm gibst. Das macht ihn einfacher sicher zu machen: <strong>Kopier nur geschwärzten Text hinein</strong>, und lade keine Originale hoch.</p>
-  <ul class="plain">
-    <li><strong>Training ausschalten:</strong> In ChatGPT unter Einstellungen, Datenkontrollen, „Das Modell für alle verbessern“. In Claude unter Einstellungen, Datenschutz.</li>
-    <li><strong>Vorübergehender Chat:</strong> ChatGPT hat „Temporärer Chat“, Claude hat den „Inkognito“-Chat. Sie landen nicht im Verlauf und nicht im Gedächtnis.</li>
-    <li><strong>Gedächtnis (Memory):</strong> Merkt sich die KI Dinge über dich, landen dort schnell auch Namen. Schau ab und zu nach, was drinsteht.</li>
-    <li><strong>Verbindungen zu Mail, Kalender oder Cloud-Ordnern:</strong> Damit wird aus dem Chat ein Agent mit Zugriff auf dein Postfach. Nur verbinden, was du wirklich brauchst.</li>
-  </ul>
-  <p class="hint">Quelle: {{ quelle("chatgpt_data", "OpenAI: Datenkontrollen") }}. Die Namen der Menüpunkte ändern sich manchmal.</p>
-</section>
-
-<section class="card">
-  <h2>Auf einen Blick</h2>
-  <div class="table-wrap">
-  <table class="table">
-    <thead><tr><th>Werkzeug</th><th>Sieht</th><th>Sicherste Einstellung</th><th>Hausordnung</th></tr></thead>
-    <tbody>
-      <tr><td>Claude Code</td><td>den Startordner</td><td>Manual oder Plan, deny-Regeln, Sandbox</td><td><code>CLAUDE.md</code></td></tr>
-      <tr><td>Codex</td><td>den Startordner (lesen evtl. mehr)</td><td><code>workspace-write</code> + <code>untrusted</code></td><td><code>AGENTS.md</code></td></tr>
-      <tr><td>Cursor</td><td>den Projektordner</td><td>Befehle bestätigen, Privacy Mode</td><td><code>AGENTS.md</code></td></tr>
-      <tr><td>Chat im Browser</td><td>nur, was du hineinkopierst</td><td>geschwärzt, Training aus, vorübergehender Chat</td><td>Prompt am Anfang</td></tr>
-      <tr><td>FRITS</td><td>nur geschwärzten Text</td><td>Strikter Modus mit lokaler KI</td><td>eingebaut</td></tr>
-    </tbody>
-  </table>
-  </div>
-</section>
-
-{% elif k.slug == "prompts" %}
-<section class="card">
-  <h2>Die Hausordnung</h2>
-  <p>Diese Regeln sind eine Bitte an die KI, kein Schloss. Zusammen mit den Einstellungen aus Kapitel 4 und 5 sind sie trotzdem viel wert, denn die KI weiß dann, was du erwartest, und sagt Bescheid, statt still etwas Falsches zu tun.</p>
-  {{ prompt("regeln") }}
-  {{ prompt("plan") }}
-</section>
-
-<section class="card">
-  <h2>Schwärzen beibringen</h2>
-  <div class="lesson">
-    <strong>Die Falle:</strong> „Liebe Cloud-KI, schwärze bitte diesen Brief“ hilft nicht. In dem Moment, in dem sie den Brief liest, hat sie die Namen schon gesehen. Schwärzen muss <strong>vorher</strong> passieren, auf deinem Computer. Darum gibt es hier drei Wege, die das richtig machen.
-  </div>
-  {{ prompt("skript") }}
-  {{ prompt("lokal") }}
-  {{ prompt("nachkontrolle") }}
-</section>
-
-<section class="card">
-  <h2>Mit geschwärztem Text arbeiten</h2>
-  {{ prompt("aufgabe") }}
-  <p class="hint">Die <a href="/lernen/werkbank">Werkbank</a> füllt diesen Prompt für dich aus und setzt die Namen danach wieder ein.</p>
-</section>
-
-<section class="card">
-  <h2>Ausprobieren, ob alles hält</h2>
-  {{ prompt("trick") }}
-  <p class="hint">Das ist derselbe Gedanke wie der <a href="/setup/trick_document">Trick-Test</a> in der Einrichtung von FRITS.</p>
-</section>
-
-{% elif k.slug == "werkbank" %}
-<section class="card">
-  <h2>Die Werkbank</h2>
-  <p>Hier schwärzt FRITS jeden beliebigen Text, mit derselben Technik wie für deine Notizen: deine Kunden, typische Muster (IBAN, E-Mail, Telefon, Adressen), Anreden wie „Frau Albrecht“ und ein Sprachmodell für Namen. <strong>Alles auf diesem Computer, ohne KI und ohne Internet.</strong></p>
-  <form method="post" action="/lernen/werkbank" class="form">
-    <input type="hidden" name="token" value="{{ token }}">
-    <label class="field">Dein Text (ein Brief, eine E-Mail, eine Notiz)
-      <textarea name="text" rows="9">{{ text if text is defined else beispiel }}</textarea>
-    </label>
-    <label class="field">Auch schwärzen (ein Wort pro Zeile oder mit Komma, zum Beispiel Aktenzeichen oder Spitznamen)
-      {% set extra_feld = extra if extra is defined else "NK-2025-0815" %}
-      {% if stueck and stueck.suspicious %}{% set extra_feld = (extra_feld ~ "\n" ~ stueck.suspicious | join("\n")) | trim %}{% endif %}
-      <textarea name="extra" rows="2">{{ extra_feld }}</textarea>
-    </label>
-    <label class="field">Was soll die KI damit machen? (optional, kommt in den fertigen Prompt)
-      <input name="aufgabe" value="{{ aufgabe if aufgabe is defined else '' }}" placeholder="z. B. Prüf, ob die Nachzahlung plausibel ist, und schreib mir eine kurze Rückfrage.">
-    </label>
-    <button class="primary" name="action" value="schwaerzen">Schwärzen</button>
-  </form>
-  {% if fehler %}<div class="flash error" role="alert">{{ fehler }}</div>{% endif %}
-</section>
-
-{% if stueck %}
-<section class="card">
-  <h2>Das Ergebnis</h2>
-  <div class="compare">
-    <div><h3>Original (bleibt hier)</h3><pre>{{ stueck.original }}</pre></div>
-    <div><h3>Das darf die KI sehen</h3><pre class="redacted">{{ stueck.redacted }}</pre></div>
-  </div>
-  {% if stueck.suspicious %}
-  <div class="lesson warnung" role="alert">
-    <strong>Halt, schau genau hin:</strong> {{ stueck.suspicious | join(", ") }} {{ "steht" if stueck.suspicious | length == 1 else "stehen" }} noch im Text. Das ist ein Teil eines Namens, den ich woanders gefunden habe. Ich habe {{ "es" if stueck.suspicious | length == 1 else "sie" }} oben bei „Auch schwärzen“ eingetragen. Drück noch einmal auf <strong>Schwärzen</strong>, bevor du etwas kopierst.
-  </div>
-  {% endif %}
-  <figure class="kopierbox" id="fertiger-prompt">
-    <figcaption>
-      <strong>Fertiger Prompt mit deinem geschwärzten Text</strong>
-      <button type="button" class="tiny kopieren primary" data-kopieren="#text-fertig">Kopieren</button>
-    </figcaption>
-    <p class="hint">In ChatGPT, Claude oder einen anderen Chat einfügen. Lies vorher kurz drüber, ob wirklich nichts durchgerutscht ist.</p>
-    <pre id="text-fertig" class="redacted" tabindex="0">{{ stueck.prompt }}</pre>
-  </figure>
-  {% if stueck.mapping.entries %}
-  <details>
-    <summary>Wer ist wer? ({{ stueck.mapping.entries | length }} Platzhalter, nur hier zu sehen)</summary>
-    <ul class="plain">{% for p, e in stueck.mapping.entries.items() %}<li><code>{{ p }}</code> ← {{ e.surface | join(" / ") }}</li>{% endfor %}</ul>
-  </details>
-  {% endif %}
-  <div class="lesson">Nichts ist perfekt. Fällt dir ein Name auf, der durchgerutscht ist, trag ihn oben bei „Auch schwärzen“ ein. Leute, die du als Kunden in FRITS hast, werden immer erkannt.</div>
-</section>
-
-<section class="card">
-  <h2>Die Antwort der KI zurückholen</h2>
-  <p>Kopier die Antwort der KI hier hinein. FRITS setzt die echten Namen wieder ein, auch nur auf diesem Computer.</p>
-  <form method="post" action="/lernen/werkbank" class="form">
-    <input type="hidden" name="token" value="{{ token }}">
-    <input type="hidden" name="stueck" value="{{ stueck.key }}">
-    <input type="hidden" name="extra" value="{{ extra }}">
-    <input type="hidden" name="aufgabe" value="{{ aufgabe }}">
-    <label class="field">Antwort der KI
-      <textarea name="antwort" rows="6" placeholder="Hier einfügen …">{{ antwort if antwort is defined else '' }}</textarea>
-    </label>
-    <button name="action" value="zurueck">Namen wieder einsetzen</button>
-  </form>
-  {% if zurueck is defined %}
-  <figure class="kopierbox">
-    <figcaption>
-      <strong>Mit echten Namen</strong>
-      <button type="button" class="tiny kopieren" data-kopieren="#text-zurueck">Kopieren</button>
-    </figcaption>
-    <pre id="text-zurueck" tabindex="0">{{ zurueck }}</pre>
-  </figure>
-  {% endif %}
-  <p class="hint">Die Zuordnung „wer ist wer“ liegt nur im Arbeitsspeicher. Wenn du FRITS schließt, ist sie weg. Sie wird nie gespeichert und nie verschickt.</p>
-</section>
-{% endif %}
-<p class="hint">Kopieren ist dir zu umständlich? Im <a href="/notfall">Notfall-Chat</a> passiert dasselbe Schwärzen, und du kannst direkt mit der KI weiterreden, auch über ganze PDFs und Fotos.</p>
-
-{% elif k.slug == "papierkram" %}
-<section class="card">
-  <h2>Dasselbe Rezept für jeden Papierkram</h2>
-  <ol class="weg">
-    <li><strong>Was braucht die KI wirklich?</strong> Meistens Beträge, Daten und den Inhalt. Fast nie Namen, Adressen oder Nummern.</li>
-    <li><strong>Welche Stufe?</strong> Nimm die <a href="/lernen/treppe">niedrigste Stufe</a>, die reicht.</li>
-    <li><strong>Schwärzen</strong>, auf deinem Computer.</li>
-    <li><strong>Prompt mit Hausordnung</strong>, und die KI soll die Platzhalter behalten.</li>
-    <li><strong>Selbst klicken</strong> für alles Endgültige: abschicken, unterschreiben, bezahlen.</li>
-  </ol>
-</section>
-
-<section class="card">
-  <h2>Beispiele</h2>
-  <div class="table-wrap">
-  <table class="table papier">
-    <thead><tr><th>Papierkram</th><th>Schwärzen</th><th>Darf bleiben</th><th>Stufe</th></tr></thead>
-    <tbody>
-      <tr><td><strong>Steuer</strong><br><span class="muted">Belege für die Steuerberaterin sortieren</span></td><td>Steuer-ID, Steuernummer, IBAN, Namen von Mietern und Kunden</td><td>Beträge, Datum, Art der Ausgabe</td><td>2 oder 3. Die <a href="/steuer">Steuer-Quest</a> sortiert ganz ohne Cloud.</td></tr>
-      <tr><td><strong>Miete und Nebenkosten</strong></td><td>Namen, Adresse der Wohnung, Zählernummern, Konto</td><td>Kostenarten, Beträge, Zeitraum, Fläche</td><td>2</td></tr>
-      <tr><td><strong>Arzt und Krankenkasse</strong></td><td>alles mit Gesundheit, Versichertennummer, Namen</td><td>fast nichts</td><td>0 oder 1. Gesundheitsdaten gehören zu den heikelsten Daten überhaupt.</td></tr>
-      <tr><td><strong>Briefe vom Amt</strong></td><td>Aktenzeichen, Kundennummer, Namen, Adresse, Geburtsdatum</td><td>Fristen, Beträge, was verlangt wird</td><td>2. Gut für „Was wollen die von mir, und bis wann?“</td></tr>
-      <tr><td><strong>Versicherungen und Verträge</strong></td><td>Vertrags- und Versicherungsnummer, Namen, Konto</td><td>Leistungen, Kündigungsfristen, Beiträge</td><td>2</td></tr>
-      <tr><td><strong>Kontoauszüge</strong></td><td>IBAN, Namen der Gegenseite, Verwendungszwecke mit Namen</td><td>Datum, Betrag, Kategorie</td><td>1 oder 3, viele Zeilen</td></tr>
-      <tr><td><strong>Bewerbungen</strong></td><td>Name, Adresse, Geburtsdatum, Foto, Arbeitgeber</td><td>Fähigkeiten, Stationen ohne Namen</td><td>2</td></tr>
-      <tr><td><strong>Kunden-E-Mails</strong></td><td>Namen, Adressen, Telefon, E-Mail</td><td>was gewünscht ist, Termine, Mengen</td><td>2. So macht es FRITS bei jeder Notiz.</td></tr>
-    </tbody>
-  </table>
-  </div>
-</section>
-
-<section class="card spickzettel">
-  <h2>Spickzettel: vor jedem Mal</h2>
-  <ul class="haken">
-    <li>Brauche ich hier überhaupt eine KI?</li>
-    <li>Ist geschwärzt, und habe ich drübergeschaut?</li>
-    <li>Arbeitet der Agent in <code>~/KI-Werkstatt</code> und nicht im ganzen Benutzerordner?</li>
-    <li>Steht der Modus auf Manual oder Plan, und ist Internet aus?</li>
-    <li>Löschen, Verschicken, Bezahlen mache ich selbst.</li>
-  </ul>
-  <p>Drei Sätze, falls dich jemand fragt: „Die Namen verlassen meinen Computer nicht. Die KI arbeitet nur mit Platzhaltern in einem eigenen Ordner. Und nichts geht raus, ohne dass ich klicke.“</p>
-</section>
+</ol>
 {% endif %}
 
-<div class="row lernen-nav">
-  {% if k.previous %}<a class="button quiet" href="/lernen/{{ k.previous[0] }}">← {{ k.previous[1] }}</a>{% endif %}
+<section class="fritte-sagt">
+  <div class="mascot-big">{{ mascot(h.mood) }}</div>
+  <div class="blase">
+    <p class="muted happen-nr">{% if nr %}Happen {{ nr }} von {{ bites | length }}{% else %}Für ein anderes Werkzeug{% endif %}</p>
+    <h1>{{ h.title }}</h1>
+    <p class="speech">{{ h.sagt }}</p>
+  </div>
+</section>
+
+<section class="card happen" id="happen">
+{% if h.uebung %}<p class="uebung-marke{{ ' geloest' if geloest }}" data-uebung-marke>{% if geloest %}✓ Übung gelöst{% else %}✏️ Übung{% if settings.haustier %} · 1 Salzkorn{% endif %}{% endif %}</p>{% endif %}
+{% if h.bild and picture(h.bild) %}<img class="kurs-bild" src="{{ picture(h.bild) }}" alt="">{% endif %}
+{% include "kurs/" ~ e.slug ~ "-" ~ h.slug ~ ".html" %}
+</section>
+
+<div class="row kurs-weiter">
+  {% if vorher %}<a class="button quiet" href="{{ vorher }}">← Zurück</a>{% endif %}
   <span class="platz"></span>
-  {% if k.following %}<a class="button primary" href="/lernen/{{ k.following[0] }}">Weiter: {{ k.following[1] }} →</a>
-  {% else %}<a class="button primary" href="/">Fertig, zurück zu Heute</a>{% endif %}
+  {% if letzter %}
+    {% if geschafft and naechste %}
+    <a class="button primary" href="/lernen/{{ naechste.slug }}">Weiter: {{ naechste.title }} →</a>
+    {% elif geschafft %}
+    <a class="button primary" href="/lernen">Zur Kurs-Karte</a>
+    {% else %}
+    {# The stamp waits for the stage's exercises; kurs.js opens it as soon as the last one is solved. #}
+    {% set hier = e.slug ~ "/" ~ h.slug %}
+    <p class="uebung-fehlt" data-uebung-fehlt{% if not offen %} hidden{% endif %}>
+      {% if offen and offen[0] != hier %}<a class="button" href="/lernen/{{ offen[0] }}">Erst die Übung machen →</a>
+      {% else %}<span class="muted">Mach erst die Übung oben, dann gibt's den Stempel.</span>{% endif %}
+    </p>
+    <form method="post" action="/lernen/{{ e.slug }}/geschafft" data-stempel-form{% if offen %} hidden{% endif %}>
+      <input type="hidden" name="token" value="{{ token }}">
+      <button class="primary">{{ "Kurs abschließen" if not naechste else "Etappe geschafft" }} ✓</button>
+    </form>
+    {% endif %}
+  {% elif nachher %}
+  <a class="button primary" href="{{ nachher }}">Weiter →</a>
+  {% else %}
+  <a class="button primary" href="/lernen/{{ e.slug }}">Zum Anfang der Etappe</a>
+  {% endif %}
 </div>
 </div>
 <script src="/static/lernen.js"></script>
+<script src="/static/kurs.js"></script>
 {% endblock %}

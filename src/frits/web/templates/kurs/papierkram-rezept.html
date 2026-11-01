@@ -1,0 +1,21 @@
+{% import "kurs/_teile.html" as t with context %}
+
+{% set schritte = [
+  ("1", "🤔", "Was braucht die KI wirklich?", "Meistens Beträge, Daten und den Inhalt. Fast nie Namen."),
+  ("2", "🪜", "Welche Stufe?", "Die niedrigste, die reicht."),
+  ("3", "🖤", "Schwärzen", "Auf deinem Computer, vorher."),
+  ("4", "📜", "Prompt mit Hausordnung", "Die KI soll die Platzhalter behalten."),
+  ("5", "✋", "Selbst klicken", "Abschicken, unterschreiben, bezahlen machst du."),
+] %}
+<p><strong>Übung:</strong> Tipp die Schritte in der richtigen Reihenfolge an.</p>
+<div class="reihenfolge" data-reihenfolge>
+  <div class="reihen-knoepfe">
+    {% for nr, zeichen, titel, text in [schritte[2], schritte[4], schritte[0], schritte[3], schritte[1]] %}
+    <button type="button" class="reihen-knopf" data-pos="{{ nr }}"><span class="reihen-nr" aria-hidden="true"></span><span aria-hidden="true">{{ zeichen }}</span> {{ titel }}</button>
+    {% endfor %}
+  </div>
+  <p class="rueckmeldung" aria-live="polite" data-reihen-meldung></p>
+  <ol class="rezept" data-reihen-loesung>
+    {% for nr, zeichen, titel, text in schritte %}<li><span class="rezept-zeichen" aria-hidden="true">{{ zeichen }}</span><div><strong>{{ titel }}</strong><br><span class="muted">{{ text }}</span></div></li>{% endfor %}
+  </ol>
+</div>

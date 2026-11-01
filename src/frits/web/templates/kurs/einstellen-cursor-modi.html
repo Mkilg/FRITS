@@ -1,0 +1,7 @@
+{% import "kurs/_teile.html" as t with context %}
+
+<div class="quiz" data-quiz>
+  {{ t.frage("Welchen Run Mode nimmst du für Papierkram?", [("Alles ausführen („Run Everything“)", false, "Lieber nicht. Dann läuft jeder Befehl ohne dich."), ("Befehle erst bestätigen, nur wenige harmlose auf die Erlaubt-Liste", true, "Genau. Du klickst, bevor etwas passiert."), ("Keine Befehle, nur Text", true, "Auch gut, am sichersten. Dann kann Cursor aber keine Dateien sortieren.")]) }}
+  <p class="quiz-stand" data-quiz-stand aria-live="polite"></p>
+</div>
+<p class="hint">Die Namen der Modi ändern sich manchmal. Quelle: {{ t.quelle("cursor_run_modes", "Cursor: Run Modes") }}</p>

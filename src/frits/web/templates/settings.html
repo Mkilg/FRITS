@@ -4,12 +4,12 @@
 <h1>Einstellungen</h1>
 <section class="card accent row">
   <div>
-    <strong>Einrichtung neu starten</strong><br>
-    <span class="muted">Alle zehn Schritte noch einmal, mit KI-Test und Sicherheits-Lektionen. Deine Angaben bleiben erhalten und stehen schon in den Feldern.</span>
+    <strong>Einführung wiederholen</strong><br>
+    <span class="muted">Alle zehn Schritte der Einrichtung noch einmal, mit KI-Test und Sicherheits-Lektionen. Deine Angaben bleiben erhalten und stehen schon in den Feldern. Du findest sie auch oben unter „Mehr“.</span>
   </div>
-  <a class="button primary" href="/setup/welcome">Einrichtung starten</a>
+  <a class="button primary" href="/setup/welcome">Einführung starten</a>
 </section>
-<form method="post" action="/settings" class="form">
+<form method="post" action="/settings" class="form" data-merken="einstellungen">
   <input type="hidden" name="token" value="{{ token }}">
   <input type="hidden" name="checkboxes" value="strict_local">
   <input type="hidden" name="checkboxes" value="sound">
@@ -31,6 +31,9 @@
     <label class="field">Steuernummer <input name="steuernummer" value="{{ settings.steuernummer }}"></label>
     <label class="field">USt-IdNr. (falls vorhanden) <input name="ust_id" value="{{ settings.ust_id }}"></label>
     <p class="hint">Unsicher? Frag kurz deine Steuerberatung. Das ist völlig in Ordnung.</p>
+    <label class="field" id="verfahren">Bei mir läuft es anders <small class="muted">(freiwillig, kommt in die Verfahrensdokumentation)</small>
+      <textarea name="verfahren_notiz" rows="3" maxlength="1500" placeholder="z. B. Ich sichere zusätzlich mit Time Machine. Papierbelege hebe ich im Ordner im Regal auf.">{{ settings.verfahren_notiz }}</textarea>
+    </label>
   </section>
   <section class="card">
     <h2>Bank</h2>
@@ -86,7 +89,7 @@
       <button type="button" class="quiet" data-vorschau-start>▶ So sieht's aus</button>
       <div class="vorschau" data-vorschau data-effekte="{{ settings.effects }}" aria-hidden="true">
         <div class="mascot-small">{{ mascot("done") }}</div>
-        <div class="flash ok mit-stempel"><span>Rechnung 2026-0001 ist fertig: <strong data-vorschau-zahl>480,00 €</strong></span> <span class="stempel stempel-fertig">Fertig</span></div>
+        <div class="flash ok mit-stempel"><span class="muted">Beispiel:</span> <span>Rechnung XXXX ist fertig: <strong data-vorschau-zahl>480,00 €</strong></span> <span class="stempel stempel-fertig">Fertig</span></div>
       </div>
     </div>
     <label class="choice"><input type="checkbox" name="haustier" {{ "checked" if settings.haustier }}> Fritte als Haustier auf der Seite „Heute“: ihr Zimmer, Salzkörner für erledigten Papierkram und ein kleiner Laden</label>

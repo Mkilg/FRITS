@@ -234,6 +234,41 @@ def test_answers_are_escaped_but_bold_stays():
     assert "<script>" not in html
 
 
+def test_freier_chat_sends_a_redacted_question_without_any_document(client, ai):
+    start = client.get("/chat")
+    assert start.status_code == 200 and "Freier Chat" in start.text
+    assert 'href="/chat" aria-current="page"' in start.text
+    assert 'href="/chat"' in client.get("/").text  # in "Mehr"
+    response = post(
+        client,
+        "/chat/neu",
+        frage="Wie schreibe ich Jonas Albrecht wegen der IBAN DE89370400440532013000?",
+        action="senden",
+    )
+    assert response.status_code == 200
+    system, messages = ai.sent[-1]
+    assert system == notfall.SYSTEM_FREI != notfall.SYSTEM
+    assert "Albrecht" not in messages[0]["content"] and "DE89" not in messages[0]["content"]
+    assert "<dokument" not in messages[0]["content"]
+    assert "Schreiben Sie Jonas Albrecht eine" in response.text  # names back in, here
+    assert "Ohne Dokument" in response.text and "Freier Chat" in response.text
+    g = next(iter(client.app_state.notfall.values()))
+    assert g.frei and g.title.startswith("Wie schreibe ich")
+
+
+def test_freier_chat_with_a_document_shows_it_before_sending(client, ai):
+    response = post(
+        client,
+        "/chat/neu",
+        frage="Was heißt das?",
+        files={"files": ("brief.txt", BRIEF.encode(), "text/plain")},
+        action="senden",
+    )
+    assert not ai.sent  # first Fritz sees the redacted document
+    assert "Das sieht Claude" in response.text and "Was heißt das?" in response.text
+    assert post(client, "/chat/neu", frage=" ").text.count("Schreib kurz") == 1
+
+
 def test_a_steuer_beleg_opens_a_chat_already_redacted(client, ai, tmp_path):
     """ "Mit KI besprechen" im Belegbuch: der Beleg kommt geschwärzt in einen neuen Chat."""
     beleg = tmp_path / "Nebenkosten.txt"

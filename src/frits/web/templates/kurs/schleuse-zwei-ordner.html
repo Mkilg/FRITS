@@ -1,0 +1,22 @@
+{% import "kurs/_teile.html" as t with context %}
+
+{% call t.bild(h.bild, "Zwei Ordner: links abgeschlossen die Originale, rechts die Kopien für die KI") %}
+<div class="zwei-ordner">
+  <div class="ordner-karte original">
+    <p class="ordner-name">🔒 ~/Papierkram</p>
+    <p>Originale. Hier startest du <strong>nie</strong> einen Agenten.</p>
+  </div>
+  <div class="ordner-pfeil" aria-hidden="true">nur geschwärzte<br>Kopien →</div>
+  <div class="ordner-karte werkstatt">
+    <p class="ordner-name">🤖 ~/KI-Werkstatt</p>
+    <ul class="baum-liste">
+      <li>📁 geschwaerzt <span>nur geschwärzte Kopien</span></li>
+      <li>📁 ergebnis <span>hier schreibt die KI hin</span></li>
+      <li>📜 {{ "CLAUDE.md" if werkzeug.slug == "claude-code" else "AGENTS.md" }} <span>die Hausordnung</span></li>
+      {% if werkzeug.slug == "claude-code" %}<li>🔒 .claude/settings.json <span>die Schlösser</span></li>{% endif %}
+    </ul>
+  </div>
+</div>
+{% endcall %}
+<p class="hint"><code>~</code> heißt „dein Benutzerordner“, auf dem Mac also <code>/Users/deinname</code>.</p>
+<div class="lesson ok"><strong>Warum zwei Ordner und nicht nur eine Regel?</strong> Weil ein Fehler dann nichts kaputt macht. Selbst wenn der Agent ausgetrickst wird, liegen die Originale nicht in seiner Reichweite.</div>

@@ -1,0 +1,16 @@
+{% import "kurs/_teile.html" as t with context %}
+
+<div class="nebeneinander">
+  <div class="seite schlecht">
+    <p class="seite-kopf">✗ „Cloud-KI, schwärz das bitte“</p>
+    <p class="fluss">📄 Brief <span>→</span> <mark class="rot">☁️ KI sieht alle Namen</mark> <span>→</span> 🖤 zu spät</p>
+  </div>
+  <div class="seite gut">
+    <p class="seite-kopf">✓ Erst schwärzen, dann KI</p>
+    <p class="fluss">📄 Brief <span>→</span> <mark class="gruen">💻 dein Computer schwärzt</mark> <span>→</span> ☁️ KI sieht [PERSON_1]</p>
+  </div>
+</div>
+<div class="quiz" data-quiz>
+  {{ t.frage("Wann muss geschwärzt werden?", [("Bevor die KI den Text sieht", true, "Genau. Was die KI nie gesehen hat, kann sie nicht weitergeben."), ("Die KI soll es selbst machen", false, "Dann hat sie die Namen ja schon gelesen. Das ist die Falle.")]) }}
+  <p class="quiz-stand" data-quiz-stand aria-live="polite"></p>
+</div>
