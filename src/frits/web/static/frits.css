@@ -193,6 +193,18 @@ label.field { display: flex; flex-direction: column; gap: 0.2rem; margin-bottom:
 .hello h1 { margin-bottom: 0.5rem; }
 .choice.big { padding: 0.6rem 0.8rem; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 0.5rem; }
 .choice.big:has(input:checked) { border-color: var(--fry-dark); background: var(--warn-bg); }
+.stimmung { flex-wrap: nowrap; align-items: flex-start; }
+.stimmung .choice.big { flex: 1; }
+.stimmung button { white-space: nowrap; margin-top: 0.35rem; }
+@media (max-width: 600px) { .stimmung { flex-wrap: wrap; gap: 0; } .stimmung .choice.big { flex-basis: 100%; } .stimmung button { margin: -0.3rem 0 0.6rem; } }
+/* Feierabend: the page fades out and the evening page fades in while the sound plays */
+body.frits-ausblenden main { opacity: 0; transition: opacity 0.35s ease-in; }
+body.frits-einblenden main { animation: frits-einblenden 0.8s ease-out; }
+@keyframes frits-einblenden { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  body.frits-ausblenden main { transition: none; }
+  body.frits-einblenden main { animation: none; }
+}
 .lesson { background: #f3f7fb; border: 1px solid #d6e2ee; border-radius: 10px; padding: 0.8rem 1rem; margin: 1rem 0; }
 .lesson.ok { background: #eef6ef; border-color: #c7dfcb; }
 .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }

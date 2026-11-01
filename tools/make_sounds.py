@@ -99,6 +99,83 @@ def pad(freq: float, seconds: float, attack: float = 2.5, release: float = 2.5) 
     return out
 
 
+def pluck(freq: float, seconds: float = 1.6, damping: float = 0.996, seed: int = 0) -> list[float]:
+    """A plucked string (Karplus-Strong): a short noise burst ringing in a tuned delay line.
+
+    Sounds like a soft harp or nylon guitar. The delay is fractional (read between two
+    samples), so high notes stay in tune. A fixed seed keeps every build identical.
+    """
+    rng = random.Random(seed)
+    delay = RATE / freq - 0.5  # the two-point average below adds half a sample
+    start = int(delay) + 2
+    out = [rng.uniform(-1, 1) for _ in range(start)]
+    for _ in range(2):  # soften the burst so the attack isn't scratchy
+        out = [(out[i] + out[i - 1]) / 2 for i in range(start)]
+    mean = sum(out) / start
+    out = [s - mean for s in out]  # no DC offset, or the speaker cone just sits pushed out
+    n = int(seconds * RATE)
+    whole, frac = int(delay), delay - int(delay)
+    for i in range(start, n):
+        j = i - whole
+        a = out[j] * (1 - frac) + out[j - 1] * frac  # sample `delay` ago
+        b = out[j - 1] * (1 - frac) + out[j - 2] * frac  # one more sample back
+        out.append(damping * 0.5 * (a + b))
+    out = out[:n]
+    # fade the last bit so the note never clicks off
+    tail = min(len(out), int(0.05 * RATE))
+    for k in range(tail):
+        out[len(out) - tail + k] *= 1 - k / tail
+    return out
+
+
+def drum(
+    freq: float = 90.0, seconds: float = 0.5, drop: float = 1.8, decay: float = 9.0
+) -> list[float]:
+    """A soft low drum (kick or tom): a sine whose pitch falls quickly, no click."""
+    n = int(seconds * RATE)
+    out = []
+    phase = 0.0
+    for i in range(n):
+        t = i / RATE
+        f = freq * (1 + drop * math.exp(-t * 30))
+        phase += TAU * f / RATE
+        env = math.exp(-decay * t) * min(1.0, i / (0.003 * RATE))
+        out.append(math.sin(phase) * env)
+    return out
+
+
+def shaker(seconds: float = 0.09, seed: int = 0) -> list[float]:
+    """A tiny shaker tick: noise with a fast fade (mixed in very quietly)."""
+    rng = random.Random(seed)
+    n = int(seconds * RATE)
+    return [rng.uniform(-1, 1) * (1 - i / n) ** 3 for i in range(n)]
+
+
+def horn(freq: float, seconds: float, attack: float = 0.35, release: float = 0.6) -> list[float]:
+    """A warm brass-like tone: it gets brighter as it swells, like a soft French horn."""
+    n = int(seconds * RATE)
+    a, r = max(1, int(attack * RATE)), max(1, int(release * RATE))
+    out = []
+    phase = 0.0
+    for i in range(n):
+        t = i / RATE
+        if i < a:
+            env = 0.5 - 0.5 * math.cos(math.pi * i / a)
+        elif i > n - r:
+            env = 0.5 - 0.5 * math.cos(math.pi * (n - i) / r)
+        else:
+            env = 1.0
+        # a slight vibrato that only sets in once the note is held
+        vib = 1 + 0.003 * math.sin(TAU * 5.0 * t) * min(1.0, t / 0.6)
+        phase += TAU * freq * vib / RATE
+        s = 0.0
+        for k in range(1, 7):
+            # upper harmonics grow with the envelope: the "blare" of brass, kept gentle
+            s += (env ** (k * 0.5)) / k * math.sin(k * phase)
+        out.append(s * env * 0.5)
+    return out
+
+
 def _lowpass(buf: list[float], cutoff: float) -> list[float]:
     """One-pole low-pass filter: takes the edge off, makes it warmer."""
     k = 1 - math.exp(-TAU * cutoff / RATE)
@@ -150,12 +227,24 @@ def cue_sent() -> list[float]:
 
 
 def cue_shutdown() -> list[float]:
-    """Feierabend-Ritual: a slow, descending three-note chime. Work is put away."""
-    buf = _silence(3.6)
-    for k, name in enumerate(["G5", "E5", "C5"]):
-        _mix_into(buf, bell(note(name), 2.4, 0.3), k * 0.45, 0.9)
-    _mix_into(buf, pad(note("C4"), 3.4, 0.6, 2.4), 0.6, 0.25)
-    return _normalize(_lowpass(buf, 3200), CUE_PEAK)
+    """Feierabend! A small, warm fanfare: a rising harp run lands on a bright major
+    chord with a soft horn and a low drum, then rings out like evening bells.
+    Plays right on the click, so the best part fits into the first two seconds."""
+    buf = _silence(4.4)
+    run = ["C4", "E4", "G4", "C5", "E5", "G5"]
+    for k, name in enumerate(run):
+        _mix_into(buf, pluck(note(name), 2.2, 0.997, seed=40 + k), k * 0.065, 0.55)
+    land = 6 * 0.065 + 0.04
+    _mix_into(buf, drum(70, 1.2, 1.2, 4.0), land, 0.7)
+    for name in ["C4", "G4", "E5"]:
+        _mix_into(buf, horn(note(name), 1.9, 0.08, 1.2), land, 0.32)
+    for k, name in enumerate(["C6", "G6", "E6"]):
+        _mix_into(buf, bell(note(name), 3.2, 0.25), land + 0.12 + k * 0.22, 0.45 - 0.08 * k)
+    _mix_into(buf, pad(note("C3"), 3.4, 0.2, 2.6), land, 0.35)
+    fade = int(1.0 * RATE)  # let the bells die away instead of stopping
+    for k in range(fade):
+        buf[len(buf) - fade + k] *= 1 - k / fade
+    return _normalize(_lowpass(buf, 5200), 0.45)
 
 
 def cue_focus_start() -> list[float]:
@@ -209,11 +298,15 @@ TRACKS: dict[str, dict] = {
         "seed": 11,
         "cutoff": 1500,
     },
+    "schwung": {"title": "Schwung (motivating groove)", "make": lambda: schwung()},
+    "abenteuer": {"title": "Abenteuer (Steuer-Quest)", "make": lambda: abenteuer()},
 }
 
 
 def music_track(name: str) -> list[float]:
     spec = TRACKS[name]
+    if "make" in spec:
+        return spec["make"]()
     bar = spec["bar"]
     chords = spec["chords"] * spec["repeats"]
     rng = random.Random(spec["seed"])  # fixed seed: the same track every time
@@ -228,6 +321,111 @@ def music_track(name: str) -> list[float]:
             t = start + rng.uniform(0.5, bar - 1.0)
             _mix_into(buf, bell(note(rng.choice(spec["scale"])), 3.5, 0.2), t, 0.45)
     return _normalize(_lowpass(buf, spec["cutoff"]), MUSIC_PEAK)
+
+
+def schwung() -> list[float]:
+    """Motivierend: a light, steady groove at 100 BPM in G major. A soft kick on every
+    beat, a quiet shaker, a plucked arpeggio and warm chords. Happy, but no melody that
+    asks for attention, so it still works while writing invoices."""
+    beat = 60 / 100
+    bar = 4 * beat
+    chords = [  # G - D - Em - C, the "everything is going well" progression
+        (["G2"], ["G3", "B3", "D4"], ["G4", "B4", "D5", "B4"]),
+        (["D3"], ["F#3", "A3", "D4"], ["F#4", "A4", "D5", "A4"]),
+        (["E2"], ["G3", "B3", "E4"], ["E4", "G4", "B4", "G4"]),
+        (["C3"], ["G3", "C4", "E4"], ["E4", "G4", "C5", "G4"]),
+    ]
+    bars = chords * 4
+    buf = _silence(bar * len(bars))
+    seed = 0
+    for k, (bass, chord, arp) in enumerate(bars):
+        start = k * bar
+        for name in chord:
+            _mix_into(buf, pad(note(name), bar + 1.0, 0.4, 1.0), start - 0.2, 0.22)
+        for b in range(4):
+            t = start + b * beat
+            _mix_into(buf, drum(55, 0.45, 1.6, 10.0), t, 0.55 if b in (0, 2) else 0.35)
+            _mix_into(buf, shaker(0.07, seed=b), t + beat / 2, 0.05)
+            _mix_into(buf, pluck(note(bass[0]), beat * 1.6, 0.995, seed=seed), t, 0.35)
+            seed += 1
+        # eighth-note arpeggio; the second half of the song gets a lift an octave up
+        lift = 1.0 if k < 8 else 2.0
+        for e in range(8):
+            name = arp[e % 4]
+            _mix_into(
+                buf,
+                pluck(note(name) * lift, 1.2, 0.996, seed=seed),
+                start + e * beat / 2,
+                0.30 if e % 2 == 0 else 0.22,
+            )
+            seed += 1
+    return _normalize(_lowpass(buf, 3800), MUSIC_PEAK)
+
+
+def abenteuer() -> list[float]:
+    """Abenteuerlich, for the Steuer-Quest: D minor, 80 BPM. Low drums in a marching
+    rhythm, a harp running up and down, and a horn melody that sounds like a map being
+    unrolled. Still soft and loopable, so filling in tax forms doesn't get stressful."""
+    beat = 60 / 80
+    bar = 4 * beat
+    # Dm - Bb - F - C : "the journey begins", then Dm - Bb - C - A : "something waits ahead"
+    harmony = [
+        ("D2", ["D3", "A3", "F4"]),
+        ("Bb1", ["Bb2", "F3", "D4"]),
+        ("F2", ["F3", "C4", "A4"]),
+        ("C2", ["C3", "G3", "E4"]),
+        ("D2", ["D3", "A3", "F4"]),
+        ("Bb1", ["Bb2", "F3", "D4"]),
+        ("C2", ["C3", "G3", "E4"]),
+        ("A1", ["A2", "E3", "C#4"]),
+    ]
+    # horn melody, one entry per bar: (note, start beat, length in beats)
+    melody = [
+        [("A4", 0, 1.5), ("D5", 1.5, 0.5), ("E5", 2, 1), ("F5", 3, 1)],
+        [("F5", 0, 2), ("D5", 2, 2)],
+        [("C5", 0, 1.5), ("F5", 1.5, 0.5), ("A5", 2, 2)],
+        [("G5", 0, 2), ("E5", 2, 2)],
+        [("A4", 0, 1.5), ("D5", 1.5, 0.5), ("E5", 2, 1), ("F5", 3, 1)],
+        [("G5", 0, 1.5), ("F5", 1.5, 0.5), ("D5", 2, 2)],
+        [("E5", 0, 1), ("G5", 1, 1), ("C6", 2, 2)],
+        [("A5", 0, 3), ("E5", 3, 1)],
+    ]
+    sections = [False, True]  # first time drums and harp only, then the horn joins
+    buf = _silence(bar * len(harmony) * len(sections))
+    seed = 100
+    for s_i, with_horn in enumerate(sections):
+        for k, (root, chord) in enumerate(harmony):
+            start = (s_i * len(harmony) + k) * bar
+            for name in chord:
+                _mix_into(buf, pad(note(name), bar + 1.2, 0.6, 1.2), start - 0.3, 0.25)
+            _mix_into(buf, pad(note(root), bar + 0.8, 0.3, 0.8), start - 0.1, 0.35)
+            # marching drums: BOOM . ba-da BOOM . ba-da
+            for t_beat, gain, f in [
+                (0, 0.8, 60),
+                (1.5, 0.35, 95),
+                (1.75, 0.4, 95),
+                (2, 0.7, 60),
+                (3.5, 0.35, 95),
+                (3.75, 0.45, 110),
+            ]:
+                _mix_into(buf, drum(f, 0.6, 1.4, 7.0), start + t_beat * beat, gain)
+            # harp: up and down the chord in eighth notes
+            tones = [note(n) * 2 for n in chord]
+            up = tones + [tones[0] * 2] + tones[::-1][1:] + [tones[1]]
+            for e in range(8):
+                _mix_into(
+                    buf, pluck(up[e % len(up)], 1.4, 0.996, seed=seed), start + e * beat / 2, 0.22
+                )
+                seed += 1
+            if with_horn:
+                for name, b0, length in melody[k]:
+                    _mix_into(
+                        buf,
+                        horn(note(name), length * beat + 0.15, 0.12, 0.35),
+                        start + b0 * beat,
+                        0.42,
+                    )
+    return _normalize(_lowpass(buf, 4200), MUSIC_PEAK)
 
 
 # --- Build --------------------------------------------------------------------

@@ -106,6 +106,22 @@ def test_every_page_renders(client):
         assert "FRITS" in response.text
 
 
+def test_music_mood_is_chosen_in_settings(client, ws):
+    post(client, "/sound")  # switch sound on
+    page = client.get("/")
+    assert 'data-frits-music="buero-block"' in page.text  # "Entspannt" unless chosen otherwise
+    settings_page = client.get("/settings")
+    assert "Musik-Stimmung" in settings_page.text
+    assert 'data-frits-music="schwung"' in settings_page.text  # Probehören
+    post(client, "/settings", music="motivierend")
+    assert Settings.load(ws.settings_file).music == "motivierend"
+    assert 'data-frits-music="schwung"' in client.get("/").text
+    post(client, "/settings", music="gibt-es-nicht")
+    assert Settings.load(ws.settings_file).music == "motivierend"
+    # The Steuer-Quest is an adventure, whatever the mood
+    assert 'data-frits-music="abenteuer"' in client.get("/steuer").text
+
+
 def test_buttons_need_the_token(client, ws):
     shutil.copy(FIXTURES / "docs" / "01_notiz_meier.txt", ws.inbox)
     response = client.post("/inbox/process", data={"token": "wrong"})

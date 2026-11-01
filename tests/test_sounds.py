@@ -30,3 +30,16 @@ def test_every_sound_file_is_listed_in_the_license():
     license_text = (sounds.sounds_dir() / "LICENSE.md").read_text()
     for sound in [*sounds.CUES.values(), *sounds.TRACKS.values()]:
         assert sound.path in license_text
+
+
+def test_every_mood_plays_an_existing_track():
+    assert sounds.DEFAULT_MOOD in sounds.MOODS
+    assert {"entspannt", "motivierend", "abenteuerlich"} <= set(sounds.MOODS)
+    for mood in sounds.MOODS.values():
+        assert mood.track in sounds.TRACKS
+
+
+def test_steuer_quest_always_gets_adventure_music():
+    assert sounds.track_for("entspannt", "/steuer/2025") == "abenteuer"
+    assert sounds.track_for("motivierend", "/") == "schwung"
+    assert sounds.track_for("gibt-es-nicht", "/") == sounds.MOODS[sounds.DEFAULT_MOOD].track

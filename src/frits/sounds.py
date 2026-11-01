@@ -50,8 +50,57 @@ TRACKS: dict[str, Sound] = {
             "Gleichmäßige Musik zum Konzentrieren.",
             "music/buero-block.mp3",
         ),
+        Sound(
+            "schwung",
+            "Schwung",
+            "Leichter Groove mit sanftem Beat, wenn es vorangehen soll.",
+            "music/schwung.mp3",
+        ),
+        Sound(
+            "abenteuer",
+            "Abenteuer",
+            "Trommeln, Harfe und Horn für die Steuer-Quest.",
+            "music/abenteuer.mp3",
+        ),
     ]
 }
+
+
+@dataclass(frozen=True)
+class Mood:
+    name: str  # stored in settings.toml as `music`
+    title: str
+    description: str
+    track: str  # a key of TRACKS
+
+
+# Fritz picks the mood in Einstellungen; the ♪ Musik button plays that track.
+MOODS: dict[str, Mood] = {
+    m.name: m
+    for m in [
+        Mood(
+            "entspannt",
+            "Entspannt",
+            "Ruhige Flächen ohne Beat. Gut zum Konzentrieren.",
+            "buero-block",
+        ),
+        Mood("sanft", "Sanft", "Wie ein ruhiger Morgen, noch etwas heller.", "morgen"),
+        Mood("motivierend", "Motivierend", "Leichter Groove, wenn ein Stapel weg muss.", "schwung"),
+        Mood(
+            "abenteuerlich", "Abenteuerlich", "Trommeln und Horn, wie auf einer Reise.", "abenteuer"
+        ),
+    ]
+}
+DEFAULT_MOOD = "entspannt"
+# The Steuer-Quest is an adventure, so it always has its own music.
+QUEST_TRACK = "abenteuer"
+
+
+def track_for(mood: str, path: str = "/") -> str:
+    """Which track the ♪ Musik button plays on the page at `path`."""
+    if path.startswith("/steuer"):
+        return QUEST_TRACK
+    return MOODS.get(mood, MOODS[DEFAULT_MOOD]).track
 
 
 def sounds_dir() -> Traversable:
