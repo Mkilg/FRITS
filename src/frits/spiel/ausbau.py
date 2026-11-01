@@ -3,6 +3,11 @@
 Each stage costs Salzkörner and brings something lasting: another place on the spice
 shelf, rarer spices at the market, more Würze to start with. Building takes until the
 next Kassensturz: the scaffolding stands in the room, and the Kassensturz finishes it.
+
+Once the Frittenbude stands, Fritte can open the next one in a new place (Umzug). The
+house starts again as a room, but she takes her Ruf along: every finished Bude adds
+Würze to every Kassensturz for good, the shelf and the market stay as big as they were.
+Building costs more in each new place, so there is always a next goal.
 """
 
 from __future__ import annotations
@@ -36,10 +41,86 @@ STUFEN: tuple[Stufe, ...] = (
     Stufe(4, "Hof mit Garten", "🌻", 450, "Vor dem Fenster wächst ein Garten. "
           "+1 Regalplatz, jeder Kassensturz beginnt mit Würze 1,5.",
           3, ("gewöhnlich", "selten", "legendär"), 1.5),
-    Stufe(5, "Frittenbude am Markt", "🎪", 900, "Mitten im Ort, mit Lichterkette. "
+    Stufe(5, "Frittenbude", "🎪", 900, "Mitten im Ort, mit Markise und Lichterkette. "
           "+1 Regalplatz, jeder Kassensturz beginnt mit Würze 2.",
           4, ("gewöhnlich", "selten", "legendär"), 2.0),
 )  # fmt: skip
+
+
+@dataclass(frozen=True)
+class Ort:
+    nummer: int
+    name: str
+    zeichen: str
+    text: str
+
+
+ORTE: tuple[Ort, ...] = (
+    Ort(1, "Am Markt", "🏘️", "Der Marktplatz, wo alles anfing."),
+    Ort(2, "Am Hafen", "⚓", "Möwen, Fischkutter und viel Kundschaft mit Hunger."),
+    Ort(3, "Im Bergdorf", "⛰️", "Klare Luft, Wanderer, und abends wird es früh still."),
+    Ort(4, "In der Altstadt", "🏰", "Kopfsteinpflaster und ein Brunnen vor der Tür."),
+    Ort(5, "Am See", "🛶", "Ein Steg, ein Ruderboot und sehr lange Sommerabende."),
+)  # fmt: skip
+RUF_WUERZE = 0.5  # every finished Bude adds this much Würze to every Kassensturz
+RUF_PREIS = 0.5  # building costs this much more in each new place
+UMZUG_PREIS = 1200  # times the number of the place Fritte leaves
+
+
+def ort(conn) -> Ort:
+    n = int(stand.einstellung(conn, "ort", "1") or 1)
+    return ORTE[max(1, min(n, len(ORTE))) - 1]
+
+
+def ruf(conn) -> int:
+    """How many Frittenbuden Fritte has finished and left behind."""
+    return int(stand.einstellung(conn, "ort", "1") or 1) - 1
+
+
+def preis(conn, ziel: Stufe) -> int:
+    return round(ziel.preis * (1 + RUF_PREIS * ruf(conn)))
+
+
+def grundwuerze(conn) -> float:
+    return round(stufe(conn).grundwuerze + RUF_WUERZE * ruf(conn), 2)
+
+
+def extra_plaetze(conn) -> int:
+    return STUFEN[-1].plaetze if ruf(conn) else stufe(conn).plaetze
+
+
+def seltenheiten(conn) -> tuple[str, ...]:
+    return STUFEN[-1].seltenheiten if ruf(conn) else stufe(conn).seltenheiten
+
+
+def naechster_ort(conn) -> Ort | None:
+    n = ort(conn).nummer
+    return ORTE[n] if n < len(ORTE) else None
+
+
+def umzug_preis(conn) -> int:
+    return UMZUG_PREIS * ort(conn).nummer
+
+
+def umziehen(conn, heute) -> Ort:
+    """Open the next Frittenbude somewhere new. Fritte takes her things, her shelf and her
+    Ruf along; the house starts again as a room."""
+    stand.vorbereiten(conn)
+    with store.transaction(conn):
+        if stufe(conn).nummer < len(STUFEN) or im_bau(conn):
+            raise stand.SpielFehler(
+                "Erst wenn die Frittenbude fertig ist, kann Fritte weiterziehen."
+            )
+        ziel = naechster_ort(conn)
+        if ziel is None:
+            raise stand.SpielFehler(
+                "Fritte hat schon an jedem Ort eine Bude. Mehr Orte gibt es nicht."
+            )
+        stand.bezahlen(conn, heute.isoformat(), umzug_preis(conn), f"Umzug: {ziel.name}")
+        stand.setze(conn, "ort", str(ziel.nummer))
+        stand.setze(conn, "ausbau", "1")
+        stand.setze(conn, "ausbau_bau", "0")
+    return ziel
 
 
 def stufe(conn) -> Stufe:
@@ -68,7 +149,7 @@ def ausbauen(conn, heute) -> Stufe:
         ziel = naechste(conn)
         if ziel is None:
             raise stand.SpielFehler("Frittes Haus ist fertig ausgebaut. Mehr geht nicht.")
-        stand.bezahlen(conn, heute.isoformat(), ziel.preis, f"Ausbau: {ziel.name}")
+        stand.bezahlen(conn, heute.isoformat(), preis(conn, ziel), f"Ausbau: {ziel.name}")
         stand.setze(conn, "ausbau_bau", str(ziel.nummer))
     return ziel
 

@@ -33,7 +33,7 @@ from frits import __version__, about, emails, euer, expenses, haustier, setup, s
 from frits.billing import (
     CUSTOMER_TAX,
     DEFAULT_PATTERN,
-    VAT_RATES,
+    DOMESTIC_RATES,
     BillingError,
     Draft,
     approve,
@@ -55,7 +55,15 @@ from frits.billing import (
     unit_price,
     valid_pattern,
 )
-from frits.customers import COUNTRIES, Customer, load_customers, note_id, save_note
+from frits.customers import (
+    COUNTRIES,
+    EU_COUNTRIES,
+    Customer,
+    load_customers,
+    note_id,
+    save_note,
+    vat_place,
+)
 from frits.ingest import SUPPORTED, IngestError, extract_text
 from frits.providers import KEY_ENV, ProviderError, get_api_key, make_provider, store_api_key
 from frits.quotes import accept_quote, create_quote, decline_quote, list_quotes
@@ -234,6 +242,7 @@ def _templates() -> Jinja2Templates:
     )
     env.filters.update(eur=lambda v: eur(Decimal(v)) if v not in (None, "") else "", qty=de_number)
     env.filters["de_date"] = de_date
+    env.filters["price_in"] = price_in
     env.globals.update(
         mascot=mascot_markup,
         units=UNITS,
@@ -327,9 +336,13 @@ def create_app(
             {"text": text, "kind": kind, "cue": cue, "stamp": stamp, "undo": bool(undo)}
         )
 
+    app.state.hinweise = []  # small notes other parts add to any page, e.g. Fritte's cards
+
     def page(request: Request, name: str, **context) -> HTMLResponse:
         current = settings()
         flashes, app.state.flashes = app.state.flashes, []
+        for hinweis in app.state.hinweise:
+            flashes += hinweis(request.url.path, current)
         context.update(
             request=request,
             token=app.state.token,
@@ -411,6 +424,11 @@ def create_app(
             moment = ("welcome", "Hallo! Bevor wir loslegen: Trag kurz deine Angaben ein.")
         elif drafts or check_me:
             moment = mascot_line("needs_you" if check_me else "draft_ready")
+            if not check_me and len(drafts) > 1:
+                moment = (
+                    moment[0],
+                    f"Deine {len(drafts)} Entwürfe sind fertig. Schau sie dir an, wenn es dir passt.",
+                )
         else:
             moment = mascot_line("welcome_back")
         return page(
@@ -593,7 +611,8 @@ def create_app(
             period=service_period(draft.lines),
             problems=problems,
             limit_warnings=limit_warnings,
-            vat_rates=VAT_RATES,
+            vat_rates=DOMESTIC_RATES,
+            draft_hints=_draft_hints(draft, customer_by(draft.customer_id)),
             customers=customers(),
             original=original,
             sent_text=job["sent_text"] if job else None,
@@ -657,7 +676,12 @@ def create_app(
 
     @app.get("/invoices", response_class=HTMLResponse)
     def invoices_page(request: Request):
-        return page(request, "invoices.html", invoices=list_invoices(db(), today()))
+        return page(
+            request,
+            "invoices.html",
+            invoices=list_invoices(db(), today()),
+            today_iso=today().isoformat(),
+        )
 
     @app.get("/invoices/{number}/pdf")
     def invoice_pdf(number: str):
@@ -665,10 +689,18 @@ def create_app(
         return _pdf(row["pdf_path"] if row else None, ws.invoices)
 
     @app.post("/invoices/{number}/paid", dependencies=guarded)
-    def invoice_paid(number: str):
+    async def invoice_paid(request: Request, number: str):
+        form = await request.form()
         try:
-            mark_paid(db(), number, today())
-            flash(f"Rechnung {number} ist bezahlt. Schön!", cue="done", stamp="Bezahlt")
+            paid = _paid_day(form.get("paid"), today())
+            row = (
+                db().execute("SELECT cancels FROM invoices WHERE number = ?", (number,)).fetchone()
+            )
+            mark_paid(db(), number, paid)
+            if row and row["cancels"]:
+                flash(f"Erstattung zu {row['cancels']} ist eingetragen.")
+            else:
+                flash(f"Rechnung {number} ist bezahlt. Schön!", cue="done", stamp="Bezahlt")
         except BillingError as exc:
             flash(str(exc), "error")
         return back("/invoices")
@@ -883,6 +915,9 @@ def create_app(
         customer_id = existing or note_id(company or name)
         if not existing and (ws.customers / f"{customer_id}.md").exists():
             customer_id = f"{customer_id}-{secrets.token_hex(2)}"
+        land = str(form.get("land", "DE"))
+        land = land if land in COUNTRIES else "DE"
+        privat = form.get("privat") == "on"
         customer = Customer(
             id=Path(customer_id).name,
             name=name,
@@ -892,12 +927,12 @@ def create_app(
             phone=str(form.get("phone", "")).strip() or None,
             hourly_rate=rate,
             aliases=tuple(a.strip() for a in str(form.get("aliases", "")).split(",") if a.strip()),
-            umsatzsteuer=where
-            if (where := str(form.get("umsatzsteuer", ""))) in CUSTOMER_TAX
-            else "",
-            ust_id=str(form.get("ust_id", "")).replace(" ", "").upper() or None,
-            land=land if (land := str(form.get("land", "DE"))) in COUNTRIES else "DE",
+            umsatzsteuer=vat_place(land, privat),
+            ust_id=_vat_id(form.get("ust_id"), land),
+            land=land,
             referenz=str(form.get("referenz", "")).strip() or None,
+            privat=privat,
+            gutschrift=form.get("gutschrift") == "on",
         )
         save_note(ws.customers, customer)
         flash(f"{customer.display_name} ist gespeichert.")
@@ -1623,6 +1658,61 @@ def _apply_form(draft: Draft, form, customer_by, current: Settings) -> None:
     draft.lines = lines
     if form.get("questions_done") == "on":
         draft.questions = []
+
+
+def _paid_day(value, day: date) -> date:
+    """The payment date from the form; empty means today. Never in the future."""
+    text = str(value or "").strip()
+    if not text:
+        return day
+    try:
+        paid = date.fromisoformat(text)
+    except ValueError:
+        raise BillingError("Das Zahldatum verstehe ich nicht.") from None
+    if paid > day:
+        raise BillingError("Das Zahldatum liegt in der Zukunft.")
+    return paid
+
+
+def price_in(value) -> str:
+    """A price in an input field: "0,30" and "59,80", not "0,3"; more decimals stay."""
+    if value in (None, ""):
+        return ""
+    value = Decimal(value)
+    if value == value.quantize(Decimal("0.01")):
+        return f"{value:.2f}".replace(".", ",")
+    return de_number(value)
+
+
+def _draft_hints(draft: Draft, customer: Customer | None) -> list[str]:
+    """Things worth a second look before the number is fixed. They never block."""
+    hints = []
+    if customer and customer.gutschrift and draft.kind != "quote":
+        hints.append(
+            f"{customer.display_name} rechnet per Gutschrift ab. Stell dann keine eigene Rechnung, "
+            "sonst gibt es zwei Rechnungen über dieselbe Leistung (§ 14c UStG)."
+        )
+    if customer and customer.privat and customer.land != "DE":
+        hints.append(
+            "Privatperson im Ausland: FRITS rechnet mit deutscher Umsatzsteuer. Bei manchen "
+            "Leistungen, etwa Nutzungsrechten an Privatleute außerhalb der EU, ist das anders. "
+            "Frag im Zweifel deine Steuerberatung."
+        )
+    for line in draft.lines:
+        if line.unit in ("pauschal", "Stk") and line.unit_price and 0 < line.unit_price < 10:
+            hints.append(
+                f"Sehr kleiner Preis bei „{line.description}“: {eur(line.unit_price)}. "
+                "Stimmt das? Tausend schreibst du als 1.400 oder 1400."
+            )
+    return hints
+
+
+def _vat_id(value, land: str) -> str | None:
+    """EU VAT IDs are written without spaces ("ATU12345678"); others stay as typed (Swiss UID)."""
+    text = " ".join(str(value or "").split())
+    if not text:
+        return None
+    return text.replace(" ", "").upper() if land in EU_COUNTRIES or land == "DE" else text
 
 
 def _one_line(value) -> str | None:

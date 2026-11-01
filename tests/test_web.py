@@ -588,7 +588,7 @@ def test_price_list_prices_lines_that_are_not_hours(client, ws):
         price=[""],
     )
     page = client.get(f"/drafts/{draft_id}")
-    assert 'value="25"' in page.text
+    assert 'value="25,00"' in page.text
 
 
 def test_invoice_numbers_follow_the_pattern_and_continue(client, ws):

@@ -73,8 +73,12 @@ def _category(sums: Totals, rate: Decimal, customer_tax: str) -> str:
     return "S" if rate > 0 else "Z"
 
 
-def _party(parent, tag: str, name: str, address: str | None, country: str, tax_ids, email=None):
+def _party(
+    parent, tag: str, name: str, address: str | None, country: str, tax_ids, email=None, ident=None
+):
     party = _el(parent, tag)
+    if ident:  # BT-29: lets the buyer identify the seller when no VAT ID may be given
+        _el(party, "ram:ID", ident)
     _el(party, "ram:Name", name)
     street, postcode, city = split_address(address)
     postal = _el(party, "ram:PostalTradeAddress")
@@ -136,8 +140,10 @@ def invoice_xml(
         rate = _line_rate(sums, line.vat_rate, standard, customer_tax)
         tax = _el(settlement, "ram:ApplicableTradeTax")
         _el(tax, "ram:TypeCode", "VAT")
-        _el(tax, "ram:CategoryCode", _category(sums, rate, customer_tax))
-        _el(tax, "ram:RateApplicablePercent", f"{rate.normalize():f}")
+        category = _category(sums, rate, customer_tax)
+        _el(tax, "ram:CategoryCode", category)
+        if category != "O":  # BR-O-05: no rate for "not subject to VAT"
+            _el(tax, "ram:RateApplicablePercent", f"{rate.normalize():f}")
         total = _el(settlement, "ram:SpecifiedTradeSettlementLineMonetarySummation")
         _el(total, "ram:LineTotalAmount", _amount(line.net))
 
@@ -156,6 +162,7 @@ def invoice_xml(
         "DE",
         seller_ids,
         settings.email or None,
+        ident=settings.steuernummer.strip() or settings.ust_id.strip() or None,
     )
     buyer_ids = []
     if customer_tax == "eu" and draft.customer_ust_id:
@@ -195,7 +202,8 @@ def invoice_xml(
             _el(tax, "ram:ExemptionReason", EXEMPTION[category])
         _el(tax, "ram:BasisAmount", _amount(part))
         _el(tax, "ram:CategoryCode", category)
-        _el(tax, "ram:RateApplicablePercent", f"{rate.normalize():f}")
+        if category != "O":  # BR-O-10
+            _el(tax, "ram:RateApplicablePercent", f"{rate.normalize():f}")
     if days and days[0] != days[-1]:
         period = _el(settlement, "ram:BillingSpecifiedPeriod")
         _date(period, "ram:StartDateTime", days[0])

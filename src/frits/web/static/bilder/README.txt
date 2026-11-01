@@ -17,3 +17,5 @@ Fritte als Haustier (Zimmer und Laden): ding-<name> ersetzt das Symbol des Dings
 Namen: ding-teetasse, ding-ketchup, ding-pflanze, ding-buecher, ding-kerze, ding-uhr, ding-radio,
 ding-bild, ding-sessel, ding-katze, ding-muetze, ding-sonnenhut, ding-zylinder, ding-doktorhut, ding-krone
 (freigestellt, durchsichtiger Hintergrund; Hüte ohne Kopf, leicht von schräg oben)
+Gewürze im Kassensturz: gewuerz-<name> (meersalz, muskat, schnittlauch, paprika, rosmarin, pfeffer,
+knoblauch, zimt, curry, chili, malzessig, trueffelsalz, safran) ersetzt das Symbol im Glas.
