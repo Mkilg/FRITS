@@ -845,3 +845,25 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
 .sq-ablagefach:hover, .sq-ablagefach.over { border-color: var(--gold); background: rgba(212, 160, 23, .22); transform: scale(1.02); }
 .sq-ablagefach:focus-within { outline: 3px solid var(--gold); outline-offset: 3px; }
 .sq-korb-ablage { margin: 0.4rem 0; }
+
+/* Teil 1 als Kartenstapel: eine Frage pro Bildschirm (ohne JS: alle untereinander) */
+.sq-felder:not(:has(option[value=verheiratet]:checked)) .nur-verheiratet,
+.sq-felder:not(:has(option[value=verheiratet]:checked)) .nur-zusammen { display: none; }
+.sq-felder.stapel-an { display: grid; grid-template-columns: minmax(0, 1fr); position: relative; min-height: 15rem; }
+.sq-felder.stapel-an .sq-frage { grid-area: 1 / 1; display: flex; flex-direction: column; gap: 0.8rem; padding: 1.2rem 1.4rem 1rem; background: rgba(255, 252, 240, .7);
+  border: 1px solid #e3d6b4; border-radius: 6px; box-shadow: 0 10px 22px rgba(60, 35, 10, .12);
+  opacity: 0; visibility: hidden; transform: translateX(40px) rotate(1.5deg); transition: opacity .3s, transform .35s cubic-bezier(.2, 1.2, .4, 1), visibility 0s .35s; }
+.sq-felder.stapel-an .sq-frage.vorbei { transform: translateX(-60px) rotate(-3deg); }
+.sq-felder.stapel-an .sq-frage.dran { opacity: 1; visibility: visible; transform: none; transition: opacity .3s, transform .35s cubic-bezier(.2, 1.2, .4, 1); }
+.sq-frage-gross { font-family: var(--schrift); font-size: 1.25rem; color: var(--tinte); }
+.sq-frage-gross input, .sq-frage-gross select { font-size: 1.1rem; margin-top: 0.4rem; }
+.sq-stapel-knoepfe { display: flex; justify-content: space-between; gap: 0.6rem; margin: auto 0 0; }
+.sq-stapel-knoepfe .sq-siegelknopf:only-child { margin-left: auto; }
+.sq-stapel-punkte { display: flex; gap: 0.35rem; justify-content: center; list-style: none; padding: 0; margin: 0.6rem 0 0; }
+.sq-stapel-punkte li { width: 22px; height: 5px; border-radius: 3px; background: #e3d6b4; transition: background .2s; }
+.sq-stapel-punkte li.an { background: var(--terrakotta); }
+.sq-fb-fuss.stapel-wartet .sq-siegelknopf { visibility: hidden; }
+.sq-beraterin-karte { padding: 1rem 1.1rem; display: grid; gap: 0.6rem; color: var(--tinte); }
+.sq-beraterin-karte h2 { margin: 0; font-size: 1.1rem; }
+.sq-beraterin-karte .quiet { justify-self: start; }
+@media (prefers-reduced-motion: reduce) { .sq-felder.stapel-an .sq-frage { transition: none; } }

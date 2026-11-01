@@ -409,8 +409,10 @@ def register_steuer(
             p.zusammen = p.familienstand == "verheiratet" and form.get("zusammen") == "on"
             p.partner = str(form.get("partner") or "").strip() if p.zusammen else ""
             p.kinder = _zahl(form.get("kinder"))
-            p.beraterin_email = str(form.get("beraterin_email") or "").strip()
-            p.beraterin_termin = str(form.get("beraterin_termin") or "").strip()
+            if "beraterin_email" in form:
+                p.beraterin_email = str(form.get("beraterin_email") or "").strip()
+            if "beraterin_termin" in form:
+                p.beraterin_termin = str(form.get("beraterin_termin") or "").strip()
         elif teil == 2:
             mengen = {}
             for provinz in fragen():
@@ -765,6 +767,23 @@ def register_steuer(
         quest.notiere(conn(), jahr, "truhe", ziel.name)
         return back(f"/steuer/{jahr}/sieg")
 
+    @app.post("/steuer/{jahr}/beraterin/daten", dependencies=guarded)
+    async def beraterin_daten(request: Request, jahr: int):
+        form = await request.form()
+        p = profil_oder_404(jahr)
+        p.beraterin_email = str(form.get("beraterin_email") or "").strip()
+        termin = str(form.get("beraterin_termin") or "").strip()
+        try:
+            p.beraterin_termin = date.fromisoformat(termin).isoformat() if termin else ""
+        except ValueError:
+            p.beraterin_termin = ""
+        p.save(quest.profil_datei(ws.root, jahr))
+        if p.beraterin_termin:
+            flash(f"Gemerkt: Abgabe bis {schoenes_datum(p.beraterin_termin)}.")
+        else:
+            flash("Gemerkt.")
+        return back(str(form.get("back") or f"/steuer/{jahr}/beraterin"))
+
     @app.post("/steuer/{jahr}/mail", dependencies=guarded)
     async def mail_oeffnen(request: Request, jahr: int):
         form = await request.form()
@@ -773,6 +792,10 @@ def register_steuer(
         if not zip_pfad.exists():
             flash("Pack zuerst die Schatztruhe, dann hänge ich sie an.")
             return back(f"/steuer/{jahr}/sieg")
+        an = str(form.get("an") or "").strip()
+        if an and an != p.beraterin_email:
+            p.beraterin_email = an
+            p.save(quest.profil_datei(ws.root, jahr))
         betreff = str(form.get("betreff") or f"Steuerunterlagen {jahr}")
         text = str(form.get("text") or "")
         result = system.compose_email(p.beraterin_email, betreff, text, zip_pfad)
