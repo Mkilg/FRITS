@@ -29,7 +29,7 @@
     {% endif %}
     <form method="post" action="/fritte/kassensturz">
       <input type="hidden" name="token" value="{{ token }}">
-      <button class="primary gross">Ersten Kassensturz machen</button>
+      <button class="gross">Ersten Kassensturz machen</button>
     </form>
   </div>
 </section>
@@ -140,7 +140,7 @@
   <p><strong>Nächster Ausbau: {{ naechste.name }}.</strong> {{ stufen_text(naechste) }}</p>
   <form method="post" action="/fritte/ausbauen" data-confirm="{{ naechste.name }} für {{ kosten }} Salzkörner bauen?">
     <input type="hidden" name="token" value="{{ token }}">
-    <button class="primary" {{ "disabled" if f.guthaben < kosten }}>Ausbauen für {{ kosten }} 🧂</button>
+    <button {{ "disabled" if f.guthaben < kosten }}>Ausbauen für {{ kosten }} 🧂</button>
     {% if f.guthaben < kosten %}<span class="hint">Noch {{ kosten - f.guthaben }} Salzkörner.</span>{% endif %}
   </form>
   {% elif naechster_ort %}
@@ -149,7 +149,7 @@
   <p><strong>Nächstes Ziel: eine neue Bude {{ dort }}.</strong> {{ naechster_ort.text }} Fritte nimmt ihre Sachen, ihr Gewürzregal und ihren guten Ruf mit: Jeder Kassensturz bekommt für immer +0,5 Würze. Das Haus fängt dort wieder als Zimmer an, und Bauen kostet etwas mehr.</p>
   <form method="post" action="/fritte/umziehen" data-confirm="Für {{ umzug_preis }} Salzkörner eine neue Bude {{ dort }} eröffnen?">
     <input type="hidden" name="token" value="{{ token }}">
-    <button class="primary" {{ "disabled" if f.guthaben < umzug_preis }}>Neue Bude für {{ umzug_preis }} 🧂</button>
+    <button {{ "disabled" if f.guthaben < umzug_preis }}>Neue Bude für {{ umzug_preis }} 🧂</button>
     {% if f.guthaben < umzug_preis %}<span class="hint">Noch {{ umzug_preis - f.guthaben }} Salzkörner.</span>{% endif %}
   </form>
   {% else %}
