@@ -100,7 +100,7 @@
     <section aria-label="Orden">
       <h2 class="sq-rand-titel">Orden</h2>
       <ul class="sq-orden">
-        {% for e in erfolge %}<li class="{{ '' if e.erreicht else 'aus' }}" tabindex="0" aria-label="{{ e.name }}: {{ e.beschreibung }}{% if not e.erreicht %} (noch nicht){% endif %}">{{ e.name[:1] }}<span class="sq-orden-info" aria-hidden="true"><strong>{{ e.name }}</strong>{{ e.beschreibung }}{% if not e.erreicht %} <em>Noch nicht geschafft.</em>{% endif %}</span></li>{% endfor %}
+        {% for e in erfolge %}<li class="{{ '' if e.erreicht else 'aus' }}" tabindex="0" aria-label="{{ e.name }}: {{ e.beschreibung }}{% if not e.erreicht %} (noch nicht){% endif %}"><span class="sq-orden-zeichen" aria-hidden="true">{{ e.zeichen }}</span><span class="sq-orden-info" aria-hidden="true"><strong>{{ e.name }}</strong>{{ e.beschreibung }}{% if not e.erreicht %} <em>Noch nicht geschafft.</em>{% endif %}</span></li>{% endfor %}
       </ul>
     </section>
 

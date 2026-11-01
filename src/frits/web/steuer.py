@@ -19,7 +19,16 @@ from fastapi.responses import HTMLResponse, Response
 from frits import store, system
 from frits.settings import Workspace
 from frits.steuer import beraterin, ernte, quest, spiel, truhe
-from frits.steuer.katalog import FAMILIENSTAND, HAKEN, Profil, fragen, gebiet, ist_kern, reich
+from frits.steuer.katalog import (
+    FAMILIENSTAND,
+    HAKEN,
+    Profil,
+    fehlt_nie,
+    fragen,
+    gebiet,
+    ist_kern,
+    reich,
+)
 
 AKTIONEN = {"gibts_nicht", "fragen", "offen"}
 MAX_LAGER = 30 * 1024 * 1024  # wie beim Eingang von FRITS
@@ -191,7 +200,8 @@ def register_steuer(
     def profil_oder_404(jahr: int) -> Profil:
         p = profil(jahr)
         if p is None:
-            raise HTTPException(404, "Für dieses Jahr gibt es noch keinen Fragebogen.")
+            # Kein JSON-Fehler: freundlich zum Anfang der Quest für dieses Jahr
+            raise HTTPException(303, headers={"Location": f"/steuer/{jahr}/intro"})
         return p
 
     def seite(request: Request, name: str, **context):
@@ -203,6 +213,7 @@ def register_steuer(
             provinzbild=provinzbild,
             klang=settings().sound,
             kern=ist_kern,
+            fehlt_nie=fehlt_nie,
             datum=schoenes_datum,
             **context,
         )
@@ -247,6 +258,7 @@ def register_steuer(
             "drache_wach": spiel.drache_wach(alle) or jahr in app.state.steuer_notausgang,
             "auftrag": spiel.auftrag(jahr, staende, drache, zettel, alle),
             "tagwerk": spiel.tagwerk(alle, date.today()),
+            "zweifel": spiel.zweifel(alle),
             "burg_fehlt": not any(g.provinz.key == "burg" for g in gebiete),
             "jahre": quest_jahre(),
             "vergleich": vergleich,
@@ -262,8 +274,16 @@ def register_steuer(
         for p in nachher["provinzen"]:
             if p.stand.siegel and p.gebiet.id not in alt_siegel:
                 text = f"Gold-Siegel! {p.gebiet.titel} ist komplett."
+                if quest.hat_notiz(c, jahr, "siegel", text):
+                    flash(f"{p.gebiet.titel} ist wieder komplett.", "beute")  # kein zweites Fest
+                    continue
                 quest.notiere(c, jahr, "siegel", text)
                 flash(text, "siegel", cue="done")
+        if nachher["drache_wach"] and not vorher["drache_wach"] and not nachher["drache"].besiegt:
+            lp = nachher["drache"].lp
+            text = f"Er hat nur noch {lp} Karte{'n' if lp != 1 else ''}. Jetzt bist du stark genug."
+            quest.notiere(c, jahr, "erwachen", "Der Papierdrache ist erwacht")
+            flash(text, "erwachen", cue="done")
         heute, ziel = nachher["tagwerk"]
         if vorher["tagwerk"][0] < ziel <= heute:
             text = f"{ziel} Karten heute. Mehr muss heute nicht sein, der Rest wartet bis morgen."
@@ -373,14 +393,16 @@ def register_steuer(
         if profil(jahr) is not None:
             return back(f"/steuer/{jahr}")
         weg, weg_text = ausweg(jahr)
+        # Wer schon angefangen hat, sieht nicht den ganzen Film noch einmal
+        angefangen = jahr in app.state.steuer_entwurf or entwurf_datei(jahr).exists()
         return seite(
             request,
             "steuer_intro.html",
             jahr=jahr,
             ausweg=weg,
             ausweg_text=weg_text,
-            kurz=bool(quest_jahre()),
-            angefangen=jahr in app.state.steuer_entwurf or entwurf_datei(jahr).exists(),
+            kurz=bool(quest_jahre()) or angefangen,
+            angefangen=angefangen,
         )
 
     @app.get("/steuer/{jahr}/fragebogen", response_class=HTMLResponse)
@@ -493,6 +515,8 @@ def register_steuer(
         aktion = str(form.get("status", ""))
         if aktion not in AKTIONEN:
             raise HTTPException(400)
+        if aktion == "gibts_nicht" and fehlt_nie(s["gebiet"], s["key"]):
+            aktion = "fragen"  # die Steuer-ID hat jede:r, also wird daraus eine Frage
         vorher = lage(jahr)
         frage = str(form.get("frage") or "").strip() if aktion == "fragen" else ""
         quest.setze_status(conn(), stueck_id, aktion, frage)
@@ -685,6 +709,8 @@ def register_steuer(
         form = await request.form()
         s = stueck_im_jahr(jahr, int(str(form.get("stueck_id") or 0)))
         aktion = str(form.get("aktion") or "")
+        if aktion == "gibts_nicht" and fehlt_nie(s["gebiet"], s["key"]):
+            aktion = "fragen"
         vorher = lage(jahr)
         if not vorher["drache_wach"]:
             flash("Der Drache schläft noch. Bau erst deine Provinzen auf.")
@@ -715,7 +741,15 @@ def register_steuer(
         if spiel.drache(quest.stuecke(conn(), jahr)).besiegt:
             quest.notiere(conn(), jahr, "sieg", "Der Papierdrache ist besiegt")
             app.state.steuer_combo.pop(jahr, None)
-            flash("SIEG! Der Drache faltet sich zu einer Schatztruhe zusammen.", "sieg", "sent")
+            if spiel.zweifel(quest.stuecke(conn(), jahr)):
+                flash(
+                    "Der Drache faltet sich zur Schatztruhe. Silber-Siegel: Ein paar wichtige"
+                    " Unterlagen soll deine Beraterin noch prüfen.",
+                    "sieg",
+                    "sent",
+                )
+            else:
+                flash("SIEG! Der Drache faltet sich zu einer Schatztruhe zusammen.", "sieg", "sent")
             return back(f"/steuer/{jahr}/sieg")
         return back(f"/steuer/{jahr}/drache#karte")
 

@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pyzipper
 
-from frits.steuer.katalog import Gebiet, Profil
+from frits.steuer.katalog import Gebiet, Profil, ist_kern
 
 # Kurze, gut diktierbare Wörter ohne Umlaute, damit das Passwort per SMS und Telefon klappt.
 _WOERTER = [
@@ -215,7 +215,16 @@ def mail(
         for g in gebiete
         if any(s["gebiet"] == g.id and s["status"] == "gesammelt" for s in stuecke)
     ]
-    gibts_nicht = [s["name"] for s in stuecke if s["status"] == "gibts_nicht"]
+    pruefen = [
+        s["name"]
+        for s in stuecke
+        if s["status"] == "gibts_nicht" and ist_kern(s["gebiet"], s["key"])
+    ]
+    gibts_nicht = [
+        s["name"]
+        for s in stuecke
+        if s["status"] == "gibts_nicht" and not ist_kern(s["gebiet"], s["key"])
+    ]
     fragen = [s for s in stuecke if s["status"] == "fragen"]
     offen = [s["name"] for s in stuecke if s["status"] == "offen" and s.get("art") != "bonus"]
     bereich = {g.id: g.bereich for g in gebiete}
@@ -238,6 +247,13 @@ def mail(
         zeilen = ["Hallo,", "", f"anbei meine Unterlagen für {profil.jahr} als Zip-Datei.", ""]
     if dabei:
         zeilen += ["Drin sind: " + ", ".join(dabei) + ". Ein Inhaltsverzeichnis liegt bei.", ""]
+    if pruefen:
+        zeilen += [
+            "Bitte prüfen: Diese Unterlagen habe ich nicht, obwohl man sie meistens braucht: "
+            + ", ".join(pruefen)
+            + ". Sag mir bitte, ob das so passt.",
+            "",
+        ]
     if gibts_nicht:
         zeilen += ["Gibt es dieses Jahr nicht: " + ", ".join(gibts_nicht) + ".", ""]
     if fragen:

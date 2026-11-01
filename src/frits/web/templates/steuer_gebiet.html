@@ -62,10 +62,18 @@
       {% if s.status != "gesammelt" %}
       <div class="sq-aktionen">
         {% if s.status == "offen" %}
+        {% if fehlt_nie(s.gebiet, s.key) %}
+        <form method="post" action="/steuer/{{ jahr }}/stueck/{{ s.id }}/status" data-stempel="FRAGE" data-farbe="blau">
+          <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back" value="{{ zurueck }}">
+          <input type="hidden" name="frage" value="Ich finde meine {{ s.name }} nicht. Hast du sie noch vom letzten Jahr?">
+          <button class="sq-stempelknopf grau" name="status" value="fragen" title="Die hat jede:r. Deine Beraterin kennt sie oft schon.">Finde ich nicht</button>
+        </form>
+        {% else %}
         <form method="post" action="/steuer/{{ jahr }}/stueck/{{ s.id }}/status" data-stempel="GIBT'S NICHT" data-farbe="grau">
           <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back" value="{{ zurueck }}">
-          <button class="sq-stempelknopf grau" name="status" value="gibts_nicht"{% if kern(s.gebiet, s.key) %} data-rueckfrage="Wirklich keins? Nochmal klicken"{% endif %}>Gibt's nicht</button>
+          <button class="sq-stempelknopf grau" name="status" value="gibts_nicht"{% if kern(s.gebiet, s.key) %} data-rueckfrage="„{{ s.name }}“ hat fast jede:r in deiner Lage. Findest du es nur gerade nicht? Dann lieber fragen, das zählt genauso."{% endif %}>Gibt's nicht</button>
         </form>
+        {% endif %}
         <details>
           <summary>Lieber fragen …</summary>
           <form method="post" action="/steuer/{{ jahr }}/stueck/{{ s.id }}/status" data-stempel="FRAGE" data-farbe="blau">

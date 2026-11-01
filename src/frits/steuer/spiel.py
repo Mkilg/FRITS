@@ -14,7 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date
 
-from frits.steuer.katalog import Gebiet
+from frits.steuer.katalog import Gebiet, ist_kern
 
 ERLEDIGT = ("gesammelt", "gibts_nicht", "fragen")
 
@@ -233,12 +233,29 @@ def drache_wach(stuecke: list[dict]) -> bool:
 # ---------- Erfolge ----------
 
 
+ORDEN_ZEICHEN = {
+    "erster-fund": "1",
+    "sammlerin": "25",
+    "erste-ernte": "❦",
+    "brieftaube": "✉\ufe0e",
+    "gedaechtnis": "↺",
+    "schatzsucherin": "◆",
+    "mutig-gefragt": "?",
+    "drachenbaendigerin": "♛\ufe0e",
+}
+
+
 @dataclass(frozen=True)
 class Erfolg:
     key: str
     name: str
     beschreibung: str
     erreicht: bool
+
+    @property
+    def zeichen(self) -> str:
+        """Ein eigenes Zeichen pro Orden, damit keine zwei gleich aussehen."""
+        return ORDEN_ZEICHEN.get(self.key, self.name[:1])
 
 
 def erfolge(
@@ -377,3 +394,8 @@ def tagwerk(stuecke: list[dict], heute: date, ziel: int = TAGWERK) -> tuple[int,
         1 for s in stuecke if s["status"] != "offen" and str(s.get("geaendert") or "")[:10] == tag
     )
     return n, ziel
+
+
+def zweifel(stuecke: list[dict]) -> list[dict]:
+    """Wichtige Unterlagen, die als "Gibt's nicht" gestempelt sind: die soll die Beraterin prüfen."""
+    return [s for s in stuecke if s["status"] == "gibts_nicht" and ist_kern(s["gebiet"], s["key"])]

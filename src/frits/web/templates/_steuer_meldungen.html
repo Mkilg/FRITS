@@ -1,7 +1,9 @@
 {# Meldungen in der Quest: Belohnungen kommen als großer Moment (Dialog), alles andere als
    kleine Zettel oben rechts, die von selbst verschwinden. So verrutscht nichts auf dem Tisch. #}
-{% set gross_arten = ["gruendung", "siegel", "zeitalter", "orden", "sieg", "tagwerk"] if auftrag is defined else [] %}
+{# Im Bosskampf führt nichts vom Drachen weg: dann sind nur Sieg und Erwachen ein großer Moment #}
+{% set gross_arten = (["sieg", "erwachen"] if im_kampf is defined and im_kampf else ["gruendung", "siegel", "zeitalter", "orden", "sieg", "tagwerk", "erwachen"]) if auftrag is defined else [] %}
 {% set grosse = flashes | selectattr("kind", "in", gross_arten) | selectattr("text") | list %}
+{% set grosse = (grosse | selectattr("kind", "equalto", "sieg") | list) + (grosse | selectattr("kind", "equalto", "erwachen") | list) + (grosse | rejectattr("kind", "in", ["sieg", "erwachen"]) | list) %}
 {% set kleine = flashes | rejectattr("kind", "in", gross_arten) | selectattr("text") | list %}
 {% if kleine %}
 <div class="sq-zettelchen" role="status">
@@ -13,7 +15,7 @@
   <div class="sq-belohnung-licht" aria-hidden="true"></div>
   {% set siegel_bild = bild("siegel") %}
   <div class="sq-belohnung-siegel" aria-hidden="true">{% if siegel_bild %}<img src="{{ siegel_bild }}" alt="">{% else %}✓{% endif %}</div>
-  <h2>{{ {"gruendung": "Dein Reich steht!", "siegel": "Gold-Siegel!", "zeitalter": "Neues Zeitalter!", "orden": "Neuer Orden!", "sieg": "Sieg!", "tagwerk": "Tagwerk geschafft!"}[grosse[0].kind] }}</h2>
+  <h2>{{ {"gruendung": "Dein Reich steht!", "siegel": "Gold-Siegel!", "zeitalter": "Neues Zeitalter!", "orden": "Neuer Orden!", "sieg": ("Silber-Sieg!" if zweifel is defined and zweifel else "Sieg!"), "tagwerk": "Tagwerk geschafft!", "erwachen": "Der Drache erwacht!"}[grosse[0].kind] }}</h2>
   <ul class="sq-beute">
     {% for f in grosse %}<li class="{{ f.kind }}">{{ f.text.replace("Gold-Siegel! ", "") }}</li>{% endfor %}
   </ul>
@@ -22,7 +24,12 @@
     <p><strong>{{ auftrag.titel }}</strong><br>{{ auftrag.text }}</p>
   </div>
   <form method="dialog" class="sq-belohnung-knoepfe">
-    {% if grosse | selectattr("kind", "equalto", "tagwerk") | list %}
+    {% if grosse[0].kind == "erwachen" %}
+    <a class="sq-siegelknopf" href="/steuer/{{ jahr }}/drache">Stell dich dem Drachen →</a>
+    <button class="quiet">Erst noch Provinzen</button>
+    {% elif grosse[0].kind == "sieg" %}
+    <button class="sq-siegelknopf">Zur Schatztruhe</button>
+    {% elif grosse | selectattr("kind", "equalto", "tagwerk") | list %}
     <a class="sq-siegelknopf" href="/">Für heute Schluss</a>
     <button class="quiet">Noch eine Karte</button>
     {% else %}

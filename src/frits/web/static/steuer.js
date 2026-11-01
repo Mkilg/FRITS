@@ -430,21 +430,21 @@
   }
 })();
 
-// Wichtige Karten (z. B. Steuer-ID): "Gibt's nicht" braucht einen zweiten Klick
+// Wichtige Karten: "Gibt's nicht" fragt einmal mit Begründung nach, der zweite Klick zählt
 (function () {
   document.addEventListener("click", function (e) {
     var knopf = e.target.closest("[data-rueckfrage]");
-    if (!knopf) return;
-    if (knopf.classList.contains("rueckfrage")) return; // zweiter Klick: abschicken
+    if (!knopf || knopf.classList.contains("rueckfrage")) return; // zweiter Klick: abschicken
     e.preventDefault();
-    knopf.dataset.vorher = knopf.textContent;
-    knopf.textContent = knopf.dataset.rueckfrage;
     knopf.classList.add("rueckfrage");
-    setTimeout(function () {
-      if (!knopf.isConnected) return;
-      knopf.textContent = knopf.dataset.vorher;
-      knopf.classList.remove("rueckfrage");
-    }, 5000);
+    knopf.textContent = knopf.getAttribute("data-rueckfrage-ja") || "Ja, gibt's wirklich nicht";
+    var notiz = document.createElement("p");
+    notiz.className = "sq-rueckfrage-text";
+    notiz.setAttribute("role", "status");
+    notiz.textContent = knopf.getAttribute("data-rueckfrage");
+    var ort = knopf.closest(".reihe") || knopf.closest("form");
+    ort.insertAdjacentElement("afterend", notiz);
+    knopf.focus();
   });
 })();
 
@@ -519,4 +519,59 @@
     if (feld && document.activeElement !== feld) setTimeout(function () { feld.focus({ preventScroll: true }); }, 250);
   }
   zeige(0);
+})();
+
+// Orden-Erklärung: am rechten Rand nach links aufklappen, damit nichts abgeschnitten wird
+(function () {
+  function ausrichten(e) {
+    var li = e.target.closest && e.target.closest(".sq-orden li");
+    if (!li) return;
+    var r = li.getBoundingClientRect();
+    li.classList.toggle("rechts", r.left + 220 > document.documentElement.clientWidth - 8);
+  }
+  document.addEventListener("mouseover", ausrichten);
+  document.addEventListener("focusin", ausrichten);
+})();
+
+// "Ist drin" ohne gewählte Datei: gleich die Dateiauswahl öffnen statt einen Klick zu verschenken
+(function () {
+  document.addEventListener("click", function (e) {
+    var knopf = e.target.closest("[data-datei-waehlen]");
+    if (!knopf) return;
+    var feld = knopf.form && knopf.form.querySelector("input[type=file]");
+    if (!feld || (feld.files && feld.files.length)) return;
+    e.preventDefault();
+    feld.addEventListener("change", function () {
+      if (!feld.files.length) return;
+      var aktion = document.createElement("input");
+      aktion.type = "hidden"; aktion.name = "aktion"; aktion.value = "datei";
+      knopf.form.appendChild(aktion);
+      knopf.form.submit();
+    }, { once: true });
+    feld.click();
+  });
+})();
+
+// Eine angefangene Frage an die Beraterin geht beim Neuladen nicht verloren
+(function () {
+  var felder = document.querySelectorAll(".sq input[name=frage]");
+  if (!felder.length) return;
+  var speicher = null;
+  try { speicher = window.localStorage; } catch (e) { return; }
+  felder.forEach(function (feld) {
+    var form = feld.form;
+    var schluessel = "frits-frage:" + (form && form.action || location.pathname);
+    try {
+      var alt = speicher.getItem(schluessel);
+      if (alt && !feld.value) {
+        feld.value = alt;
+        var auf = feld.closest("details");
+        if (auf) auf.open = true;
+      }
+    } catch (e) {}
+    feld.addEventListener("input", function () {
+      try { feld.value ? speicher.setItem(schluessel, feld.value) : speicher.removeItem(schluessel); } catch (e) {}
+    });
+    if (form) form.addEventListener("submit", function () { try { speicher.removeItem(schluessel); } catch (e) {} });
+  });
 })();

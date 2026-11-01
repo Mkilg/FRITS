@@ -4,7 +4,7 @@
 {% block flashes %}{% endblock %}
 {% block content %}
 <div class="sq sq-tisch nacht{% if frisch %} frisch wackeln-{{ [combo.combo, 3] | min }}{% endif %}" data-klang="{{ 'an' if klang else 'aus' }}" {% if frisch %}data-treffer="{{ frisch }}" data-combo="{{ combo.combo }}"{% endif %}{% include "_steuer_stil.html" %}>
-{% include "_steuer_meldungen.html" %}
+{% set im_kampf = drache_wach and not drache.besiegt %}{% include "_steuer_meldungen.html" %}
 {% include "_steuer_kopf.html" %}
 {% if not drache_wach %}
 <section class="sq-arena sq-arena-schlaf">
@@ -21,7 +21,7 @@
 <section class="sq-arena">
   <div class="sq-arena-boss">
   <div class="sq-drache-gross">{% include "_steuer_drache.html" %}</div>
-  <h1>{% if drache.besiegt %}Der Drache ist besiegt!{% elif drache.lp == drache.max_lp %}Der Papierdrache erwacht!{% else %}Der Papierdrache {{ "taumelt" if drache.stimmung == "taumelt" else "wankt" }}!{% endif %}</h1>
+  <h1>{% if drache.besiegt %}Der Drache ist besiegt!{% elif not frisch %}Der Papierdrache ist wach!{% else %}Der Papierdrache {{ "taumelt" if drache.stimmung == "taumelt" else "wankt" }}!{% endif %}</h1>
   <p>Er hat nur noch die Karten, die du vorher nicht gefunden hast: {{ drache.lp }} von {{ drache.max_lp }}. Bonus-Schätze zählen nicht, die sind nur Extra-Gold.</p>
   {% if drache.max_lp <= 60 %}
   <ul class="sq-lp" aria-label="{{ drache.lp }} Lebenspunkte">{% for i in range(drache.max_lp) %}<li class="{{ '' if i < drache.lp else 'weg' }}"></li>{% endfor %}</ul>
@@ -53,8 +53,12 @@
           <label class="fach">Datei geben: kritischer Treffer, doppelte Combo!<input type="file" name="datei" multiple></label>
         </div>
         <div class="reihe">
-          <button class="sq-siegelknopf" name="aktion" value="datei">Ist drin</button>
-          <button class="sq-stempelknopf grau" name="aktion" value="gibts_nicht"{% if kern(k.gebiet, k.key) %} data-rueckfrage="Wirklich keins? Nochmal klicken"{% endif %} title="Zählt als Treffer, die Serie hält">Gibt's nicht</button>
+          <button class="sq-siegelknopf" name="aktion" value="datei" data-datei-waehlen>Ist drin</button>
+          {% if fehlt_nie(k.gebiet, k.key) %}
+          <button class="sq-stempelknopf grau" name="aktion" value="fragen" title="Die hat jede:r. Deine Beraterin kennt sie oft schon.">Finde ich nicht</button>
+          {% else %}
+          <button class="sq-stempelknopf grau" name="aktion" value="gibts_nicht"{% if kern(k.gebiet, k.key) %} data-rueckfrage="„{{ k.name }}“ hat fast jede:r in deiner Lage. Findest du es nur gerade nicht? Dann lieber fragen, das zählt genauso."{% endif %} title="Zählt als Treffer, die Serie hält">Gibt's nicht</button>
+          {% endif %}
         </div>
         <div class="reihe">
           <input name="frage" placeholder="Frage an die Beraterin (darf leer bleiben)" aria-label="Frage an die Beraterin">
@@ -71,7 +75,7 @@
 {% if not drache.besiegt %}
 <form method="post" action="/steuer/{{ jahr }}/drache/notausgang" class="sq-notausgang">
   <input type="hidden" name="token" value="{{ token }}">
-  <button>Frist drückt? Heute nur senden, der Drache wartet</button>
+  <button{% if gesamt.prozent < 80 %} data-rueckfrage="Dann geht heute alles, was du hast, an deine Beraterin. Was fehlt, steht als Liste in der Mail. Den Drachen kannst du später weiter bekämpfen." data-rueckfrage-ja="Ja, heute senden"{% endif %}>Frist drückt? Heute nur senden, der Drache wartet</button>
 </form>
 {% endif %}
 <p class="sq-fusszeile"><a href="/steuer/{{ jahr }}">← Zurück zur Insel</a></p>
