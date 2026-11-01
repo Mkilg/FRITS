@@ -59,7 +59,7 @@
       <label class="field">Umsatzsteuer auf dem Beleg
         <select name="vat_rate">
           <option value="0.19">19 %</option>
-          <option value="0.07" {{ "selected" if g.vat_rate == "0.07" }}>7 % (z. B. Bahnticket im Nahverkehr, Bücher)</option>
+          <option value="0.07" {{ "selected" if g.vat_rate == "0.07" }}>7 % (z. B. Bahnticket, Bücher)</option>
           <option value="0">0 %</option>
           <option value="">keine angegeben</option>
         </select>
@@ -95,11 +95,12 @@
   <details class="spaced">
     <summary>Gelöscht ({{ struck | length }}): zählen nicht, bleiben fürs Finanzamt im Archiv</summary>
     <div class="table-wrap"><table class="table struck">
+      <thead><tr><th>Datum</th><th>Bei</th><th>Wofür</th><th>Kategorie</th><th class="amount">Betrag</th><th></th></tr></thead>
       <tbody>
       {% for e in struck %}
       <tr>
         <td><s>{{ e.date | de_date }}</s></td><td><s>{{ e.vendor }}</s></td><td><s>{{ e.description }}</s></td>
-        <td class="amount"><s>{{ e.gross | eur }}</s></td>
+        <td><s>{{ categories[e.category].label }}</s></td><td class="amount"><s>{{ e.gross | eur }}</s></td>
         <td class="actions"><form method="post" action="/expenses/{{ e.id }}/restore"><input type="hidden" name="token" value="{{ token }}"><button class="tiny quiet">Zurückholen</button></form></td>
       </tr>
       {% endfor %}

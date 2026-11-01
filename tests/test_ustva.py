@@ -212,3 +212,38 @@ def test_the_next_deadline_is_shown_first():
     assert next_due(date(2026, 11, 2), "monat") == (2026, 10)
     assert next_due(date(2026, 12, 20), "monat") == (2026, 12)
     assert next_due(date(2027, 1, 5), "quartal") == (2026, 4)
+
+
+def test_ist_reports_eu_turnover_when_done_not_when_paid(tmp_path):
+    db = tmp_path / "frits.db"
+    conn = store.connect(db)
+    # Done in September for a broadcaster in Vienna, not paid yet (§ 18b Satz 2 UStG).
+    wien = _invoice(
+        conn, tmp_path, date(2026, 9, 28), ("Beitrag", "800", None), where="eu", ust_id="ATU1"
+    )
+    assert voranmeldung(db, _settings(), 2026, 3).feld("21").amount == 800
+    mark_paid(conn, wien, date(2026, 11, 3))
+    assert voranmeldung(db, _settings(), 2026, 4).feld("21") is None  # not twice
+
+
+def test_a_late_invoice_points_to_a_corrected_return(tmp_path):
+    from frits.ustva import late_notice
+
+    db = tmp_path / "frits.db"
+    conn = store.connect(db)
+    draft = Draft(
+        "kunde",
+        "Sender AG",
+        "Funkweg 2, 50667 Köln",
+        [Line("Moderation", "2026-09-28", Decimal(1), "pauschal", Decimal(1200))],
+        [],
+        [],
+        "notiz.txt",
+    )
+    number, _ = approve(
+        conn, new_draft(conn, draft), _settings(), tmp_path / "r", date(2026, 11, 2)
+    )
+    soll = _settings(vat_basis="soll")
+    assert "3. Quartal 2026" in late_notice(db, soll, number, date(2026, 11, 2))
+    assert late_notice(db, _settings(), number, date(2026, 11, 2)) is None  # Ist: when paid
+    assert late_notice(db, soll, number, date(2026, 10, 5)) is None  # deadline not passed

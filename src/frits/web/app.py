@@ -458,7 +458,17 @@ def create_app(
             moment = ("welcome", "Hallo! Bevor wir loslegen: Trag kurz deine Angaben ein.")
         elif drafts or check_me:
             moment = mascot_line("needs_you" if check_me else "draft_ready")
-            if not check_me and len(drafts) > 1:
+            ready = sum(1 for d in drafts if d["ready"])
+            if not check_me and ready < len(drafts):
+                moment = (
+                    moment[0],
+                    "Da liegen Entwürfe, die noch etwas von dir brauchen. Schau sie dir an, "
+                    "wenn es dir passt."
+                    if ready == 0
+                    else f"{ready} von {len(drafts)} Entwürfen sind fertig, die anderen brauchen "
+                    "noch etwas von dir.",
+                )
+            elif not check_me and len(drafts) > 1:
                 moment = (
                     moment[0],
                     f"Deine {len(drafts)} Entwürfe sind fertig. Schau sie dir an, wenn es dir passt.",
@@ -681,6 +691,9 @@ def create_app(
                 cue="done",
                 stamp="Fertig",
             )
+            late = ustva.late_notice(ws.db, current, number, today())
+            if late:
+                flash(late, "error")
             return back(f"/invoices#r-{number}")
         if action == "quote":
             try:

@@ -68,16 +68,22 @@
     // What the page said before Fritz typed may be out of date now: the question before the
     // number is given names the live total, and solved hints go away. The server checks
     // everything again when he presses the button.
+    var picked = document.querySelector('select[name="customer"]');
+    var option = picked && picked.selectedOptions[0];
+    var named = option && option.getAttribute("data-name");
     var approve = document.querySelector("[data-confirm-live]");
     if (approve) {
-      approve.setAttribute("data-confirm",
-        approve.getAttribute("data-confirm-live").replace("{gross}", eur(cents(net + vat))));
+      approve.setAttribute("data-confirm", approve.getAttribute("data-confirm-live")
+        .replace("{customer}", named || approve.getAttribute("data-customer"))
+        .replace("{gross}", eur(cents(net + vat))));
     }
+    var hasCustomer = !!(option && option.hasAttribute("data-address"));
     var hasDates = Array.prototype.some.call(
       table.querySelectorAll('tbody [name="date"]'), function (i) { return i.value.trim() !== ""; });
     var hasLines = order.length > 0 && net !== 0;
     document.querySelectorAll("[data-gone-when]").forEach(function (el) {
-      var gone = el.getAttribute("data-gone-when") === "dates" ? hasDates : hasLines;
+      var when = el.getAttribute("data-gone-when");
+      var gone = when === "dates" ? hasDates : when === "customer" ? hasCustomer : hasLines;
       el.hidden = gone;
     });
     document.querySelectorAll(".problems").forEach(function (box) {
@@ -104,6 +110,8 @@
 
   table.addEventListener("input", function () { growIfNeeded(); update(); });
   table.addEventListener("change", update);
+  var customerSelect = document.querySelector('select[name="customer"]');
+  if (customerSelect) customerSelect.addEventListener("change", update);
   document.addEventListener("click", function (e) {
     if (e.target.closest && e.target.closest("[data-fill]")) setTimeout(update, 0);
   });

@@ -60,6 +60,8 @@ class EuerSummary:
     tax_mode: str
     lines: list[EuerLine] = field(default_factory=list)
     invoice_count: int = 0
+    credit_count: int = 0
+    """Gutschriften the customers wrote; counted apart from Fritz's own invoices."""
     expense_count: int = 0
 
     @property
@@ -110,6 +112,18 @@ def _paid_invoices(db_path: str | Path, year: int) -> list[tuple[Decimal, Decima
     return [(Decimal(net), Decimal(vat), Decimal(gross)) for net, vat, gross in rows]
 
 
+def _paid_credit_count(db_path: str | Path, year: int) -> int:
+    conn = sqlite3.connect(db_path)
+    try:
+        return len(
+            gutschriften.listing(
+                conn, column="paid_date", start=date(year, 1, 1), end=date(year, 12, 31)
+            )
+        )
+    finally:
+        conn.close()
+
+
 def _belongs_to_last_year(expense) -> bool:
     return expense.category == VAT_PAYMENT and expense.date.month == 1 and expense.date.day <= 10
 
@@ -152,9 +166,11 @@ def summarize(db_path: str | Path, year: int, tax_mode: TaxMode) -> EuerSummary:
     summary = EuerSummary(
         year=year,
         tax_mode=tax_mode,
-        invoice_count=sum(1 for _, _, gross in invoices if gross >= 0),  # not refunds
         expense_count=len(expenses),
     )
+    summary.credit_count = _paid_credit_count(db_path, year)
+    paid = sum(1 for _, _, gross in invoices if gross >= 0)  # refunds aren't invoices
+    summary.invoice_count = paid - summary.credit_count
     summary.lines += [EuerLine("income", label, amt) for label, amt in income.items()]
     summary.lines += [EuerLine("expense", label, amt) for label, amt in costs.items() if amt]
     return summary
@@ -198,7 +214,8 @@ def write_pdf(summary: EuerSummary, path: str | Path) -> Path:
         0,
         6,
         f"Steuerart: {mode}  |  {summary.invoice_count} bezahlte Rechnungen, "
-        f"{summary.expense_count} Ausgaben",
+        + (f"{summary.credit_count} Gutschriften, " if summary.credit_count else "")
+        + f"{summary.expense_count} Ausgaben",
         new_x="LMARGIN",
         new_y="NEXT",
     )

@@ -95,7 +95,8 @@ def test_kleinunternehmer_credit_counts_gross(tmp_path):
     conn = store.connect(db)
     _add(conn, gross="400.00", rate=None, paid=date(2026, 3, 1))
     summary = summarize(db, 2026, "kleinunternehmer")
-    assert summary.income_total == Decimal("400.00") and summary.invoice_count == 1
+    assert summary.income_total == Decimal("400.00")
+    assert (summary.invoice_count, summary.credit_count) == (0, 1)
 
 
 def test_entering_a_credit_on_the_customer_page(tmp_path):
