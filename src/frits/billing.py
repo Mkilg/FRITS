@@ -609,7 +609,9 @@ def list_invoices(conn, today: date | None = None) -> list[dict]:
     rows = conn.execute(
         "SELECT i.*, c.number AS cancelled_by,"
         " (SELECT o.paid_date FROM invoices o WHERE o.number = i.cancels) AS original_paid,"
-        " (SELECT COUNT(*) FROM reminders r WHERE r.invoice_number = i.number) AS reminders"
+        " (SELECT COUNT(*) FROM reminders r WHERE r.invoice_number = i.number) AS reminders,"
+        " (SELECT MAX(r.new_due_date) FROM reminders r WHERE r.invoice_number = i.number)"
+        " AS reminded_until"
         " FROM invoices i LEFT JOIN invoices c ON c.cancels = i.number"
         " ORDER BY i.number DESC"
     ).fetchall()

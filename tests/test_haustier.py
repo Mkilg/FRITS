@@ -193,7 +193,9 @@ def test_undoing_work_never_earns(conn):
     add_invoice(conn, "2026-0002", TODAY, cancels="2026-0001")  # the Storno
     eid = add_expense(conn, TODAY)
     stand.abgleichen(conn, TODAY)
-    conn.execute("DELETE FROM expenses WHERE id = ?", (eid,))
+    conn.execute(
+        "UPDATE expenses SET struck = '2026-11-02T10:00:00' WHERE id = ?", (eid,)
+    )  # deleted in the app
     assert kassensturz.offene_karten(conn) == []
     assert stand.abgleichen(conn, TODAY) == 0  # gone for good
 
@@ -231,7 +233,9 @@ def test_the_same_expense_never_brings_a_second_card(conn):
     eid = add_expense(conn, TODAY, "Churn AG", "12.50")
     assert stand.abgleichen(conn, TODAY) == 1
     kassensturz.durchfuehren(conn, TODAY, aufgeraeumt=False)
-    conn.execute("DELETE FROM expenses WHERE id = ?", (eid,))
+    conn.execute(
+        "UPDATE expenses SET struck = '2026-11-02T10:00:00' WHERE id = ?", (eid,)
+    )  # deleted in the app
     add_expense(conn, TODAY, "churn  ag", "12.5")  # entered again, a little differently
     assert stand.abgleichen(conn, TODAY) == 0
     # Two identical bus tickets are still two expenses.

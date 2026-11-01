@@ -29,7 +29,18 @@ from jinja2 import Environment, PackageLoader, select_autoescape
 from markupsafe import Markup
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from frits import __version__, about, emails, euer, expenses, haustier, setup, store, system
+from frits import (
+    __version__,
+    about,
+    emails,
+    euer,
+    expenses,
+    haustier,
+    setup,
+    store,
+    system,
+    ustva,
+)
 from frits.billing import (
     CUSTOMER_TAX,
     DEFAULT_PATTERN,
@@ -243,6 +254,7 @@ def _templates() -> Jinja2Templates:
     env.filters.update(eur=lambda v: eur(Decimal(v)) if v not in (None, "") else "", qty=de_number)
     env.filters["de_date"] = de_date
     env.filters["price_in"] = price_in
+    env.filters["elster"] = elster_amount
     env.globals.update(
         mascot=mascot_markup,
         units=UNITS,
@@ -694,13 +706,23 @@ def create_app(
         try:
             paid = _paid_day(form.get("paid"), today())
             row = (
-                db().execute("SELECT cancels FROM invoices WHERE number = ?", (number,)).fetchone()
+                db()
+                .execute("SELECT cancels, issue_date FROM invoices WHERE number = ?", (number,))
+                .fetchone()
             )
             mark_paid(db(), number, paid)
             if row and row["cancels"]:
                 flash(f"Erstattung zu {row['cancels']} ist eingetragen.")
             else:
                 flash(f"Rechnung {number} ist bezahlt. Schön!", cue="done", stamp="Bezahlt")
+            issued = date.fromisoformat(row["issue_date"]) if row else paid
+            if paid.year < issued.year:
+                flash(
+                    f"Das Zahldatum {paid:%d.%m.%Y} liegt vor der Rechnung, im Jahr {paid.year}. "
+                    f"So zählt das Geld in der EÜR {paid.year}. War das eine Vorauszahlung? "
+                    "Sonst bitte unter Rechnungen prüfen.",
+                    "error",
+                )
         except BillingError as exc:
             flash(str(exc), "error")
         return back("/invoices")
@@ -1141,8 +1163,9 @@ def create_app(
         gone = next((e for e in expenses.list_expenses(ws.db) if e.id == expense_id), None)
         if gone and expenses.delete_expense(ws.db, expense_id):
             flash(
-                f"Ausgabe gelöscht: {eur(gone.gross)} bei {gone.vendor}.",
-                undo={"kind": "expense", "expense": replace(gone, id=None)},
+                f"Ausgabe gelöscht: {eur(gone.gross)} bei {gone.vendor}."
+                " Sie zählt nicht mehr, bleibt fürs Finanzamt aber im Archiv.",
+                undo={"kind": "expense", "expense": gone},
             )
         return back(f"/expenses?year={gone.date.year}" if gone else "/expenses")
 
@@ -1152,7 +1175,7 @@ def create_app(
         last, app.state.undo = app.state.undo, None
         if last and last["kind"] == "expense":
             expense = last["expense"]
-            expenses.add_expense(ws.db, expense)
+            expenses.restore_expense(ws.db, expense.id)
             flash(f"Wieder da: {eur(expense.gross)} bei {expense.vendor}.")
             return back(f"/expenses?year={expense.date.year}")
         if last and last["kind"] == "draft":
@@ -1193,6 +1216,92 @@ def create_app(
         target.parent.mkdir(parents=True, exist_ok=True)
         (euer.write_csv if kind == "csv" else euer.write_pdf)(summary, target)
         return FileResponse(target, filename=target.name)
+
+    # ----- Umsatzsteuer-Voranmeldung -----
+
+    @app.get("/ustva", response_class=HTMLResponse)
+    def ustva_page(request: Request, year: int | None = None, nr: int | None = None):
+        current = settings()
+        period = current.vat_period if current.vat_period in ustva.PERIODS else "quartal"
+        basis = current.vat_basis if current.vat_basis in ustva.BASES else "ist"
+        if year is None or nr is None:
+            year, nr = ustva.current(today(), period)
+        try:
+            ustva.bounds(year, period, nr)
+        except ValueError:
+            year, nr = ustva.current(today(), period)
+        db()  # tables exist
+        meldung = ustva.voranmeldung(ws.db, current, year, nr, period, basis)
+        last = 4 if period == "quartal" else 12
+        prev = (year, nr - 1) if nr > 1 else (year - 1, last)
+        nxt = (year, nr + 1) if nr < last else (year + 1, 1)
+        booked = next(
+            (
+                e
+                for e in expenses.list_expenses(ws.db)
+                if e.category == expenses.VAT_PAYMENT and e.description == _vat_label(meldung)
+            ),
+            None,
+        )
+        return page(
+            request,
+            "ustva.html",
+            m=meldung,
+            prev=prev,
+            nxt=nxt,
+            period=period,
+            basis=basis,
+            periods=ustva.PERIODS,
+            bases=ustva.BASES,
+            booked=booked,
+            klein=current.tax_mode != "regelbesteuerung",
+            today_iso=today().isoformat(),
+        )
+
+    def _vat_label(meldung) -> str:
+        return f"USt-Voranmeldung {meldung.title}"
+
+    @app.post("/ustva/art", dependencies=guarded)
+    async def ustva_kind(request: Request):
+        form = await request.form()
+        period, basis = str(form.get("period", "")), str(form.get("basis", ""))
+        if period in ustva.PERIODS and basis in ustva.BASES:
+            replace(settings(), vat_period=period, vat_basis=basis).save(ws.settings_file)
+            flash("Gemerkt.")
+        return back("/ustva")
+
+    @app.post("/ustva/{year}/{nr}/bezahlt", dependencies=guarded)
+    async def ustva_paid(request: Request, year: int, nr: int):
+        form = await request.form()
+        current = settings()
+        try:
+            meldung = ustva.voranmeldung(
+                ws.db, current, year, nr, current.vat_period, current.vat_basis
+            )
+            paid = _paid_day(form.get("paid"), today())
+        except (ValueError, BillingError) as exc:
+            flash(str(exc), "error")
+            return back("/ustva")
+        if meldung.zahllast <= 0:
+            flash("Für diesen Zeitraum ist nichts zu zahlen.", "error")
+            return back(f"/ustva?year={year}&nr={nr}")
+        expenses.add_expense(
+            ws.db,
+            expenses.Expense(
+                date=paid,
+                vendor="Finanzamt",
+                description=_vat_label(meldung),
+                gross=meldung.zahllast,
+                vat_rate=None,
+                category=expenses.VAT_PAYMENT,
+            ),
+        )
+        flash(
+            f"Eingetragen: {eur(meldung.zahllast)} ans Finanzamt. Das zählt in der EÜR als Ausgabe.",
+            cue="done",
+            stamp="Gebucht",
+        )
+        return back(f"/ustva?year={year}&nr={nr}")
 
     # ----- Einrichtung -----
 
@@ -1672,6 +1781,14 @@ def _paid_day(value, day: date) -> date:
     if paid > day:
         raise BillingError("Das Zahldatum liegt in der Zukunft.")
     return paid
+
+
+def elster_amount(value, whole: bool = True) -> str:
+    """How ELSTER wants an amount typed: "1234" (whole euros) or "123,45", no dots."""
+    amount = Decimal(value)
+    if whole:
+        return str(int(amount))
+    return f"{amount:.2f}".replace(".", ",")
 
 
 def price_in(value) -> str:
