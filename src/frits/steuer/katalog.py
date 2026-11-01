@@ -54,6 +54,7 @@ class Stueck:
     hinweis: str = ""
     art: str = PFLICHT  # pflicht | bonus
     wenn: str = ""  # nur dabei, wenn dieser Haken im Fragebogen gesetzt ist
+    kern: bool = False  # gibt es fast immer: "Gibt's nicht" fragt einmal nach
 
 
 @dataclass(frozen=True)
@@ -207,6 +208,12 @@ def reich(profil: Profil) -> list[Gebiet]:
                     )
                 )
     return gebiete
+
+
+def ist_kern(gebiet_id: str, key: str) -> bool:
+    """Gibt es dieses Sammelstück fast immer (z. B. Belege bei Selbstständigen)?"""
+    provinz = katalog().get(gebiet_id.split("-")[0])
+    return bool(provinz) and any(s.key == key and s.kern for s in provinz.stuecke)
 
 
 def gebiet(profil: Profil, gebiet_id: str) -> Gebiet | None:

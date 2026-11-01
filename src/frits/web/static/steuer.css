@@ -770,3 +770,67 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
 .sq-mini-insel .sq-leuchtfeuer, .sq-mini-insel .sq-parzelle.auftragsziel .sq-diorama::before { display: none; }
 .sq-felder .sq-kachel { grid-column: 1 / -1; }
 .sq-siegelknopf { font-family: var(--schrift); }
+
+/* =====================================================================
+   Runde 3: Tester-Feedback (Drache schläft, Knöpfe über dem Falz, Orden-Infos,
+   lesbare Dialoge, Fokus, schmale Fenster)
+   ===================================================================== */
+/* Drache und Karte nebeneinander, damit alle Knöpfe ohne Scrollen sichtbar sind */
+@media (min-width: 900px) {
+  .sq-arena { display: grid; grid-template-columns: minmax(240px, 1fr) minmax(360px, 440px); grid-template-areas: "boss karte" "combo karte"; column-gap: 2.5rem; align-items: start; text-align: left; }
+  .sq-arena-boss { grid-area: boss; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.5rem; }
+  .sq-arena .sq-combo { grid-area: combo; justify-self: center; }
+  .sq-arena .sq-wurf, .sq-arena > .sq-siegelknopf { grid-area: karte; }
+  .sq-arena .sq-drache-gross { width: 240px; height: 220px; }
+  .sq-arena-schlaf { grid-template-areas: "boss karte"; align-items: center; }
+}
+.sq-arena-boss { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
+.sq-arena-boss > p { margin: 0; color: #f3e3c0; text-shadow: 0 1px 2px rgba(0,0,0,.95); }
+.sq-arena-schlaf .sq-drache-gross { filter: saturate(.6) brightness(.85); }
+.sq-arena-schlaf .sq-papier { color: var(--tinte); text-align: left; padding: 1.2rem 1.4rem; max-width: 440px; }
+.sq-arena-schlaf .sq-papier h1 { color: var(--tinte); text-shadow: none; font-size: 1.5rem; }
+.sq-arena-schlaf .sq-band { display: block; margin: 0.6rem 0; }
+.sq-arena-knopf { margin: 0.8rem 0 0; }
+.sq-arena-schlaf .sq-papier p { text-wrap: pretty; }
+.sq-hort.schlaeft .sq-drache-klein { filter: saturate(.5) brightness(.8); }
+.sq-hort.schlaeft:hover .sq-drache-klein { transform: none; }
+
+/* Zweiter Klick nötig */
+.sq-stempelknopf.rueckfrage, .sq-stempelknopf.rueckfrage:hover { background: var(--terrakotta) !important; color: #fff; border-color: var(--terrakotta-dunkel) !important; animation: sq-zucken .3s; }
+@keyframes sq-zucken { 0%, 100% { transform: none; } 30% { transform: translateX(-3px); } 70% { transform: translateX(3px); } }
+
+/* Orden erklären sich beim Drüberfahren oder per Tab */
+.sq-orden li { position: relative; cursor: help; }
+.sq-orden-info { position: absolute; bottom: calc(100% + 8px); left: 0; width: 210px; z-index: 90;
+  background: var(--papier); color: var(--tinte); font: 400 0.82rem/1.35 system-ui, sans-serif; text-align: left; text-shadow: none;
+  padding: 0.55rem 0.7rem; border-radius: 4px; box-shadow: 0 8px 18px rgba(0,0,0,.35); opacity: 0; pointer-events: none; transition: opacity .15s; }
+.sq-orden li:nth-child(n+5) .sq-orden-info { left: auto; right: 0; }
+.sq-orden-info strong { display: block; font-family: var(--schrift); font-size: 0.9rem; margin-bottom: 0.15rem; }
+.sq-orden-info em { display: block; color: var(--terrakotta-dunkel); font-style: normal; margin-top: 0.2rem; }
+.sq-orden li:hover .sq-orden-info, .sq-orden li:focus .sq-orden-info, .sq-orden li:focus-within .sq-orden-info { opacity: 1; }
+
+/* Kein verwischter Schatten in Papier-Dialogen */
+.sq dialog *, .sq-zettel form *, .sq-belohnung * { text-shadow: none; }
+/* Schritt-Reiter besser lesbar */
+.sq-schritte li { color: #6b5a3a; }
+.sq-zettel small, .sq-weg { color: #6b5a3a; }
+
+/* Gut sichtbarer Fokus auf dem Holztisch */
+.sq a:focus-visible, .sq button:focus-visible, .sq input:focus-visible, .sq select:focus-visible, .sq textarea:focus-visible, .sq [tabindex]:focus-visible {
+  outline: 3px solid var(--gold); outline-offset: 3px; border-radius: 3px; }
+
+/* Bonus-Provinz klar als Bonus markieren */
+.sq-parzelle.bonus .sq-schild::after { content: "Bonus"; display: block; font: 600 0.65rem system-ui, sans-serif; letter-spacing: .06em; text-transform: uppercase; color: var(--ocker-dunkel); }
+
+/* Kleinere Fenster: Insel als Kacheln, damit nichts abgeschnitten wird */
+@media (max-width: 1100px) {
+  .sq-insel { height: auto !important; animation: none; }
+  .sq-insel-gras { border-radius: 28px; inset: 0; }
+  .sq-insel-fels, .sq-insel-schatten { display: none; }
+  .sq-provinzen { position: relative; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1rem 0.4rem; padding: 1.2rem 0.4rem; }
+  .sq-provinzen .sq-parzelle { position: relative; left: auto; top: auto; margin: 0 auto; }
+  .sq-hort { position: relative; margin: 1rem auto 0; width: max-content; }
+  .sq-insel.mit-bild { width: 100%; margin-left: 0; aspect-ratio: auto; }
+  .sq-insel.mit-bild .sq-insel-gras { background: linear-gradient(rgba(40, 60, 20, .25), rgba(40, 60, 20, .25)), var(--insel-bild) center / cover; border-radius: 28px; filter: none; box-shadow: 0 20px 30px rgba(20, 8, 2, .4); }
+  .sq-insel.mit-bild .sq-provinzen { position: relative; left: auto; right: auto; top: auto; bottom: auto; }
+}
