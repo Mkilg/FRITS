@@ -705,6 +705,18 @@ def test_the_welcome_round_always_shows_the_wuerze(conn):
     assert saison.jetzt(conn, TODAY).erreicht == 0  # a present, not season progress
 
 
+def test_no_card_note_inside_the_steuer_quest(client, ws):  # noqa: F811
+    """Nearly every step there is a card; the note would cover the basket."""
+    conn = store.connect(ws.db)
+    client.get("/")  # Fritte moves in
+    post(client, "/fritte/kassensturz")
+    add_invoice(conn, "2026-0003", TODAY)
+    steuer = client.get("/steuer", follow_redirects=True)
+    assert steuer.status_code == 200 and "Fritte hat" not in steuer.text
+    assert "Fritte hat" not in client.get("/invoices").text  # counted, not shown later
+    assert stand.wartende(conn) == 1  # still a card, just no note
+
+
 # ---------- Gutschriften ----------
 
 

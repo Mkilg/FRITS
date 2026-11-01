@@ -123,7 +123,9 @@ def register_haustier(
         vorher = int(stand.einstellung(conn, "hinweis_wartend", "0") or 0)
         if n != vorher:
             stand.setze(conn, "hinweis_wartend", str(n))
-        if n <= vorher or path == "/" or path.startswith(("/fritte", "/feierabend")):
+        # Not in the Steuer-Quest: there nearly every step is a card, and the note would
+        # cover the basket. Fritte counts them anyway and shows them on her own page.
+        if n <= vorher or path == "/" or path.startswith(("/fritte", "/feierabend", "/steuer")):
             return []
         neu = n - vorher
         bereit = kassensturz.vorschau(conn, today(), aufgeraeumt=False)[1]["summe"]
