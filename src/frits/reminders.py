@@ -12,6 +12,56 @@ from frits.settings import Settings
 REMINDER_DAYS = 7
 
 
+def _de(day: date) -> str:
+    return day.strftime("%d.%m.%Y")
+
+
+def reminder_text(
+    number: str, issued: date, gross: str, level: int, new_due: date, previous: date | None
+) -> list[str]:
+    """The middle of a reminder, the same in the letter and the e-mail.
+
+    Each level says a little more, never with fees or threats: the first assumes the
+    invoice got lost, the second names the earlier reminder, the third and later ones say
+    plainly that it is the last friendly one and offer to talk about instalments. Any
+    reminder after the due date puts the customer in default (§ 286 Abs. 1 BGB); FRITS
+    never adds interest or the 40-€ flat fee, Fritz can decide that himself.
+    """
+    amount = f"Rechnung {number} vom {_de(issued)} über {gross}"
+    pay = (
+        f"Bitte überweisen Sie den Betrag bis zum {_de(new_due)} und geben Sie die "
+        f"Rechnungsnummer {number} an."
+    )
+    if level == 1:
+        return [
+            (
+                f"meine {amount} ist noch offen. Vielleicht ist sie im Alltag untergegangen, "
+                "das passiert."
+            ),
+            pay + " Falls Sie schon bezahlt haben, ist dieses Schreiben erledigt.",
+        ]
+    since = f" am {_de(previous)}" if previous else ""
+    if level == 2:
+        return [
+            (
+                f"ich hatte Sie{since} an meine {amount} erinnert. Bis heute ist leider keine "
+                "Zahlung bei mir eingegangen."
+            ),
+            pay + " Falls sich das mit Ihrer Zahlung gekreuzt hat, ist dieses Schreiben erledigt.",
+        ]
+    return [
+        (
+            f"meine {amount} ist trotz Erinnerung{since} noch offen. Dies ist meine letzte "
+            "freundliche Erinnerung."
+        ),
+        pay
+        + (
+            " Wenn es gerade schwierig ist, melden Sie sich bitte bei mir. Dann finden wir "
+            "eine Lösung, zum Beispiel eine Zahlung in Raten."
+        ),
+    ]
+
+
 def create_reminder(
     conn,
     number: str,
@@ -49,8 +99,12 @@ def create_reminder(
         )
     level = 1 + earlier[0]
     new_due = today + timedelta(days=REMINDER_DAYS)
+    last = conn.execute(
+        "SELECT MAX(created) FROM reminders WHERE invoice_number = ?", (number,)
+    ).fetchone()[0]
+    previous = date.fromisoformat(last[:10]) if last else None
     pdf = Path(folder) / f"{number}_Erinnerung_{level}.pdf"
-    render_reminder(pdf, dict(row), level, settings, today, new_due, customer_address)
+    render_reminder(pdf, dict(row), level, settings, today, new_due, customer_address, previous)
     cur = conn.execute(
         "INSERT INTO reminders (invoice_number, created, level, new_due_date, pdf_path)"
         " VALUES (?, ?, ?, ?, ?)",

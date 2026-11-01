@@ -128,6 +128,15 @@ def _belongs_to_last_year(expense) -> bool:
     return expense.category == VAT_PAYMENT and expense.date.month == 1 and expense.date.day <= 10
 
 
+def expenses_of_year(db_path: str | Path, year: int) -> list:
+    """The expenses that count for ``year`` in the EÜR (Abflussprinzip, § 11 EStG)."""
+    expenses = [e for e in list_expenses(db_path, year=year) if not _belongs_to_last_year(e)]
+    # The Umsatzsteuer for December or the 4th quarter is due on 10 January. Paid by then,
+    # it counts for the old year (regelmäßig wiederkehrende Ausgabe, § 11 Abs. 2 Satz 2 EStG).
+    expenses += [e for e in list_expenses(db_path, year=year + 1) if _belongs_to_last_year(e)]
+    return expenses
+
+
 def summarize(db_path: str | Path, year: int, tax_mode: TaxMode) -> EuerSummary:
     """Build the EÜR for one calendar year from the invoices and expenses tables."""
     if tax_mode not in TAX_MODES:
@@ -150,10 +159,7 @@ def summarize(db_path: str | Path, year: int, tax_mode: TaxMode) -> EuerSummary:
 
     costs: dict[str, Decimal] = {c.euer_line: Decimal(0) for c in CATEGORIES.values()}
     vorsteuer = Decimal(0)
-    expenses = [e for e in list_expenses(db_path, year=year) if not _belongs_to_last_year(e)]
-    # The Umsatzsteuer for December or the 4th quarter is due on 10 January. Paid by then,
-    # it counts for the old year (regelmäßig wiederkehrende Ausgabe, § 11 Abs. 2 Satz 2 EStG).
-    expenses += [e for e in list_expenses(db_path, year=year + 1) if _belongs_to_last_year(e)]
+    expenses = expenses_of_year(db_path, year)
     for exp in expenses:
         cat = CATEGORIES[exp.category]
         base = exp.net if regel else exp.gross

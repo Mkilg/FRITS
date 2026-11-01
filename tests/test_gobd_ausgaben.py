@@ -143,3 +143,37 @@ def test_receipt_words_suggest_a_category():
     assert guess_category("Gaststätte Zur Linde\nBewirtung") == "bewirtung"
     assert guess_category("Deutsche Post\nPorto") == "buero"
     assert guess_category("Irgendwas") is None
+
+
+def test_each_reminder_level_says_a_little_more(tmp_path):
+    from frits.emails import reminder_email
+    from frits.reminders import reminder_text
+
+    issued, due = date(2026, 9, 1), date(2026, 10, 8)
+    first = " ".join(reminder_text("2026-0001", issued, "100,00 €", 1, due, None))
+    assert "untergegangen" in first and "08.10.2026" in first
+    second = " ".join(reminder_text("2026-0001", issued, "100,00 €", 2, due, date(2026, 10, 1)))
+    assert "am 01.10.2026" in second and "untergegangen" not in second
+    third = " ".join(reminder_text("2026-0001", issued, "100,00 €", 3, due, date(2026, 10, 1)))
+    assert "letzte freundliche" in third and "Raten" in third
+    for text in (first, second, third):  # never fees or threats
+        assert not any(word in text for word in ("Gebühr", "Zinsen", "Inkasso", "Gericht"))
+
+    invoice = {"number": "2026-0001", "issue_date": "2026-09-01", "gross": "100"}
+    subject, body = reminder_email(invoice, due, None, _settings(), 2, date(2026, 10, 1))
+    assert subject == "2. Zahlungserinnerung zu Rechnung 2026-0001"
+    assert "diese E-Mail erledigt" in body and "als PDF an" in body
+
+
+def test_second_reminder_letter_names_the_first(tmp_path):
+    from pypdf import PdfReader
+
+    conn = store.connect(tmp_path / "frits.db")
+    _overdue_invoice(conn)
+    day = date(2026, 10, 1)
+    _, _, new_due = create_reminder(conn, "2026-0001", _settings(), tmp_path, None, day)
+    _, second, _ = create_reminder(
+        conn, "2026-0001", _settings(), tmp_path, None, new_due + timedelta(days=1)
+    )
+    text = " ".join(page.extract_text() for page in PdfReader(second).pages)
+    assert "2. Zahlungserinnerung" in text and "ich hatte Sie" in text
