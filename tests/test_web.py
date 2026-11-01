@@ -119,6 +119,8 @@ def test_music_mood_is_chosen_in_settings(client, ws):
     assert 'data-frits-music="schwung"' in client.get("/").text
     post(client, "/settings", music="gibt-es-nicht")
     assert Settings.load(ws.settings_file).music == "motivierend"
+    # Pages loaded normally say so; the music frame (frits-sound.js) only reloads those
+    assert "data-frits-get" in client.get("/").text
     # The Steuer-Quest is an adventure, whatever the mood
     assert 'data-frits-music="abenteuer"' in client.get("/steuer").text
 
