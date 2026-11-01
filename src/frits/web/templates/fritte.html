@@ -1,8 +1,12 @@
 {% extends "base.html" %}
+{% import "_spiel.html" as spiel %}
 {% block title %}Fritte · FRITS{% endblock %}
 {% block head %}<link rel="stylesheet" href="/static/haustier.css">{% endblock %}
 {% block content %}
-<h1>Fritte zuhause</h1>
+<div class="spiel-kopf">
+  <h1>Fritte zuhause</h1>
+  {% include "_spiel_reiter.html" %}
+</div>
 <section class="card fritte-haus">
   {% include "_fritte_zimmer.html" %}
   <div class="haus-leiste">
@@ -17,56 +21,76 @@
   </div>
 </section>
 
+<section class="card kassensturz-tisch" id="kassensturz">
+  <h2>Kassensturz</h2>
+  {% if karten %}
+  <p>{{ karten | length }} {{ "Karte wartet" if karten | length == 1 else "Karten warten" }}. Jede bringt Körner, die Gewürze im Regal machen mehr daraus.</p>
+  <div class="kartenreihe">
+    {% for k in karten[:12] %}{{ spiel.karte(k.als_dict(), loop.index0) }}{% endfor %}
+    {% if karten | length > 12 %}<span class="hint">und {{ karten | length - 12 }} weitere</span>{% endif %}
+  </div>
+  <div class="regal-vorschau">
+    <span class="hint">Im Regal ({{ regal | length }} von {{ plaetze }}):</span>
+    {% for g in regal %}{{ spiel.glas(g, klein=True) }}{% else %}<span class="hint">noch leer. Im <a href="/fritte/laden#markt">Laden</a> gibt es Gewürze.</span>{% endfor %}
+  </div>
+  <form method="post" action="/fritte/kassensturz">
+    <input type="hidden" name="token" value="{{ token }}">
+    <button class="primary gross">Kassensturz machen</button>
+  </form>
+  <p class="hint">Du kannst Karten auch sammeln: Manche Gewürze lohnen sich bei großen Stapeln mehr.</p>
+  {% else %}
+  <p>Gerade wartet keine Karte. Jede erledigte Rechnung, Zahlung, Ausgabe, jedes Angebot und jeder Feierabend wird zu einer Karte. Beim Kassensturz rechnet Fritte sie zusammen.</p>
+  {% endif %}
+</section>
+
+<section class="card frittes-haus" id="haus">
+  <h2>Frittes Haus</h2>
+  <ol class="zeitalter">
+    {% for st in stufen %}
+    <li class="{{ 'erreicht' if st.nummer <= f.stufe else '' }}{{ ' im-bau' if f.bau == st.name else '' }}{{ ' jetzt' if st.nummer == f.stufe else '' }}">
+      <span class="za-zeichen" aria-hidden="true">{{ st.zeichen }}</span>
+      <strong>{{ st.name }}</strong>
+      {% if st.nummer > f.stufe %}<span class="hint">{{ st.preis }} 🧂</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ol>
+  {% if f.bau %}
+  <p>🚧 <strong>{{ f.bau }}</strong> wird gerade gebaut. Beim nächsten Kassensturz ist es fertig.</p>
+  {% elif naechste %}
+  <p><strong>Nächster Ausbau: {{ naechste.name }}.</strong> {{ naechste.text }}</p>
+  <form method="post" action="/fritte/ausbauen" data-confirm="{{ naechste.name }} für {{ naechste.preis }} Salzkörner bauen?">
+    <input type="hidden" name="token" value="{{ token }}">
+    <button class="primary" {{ "disabled" if f.guthaben < naechste.preis }}>Ausbauen für {{ naechste.preis }} 🧂</button>
+    {% if f.guthaben < naechste.preis %}<span class="hint">Noch {{ naechste.preis - f.guthaben }} Salzkörner.</span>{% endif %}
+  </form>
+  {% else %}
+  <p>Frittes Haus ist fertig ausgebaut. Eine Frittenbude mitten im Ort, wer hätte das gedacht.</p>
+  {% endif %}
+</section>
+
+{% if chronik %}
 <section class="card">
-  <h2>Wie es Fritte geht</h2>
-  <p>Fritte mag einen ruhigen, regelmäßigen Rhythmus. Wenn du in den letzten Tagen Papierkram gemacht hast, ist sie <strong>munter</strong>. Nach gut einer Woche wird sie <strong>gemütlich</strong>, nach zwei Wochen <strong>döst</strong> sie ein bisschen. Mehr passiert nie: Sie wird nicht traurig und nicht krank, und wenn du wiederkommst, freut sie sich.</p>
-  <p class="hint">Eine Büro-Stunde pro Woche reicht völlig. Es gibt keine Serie, die reißen kann.</p>
-  <h3>So gibt es Salzkörner</h3>
-  <ul class="punkte-liste">
-    {% for text, n in punkte %}<li><span>{{ text }}</span><strong>+{{ n }}</strong></li>{% endfor %}
+  <h2>Chronik</h2>
+  <ul class="list chronik">
+    {% for c in chronik %}
+    <li><a href="/fritte/kassensturz/{{ c.nummer }}"><span>Kassensturz Nr. {{ c.nummer }}</span><span class="muted">{{ c.tag | de_date }}</span><span class="amount">+{{ c.summe }} 🧂</span></a></li>
+    {% endfor %}
   </ul>
-  <p class="hint">Gezählt wird, was du in FRITS erledigt hast, auch alles von vorher. Insgesamt verdient: {{ f.verdient }}.</p>
-</section>
-
-<section class="card" id="laden">
-  <h2>Der kleine Laden</h2>
-  <div class="laden">
-    {% for d in laden %}
-    {% set hat = d.id in f.gekauft %}
-    <div class="ware{{ ' gekauft' if hat }}">
-      <span class="ware-bild" aria-hidden="true">{% if picture('ding-' ~ d.id) %}<img src="{{ picture('ding-' ~ d.id) }}" alt="">{% else %}{{ d.zeichen }}{% endif %}</span>
-      <strong>{{ d.name }}</strong>
-      <span class="hint">{{ d.text }}</span>
-      {% if hat %}
-      <span class="badge ok">{{ "im Schrank" if d.art == "hut" else "im Zimmer" }}</span>
-      {% elif f.guthaben >= d.preis %}
-      <form method="post" action="/fritte/kaufen">
-        <input type="hidden" name="token" value="{{ token }}">
-        <input type="hidden" name="ding" value="{{ d.id }}">
-        <button class="primary">Kaufen für {{ d.preis }} 🧂</button>
-      </form>
-      {% else %}
-      <span class="preis">{{ d.preis }} 🧂 <span class="hint">· noch {{ d.preis - f.guthaben }}</span></span>
-      {% endif %}
-    </div>
-    {% endfor %}
-  </div>
-</section>
-
-{% set huete = laden | selectattr("art", "equalto", "hut") | selectattr("id", "in", f.gekauft) | list %}
-{% if huete %}
-<section class="card" id="huete">
-  <h2>Hutschrank</h2>
-  <div class="row">
-    {% for d in huete %}
-    <form method="post" action="/fritte/hut">
-      <input type="hidden" name="token" value="{{ token }}">
-      <input type="hidden" name="ding" value="{{ d.id }}">
-      <button aria-pressed="{{ 'true' if f.hut and f.hut.id == d.id else 'false' }}">{{ d.zeichen }} {{ "Absetzen" if f.hut and f.hut.id == d.id else d.name ~ " aufsetzen" }}</button>
-    </form>
-    {% endfor %}
-  </div>
 </section>
 {% endif %}
+
+<section class="card">
+  <details>
+    <summary><h2>So funktioniert's</h2></summary>
+    <p>Fritte mag einen ruhigen, regelmäßigen Rhythmus. Wenn du in den letzten Tagen Papierkram gemacht hast, ist sie <strong>munter</strong>. Nach gut einer Woche wird sie <strong>gemütlich</strong>, nach zwei Wochen <strong>döst</strong> sie ein bisschen. Mehr passiert nie: Sie wird nicht traurig und nicht krank, und wenn du wiederkommst, freut sie sich.</p>
+    <h3>Karten und ihre Körner</h3>
+    <ul class="punkte-liste">
+      {% for art, text in arten.items() %}<li><span>{{ text }}</span><strong>+{{ grund[art] }}</strong></li>{% endfor %}
+    </ul>
+    <h3>Kassensturz</h3>
+    <p><strong>Körner × Würze = Salzkörner.</strong> Die Würze beginnt bei 1. Gewürze geben Extra-Körner auf passende Karten oder erhöhen die Würze. Die Würze wirkt im Regal von links nach rechts, also lohnt es sich, ein „×“-Gewürz ganz nach rechts zu stellen.</p>
+    <p class="hint">Gelöschte oder stornierte Vorgänge fallen vor dem Kassensturz heraus. Belohnt wird nur, was gute Buchhaltung ausmacht: Belege zeitnah eintragen, Rechnungen bald nach der Arbeit schreiben, freundlich nachhaken, regelmäßig dranbleiben.</p>
+  </details>
+</section>
 <p class="hint">Fritte ausblenden kannst du in den <a href="/settings">Einstellungen</a>.</p>
 {% endblock %}

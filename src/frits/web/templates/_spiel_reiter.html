@@ -1,0 +1,5 @@
+<nav class="spiel-reiter" aria-label="Fritte">
+  {% for href, label in [("/fritte", "Zimmer & Kassensturz"), ("/fritte/laden", "Laden & Gewürzregal"), ("/fritte/album", "Album")] %}
+  <a href="{{ href }}"{% if nav == href %} aria-current="page"{% endif %}>{{ label }}</a>
+  {% endfor %}
+</nav>

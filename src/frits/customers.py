@@ -24,6 +24,8 @@ class Customer:
     aliases: tuple[str, ...] = field(default_factory=tuple)
     umsatzsteuer: str = ""  # "" Germany, "eu" another EU country, "drittland" outside the EU
     ust_id: str | None = None
+    land: str = "DE"  # ISO 3166 country code
+    referenz: str | None = None  # Leitweg-ID or order number to quote on every invoice
 
     @property
     def display_name(self) -> str:
@@ -51,6 +53,8 @@ def parse_note(path: Path) -> Customer | None:
         aliases=tuple(str(a).strip() for a in meta.get("aliases") or ()),
         umsatzsteuer=_where(meta.get("umsatzsteuer")),
         ust_id=_opt(meta.get("ust_id")),
+        land=_country(meta.get("land")),
+        referenz=_opt(meta.get("referenz")),
     )
 
 
@@ -92,10 +96,41 @@ def save_note(folder: Path, customer: Customer) -> Path:
         meta["umsatzsteuer"] = customer.umsatzsteuer
     if customer.ust_id:
         meta["ust_id"] = customer.ust_id
+    if customer.land and customer.land != "DE":
+        meta["land"] = customer.land
+    if customer.referenz:
+        meta["referenz"] = customer.referenz
     front = yaml.safe_dump(meta, allow_unicode=True, sort_keys=False)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(f"---\n{front}---\n{body}", encoding="utf-8")
     return path
+
+
+# Countries Fritz is likely to bill, for the customer form. Notes may hold any ISO code.
+COUNTRIES = {
+    "DE": "Deutschland",
+    "AT": "Österreich",
+    "CH": "Schweiz",
+    "LU": "Luxemburg",
+    "NL": "Niederlande",
+    "BE": "Belgien",
+    "FR": "Frankreich",
+    "IT": "Italien",
+    "ES": "Spanien",
+    "DK": "Dänemark",
+    "SE": "Schweden",
+    "PL": "Polen",
+    "CZ": "Tschechien",
+    "IE": "Irland",
+    "GB": "Vereinigtes Königreich",
+    "NO": "Norwegen",
+    "US": "USA",
+}
+
+
+def _country(value: object) -> str:
+    text = str(value or "").strip().upper()
+    return text if re.fullmatch(r"[A-Z]{2}", text) else "DE"
 
 
 def _where(value: object) -> str:

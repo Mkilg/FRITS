@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% import "_spiel.html" as spiel %}
+{% block title %}Laden · Fritte · FRITS{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/haustier.css">{% endblock %}
+{% block content %}
+<div class="spiel-kopf">
+  <h1>Frittes Laden</h1>
+  {% include "_spiel_reiter.html" %}
+  <p class="salz kopf-salz"><span aria-hidden="true">🧂</span> <strong>{{ f.guthaben }}</strong> Salzkörner</p>
+</div>
+
+<section class="card" id="regal">
+  <h2>Gewürzregal <span class="hint">{{ regal | length }} von {{ plaetze }} Plätzen</span></h2>
+  <p class="hint">Die Würze wirkt von links nach rechts. Ein „×“-Gewürz ganz rechts multipliziert alles davor.</p>
+  <div class="regalbrett">
+    {% for g in regal %}
+    <div class="regal-platz">
+      {{ spiel.glas(g) }}
+      <p class="glas-text">{{ g.text }}</p>
+      <div class="row klein">
+        {% if not loop.first %}
+        <form method="post" action="/fritte/gewuerz/links">
+          <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="gewuerz" value="{{ g.id }}">
+          <button class="quiet" title="Einen Platz nach links">◀ links</button>
+        </form>
+        {% endif %}
+        <form method="post" action="/fritte/gewuerz/verkaufen" data-confirm="{{ g.name }} für {{ verkauf(g.preis) }} Salzkörner verkaufen?">
+          <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="gewuerz" value="{{ g.id }}">
+          <button class="quiet">Verkaufen (+{{ verkauf(g.preis) }})</button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+    {% for _ in range(plaetze - regal | length) %}<div class="regal-platz leer"><span>freier Platz</span></div>{% endfor %}
+  </div>
+</section>
+
+<section class="card" id="markt">
+  <h2>Markttag <span class="hint">neue Ware jeden Montag</span></h2>
+  {% if stufe.nummer < 3 %}<p class="hint">{{ "Seltene" if stufe.nummer < 2 else "Legendäre" }} Gewürze gibt es erst, wenn Frittes Haus weiter ausgebaut ist ({{ "Stube" if stufe.nummer < 2 else "Werkstatt" }}).</p>{% endif %}
+  <div class="markt">
+    {% for g in markt %}
+    <div class="ware gewuerz-ware selten-{{ g.seltenheit | replace('ö', 'oe') | replace('ä', 'ae') }}">
+      {{ spiel.glas(g) }}
+      <span class="seltenheit">{{ g.seltenheit }}</span>
+      <span class="hint">{{ g.text }}</span>
+      {% if g.id in im_regal %}
+      <span class="badge ok">im Regal</span>
+      {% elif regal | length >= plaetze %}
+      <span class="preis">{{ g.preis }} 🧂 <span class="hint">· Regal voll</span></span>
+      {% elif f.guthaben >= g.preis %}
+      <form method="post" action="/fritte/gewuerz/kaufen">
+        <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="gewuerz" value="{{ g.id }}">
+        <button class="primary">Kaufen für {{ g.preis }} 🧂</button>
+      </form>
+      {% else %}
+      <span class="preis">{{ g.preis }} 🧂 <span class="hint">· noch {{ g.preis - f.guthaben }}</span></span>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  <form method="post" action="/fritte/markt/wuerfeln" class="wuerfeln">
+    <input type="hidden" name="token" value="{{ token }}">
+    <button {{ "disabled" if f.guthaben < wurf_preis }}>🎲 Neu würfeln für {{ wurf_preis }} 🧂</button>
+  </form>
+</section>
+
+<section class="card" id="einrichtung">
+  <h2>Einrichtung</h2>
+  <div class="laden">
+    {% for d in laden %}
+    {% set hat = d.id in f.gekauft %}
+    <div class="ware{{ ' gekauft' if hat }}">
+      <span class="ware-bild" aria-hidden="true">{% if picture('ding-' ~ d.id) %}<img src="{{ picture('ding-' ~ d.id) }}" alt="">{% else %}{{ d.zeichen }}{% endif %}</span>
+      <strong>{{ d.name }}</strong>
+      <span class="hint">{{ d.text }}</span>
+      {% if hat %}
+      <span class="badge ok">{{ "im Schrank" if d.art == "hut" else "im Zimmer" }}</span>
+      {% elif f.guthaben >= d.preis %}
+      <form method="post" action="/fritte/kaufen">
+        <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="ding" value="{{ d.id }}">
+        <button class="primary">Kaufen für {{ d.preis }} 🧂</button>
+      </form>
+      {% else %}
+      <span class="preis">{{ d.preis }} 🧂 <span class="hint">· noch {{ d.preis - f.guthaben }}</span></span>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+{% set huete = laden | selectattr("art", "equalto", "hut") | selectattr("id", "in", f.gekauft) | list %}
+{% if huete %}
+<section class="card" id="huete">
+  <h2>Hutschrank</h2>
+  <div class="row">
+    {% for d in huete %}
+    <form method="post" action="/fritte/hut">
+      <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="ding" value="{{ d.id }}">
+      <button aria-pressed="{{ 'true' if f.hut and f.hut.id == d.id else 'false' }}">{{ d.zeichen }} {{ "Absetzen" if f.hut and f.hut.id == d.id else d.name ~ " aufsetzen" }}</button>
+    </form>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section class="card" id="kassenbuch">
+  <details>
+    <summary><h2>Frittes Kassenbuch</h2></summary>
+    <p class="hint">Fritte führt auch Buch: Jedes Salzkorn, das reinkommt oder rausgeht, steht hier in einer Zeile. Genau so funktioniert ein echtes Kassenbuch.</p>
+    <table class="kassenbuch">
+      <thead><tr><th>Tag</th><th>Was</th><th class="amount">Salzkörner</th></tr></thead>
+      <tbody>
+        {% for z in kassenbuch %}
+        <tr><td>{{ z.tag | de_date }}</td><td>{{ z.text }}</td><td class="amount {{ 'plus' if z.betrag > 0 else 'minus' }}">{{ "%+d" % z.betrag }}</td></tr>
+        {% else %}
+        <tr><td colspan="3" class="muted">Noch keine Buchung.</td></tr>
+        {% endfor %}
+      </tbody>
+      <tfoot><tr><th colspan="2">Bestand</th><th class="amount">{{ f.guthaben }}</th></tr></tfoot>
+    </table>
+  </details>
+</section>
+{% endblock %}

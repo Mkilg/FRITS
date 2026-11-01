@@ -55,13 +55,14 @@ from frits.billing import (
     unit_price,
     valid_pattern,
 )
-from frits.customers import Customer, load_customers, note_id, save_note
+from frits.customers import COUNTRIES, Customer, load_customers, note_id, save_note
 from frits.ingest import SUPPORTED, IngestError, extract_text
 from frits.providers import KEY_ENV, ProviderError, get_api_key, make_provider, store_api_key
 from frits.quotes import accept_quote, create_quote, decline_quote, list_quotes
 from frits.reminders import create_reminder
 from frits.render import eur, qty
 from frits.settings import Settings, Workspace
+from frits.spiel import stand as spiel_stand
 from frits.web.haustier import fritte_datei, register_haustier
 
 UNITS = ("Std", "km", "Stk", "pauschal")
@@ -237,6 +238,7 @@ def _templates() -> Jinja2Templates:
         mascot=mascot_markup,
         units=UNITS,
         customer_tax=CUSTOMER_TAX,
+        countries=COUNTRIES,
         providers=PROVIDERS,
         supported=",".join(sorted(SUPPORTED)),
     )
@@ -423,7 +425,7 @@ def create_app(
             mood=moment[0],
             moment=moment[1],
             ai_ready=ai_ready(current),
-            f=haustier.ansehen(conn, fritte_datei(ws.root), today()) if current.haustier else None,
+            f=haustier.ansehen(conn, today(), fritte_datei(ws.root)) if current.haustier else None,
         )
 
     @app.post("/inbox/process", dependencies=guarded)
@@ -894,6 +896,8 @@ def create_app(
             if (where := str(form.get("umsatzsteuer", ""))) in CUSTOMER_TAX
             else "",
             ust_id=str(form.get("ust_id", "")).replace(" ", "").upper() or None,
+            land=land if (land := str(form.get("land", "DE"))) in COUNTRIES else "DE",
+            referenz=str(form.get("referenz", "")).strip() or None,
         )
         save_note(ws.customers, customer)
         flash(f"{customer.display_name} ist gespeichert.")
@@ -1300,7 +1304,7 @@ def create_app(
 
     @app.post("/feierabend", dependencies=guarded)
     def feierabend():
-        haustier.feierabend(fritte_datei(ws.root), today())
+        spiel_stand.feierabend(db(), today())
         flash("", cue="shutdown")
         return back("/feierabend")
 
@@ -1326,6 +1330,9 @@ def create_app(
             waiting=len(_inbox_files(ws)),
             mood=mood,
             text=text,
+            karten=spiel_stand.abgleichen(conn, today(), fritte_datei(ws.root))
+            if settings().haustier
+            else 0,
         )
 
     @app.get("/health")
@@ -1390,6 +1397,7 @@ def create_app(
         settings=settings,
         guarded=guarded,
         today=today,
+        aufgeraeumt=lambda: not _inbox_files(ws) and not _open_drafts(db(), settings()),
     )
 
     from frits.web.lernen import register_lernen

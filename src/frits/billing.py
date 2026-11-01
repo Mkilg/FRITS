@@ -74,6 +74,8 @@ class Draft:
     tax: dict | None = None
     customer_tax: str = ""  # "", "eu" or "drittland", copied from the customer note
     customer_ust_id: str | None = None
+    customer_country: str = "DE"  # ISO 3166 code, for the e-invoice
+    customer_reference: str | None = None  # Leitweg-ID or order number the customer asked for
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), default=str, ensure_ascii=False)
@@ -156,6 +158,8 @@ def build_draft(
         customer_address=customer.address if customer else None,
         customer_tax=customer.umsatzsteuer if customer else "",
         customer_ust_id=customer.ust_id if customer else None,
+        customer_country=customer.land if customer else "DE",
+        customer_reference=customer.referenz if customer else None,
         lines=lines,
         questions=questions,
         warnings=warnings,
@@ -269,6 +273,13 @@ def _day(text: str) -> date | None:
     except ValueError:
         return None
     return None
+
+
+def service_dates(lines: list[Line]) -> list[date]:
+    """The line dates, sorted, when every dated line has a readable date. Else empty."""
+    raw = [line.date for line in lines if line.date and line.date.strip()]
+    days = [_day(text) for text in raw]
+    return sorted(days) if days and all(days) else []
 
 
 def service_period(lines: list[Line]) -> str | None:
@@ -503,6 +514,8 @@ def set_customer(draft: Draft, customer: Customer | None) -> None:
     draft.customer_address = customer.address if customer else None
     draft.customer_tax = customer.umsatzsteuer if customer else ""
     draft.customer_ust_id = customer.ust_id if customer else None
+    draft.customer_country = customer.land if customer else "DE"
+    draft.customer_reference = customer.referenz if customer else None
 
 
 def reviewed_line(
