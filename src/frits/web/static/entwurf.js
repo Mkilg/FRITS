@@ -108,6 +108,29 @@
     last.after(fresh);
   }
 
+  // Some hints can only be solved on another page (settings, the customer). Then the
+  // question "jetzt erstellen?" would only lead to a refusal, so point at the hint instead.
+  var startCustomer = customerValue();
+  function customerValue() {
+    var s = document.querySelector('select[name="customer"]');
+    return s ? s.value : "";
+  }
+  document.addEventListener("click", function (e) {
+    var button = e.target.closest && e.target.closest('button[value="approve"]');
+    if (!button) return;
+    var open = Array.prototype.filter.call(
+      document.querySelectorAll(".problems li[data-elsewhere]:not([hidden])"), function (li) {
+        return li.getAttribute("data-elsewhere") !== "customer" || customerValue() === startCustomer;
+      });
+    if (!open.length) return;
+    e.preventDefault();
+    var box = open[0].closest(".problems");
+    box.classList.remove("nudge");
+    void box.offsetWidth;
+    box.classList.add("nudge");
+    box.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, true);
+
   table.addEventListener("input", function () { growIfNeeded(); update(); });
   table.addEventListener("change", update);
   var customerSelect = document.querySelector('select[name="customer"]');
