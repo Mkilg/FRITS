@@ -103,6 +103,7 @@ class Fritte:
     bau: str = ""  # name of the stage being built, if any
     ort: int = 1  # which of her places (1 = am Markt)
     pokale: list[str] = field(default_factory=list)  # seasons whose goal was reached
+    fest: str = ""  # where this season's festival was held, if it was
 
     @property
     def laune_name(self) -> str:
@@ -115,7 +116,8 @@ def ansehen(conn: sqlite3.Connection, heute: date, alte_datei: Path | None = Non
     bereit = kassensturz.vorschau(conn, heute, aufgeraeumt=False)[1]["summe"] if wartend else 0
     tage = stand.pflegetage(conn, heute)
     tage_ruhig = (heute - max(tage)).days if tage else None
-    if tage_ruhig is None:
+    erster_besuch = not conn.execute("SELECT 1 FROM spiel_kassenstuerze LIMIT 1").fetchone()
+    if tage_ruhig is None or erster_besuch:
         laune = "neu"
     elif tage_ruhig < MUNTER_BIS:
         laune = "munter"
@@ -148,6 +150,7 @@ def ansehen(conn: sqlite3.Connection, heute: date, alte_datei: Path | None = Non
         bau=bau.name if (bau := ausbau.im_bau(conn)) else "",
         ort=ausbau.ort(conn).nummer,
         pokale=saison.pokale(conn),
+        fest=stand.einstellung(conn, f"fest:{heute.year}-Q{saison.quartal(heute)[0]}"),
     )
 
 

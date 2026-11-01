@@ -48,6 +48,11 @@ CREATE TABLE IF NOT EXISTS spiel_einstellung (
     schluessel TEXT PRIMARY KEY,
     wert TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS spiel_korrektur (
+    alt TEXT PRIMARY KEY,          -- a scored card whose paperwork was cancelled or struck
+    seit TEXT NOT NULL,            -- the day the game noticed (its own date, never typed)
+    neu TEXT                       -- the card that became its correction, NULL while open
+);
 CREATE TABLE IF NOT EXISTS spiel_markt (
     woche TEXT PRIMARY KEY,        -- ISO week, e.g. "2026-W44"
     wuerfe INTEGER NOT NULL DEFAULT 0
@@ -70,7 +75,7 @@ GRUND = {
 ARTEN_TEXT = {
     "rechnung": "Rechnung geschrieben oder Gutschrift erfasst",
     "bezahlt": "Zahlung eingetragen",
-    "angebot": "Angebot angenommen",
+    "angebot": "Angebot wurde zur Rechnung",
     "erinnerung": "Zahlungserinnerung",
     "ausgabe": "Ausgabe eingetragen",
     "feierabend": "Feierabend gemacht (einmal am Tag)",
@@ -82,15 +87,22 @@ ARTEN_TEXT = {
 QUELLEN = {
     "rechnung": "SELECT number FROM invoices WHERE cancels IS NULL",
     "bezahlt": "SELECT number FROM invoices WHERE paid_date IS NOT NULL AND cancels IS NULL",
-    # A quote counts once the customer said yes: writing quotes alone is no habit to reward.
-    "angebot": "SELECT number FROM quotes WHERE status = 'accepted' OR draft_id IS NOT NULL",
+    # A quote counts once it became a real invoice: writing quotes, or clicking
+    # "angenommen" and throwing the draft away, is no habit to reward.
+    "angebot": "SELECT q.number FROM quotes q JOIN invoices i ON i.draft_id = q.draft_id"
+    " WHERE i.cancels IS NULL AND i.number NOT IN"
+    " (SELECT cancels FROM invoices WHERE cancels IS NOT NULL)",
     "steuer": "SELECT id FROM steuer_stuecke WHERE status = 'gesammelt'",
     "steuerjahr": "SELECT DISTINCT jahr FROM steuer_chronik WHERE art = 'sieg'",
 }
-WILLKOMMEN_KARTEN = 24  # up to this many old cards are played as the first Kassensturz
+WILLKOMMEN_KARTEN = 12  # up to this many old cards are played as the first Kassensturz
+WILLKOMMEN_GESCHENK = 60  # at most this many Salzkörner for the rest: the journey is the fun
 STARTGEWUERZ = "pfeffer"  # Fritte's present when she moves in
 ERINNERUNG_FRIST = 14  # a reminder counts at the earliest two weeks after the invoice
-KORREKTUR_TAGE = 30  # a new invoice this soon after a Storno is its correction
+KORREKTUR_TAGE = 30  # a new card this close to a Storno or strike can be its correction
+KORREKTUR_SPANNE = Decimal("0.2")  # ... if its amount is within 20 % of the old one
+FEIERABENDE_PRO_WOCHE = 5  # a weekend without work needs no shutdown ritual
+VERWORFEN_TAGE = 7  # a draft thrown away counts as still open for Safran this long
 
 
 class SpielFehler(Exception):
@@ -236,75 +248,122 @@ def _tag(value) -> date | None:
         return None
 
 
-def korrektur_art(conn, key: str, art: str, heute: date | None = None) -> str:
-    """A new invoice (or its payment) for a customer whose scored invoice was cancelled
-    shortly before is the correction of that mistake: it becomes a "korrektur" card
-    without Körner. A mistake plus its correction never pays more than doing it right."""
+def _stornierte(conn) -> set[str]:
+    return {n for (n,) in rows(conn, "SELECT cancels FROM invoices WHERE cancels IS NOT NULL")}
+
+
+def _betrag(conn, key: str) -> Decimal | None:
+    """The amount behind a rechnung or bezahlt card, even after a Storno or strike."""
+    art, rest = key.split(":", 1)
     if art not in ("rechnung", "bezahlt"):
-        return art
-    number = key.split(":", 1)[1]
-    if number.startswith(GS):
-        return _gs_korrektur(conn, number, art, heute or date.today())
-    r = rows(conn, "SELECT customer, issue_date FROM invoices WHERE number = ?", (number,))
-    if not r:
-        return art
-    customer, issue = r[0]
-    issued = _tag(issue)
-    storniert = rows(
-        conn,
-        "SELECT k.schluessel FROM spiel_karten k"
-        " JOIN invoices o ON k.schluessel = ? || o.number"
-        " JOIN invoices s ON s.cancels = o.number"
-        " WHERE k.art = ? AND k.kassensturz > 0 AND o.customer = ? AND s.issue_date <= ?"
-        " AND s.issue_date >= ?",
-        (
-            f"{art}:", art, customer, str(issue)[:10],
-            ((issued or date.min) - timedelta(days=KORREKTUR_TAGE)).isoformat(),
-        ),
-    )  # fmt: skip
-    if not storniert:
-        return art
-    schon = rows(
-        conn,
-        "SELECT COUNT(*) FROM spiel_karten k JOIN invoices i ON k.schluessel = ? || i.number"
-        " WHERE k.art = 'korrektur' AND i.customer = ?",
-        (f"{art}:", customer),
-    )[0][0]
-    return "korrektur" if schon < len(storniert) else art
+        return None
+    if rest.startswith(GS):
+        for cid, their, gross in rows(
+            conn, "SELECT customer_id, their_number, gross FROM credits ORDER BY id DESC"
+        ):
+            if gs_schluessel(cid, their) == rest:
+                return Decimal(str(gross))
+        return None
+    r = rows(conn, "SELECT gross FROM invoices WHERE number = ?", (rest,))
+    try:
+        return Decimal(str(r[0][0])) if r else None
+    except (InvalidOperation, ValueError):
+        return None
 
 
-def _gs_korrektur(conn, number: str, art: str, heute: date) -> str:
-    """The same for Gutschriften: one struck out (within 30 days, by the time FRITS
-    recorded, never a typed date) after its card was scored, and entered again under
-    another number, is a correction. Entered again under the same number, it is simply
-    the old card, so nothing new comes up at all."""
-    kunde = number[len(GS) :].split("|", 1)[0]
-    lebendig = set(gutschriften(conn))
-    seit = (heute - timedelta(days=KORREKTUR_TAGE)).isoformat()
-    gestrichen = {
-        gs_schluessel(cid, their)
-        for cid, their in rows(
-            conn,
-            "SELECT customer_id, their_number FROM credits"
-            " WHERE customer_id = ? AND struck IS NOT NULL AND struck >= ?",
-            (kunde, seit),
-        )
-    } - lebendig
-    gewertet = {
-        k[len(art) + 1 :]
-        for (k,) in rows(
-            conn,
-            "SELECT schluessel FROM spiel_karten WHERE art = ? AND kassensturz > 0"
-            " AND schluessel LIKE ?",
-            (art, f"{art}:{GS}{kunde}|%"),
-        )
-    }
-    schon = rows(
+def _basis(key: str) -> str:
+    return key.split(":", 1)[0]
+
+
+def korrekturen(conn, heute: date) -> None:
+    """A mistake plus its correction never pays more than doing it right.
+
+    When a card that was already scored loses its paperwork (an invoice cancelled, a
+    Gutschrift or an expense struck), the next card of the same kind close to that day
+    becomes its correction, a card without Körner. For invoices and Gutschriften it must
+    also have a similar amount, so new work for the same customer stays a normal card.
+    The order does not matter: writing the right one first and cancelling the wrong one
+    afterwards ends the same way. It is checked again until the card is scored."""
+    gefunden = _gefunden(conn)
+    weg = _stornierte(conn)
+    lebendig = {
+        key for key, art in gefunden
+        if art not in ("rechnung", "bezahlt") or key.split(":", 1)[1] not in weg
+    }  # fmt: skip
+    tag = heute.isoformat()
+    for (key,) in rows(
         conn,
-        "SELECT COUNT(*) FROM spiel_karten WHERE art = 'korrektur' AND schluessel LIKE ?",
-        (f"{art}:{GS}{kunde}|%",),
-    )[0][0]
-    return "korrektur" if schon < len(gestrichen & gewertet) else art
+        "SELECT schluessel FROM spiel_karten WHERE kassensturz > 0"
+        " AND art IN ('rechnung', 'bezahlt', 'ausgabe')"
+        " AND schluessel NOT IN (SELECT alt FROM spiel_korrektur)",
+    ):
+        if key not in lebendig:
+            conn.execute("INSERT INTO spiel_korrektur (alt, seit) VALUES (?, ?)", (key, tag))
+    # Waiting cards are sorted out afresh each time; scored ones stay as they were.
+    conn.execute(
+        "UPDATE spiel_korrektur SET neu = NULL WHERE neu IN (SELECT schluessel FROM"
+        " spiel_karten WHERE kassensturz IS NULL OR kassensturz = -2)"
+    )
+    for (key,) in rows(
+        conn,
+        "SELECT schluessel FROM spiel_karten WHERE art = 'korrektur' AND kassensturz IS NULL",
+    ):
+        conn.execute("UPDATE spiel_karten SET art = ? WHERE schluessel = ?", (_basis(key), key))
+    wartend = [
+        (key, art, _tag(gesehen))
+        for key, art, gesehen in rows(
+            conn,
+            "SELECT schluessel, art, gesehen FROM spiel_karten WHERE kassensturz IS NULL"
+            " AND art IN ('rechnung', 'bezahlt', 'ausgabe') ORDER BY gesehen, rowid",
+        )
+        if key in lebendig and _tag(gesehen)
+    ]
+    vergeben: set[str] = set()
+    for alt, seit in rows(
+        conn, "SELECT alt, seit FROM spiel_korrektur WHERE neu IS NULL ORDER BY seit, alt"
+    ):
+        tag_alt = _tag(seit)
+        if tag_alt is None:
+            continue
+        fenster = timedelta(days=KORREKTUR_TAGE)
+        art = _basis(alt)
+        betrag = _betrag(conn, alt) if art != "ausgabe" else None
+        beste, abstand = None, None
+        for key, kart, gesehen in wartend:
+            if kart != art or key in vergeben or abs(gesehen - tag_alt) > fenster:
+                continue
+            if art != "ausgabe":
+                neu_betrag = _betrag(conn, key)
+                if not betrag or neu_betrag is None:
+                    continue
+                d = abs(neu_betrag - betrag) / betrag
+                if d > KORREKTUR_SPANNE:
+                    continue
+            else:
+                d = Decimal(0)
+            if abstand is None or d < abstand:
+                beste, abstand = key, d
+        if beste:
+            vergeben.add(beste)
+            conn.execute("UPDATE spiel_karten SET art = 'korrektur' WHERE schluessel = ?", (beste,))
+            conn.execute("UPDATE spiel_korrektur SET neu = ? WHERE alt = ?", (beste, alt))
+
+
+def verworfen_merken(conn, heute: date) -> None:
+    """Notice when a draft is thrown away (FRITS has no date for that, so the game keeps
+    its own): for a week it still counts as open for Safran, so throwing work away never
+    pays off."""
+    n = rows(conn, "SELECT COUNT(*) FROM drafts WHERE status = 'discarded'")
+    n = n[0][0] if n else 0
+    if n > int(einstellung(conn, "verworfen_zahl", "0") or 0):
+        setze(conn, "verworfen_am", heute.isoformat())
+    if str(n) != einstellung(conn, "verworfen_zahl"):
+        setze(conn, "verworfen_zahl", str(n))
+
+
+def kuerzlich_verworfen(conn, heute: date) -> bool:
+    am = _tag(einstellung(conn, "verworfen_am"))
+    return bool(am and (heute - am).days < VERWORFEN_TAGE)
 
 
 def _neue_schluessel(conn) -> None:
@@ -335,15 +394,15 @@ def _neue_karten(conn, tag: str) -> None:
         elif key not in bekannt:
             conn.execute(
                 "INSERT OR IGNORE INTO spiel_karten (schluessel, art, gesehen) VALUES (?, ?, ?)",
-                (key, korrektur_art(conn, key, art, date.fromisoformat(tag)), tag),
+                (key, art, tag),
             )
-    # A quote that is not accepted (any more) waits off the table until it is.
-    if rows(conn, "SELECT name FROM sqlite_master WHERE name = 'quotes'"):
-        conn.execute(
-            "DELETE FROM spiel_karten WHERE art = 'angebot' AND kassensturz IS NULL"
-            " AND substr(schluessel, 9) NOT IN (SELECT number FROM quotes"
-            " WHERE status = 'accepted' OR draft_id IS NOT NULL)"
-        )
+    # A quote that is no invoice (any more) waits off the table until it is.
+    angebote = {f"angebot:{v}" for (v,) in rows(conn, QUELLEN["angebot"])}
+    for (key,) in rows(
+        conn, "SELECT schluessel FROM spiel_karten WHERE art = 'angebot' AND kassensturz IS NULL"
+    ):
+        if key not in angebote:
+            conn.execute("DELETE FROM spiel_karten WHERE schluessel = ?", (key,))
 
 
 def abgleichen(conn: sqlite3.Connection, heute: date, alte_datei: Path | None = None) -> int:
@@ -359,6 +418,8 @@ def abgleichen(conn: sqlite3.Connection, heute: date, alte_datei: Path | None = 
         else:
             _neue_schluessel(conn)
             _neue_karten(conn, tag)
+            korrekturen(conn, heute)
+        verworfen_merken(conn, heute)
     return wartende(conn)
 
 
@@ -390,11 +451,13 @@ def _einrichten(conn, tag: str, alte_datei: Path | None) -> None:
             " VALUES (?, ?, ?, 0)",
             [(key, art, tag) for key, art in rest],
         )
-        geschenk = sum(GRUND[art] for _, art in rest)
+        geschenk = min(WILLKOMMEN_GESCHENK, sum(GRUND[art] for _, art in rest))
         if geschenk:
             buche(
                 conn, tag, geschenk, "start", f"Willkommensgeschenk für {len(rest)} ältere Vorgänge"
             )
+        setze(conn, "willkommen_vorgaenge", str(len(found)))
+        setze(conn, "willkommen_geschenk", str(geschenk))
         nimm(conn, STARTGEWUERZ, "gewuerz", tag, 0)
         setze(conn, "willkommen", "kassensturz")
         setze(conn, "schluessel_v3", "1")
@@ -405,6 +468,7 @@ def _einrichten(conn, tag: str, alte_datei: Path | None) -> None:
         " VALUES (?, ?, ?, 0)",
         [(key, art, tag) for key, art in found],
     )
+    # What the first version already counted is kept as it was (it may have been spent).
     start = sum(GRUND[art] for _, art in found) + GRUND["feierabend"] * int(
         alt.get("feierabende", 0) or 0
     )
@@ -441,8 +505,16 @@ def _alte_datei(path: Path | None) -> dict:
 
 
 def feierabend(conn: sqlite3.Connection, heute: date) -> bool:
-    """The shutdown ritual gives one card a day. True if today's is new."""
+    """The shutdown ritual gives one card a day, five a week at most. True if today's
+    is new."""
     vorbereiten(conn)
+    montag = heute - timedelta(days=heute.weekday())
+    schon = conn.execute(
+        "SELECT COUNT(*) FROM spiel_karten WHERE art = 'feierabend' AND gesehen BETWEEN ? AND ?",
+        (montag.isoformat(), (montag + timedelta(days=6)).isoformat()),
+    ).fetchone()[0]
+    if schon >= FEIERABENDE_PRO_WOCHE:
+        return False
     cur = conn.execute(
         "INSERT OR IGNORE INTO spiel_karten (schluessel, art, gesehen) VALUES (?, 'feierabend', ?)",
         (f"feierabend:{heute.isoformat()}", heute.isoformat()),
@@ -452,7 +524,8 @@ def feierabend(conn: sqlite3.Connection, heute: date) -> bool:
 
 def wartende(conn) -> int:
     return conn.execute(
-        "SELECT COUNT(*) FROM spiel_karten WHERE kassensturz IS NULL AND art != 'pflege'"
+        "SELECT COUNT(*) FROM spiel_karten WHERE kassensturz IS NULL"
+        " AND art NOT IN ('pflege', 'korrektur')"
     ).fetchone()[0]
 
 
