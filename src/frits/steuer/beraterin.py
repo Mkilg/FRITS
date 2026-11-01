@@ -75,6 +75,11 @@ class Wunsch:
 
 
 _TRENNER = re.compile(r"\s*(?:,|;|\bsowie\b|\bund\b|&)\s*", re.IGNORECASE)
+# Ohne Doppelpunkt: auch "inkl." und "samt" trennen zwei Unterlagen
+_TRENNER_ZEILE = re.compile(
+    r"\s*(?:,|;|\bsowie\b|\bund\b|\binkl\.?|\binklusive\b|\bsamt\b|\bplus\b|&)\s*",
+    re.IGNORECASE,
+)
 
 
 def wuensche_aus_text(text: str) -> list[str]:
@@ -100,9 +105,11 @@ def zerlegen(zeile: str) -> list[tuple[str, str]]:
         if len(teile) > 1:
             return [(t, vorne.strip()) for t in teile]
         return [(hinten.strip(), vorne.strip())]
-    teile = [t.strip() for t in re.split(r"\s*[,;]\s*", zeile) if t.strip()]
+    teile = [t.strip() for t in _TRENNER_ZEILE.split(zeile) if t and t.strip()]
     if len(teile) > 1 and all(
-        any(len(w) >= 5 for w in re.findall(r"[a-zäöüß]+", t.lower())) and len(t.split()) <= 5
+        any(len(w) >= 5 for w in re.findall(r"[a-zäöüß]+", t.lower()))
+        and len(t.split()) <= 5
+        and not t.endswith("-")  # "Kranken- und Pflegeversicherung" bleibt ganz
         for t in teile
     ):
         return [(t, "") for t in teile]
@@ -230,17 +237,19 @@ def _ein_wunsch(teil: str, zusammenhang: str, gebiete: list[Gebiet], stuecke: li
     mehrere = re.search(r"\b(beide|beiden|alle|allen|jede|jeder)\b", ganz.lower())
     ids = {g.id for g in gebiete}
 
-    # 1. Eine vorhandene Karte, die gut passt (ein Wort im Namen, oder zwei im Hinweis)
-    bewertet = [(_karten_punkte(woerter, s), s) for s in stuecke if s["gebiet"] in ids]
-    bewertet = [(p, s) for p, s in bewertet if p >= 3]
+    # 1. Eine vorhandene Karte, die gut passt. Zählt: Wörter der Karte, und doppelt die
+    # Wörter der Provinz ("Ausgangsrechnungen der GbR" gehört zur Gilde, nicht zur Werkstatt).
+    nach_id = {g.id: g for g in gebiete}
+    provinz_punkte = {gid: _punkte(_woerter(ganz), nach_id[gid]) for gid in ids}
+    bewertet = [
+        (k + 2 * provinz_punkte[s["gebiet"]], k, s)
+        for s in stuecke
+        if s["gebiet"] in ids and (k := _karten_punkte(woerter, s)) >= 2
+    ]
+    bewertet = [(p, s) for p, k, s in bewertet if k >= 3 or p >= 4]
     if bewertet:
-        # Gleich gut? Dann entscheidet, wie gut der ganze Wunsch zur Provinz passt
-        nach_id = {g.id: g for g in gebiete}
-        provinz_punkte = {gid: _punkte(_woerter(ganz), nach_id[gid]) for gid in ids}
         beste = max(p for p, _ in bewertet)
-        karte = max(
-            (s for p, s in bewertet if p == beste), key=lambda s: provinz_punkte[s["gebiet"]]
-        )
+        karte = next(s for p, s in bewertet if p == beste)
         provinz = _provinz(karte["gebiet"])
         geschwister = [g for g in gebiete if _provinz(g.id) == provinz]
         if nummern:

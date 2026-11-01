@@ -32,17 +32,25 @@
       <ul>{% for s in zweifel %}<li><a href="/steuer/{{ jahr }}/gebiet/{{ s.gebiet }}">{{ s.name }}</a></li>{% endfor %}</ul>
     </section>
     {% endif %}
+    {% set offene_wuensche = stuecke | selectattr("wunsch") | selectattr("status", "equalto", "offen") | list %}
+    {% if offene_wuensche %}
+    <section class="sq-papier sq-pruefen">
+      <h2>Noch offen von ihrer Liste</h2>
+      <p>Das hat sich deine Beraterin gewünscht. Es steht auch in der Mail, damit nichts untergeht.</p>
+      <ul>{% for s in offene_wuensche %}<li><a href="/steuer/{{ jahr }}/gebiet/{{ s.gebiet }}">{{ s.name }}</a></li>{% endfor %}</ul>
+    </section>
+    {% endif %}
     <section class="sq-papier">
       <h2>1. Truhe packen</h2>
       {% if zip_pfad %}
       <p>Gepackt: <strong>{{ zip_pfad.name }}</strong> ({{ "mit Passwort" if mit_passwort else "ohne Passwort" }})</p>
       <form method="post" action="/steuer/{{ jahr }}/truhe/zeigen" class="reihe">
         <input type="hidden" name="token" value="{{ token }}">
-        <button class="quiet">Im Finder zeigen</button>
+        <button class="sq-stempelknopf">Im Finder zeigen</button>
         <span class="muted">Von dort ziehst du die Truhe in die Mail, falls sie nicht schon dranhängt.</span>
       </form>
       {% if passwort %}
-      <p class="sq-passwort"><span>Passwort: <b data-passwort>{{ passwort }}</b></span> <button type="button" class="quiet" data-kopieren="{{ passwort }}">Passwort kopieren</button></p>
+      <p class="sq-passwort"><span>Passwort: <b data-passwort>{{ passwort }}</b></span> <button type="button" class="sq-stempelknopf" data-kopieren="{{ passwort }}">Passwort kopieren</button></p>
       <p class="muted">Schick es deiner Beraterin getrennt, zum Beispiel per SMS, nicht in dieselbe Mail. Ich zeige es nur jetzt. Neu packen macht ein neues Passwort.</p>
       {% endif %}
       {% endif %}

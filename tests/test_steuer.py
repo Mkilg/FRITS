@@ -1396,8 +1396,8 @@ def test_beraterin_mail_markiert_vorhandene_karten_statt_doppelkarten(conn):
     assert ziele["Hausgeld"] == [("gehoeft-1", "nebenkosten"), ("gehoeft-2", "nebenkosten")]
     assert ziele["Grundsteuer"] == [("gehoeft-1", "grundsteuer"), ("gehoeft-2", "grundsteuer")]
     assert ziele["Zinsbescheinigung"] == [("gehoeft-1", "zinsen"), ("gehoeft-2", "zinsen")]
-    assert ziele["Steuerbescheinigung US-Broker (1099)"] == [None]  # neu, aber im Hafen
-    assert next(w for w in wuensche if w.text.startswith("Steuerb")).gebiete == ("hafen-1",)
+    # Ein Broker-Wort zieht in den Hafen, dort passt die Jahresübersicht
+    assert ziele["Steuerbescheinigung US-Broker (1099)"] == [("hafen-1", "jahresuebersicht")]
     # "Steuer" allein reicht nicht: Die Steuer-ID ist kein Ziel für eine Steuerbescheinigung
     assert beraterin.zerlegen("Kontoauszüge Januar bis März") == [
         ("Kontoauszüge Januar bis März", "")
@@ -1528,8 +1528,11 @@ def test_macht_meine_beraterin_und_sieg_seite_im_browser(client, ws, monkeypatch
     # Sieg-Seite: Truhe im Finder zeigen, Passwort kopieren
     client.app.state.steuer_notausgang.add(2025)
     post(client, "/steuer/2025/truhe", schloss="passwort")
+    belege = next(s for s in quest.stuecke(conn, 2025) if s["key"] == "belege")
+    quest.markiere_wunsch(conn, belege["id"])
     sieg = client.get("/steuer/2025/sieg").text
     assert "Im Finder zeigen" in sieg and "data-kopieren=" in sieg
+    assert "Noch offen von ihrer Liste" in sieg and belege["name"] in sieg
     gezeigt = []
     monkeypatch.setattr(system, "reveal_path", lambda p: gezeigt.append(p) or True)
     post(client, "/steuer/2025/truhe/zeigen")
@@ -1541,3 +1544,30 @@ def test_eingefuegter_text_hat_keine_steuernummer_im_namen():
 
     name = textname("Finanzamt Prenzlauer Berg Steuernummer 31/456/78901 Bescheid")
     assert name == "Finanzamt Prenzlauer Berg Bescheid.txt"
+
+
+def test_runde_11_sie_offene_wuensche_und_lange_zeilen(conn):
+    """Nachtest Marie-2: Sie auch in vorformulierten Fragen, ihre Wünsche gehen nie verloren."""
+    frage = "Hast du sie noch von deiner letzten Erklärung?"
+    assert truhe.siezen(frage) == "Haben Sie sie noch von Ihrer letzten Erklärung?"
+    p = Profil(**{**MARIE.__dict__, "anrede": "sie", "beraterin_name": "Frau Weber"})
+    p.namen = {"gehoeft-1": "Lindenstraße"}
+    quest.start(conn, p)
+    kauf = next(s for s in quest.stuecke(conn, 2025, "gehoeft-1") if s["key"] == "kaufvertrag")
+    quest.markiere_wunsch(conn, kauf["id"])
+    _, text = truhe.mail(p, reich(p), quest.stuecke(conn, 2025))
+    assert "Noch offen von Ihrer Liste:\n- Vermietete Wohnung · Lindenstraße: Kaufvertrag" in text
+    assert " du " not in text and " dir " not in text
+    # Der Name der Wohnung steht auch im Titel der Insel
+    assert next(g for g in reich(p) if g.id == "gehoeft-1").titel.endswith("· Lindenstraße")
+    # Zeilen mit "und" oder "inkl." werden ganz erkannt
+    assert [
+        t for t, _ in beraterin.zerlegen("Ausgangsrechnungen der GbR und die Gewinnverteilung")
+    ] == [
+        "Ausgangsrechnungen der GbR",
+        "die Gewinnverteilung",
+    ]
+    teile = beraterin.zerlegen("Depot-Jahresübersicht inkl. Quellensteuer")
+    assert [t for t, _ in teile] == ["Depot-Jahresübersicht", "Quellensteuer"]
+    # Kein Zerlegen mitten im Wort
+    assert len(beraterin.zerlegen("Kranken- und Pflegeversicherung")) == 1

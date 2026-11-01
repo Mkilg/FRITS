@@ -11,6 +11,7 @@ drückst dort auf Senden.
 
 from __future__ import annotations
 
+import re
 import secrets
 import zipfile
 from datetime import date
@@ -124,7 +125,7 @@ def passwort() -> str:
 _STATUS_TEXT = {
     "gesammelt": "dabei",
     "gibts_nicht": "gibt es dieses Jahr nicht",
-    "fragen": "Frage an dich",
+    "fragen": "offene Frage (steht in der Mail)",
     "offen": "fehlt noch",
 }
 
@@ -150,9 +151,11 @@ def inhaltsverzeichnis(
             continue
         zeilen.append(f"{nr:02d} {g.bereich}")
         for s in eigene:
-            if s.get("art") == "bonus" and s["status"] == "offen":
-                continue  # nicht gesammelte Bonus-Schätze sind kein Thema
+            if s.get("art") == "bonus" and s["status"] == "offen" and not s.get("wunsch"):
+                continue  # nicht gesammelte Bonus-Schätze sind kein Thema, außer sie wünscht sie
             status = _STATUS_TEXT[s["status"]]
+            if s["status"] == "offen" and s.get("wunsch"):
+                status = "fehlt noch (gewünscht)"
             if s["status"] == "fragen" and s["frage"] == MACHT_BERATERIN:
                 status = "erstellt die Beraterin"
             zeilen.append(f"   - {s['name']}: {status}")
@@ -225,6 +228,36 @@ def verschluesselt(pfad: Path) -> bool:
         return False
 
 
+_SIE = [
+    (r"\bhast du\b", "haben Sie"),
+    (r"\bbrauchst du\b", "brauchen Sie"),
+    (r"\bkannst du\b", "können Sie"),
+    (r"\bweißt du\b", "wissen Sie"),
+    (r"\bmachst du\b", "machen Sie"),
+    (r"\berstellst du\b", "erstellen Sie"),
+    (r"\bsiehst du\b", "sehen Sie"),
+    (r"\bdir\b", "Ihnen"),
+    (r"\bdich\b", "Sie"),
+    (r"\bdeinem\b", "Ihrem"),
+    (r"\bdeinen\b", "Ihren"),
+    (r"\bdeiner\b", "Ihrer"),
+    (r"\bdeine\b", "Ihre"),
+    (r"\bdein\b", "Ihr"),
+]
+
+
+def siezen(text: str) -> str:
+    """Macht aus den vorformulierten Fragen ("Hast du sie noch vom letzten Jahr?") die
+    Sie-Form. Nur Wendungen, die sicher sind; ein einzelnes "du" bleibt, wie es ist."""
+    for muster, ersatz in _SIE:
+
+        def passend(m: re.Match, ersatz: str = ersatz) -> str:
+            return ersatz[:1].upper() + ersatz[1:] if m.group(0)[:1].isupper() else ersatz
+
+        text = re.sub(muster, passend, text, flags=re.IGNORECASE)
+    return text
+
+
 def _nach_bereich(eintraege: list[tuple[str, str]]) -> list[str]:
     """[(Bereich, Name), ...] wird zu "- Bereich: Name, Name", ohne Doppelte."""
     gruppen: dict[str, list[str]] = {}
@@ -277,8 +310,12 @@ def mail(
         if s["status"] == "fragen" and s["frage"] == MACHT_BERATERIN
     ]
     fragen = [s for s in stuecke if s["status"] == "fragen" and s["frage"] != MACHT_BERATERIN]
+    # Was sie sich gewünscht hat, geht nie verloren, auch auf Bonus-Karten
+    von_ihr = [(wo(s), s["name"]) for s in stuecke if s["status"] == "offen" and s.get("wunsch")]
     offen = [
-        (wo(s), s["name"]) for s in stuecke if s["status"] == "offen" and s.get("art") != "bonus"
+        (wo(s), s["name"])
+        for s in stuecke
+        if s["status"] == "offen" and s.get("art") != "bonus" and not s.get("wunsch")
     ]
 
     zeilen = [gruss, "", f"anbei meine Unterlagen für {profil.jahr} als Zip-Datei."]
@@ -311,6 +348,8 @@ def mail(
         nummer = 0
         for s in fragen:
             text = s["frage"] or f"Ich bin unsicher. {brauchst}"
+            if sie:
+                text = siezen(text)
             zeile = f"{wo(s)}, {s['name']}: {text}"
             if zeile in gesehen:
                 continue
@@ -318,6 +357,9 @@ def mail(
             nummer += 1
             zeilen.append(f"{nummer}. {zeile}")
         zeilen.append("")
+    if von_ihr:
+        liste = "Ihrer" if sie else "deiner"
+        zeilen += [f"Noch offen von {liste} Liste:", *_nach_bereich(von_ihr), ""]
     if offen:
         zeilen += ["Noch nicht gefunden habe ich:", *_nach_bereich(offen), ""]
     zeilen += ["Viele Grüße", profil.name or ""]
