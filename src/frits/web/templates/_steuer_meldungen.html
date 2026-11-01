@@ -10,7 +10,7 @@
 {% set kleine = flashes | rejectattr("kind", "in", gross_arten) | selectattr("text") | list %}
 {% if kleine %}
 <div class="sq-zettelchen" role="status">
-  {% for f in kleine %}<div class="sq-meldung {{ f.kind }}">{% if f.kind == "tagwerk" %}<span class="sq-tagwerk-ring" style="--anteil: 1" aria-hidden="true"><b>✓</b></span>{% endif %}{{ f.text }}{% if f.kind == "tagwerk" %} <a href="/">Für heute Schluss</a>{% endif %}{% if f.link %} <a href="{{ f.link }}">{{ f.link_text }}</a>{% endif %}{% if f.aktion %}<span class="sq-meldung-aktion">{% if f.aktion.url %}<form method="post" action="{{ f.aktion.url }}"><input type="hidden" name="token" value="{{ token }}">{% for k, v in (f.aktion.felder or {}).items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}<button class="sq-stempelknopf gruen">{{ f.aktion.knopf }}</button></form>{% endif %}{% if f.aktion.link %}<a href="{{ f.aktion.link }}">{{ f.aktion.link_text or "Zum Beleg" }}</a>{% endif %}</span>{% endif %}<button type="button" class="sq-weg" aria-label="Schließen">×</button></div>{% endfor %}
+  {% for f in kleine %}<div class="sq-meldung {{ f.kind }}">{% if f.kind == "tagwerk" %}<span class="sq-tagwerk-ring" style="--anteil: 1" aria-hidden="true"><b>✓</b></span>{% endif %}{{ f.text }}{% if f.kind == "tagwerk" %} <a href="/">Für heute Schluss</a>{% endif %}{% if f.link %} <a href="{{ f.link }}">{{ f.link_text }}</a>{% endif %}{% if f.aktion %}<span class="sq-meldung-aktion">{% if f.aktion.url %}<form method="post" action="{{ f.aktion.url }}"><input type="hidden" name="token" value="{{ token }}">{% for k, v in (f.aktion.felder or {}).items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}<button class="sq-stempelknopf gruen">{{ f.aktion.knopf }}</button></form>{% endif %}{% if f.aktion.zweit %}<form method="post" action="{{ f.aktion.zweit.url }}"><input type="hidden" name="token" value="{{ token }}">{% for k, v in (f.aktion.zweit.felder or {}).items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}<button class="quiet">{{ f.aktion.zweit.knopf }}</button></form>{% endif %}{% if f.aktion.link %}<a href="{{ f.aktion.link }}">{{ f.aktion.link_text or "Zum Beleg" }}</a>{% endif %}</span>{% endif %}<button type="button" class="sq-weg" aria-label="Schließen">×</button></div>{% endfor %}
 </div>
 {% endif %}
 {% if grosse %}
@@ -27,7 +27,7 @@
   {% endif %}
   <h2>{{ {"gruendung": "Dein Reich steht!", "siegel": ("Silber-Siegel!" if silber_siegel else "Gold-Siegel!"), "zeitalter": "Neues Zeitalter!", "orden": "Neuer Orden!", "sieg": ("Silber-Sieg!" if zweifel is defined and zweifel else "Sieg!"), "erwachen": "Der Drache erwacht!", "gold": "Aus Silber wird Gold!"}[erste] }}</h2>
   <ul class="sq-beute">
-    {% for f in grosse %}<li class="{{ f.kind }}">{{ f.text.replace("Gold-Siegel! ", "").replace("Silber-Siegel! ", "").replace("Aus Silber wird Gold! ", "") if loop.first else f.text }}</li>{% endfor %}
+    {% for f in grosse %}<li class="{{ f.kind }}" style="--i: {{ loop.index0 }}">{{ f.text.replace("Gold-Siegel! ", "").replace("Silber-Siegel! ", "").replace("Aus Silber wird Gold! ", "") if loop.first else f.text }}</li>{% endfor %}
   </ul>
   {% if erste not in ["erwachen", "sieg"] %}
   <div class="sq-naechster">
@@ -37,8 +37,13 @@
   {% endif %}
   <form method="dialog" class="sq-belohnung-knoepfe">
     {% if erste == "erwachen" %}
+    {% set angebot = hafen_angebot(ressourcen.gold, besitz) if ressourcen is defined and besitz is defined else [] %}
     <a class="sq-siegelknopf" href="/steuer/{{ jahr }}/drache">Stell dich dem Drachen →</a>
+    {% if angebot %}
+    <a class="sq-stempelknopf sq-hafen-knopf" href="/steuer/{{ jahr }}/markt#helfer" title="Ab {{ angebot[0].preis }} Gold, z. B. {{ angebot[0].name }}: {{ angebot[0].text }}">Erst zum Hafenmarkt: Helfer anheuern ({{ ressourcen.gold }} Gold)</a>
+    {% else %}
     <button class="quiet">Gleich</button>
+    {% endif %}
     {% elif erste == "sieg" %}
     <a class="sq-siegelknopf" href="/steuer/{{ jahr }}/sieg">Zur Schatztruhe →</a>
     {% else %}

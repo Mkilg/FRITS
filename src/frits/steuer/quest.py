@@ -796,6 +796,30 @@ def _abbuchen(
     )
 
 
+def gold_ausgeben(conn: sqlite3.Connection, jahr: int, betrag: int, text: str) -> bool:
+    """Gold aus der Quest woanders ausgeben, z. B. als Würze in Frittes Kassensturz.
+    Gibt False zurück, wenn es nicht reicht (dann wird nichts abgebucht). Steht im Goldbuch
+    wie jeder Kauf, nur ohne Ware: Es geht nie unter null, auch bei zwei schnellen Klicks."""
+    ensure_schema(conn)
+    if betrag <= 0:
+        return False
+    try:
+        with transaction(conn):
+            _abbuchen(conn, jahr, betrag, text, text)
+    except QuestError:
+        return False
+    return True
+
+
+def gold_gutschreiben(
+    conn: sqlite3.Connection, jahr: int, betrag: int, text: str, grund: str
+) -> int:
+    """Gold von außerhalb der Quest, z. B. aus Frittes Truhen. Jeder Grund zahlt nur einmal
+    (z. B. "fritte-truhe:17"), so lässt sich nichts doppelt einlösen. Gibt den gutgeschriebenen
+    Betrag zurück (0, wenn es den Grund schon gab)."""
+    return verdiene(conn, jahr, f"aussen:{grund}", betrag, text)
+
+
 def decke_schulden(conn: sqlite3.Connection, jahr: int) -> list[str]:
     """Gold geht nie unter null. Fehlt nach einem Zurückbuchen Gold, weil es schon ausgegeben
     ist, geht der letzte Kauf aus diesem Jahr zurück in den Hafen (mit vollem Preis), bis es
