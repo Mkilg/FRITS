@@ -4,7 +4,7 @@
     "welcome": {
       "mood": "welcome",
       "title": "Hallo, ich bin FRITS!",
-      "text": "Ich kümmere mich um den Papierkram, damit du dich um deine eigentliche Arbeit kümmern kannst. Die Einrichtung dauert etwa zehn Minuten. Wir machen einen Schritt nach dem anderen."
+      "text": "Ich kümmere mich um den Papierkram, damit du dich um deine eigentliche Arbeit kümmern kannst. Das Wichtigste dauert etwa drei Minuten. Danach zeige ich dir kurz, wie ich deine Daten schütze. Diesen Lern-Teil kannst du auch überspringen."
     },
     "choose_ai": {
       "mood": "thinking",
@@ -44,7 +44,7 @@
     "first_invoice": {
       "mood": "thinking",
       "title": "Deine erste Rechnung",
-      "text": "Leg eine Notiz, eine E-Mail oder ein Foto in deinen FRITS-Eingangsordner. Ich mache daraus einen Entwurf, den du in Ruhe prüfen kannst."
+      "text": "Zieh eine Notiz, eine E-Mail oder ein Foto auf das Feld, oder kopier sie und drück ⌘V. Ich mache daraus einen Entwurf, den du in Ruhe prüfen kannst."
     },
     "done": {
       "mood": "done",

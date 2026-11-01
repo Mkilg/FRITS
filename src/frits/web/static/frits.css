@@ -330,3 +330,6 @@ kbd { display: inline-block; min-width: 1.4em; padding: 0 0.3em; margin: 0 0.1em
 .leise-links button { background: none; border: 0; padding: 0; color: var(--tinte); text-decoration: underline;
   cursor: pointer; font: inherit; }
 p code, li code { overflow-wrap: anywhere; }
+.flash form.rueckgaengig { display: inline; margin-left: 0.6rem; }
+details.mehr-felder { margin: 0.4rem 0 0.8rem; }
+details.mehr-felder summary { cursor: pointer; color: var(--tinte); font-size: 0.92rem; margin-bottom: 0.4rem; }
