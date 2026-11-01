@@ -110,6 +110,13 @@ def start(conn: sqlite3.Connection, profil: Profil) -> list[Gebiet]:
                     " VALUES (?, ?, ?, ?, ?, ?, ?)",
                     (profil.jahr, g.id, s.key, s.name, s.hinweis, s.art, _now()),
                 )
+                # Texte aus dem Katalog aktuell halten (z. B. neue Steuer-Regeln)
+                conn.execute(
+                    "UPDATE steuer_stuecke SET name = ?, hinweis = ?, art = ?"
+                    " WHERE jahr = ? AND gebiet = ? AND key = ? AND herkunft = 'katalog'"
+                    " AND (name != ? OR hinweis != ? OR art != ?)",
+                    (s.name, s.hinweis, s.art, profil.jahr, g.id, s.key, s.name, s.hinweis, s.art),
+                )
         _vom_vorjahr(conn, profil.jahr, ids)
         # Was laut Fragebogen nicht mehr dazugehört, verschwindet, solange es unberührt ist.
         rows = conn.execute(

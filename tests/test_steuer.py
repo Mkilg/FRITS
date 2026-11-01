@@ -771,3 +771,21 @@ def test_reine_bonus_provinz_zaehlt_nicht_zu_den_siegeln():
     burg = next(p for p in staende if p.gebiet.id == "burg")
     assert burg.nur_bonus and burg.stand.siegel
     assert spiel.ressourcen(stuecke, staende).siegel == 0
+
+
+def test_journalisten_haken_nur_mit_freiberuf():
+    ohne = Profil(jahr=2025, haken=["ksk", "sender"])
+    assert not ohne.zeigt_haken("ksk") and not ohne.hat("ksk")
+    frei = Profil(jahr=2025, mengen={"freiberuflich": [1, 0]}, haken=["ksk", "sender"])
+    assert frei.zeigt_haken("ksk") and frei.hat("sender")
+    keys = {(g.id, s.key) for g in reich(frei) for s in g.stuecke}
+    assert ("werkstatt-1", "sender") in keys and ("burg", "ksk") in keys
+    assert ("werkstatt-1", "vgwort") not in keys  # Haken "verwertung" nicht gesetzt
+
+
+def test_neuer_katalogtext_kommt_auch_in_alte_quests(conn):
+    quest.start(conn, MARIE)
+    conn.execute("UPDATE steuer_stuecke SET hinweis = 'alt' WHERE gebiet = 'rathaus'")
+    quest.start(conn, MARIE)
+    hinweise = {s["hinweis"] for s in quest.stuecke(conn, MARIE.jahr, "rathaus")}
+    assert "alt" not in hinweise

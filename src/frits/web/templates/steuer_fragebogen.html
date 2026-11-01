@@ -80,11 +80,9 @@
     <fieldset class="sq-kacheln">
       <legend>Was trifft auf {{ jahr }} zu?</legend>
       {% for key, text in haken.items() %}
-      {% if not key.startswith("kinder_") or profil.kinder %}
-      {% if key != "arbeit" or (profil.anzahl("angestellt")[0] + profil.anzahl("angestellt")[1]) %}
+      {% if profil.zeigt_haken(key) %}
       <label class="sq-kachel"><input type="checkbox" name="haken" value="{{ key }}" {% if key in profil.haken %}checked{% endif %}>
         <span>{{ text }}</span></label>
-      {% endif %}
       {% endif %}
       {% endfor %}
     </fieldset>
