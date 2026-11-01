@@ -256,3 +256,15 @@ def test_word_in_a_number_field_names_the_field(client, ws):
     page = post(client, "business_details", name="Lena", hourly_rate="neunzig", km_rate="0,30")
     assert "Beim Stundensatz bitte nur eine Zahl eingeben, zum Beispiel 90." in page.text
     assert 'data-merken="setup-business_details"' in page.text  # the page puts typed values back
+
+
+def test_wrong_number_points_at_its_field(client, ws):
+    """Tester (Lena): after „neunzig“ the hourly rate field was neither marked nor focused."""
+    page = post(client, "business_details", name="Lena", hourly_rate="neunzig", km_rate="0,30")
+    assert 'data-feld="hourly_rate"' in page.text
+    page = client.post(
+        "/settings",
+        data={"token": client.token, "payment_days": "vierzehn"},
+        follow_redirects=True,
+    )
+    assert 'data-feld="payment_days"' in page.text
