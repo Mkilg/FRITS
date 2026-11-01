@@ -138,5 +138,45 @@
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
   else start();
 
+  // ---------- Feierabend: the sound plays right on the click ----------
+  // Browsers (Safari most of all) only play sound when it starts from a click, and a page
+  // change cuts it off. So with sound on, FRITS plays the Feierabend sound on the click,
+  // fetches the Feierabend page and swaps it in, while the sound keeps ringing.
+  // If anything goes wrong, the form is simply sent the normal way.
+  document.addEventListener("submit", function (e) {
+    var form = e.target;
+    var sound = window.FritsSound;
+    if (!form.hasAttribute("data-feierabend") || !sound || !sound.enabled() || !window.fetch) return;
+    if (e.defaultPrevented) return;
+    e.preventDefault();
+    sound.music.stop();
+    sound.cue("shutdown");
+    document.body.classList.add("frits-ausblenden");
+    var waited = new Promise(function (done) { setTimeout(done, 350); });
+    var loaded = fetch(form.action, { method: "POST", body: new FormData(form), credentials: "same-origin" })
+      .then(function (r) {
+        if (!r.ok) throw new Error(r.status);
+        return r.text().then(function (html) { return { url: r.url, html: html }; });
+      });
+    Promise.all([loaded, waited]).then(function (both) {
+      var next = new DOMParser().parseFromString(both[0].html, "text/html");
+      document.title = next.title;
+      next.body.classList.add("frits-einblenden");
+      document.body.replaceWith(document.adoptNode(next.body));
+      if (both[0].url && both[0].url !== location.href) {
+        history.pushState({ feierabend: true }, "", both[0].url);
+        swapped = true;
+      }
+      window.scrollTo(0, 0);
+      start();
+    }).catch(function () {
+      form.removeAttribute("data-feierabend");
+      form.submit();
+    });
+  });
+  // The page was swapped in by hand, so "Zurück" in the browser loads the earlier page fresh.
+  var swapped = false;
+  window.addEventListener("popstate", function () { if (swapped) location.reload(); });
+
   window.Frits = { feedback: feedback, stampSound: stampSound, playful: playful };
 })();

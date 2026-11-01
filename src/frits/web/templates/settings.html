@@ -57,7 +57,17 @@
   </section>
   <section class="card">
     <h2>Klang</h2>
-    <label class="choice"><input type="checkbox" name="sound" {{ "checked" if settings.sound }}> Kleine Klänge und ruhige Musik zum Konzentrieren</label>
+    <label class="choice"><input type="checkbox" name="sound" {{ "checked" if settings.sound }}> Kleine Klänge und Musik zum Arbeiten</label>
+    {% if moods %}
+    <h3>Musik-Stimmung</h3>
+    <p class="hint">Das spielt der Knopf <strong>♪ Musik</strong> oben. In der Steuer-Quest läuft immer Abenteuer-Musik.{% if not sounds %} Zum Probehören erst die Klänge einschalten und speichern.{% endif %}</p>
+    {% for m in moods.values() %}
+    <div class="row stimmung">
+      <label class="choice big"><input type="radio" name="music" value="{{ m.name }}" {{ "checked" if settings.music == m.name or (settings.music not in moods and loop.first) }}> <strong>{{ m.title }}</strong>: {{ m.description }}</label>
+      {% if sounds %}<button type="button" class="quiet" data-frits-music="{{ m.track }}" data-label-playing="■ Stopp" aria-pressed="false">▶ Probehören</button>{% endif %}
+    </div>
+    {% endfor %}
+    {% endif %}
   </section>
   <section class="card">
     <h2>Spiel-Effekte</h2>

@@ -190,6 +190,22 @@ def _sounds_dir():
     return folder if folder.is_dir() else None
 
 
+def _music_moods() -> dict:
+    try:
+        from frits.sounds import MOODS
+    except ImportError:
+        return {}
+    return MOODS
+
+
+def _music_track(mood: str, path: str) -> str:
+    try:
+        from frits.sounds import track_for
+    except ImportError:
+        return "buero-block"
+    return track_for(mood, path)
+
+
 # ---------- formatting for templates ----------
 
 
@@ -291,6 +307,8 @@ def create_app(
             settings=current,
             flashes=flashes,
             sounds=app.state.sounds_url if current.sound else None,
+            music=_music_track(current.music, request.url.path),
+            moods=_music_moods(),
             nav=request.url.path,
         )
         return templates.TemplateResponse(request, name, context)
@@ -1208,6 +1226,8 @@ def settings_from_form(current: Settings, form) -> Settings:
         changes["provider"] = form.get("provider")
     if form.get("effects") in EFFECTS:
         changes["effects"] = form.get("effects")
+    if form.get("music") in _music_moods():
+        changes["music"] = form.get("music")
     for key in form.getlist("checkboxes"):
         if key in CHECKBOXES:
             changes[key] = form.get(key) == "on"

@@ -31,14 +31,14 @@
   </nav>
   <div class="top-actions">
     {% if sounds %}
-    <button type="button" class="quiet" data-frits-music="buero-block" data-label-playing="♪ Musik läuft" aria-pressed="false" title="Ruhige Musik zum Konzentrieren. Nochmal klicken schaltet sie aus.">♪ Musik</button>
+    <button type="button" class="quiet" data-frits-music="{{ music }}" data-label-playing="♪ Musik läuft" aria-pressed="false" title="{{ 'Abenteuer-Musik für die Steuer-Quest' if nav.startswith('/steuer') else 'Musik: ' ~ (moods[settings.music].title if settings.music in moods else 'Entspannt') ~ '. Die Stimmung wählst du in den Einstellungen' }}. Nochmal klicken schaltet sie aus.">♪ Musik</button>
     {% endif %}
     <form method="post" action="/sound">
       <input type="hidden" name="token" value="{{ token }}">
       <input type="hidden" name="back" value="{{ nav }}">
       <button class="quiet" title="Klänge an oder aus">{{ "🔔" if settings.sound else "🔕" }}<span class="breit"> {{ "Klang an" if settings.sound else "Klang aus" }}</span></button>
     </form>
-    <form method="post" action="/feierabend">
+    <form method="post" action="/feierabend" data-feierabend>
       <input type="hidden" name="token" value="{{ token }}">
       <button class="feierabend">Feierabend</button>
     </form>

@@ -122,6 +122,7 @@ class Settings:
     strict_local: bool = False
     # Calm extras
     sound: bool = False  # cues and focus music; off until Fritz turns it on
+    music: str = "entspannt"  # music mood, see frits.sounds.MOODS
     effects: str = "ruhig"  # "ruhig" (stamp only) or "verspielt" (numbers tick up, sparkle)
     setup_done: bool = False
 
