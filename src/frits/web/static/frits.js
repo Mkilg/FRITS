@@ -427,5 +427,34 @@
       });
   });
 
+  // A form with data-merken keeps what Fritz typed if the server says "bitte prüfen":
+  // saved on submit, put back only when the next page shows an error, then forgotten.
+  (function () {
+    var error = document.querySelector(".flash.error");
+    Array.prototype.forEach.call(document.querySelectorAll("form[data-merken]"), function (form) {
+      var key = "frits-form-" + form.getAttribute("data-merken");
+      var saved = null;
+      try { saved = JSON.parse(sessionStorage.getItem(key) || "null"); sessionStorage.removeItem(key); } catch (e) { saved = null; }
+      if (error && saved) {
+        Array.prototype.forEach.call(form.elements, function (field, i) {
+          var was = saved[i];
+          if (!was || was.n !== field.name) return;
+          if (field.type === "radio" || field.type === "checkbox") field.checked = was.c;
+          else field.value = was.v;
+        });
+        var box = form.closest("details");
+        if (box) box.open = true;
+      }
+      form.addEventListener("submit", function () {
+        var data = {};
+        Array.prototype.forEach.call(form.elements, function (field, i) {
+          if (!field.name || /^(file|hidden|password|submit|button)$/.test(field.type)) return;
+          data[i] = { n: field.name, v: field.value, c: field.checked };
+        });
+        try { sessionStorage.setItem(key, JSON.stringify(data)); } catch (e) { /* egal */ }
+      });
+    });
+  })();
+
   window.Frits = { feedback: feedback, stampSound: stampSound, playful: playful };
 })();

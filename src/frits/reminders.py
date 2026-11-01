@@ -10,6 +10,7 @@ from frits.billing import BillingError, invoice_status
 from frits.settings import Settings
 
 REMINDER_DAYS = 7
+MAX_LEVEL = 3  # the third is the "letzte freundliche Erinnerung"
 
 
 def _de(day: date) -> str:
@@ -96,6 +97,13 @@ def create_reminder(
         raise BillingError(
             f"Zu {number} läuft noch die letzte Erinnerung: Zahlungsziel "
             f"{date.fromisoformat(earlier[1]):%d.%m.%Y}. Danach kannst du nachhaken."
+        )
+    if earlier[0] >= MAX_LEVEL:
+        # After the "last friendly reminder" another one would only repeat it. What comes
+        # next (a call, a court reminder, interest for companies) is Fritz's decision.
+        raise BillingError(
+            f"Zu {number} gingen schon {MAX_LEVEL} Erinnerungen raus. Unter Rechnungen steht "
+            "bei „Wie weiter?“, was jetzt hilft."
         )
     level = 1 + earlier[0]
     new_due = today + timedelta(days=REMINDER_DAYS)

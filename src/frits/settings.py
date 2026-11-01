@@ -65,6 +65,27 @@ class Workspace:
     def db(self) -> Path:
         return self.root / "frits.db"
 
+    def find(self, stored: str | Path | None) -> Path | None:
+        """A file FRITS noted down with its full path, in this FRITS folder.
+
+        The database keeps full paths (".../Documents/FRITS/invoices/2026-0001.pdf"). After a
+        backup was restored into another folder, or on a new Mac with another user name, that
+        path is gone, but the file sits at the same place inside this FRITS folder. Only files
+        inside the folder are found; None if there is none.
+        """
+        if not stored:
+            return None
+        path = Path(stored)
+        root = self.root.resolve()
+        if path.is_file() and root in path.resolve().parents:
+            return path
+        parts = path.parts
+        for start in range(1, len(parts)):
+            candidate = (self.root / Path(*parts[start:])).resolve()
+            if candidate.is_file() and root in candidate.parents:
+                return candidate
+        return None
+
     @property
     def settings_file(self) -> Path:
         return self.root / "settings.toml"
@@ -132,6 +153,8 @@ class Settings:
     auto_read: bool = True  # files dropped or pasted on "Heute" are read right away
     setup_done: bool = False
     backup_dir: str = ""  # where FRITS puts its locked backups (USB stick, iCloud Drive)
+    # "Bei mir läuft es anders": Fritz's own words, added to the Verfahrensdokumentation
+    verfahren_notiz: str = ""
 
     @property
     def owner(self) -> Customer:

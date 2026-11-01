@@ -1035,7 +1035,7 @@ def create_app(
     @app.get("/invoices/{number}/pdf")
     def invoice_pdf(number: str):
         row = db().execute("SELECT pdf_path FROM invoices WHERE number = ?", (number,)).fetchone()
-        return _pdf(row["pdf_path"] if row else None, ws.invoices)
+        return _pdf(ws.find(row["pdf_path"]) if row else None, ws.invoices)
 
     @app.post("/invoices/{number}/paid", dependencies=guarded)
     async def invoice_paid(request: Request, number: str):
@@ -1097,7 +1097,7 @@ def create_app(
             customer.email if customer and customer.email else "",
             subject,
             body,
-            Path(row["pdf_path"]),
+            ws.find(row["pdf_path"]) or Path(row["pdf_path"]),
         )
         return _after_compose(conn, "invoices", number, result, "/invoices")
 
@@ -1168,7 +1168,7 @@ def create_app(
     @app.get("/quotes/{number}/pdf")
     def quote_pdf(number: str):
         row = db().execute("SELECT pdf_path FROM quotes WHERE number = ?", (number,)).fetchone()
-        return _pdf(row["pdf_path"] if row else None, ws.quotes)
+        return _pdf(ws.find(row["pdf_path"]) if row else None, ws.quotes)
 
     @app.post("/quotes/{number}/accept", dependencies=guarded)
     def quote_accept(number: str):
@@ -1206,7 +1206,7 @@ def create_app(
             customer.email if customer and customer.email else "",
             subject,
             body,
-            Path(row["pdf_path"]),
+            ws.find(row["pdf_path"]) or Path(row["pdf_path"]),
         )
         return _after_compose(conn, "quotes", number, result, "/quotes")
 
@@ -1990,6 +1990,7 @@ def create_app(
             letzte=sicherung.letzte(current.backup_dir),
             faellig=sicherung.faellig(current.backup_dir),
             vorschlaege=sicherung.vorschlaege(),
+            zettel=request.query_params.get("zettel") == "1",
             **extra,
         )
 
@@ -2000,24 +2001,54 @@ def create_app(
     @app.post("/sicherung", dependencies=guarded)
     async def sicherung_jetzt(request: Request):
         form = await request.form()
-        ziel = str(form.get("ziel") or settings().backup_dir).strip()
+        ziel = str(form.get("anderer") or form.get("ziel") or settings().backup_dir).strip()
         if not ziel:
             flash("Wähl zuerst aus, wohin die Sicherung soll.", "error")
             return back("/sicherung")
+        vom_zettel = str(form.get("passwort") or "").strip()
         try:
-            path = sicherung.sichern(ws, Path(ziel), sicherung.kennwort())
+            if vom_zettel:
+                sicherung.kennwort_merken(vom_zettel, ziel)
+                passwort = vom_zettel
+            else:
+                passwort = sicherung.kennwort(ziel=ziel)
+            path = sicherung.sichern(ws, Path(ziel), passwort)
+        except sicherung.KennwortFehlt as exc:
+            flash(str(exc), "error")
+            return back("/sicherung?zettel=1#sichern")
         except sicherung.SicherungError as exc:
             flash(str(exc), "error")
             return back("/sicherung")
         if ziel != settings().backup_dir:
             replace(settings(), backup_dir=ziel).save(ws.settings_file)
-        flash(f"Gesichert: {path.name} in {path.parent}.", cue="saved")
+        flash(f"Gesichert: {path.name} in {path.parent}.", cue="saved", stamp="Gesichert")
+        if sicherung.selbe_platte(ws, Path(ziel)):
+            flash(
+                "Achtung: Diese Sicherung liegt auf derselben Festplatte wie FRITS. Geht der Mac "
+                "kaputt, ist sie mit weg. Nimm besser einen USB-Stick, eine externe Festplatte "
+                "oder iCloud Drive.",
+                "error",
+            )
         return back(str(form.get("back") or "/sicherung"))
+
+    @app.post("/sicherung/waehlen", dependencies=guarded)
+    def sicherung_waehlen():
+        """The Mac's own folder window, so nobody has to type a path."""
+        chosen = system.choose_folder("Wohin soll die FRITS-Sicherung?")
+        if chosen is None:
+            flash("Kein Ordner gewählt. Du kannst den Ort auch unten eintippen.")
+            return back("/sicherung#sichern")
+        replace(settings(), backup_dir=str(chosen)).save(ws.settings_file)
+        flash(f"Die Sicherung kommt nach {chosen}. Drück jetzt „Jetzt sichern“.")
+        return back("/sicherung#sichern")
 
     @app.post("/sicherung/kennwort", dependencies=guarded)
     def sicherung_kennwort(request: Request):
         try:
-            shown = sicherung.kennwort()
+            shown = sicherung.kennwort(ziel=settings().backup_dir or None)
+        except sicherung.KennwortFehlt as exc:
+            flash(str(exc), "error")
+            return back("/sicherung?zettel=1#sichern")
         except sicherung.SicherungError as exc:
             flash(str(exc), "error")
             return back("/sicherung")
@@ -2186,6 +2217,7 @@ def create_app(
 # ---------- helpers ----------
 
 TEXT_FIELDS = ("name", "company", "email", "phone", "steuernummer", "ust_id", "bank", "iban", "bic")
+NOTIZ_MAX = 1500
 CHECKBOXES = ("strict_local", "sound", "haustier", "auto_read")
 EFFECTS = ("ruhig", "verspielt")
 
@@ -2201,6 +2233,10 @@ def settings_from_form(current: Settings, form) -> Settings:
         changes["iban"] = changes["iban"].replace(" ", "").upper()
     if "address" in form:
         changes["address"] = _one_line(form.get("address")) or ""
+    if "verfahren_notiz" in form:
+        changes["verfahren_notiz"] = " ".join(str(form.get("verfahren_notiz", "")).split())[
+            :NOTIZ_MAX
+        ]
     for key, empty in (("hourly_rate", 0), ("km_rate", 0), ("vat_rate", 19)):
         if key in form:
             changes[key] = parse_amount(str(form.get(key))) or Decimal(empty)
@@ -2480,7 +2516,7 @@ def _one_line(value) -> str | None:
     return ", ".join(p for p in parts if p) or None
 
 
-def _pdf(path: str | None, folder: Path) -> FileResponse:
+def _pdf(path: str | Path | None, folder: Path) -> FileResponse:
     if not path:
         raise HTTPException(404)
     pdf = Path(path).resolve()
