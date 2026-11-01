@@ -14,7 +14,7 @@
 {% with dz_action="/expenses/beleg", dz_class="card form", dz_id="beleg", dz_icon="🧾",
         dz_title="Beleg hierher ziehen oder einfügen", dz_hint="Foto, Scan, PDF oder die Bestellbestätigung aus einer Mail.",
         dz_send="Als Beleg eintragen", dz_busy="Ich lese den Beleg. Einen Moment.",
-        dz_text_label="Text eines Belegs einfügen, z. B. eine Bestellbestätigung" %}{% include "_dropzone.html" %}{% endwith %}
+        dz_text_label="Text eines Belegs einfügen, z. B. eine Bestellbestätigung", dz_primary=False %}{% include "_dropzone.html" %}{% endwith %}
 {% endif %}
 
 {% if receipts %}
@@ -53,7 +53,7 @@
     <form method="post" action="/expenses" class="form" data-merken="ausgabe">
       <input type="hidden" name="token" value="{{ token }}">
       <input type="hidden" name="source_file" value="{{ chosen.filename if chosen else '' }}">
-      <label class="field">Bezahlt am <input type="date" name="date" value="{{ g.date or today }}" required {{ "class=imported" if g.date }}></label>
+      <label class="field">Bezahlt am <input type="date" name="date" value="{{ g.date or ('' if g else today) }}" required {{ "class=imported" if g.date }} {{ "autofocus" if g and g.gross and not g.date }}></label>
       <label class="field">Bei wem? <input name="vendor" placeholder="z. B. Deutsche Bahn, Baumarkt" required value="{{ g.vendor or '' }}" {{ "class=imported" if g.vendor }}></label>
       <label class="field">Wofür? <input name="description" placeholder="z. B. Fahrt zum Kunden, Schrauben"></label>
       <label class="field">Betrag in € (so wie bezahlt, mit Steuer) <input name="gross" inputmode="decimal" required value="{{ g.gross or '' }}" {{ "class=imported" if g.gross }} {{ "autofocus" if chosen and not g.gross }}></label>
@@ -65,6 +65,7 @@
           <option value="" {{ "selected" if g.vat_rate == "" }}>keine oder aus dem Ausland</option>
         </select>
       </label>
+      {% if g.vat_hint %}<p class="hint">{{ g.vat_hint }}</p>{% endif %}
       {% if g.vat_rate == "" %}<p class="hint">Dieser Beleg kommt wohl aus dem Ausland, zum Beispiel ein Hotel in Wien. Ausländische Umsatzsteuer ist keine deutsche Vorsteuer, deshalb zählt der ganze Betrag als Ausgabe.</p>{% endif %}
       <label class="field">Kategorie
         <select name="category">{% for key, c in categories.items() %}<option value="{{ key }}" {{ "selected" if key == (g.category or "sonstiges") }}>{{ c.label }}</option>{% endfor %}</select>

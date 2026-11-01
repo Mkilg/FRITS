@@ -48,6 +48,22 @@
     <div><strong>Neu in Frittes Album:</strong> {{ k.erfolge | map(attribute="name") | join(", ") }}<br><a href="/fritte/album">Zum Album</a></div>
   </div>
   {% endif %}
+  {% if k.truhen %}{% set tr = k.truhen %}
+  <div class="ks-ausbau ks-truhen{{ ' mit-neuer' if tr.neu }}" data-ks="truhen">
+    <span class="truhe-klein{{ ' voll' if tr.neu }}" aria-hidden="true">{% if picture('truhe-zu') %}<img src="{{ picture('truhe-zu') }}" alt="">{% else %}<i class="truhe-deckel"></i><i class="truhe-kiste"></i>{% endif %}</span>
+    <div>
+      {% set anzahl = tr.anzahl or tr.neu | length %}{% if tr.neu %}<strong>{{ "Eine neue Truhe!" if anzahl == 1 else anzahl ~ " neue Truhen!" }}</strong> <span>{{ tr.neu | join(" · ") }}.</span><br>{% endif %}
+      {% if tr.dazu %}<span>{{ tr.dazu }} {{ "Karte" if tr.dazu == 1 else "Karten" }} echter Papierkram {{ "kam" if tr.dazu == 1 else "kamen" }} in die Truhe.</span> {% endif %}
+      <span class="truhe-fuellung" aria-label="Nächste Truhe: {{ tr.jetzt }} von 5 Karten">{% for i in range(5) %}<i class="{{ 'voll' if i < tr.jetzt }}"></i>{% endfor %}</span> <span class="hint">Nächste Truhe: {{ tr.jetzt }} von 5</span>
+      {% if offene_truhen %}
+      <form method="post" action="/fritte/truhe/oeffnen" class="truhe-auf-form">
+        <input type="hidden" name="token" value="{{ token }}">
+        <button class="primary">🎁 Truhe öffnen{% if offene_truhen > 1 %} ({{ offene_truhen }} warten){% endif %}</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
   {% if k.nummer == 1 %}<p class="hint ks-tipp">Ab dem nächsten Kassensturz kocht Fritte jedes Mal ein Gericht dazu, und du wählst, welches.</p>{% endif %}
   <div class="row ks-aktionen">
     <button type="button" class="quiet" data-ks="nochmal" hidden>Noch einmal ansehen</button>

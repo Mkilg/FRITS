@@ -545,3 +545,102 @@ details[open] > summary::before { content: "▾ "; }
 .stil-wahl button small { font-weight: 400; font-size: .78rem; color: var(--muted); }
 .regal-vorschau:has(.glas-mit-wirkung) { align-items: flex-start; }
 .regal-vorschau:has(.glas-mit-wirkung) > .hint:first-child { flex-basis: 100%; }
+
+/* ---------- Frittes Truhen ---------- */
+/* One chest drawing for every size: it scales with font-size. Painted pictures
+   ("truhe-zu", "truhe-offen") replace it once they are in static/bilder. */
+.truhe-klein, .truhe-gross { position: relative; display: inline-block; width: 4em; height: 3.2em; flex: none; }
+.truhe-klein { font-size: 11px; }
+.truhe-klein img, .truhe-gross img { width: 100%; height: 100%; object-fit: contain; }
+.truhe-kiste, .truhe-deckel { position: absolute; left: 0; right: 0; display: block; border: .12em solid var(--eiche-tief); }
+.truhe-kiste { bottom: 0; height: 1.95em; border-radius: .12em .12em .25em .25em;
+  background:
+    linear-gradient(90deg, transparent 12%, var(--ocker) 12% 20%, transparent 20% 80%, var(--ocker) 80% 88%, transparent 88%),
+    repeating-linear-gradient(180deg, transparent 0 .5em, rgba(58, 36, 18, .3) .5em .56em),
+    linear-gradient(180deg, var(--eiche-hell), var(--eiche)); }
+.truhe-deckel { bottom: 1.82em; height: 1.25em; border-radius: 1.2em 1.2em .1em .1em / .9em .9em .1em .1em; transform-origin: 6% 100%;
+  background:
+    linear-gradient(90deg, transparent 12%, var(--ocker) 12% 20%, transparent 20% 80%, var(--ocker) 80% 88%, transparent 88%),
+    linear-gradient(180deg, var(--eiche-hell), var(--eiche-dunkel)); }
+.truhe-deckel::after { content: ""; position: absolute; left: 50%; bottom: -.45em; width: .55em; height: .7em; margin-left: -.275em;
+  background: var(--gold); border: .08em solid var(--ocker-dunkel); border-radius: .12em; z-index: 1; }
+.truhe-klein.leer { opacity: .45; filter: grayscale(.6); }
+.truhe-klein.voll .truhe-deckel { box-shadow: 0 -.2em .6em rgba(233, 189, 79, .7); }
+.truhe-wartet { margin-left: .4rem; font-weight: 600; color: var(--eiche-tief); text-decoration: none; padding: .05rem .5rem; border-radius: 999px; background: rgba(233, 189, 79, .45); }
+
+.truhen-kopf { display: flex; gap: 1.2rem; align-items: center; }
+.truhen-stapel { display: flex; gap: .2rem; align-items: flex-end; font-size: 15px; }
+.truhen-stapel .truhe-klein { font-size: inherit; }
+.truhen-text { flex: 1; min-width: 0; }
+.truhen-text p { margin: .2rem 0 .6rem; }
+.truhe-fuellung { display: inline-flex; gap: .2rem; vertical-align: middle; }
+.truhe-fuellung i { width: .95rem; height: .95rem; border-radius: 3px; border: 2px solid var(--ocker-dunkel); background: var(--creme); }
+.truhe-fuellung i.voll { background: radial-gradient(circle at 35% 30%, #fff6d8, var(--gold)); }
+.truhe-zeile { color: var(--muted); }
+.truhen-funde, .schaetze { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; margin-top: .8rem; }
+.fund-chip { display: inline-flex; gap: .3rem; align-items: center; padding: .15rem .6rem; border-radius: 999px; text-decoration: none; color: var(--ink);
+  border: 2px solid var(--etikett, var(--moos)); background: var(--papier); font-size: .88rem; }
+.schatz { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: .1rem; width: 4.6rem; min-height: 4.4rem; padding: .3rem;
+  border: 2px dashed var(--papier-schatten); border-radius: var(--radius); font-size: 1.5rem; color: var(--muted); text-align: center; }
+.schatz img { max-width: 2.4rem; max-height: 2.2rem; }
+.schatz small { font-size: .66rem; line-height: 1.15; }
+.schatz.da { border-style: solid; border-color: var(--ocker); background: var(--papierkarte); color: var(--eiche-tief); }
+.truhen-regeln { margin-top: .9rem; }
+.truhen-regeln summary { cursor: pointer; font-weight: 600; color: var(--eiche-dunkel); }
+
+/* in the Kassensturz */
+.ks-truhen .truhe-klein { font-size: 16px; }
+.ks-truhen.mit-neuer { border-color: var(--ocker-dunkel); }
+.truhe-auf-form { margin-top: .5rem; }
+.spielkarte.glueck { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold), 0 6px 18px rgba(233, 189, 79, .55); background: linear-gradient(170deg, #fff6d8, #f5dd9a); }
+.marke.glueck-marke { background: var(--gold); color: var(--eiche-tief); }
+.art-joker::before { background: var(--gold); }
+
+/* opening one */
+.truhe-show { text-align: center; overflow: hidden; }
+.truhe-herkunft { margin: 0 0 .4rem; }
+.truhe-buehne { position: relative; display: grid; justify-items: center; gap: 1rem; padding: 2.8rem 0 .6rem; }
+[data-truhe-skip][hidden] { display: none; }
+.truhe-gross { font-size: 40px; z-index: 1; }
+.truhe-gross .truhe-deckel { transition: transform .55s cubic-bezier(.2, 1.4, .4, 1); transform: rotate(-24deg) translate(-.15em, -.45em); }
+.truhe-gross .truhe-bild.zu { display: none; }
+.truhe-strahlen { position: absolute; left: 50%; top: 2.8rem; width: 22rem; height: 22rem; margin-left: -11rem; margin-top: -6rem; border-radius: 50%; pointer-events: none;
+  background: repeating-conic-gradient(from 0deg, var(--strahl, var(--etikett)) 0 6deg, transparent 6deg 22deg);
+  -webkit-mask: radial-gradient(circle, #000 0 20%, transparent 62%); mask: radial-gradient(circle, #000 0 20%, transparent 62%);
+  opacity: .28; transition: opacity .6s; }
+.truhe-show.selten-gewoehnlich .truhe-strahlen { opacity: .2; --strahl: var(--moos-hell); }
+.truhe-show.selten-selten .truhe-strahlen { --strahl: #7fa6dc; }
+.truhe-show.selten-legendaer .truhe-strahlen { opacity: .45; }
+.fund { display: grid; justify-items: center; gap: .3rem; max-width: 26rem; padding: 1rem 1.4rem; border-radius: 8px; z-index: 1;
+  border: 3px solid var(--etikett); background: var(--papierkarte); box-shadow: var(--karten-schatten);
+  transition: opacity .5s, transform .6s cubic-bezier(.2, 1.5, .4, 1); }
+.fund-bild { font-size: 3.2rem; line-height: 1.1; }
+.fund-bild img { max-width: 6rem; max-height: 5rem; }
+.fund-seltenheit { font-size: .74rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; padding: .05rem .6rem; border-radius: 999px; background: var(--etikett); color: #fff; }
+.truhe-show.selten-legendaer .fund-seltenheit { color: var(--eiche-tief); }
+.fund-name { font-family: var(--schrift); font-size: 1.4rem; color: var(--eiche-tief); }
+.fund-text { color: var(--ink); }
+.truhe-aktionen { justify-content: center; margin-top: .6rem; }
+.truhe-fair { margin-top: 1rem; }
+
+/* closed, before the lid goes up (only with JavaScript; without it the find shows) */
+.truhe-show.zu .truhe-gross .truhe-deckel { transform: none; transition: none; }
+.truhe-show.zu .truhe-gross .truhe-bild.zu { display: block; }
+.truhe-show.zu .truhe-gross .truhe-bild.auf { display: none; }
+.truhe-show.zu .fund { opacity: 0; transform: translateY(-3rem) scale(.4); transition: none; }
+.truhe-show.zu .truhe-strahlen { opacity: 0; transition: none; }
+/* nothing may give the find away before the lid is up */
+.truhe-show.zu .truhe-aktionen > :not([data-truhe-skip]), .truhe-show.zu .truhe-fair, .truhe-verdeckt .flash { visibility: hidden; }
+.truhe-show.wackelt .truhe-gross { animation: truhe-wackeln .3s ease-in-out 3; }
+.truhe-show.funkelt .truhe-strahlen { animation: strahlen-drehen 6s linear infinite; }
+@keyframes truhe-wackeln { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-5deg); } 75% { transform: rotate(5deg); } }
+@keyframes strahlen-drehen { to { transform: rotate(360deg); } }
+[data-effekte="ruhig"] .truhe-show .fund { transition: opacity .8s ease, transform .8s ease; }
+@media (prefers-reduced-motion: reduce) {
+  .truhe-show .fund, .truhe-gross .truhe-deckel, .truhe-strahlen { transition: none !important; animation: none !important; }
+}
+@media (max-width: 560px) {
+  .truhen-kopf { flex-direction: column; align-items: flex-start; gap: .6rem; }
+  .truhe-gross { font-size: 30px; }
+  .truhe-strahlen { width: 16rem; height: 16rem; margin-left: -8rem; margin-top: -4.5rem; }
+}

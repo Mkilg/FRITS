@@ -2,11 +2,11 @@
 {% macro zahl(w) %}{{ ("%g" % w) | replace(".", ",") }}{% endmacro %}
 
 {% set KARTEN_BILD = {"rechnung": "symbol-rechnungen", "bezahlt": "symbol-euer", "angebot": "symbol-angebote", "ausgabe": "symbol-ausgaben", "erinnerung": "symbol-eingang", "feierabend": "fritte-feierabend", "aufgabe": "symbol-liste", "steuer": "symbol-steuer", "steuerjahr": "symbol-steuer", "lernen": "fritte-fertig", "uebung": "fritte-nachdenken", "start": "fritte-willkommen"} %}
-{% set KARTEN_ZEICHEN = {"rechnung": "📄", "bezahlt": "💶", "angebot": "📝", "ausgabe": "🧾", "erinnerung": "✉️", "feierabend": "🌙", "aufgabe": "✅", "steuer": "🗂️", "steuerjahr": "🐉", "lernen": "🎓", "uebung": "✏️", "start": "🎁"} %}
-{% set KARTEN_NAME = {"rechnung": "Rechnung", "bezahlt": "Zahlung", "angebot": "Angebot", "ausgabe": "Ausgabe", "erinnerung": "Erinnerung", "feierabend": "Feierabend", "aufgabe": "Abgehakt", "steuer": "Steuer", "steuerjahr": "Steuerjahr", "lernen": "Gelernt", "uebung": "Übung", "start": "Einzug", "korrektur": "Korrektur"} %}
+{% set KARTEN_ZEICHEN = {"rechnung": "📄", "bezahlt": "💶", "angebot": "📝", "ausgabe": "🧾", "erinnerung": "✉️", "feierabend": "🌙", "aufgabe": "✅", "steuer": "🗂️", "steuerjahr": "🐉", "lernen": "🎓", "uebung": "✏️", "start": "🎁", "joker": "🃏"} %}
+{% set KARTEN_NAME = {"rechnung": "Rechnung", "bezahlt": "Zahlung", "angebot": "Angebot", "ausgabe": "Ausgabe", "erinnerung": "Erinnerung", "feierabend": "Feierabend", "aufgabe": "Abgehakt", "steuer": "Steuer", "steuerjahr": "Steuerjahr", "lernen": "Gelernt", "uebung": "Übung", "start": "Einzug", "korrektur": "Korrektur", "joker": "Joker"} %}
 
 {% macro karte(k, index=0, summe=None, klein=False) %}
-<div class="spielkarte art-{{ k.art }}{{ ' klein' if klein }}" data-karte="{{ index }}">
+<div class="spielkarte art-{{ k.art }}{{ ' klein' if klein }}{{ ' glueck' if k.glueck }}" data-karte="{{ index }}">
   {% set art_name = "Gutschrift" if k.art == "rechnung" and (k.titel or "").startswith("Gutschrift ") else KARTEN_NAME.get(k.art, k.art) %}
   <span class="karte-art{{ ' lang' if art_name|length > 9 }}">{{ art_name }}</span>
   <span class="karte-bild" aria-hidden="true">{% if picture(KARTEN_BILD.get(k.art, "")) %}<img src="{{ picture(KARTEN_BILD[k.art]) }}" alt="">{% else %}{{ KARTEN_ZEICHEN.get(k.art, "📄") }}{% endif %}</span>
@@ -18,6 +18,7 @@
     {% if k.zeitnah %}<span class="marke" title="Innerhalb von 10 Tagen nach dem Eingang in FRITS eingetragen">zeitnah</span>{% endif %}
     {% if k.nach_erinnerung %}<span class="marke" title="Kam nach einer freundlichen Erinnerung">nachgehakt</span>{% endif %}
     {% if k.saison %}<span class="marke saison-marke" title="Thema dieser Saison: doppelte Körner">Saison ×2</span>{% endif %}
+    {% if k.glueck %}<span class="marke glueck-marke" title="Diese Karte bringt eine Truhe mit">🎁 Glückskarte</span>{% endif %}
   </span>
   {% endif %}
   <span class="karte-koerner" data-koerner="{{ summe if summe is not none else k.koerner }}">+{{ summe if summe is not none else k.koerner }}</span>

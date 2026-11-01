@@ -38,6 +38,7 @@ class Ding:
     y: float = 8
     groesse: float = 2.4  # size, relative to the room's width
     artikel: str = "die"  # der | die | das, for "Die Teetasse hat jetzt einen Platz"
+    truhe: str = ""  # only found in chests, with this rarity (never in the shop)
 
 
 # fmt: off
@@ -58,8 +59,16 @@ LADEN: tuple[Ding, ...] = (
     Ding("doktorhut", "Doktorhut", 50, "🎓", "Für alle, die ihre Buchhaltung im Griff haben.", "hut", artikel="der"),
     Ding("krone", "Papierkrone", 60, "👑", "Selbst gefaltet, aus einem alten Kassenbon.", "hut"),
 )
+# Only in Frittes Truhen. Their worth is the story, not the price.
+SCHAETZE: tuple[Ding, ...] = (
+    Ding("kleeblatt", "Glücksklee", 0, "🍀", "Vierblättrig, aus einer Truhe. Steht auf der Fensterbank.", "zimmer", 25, 44, 1.6, artikel="der", truhe="selten"),
+    Ding("schatzkarte", "Schatzkarte", 0, "🗺️", "Eine alte Karte für die Wand. Das Kreuz markiert die Kasse.", "zimmer", 36, 60, 2.4, truhe="selten"),
+    Ding("seemannsmuetze", "Seemannsmütze", 0, "⚓", "Für Fritte, die Schatzsucherin.", "hut", truhe="selten"),
+    Ding("waage", "Goldene Waage", 0, "⚖️", "Soll und Haben, immer im Gleichgewicht.", "zimmer", 10, 44, 1.8, truhe="legendär"),
+    Ding("sternenhut", "Sternenhut", 0, "🌟", "Glänzt ein bisschen. Nur aus einer legendären Truhe.", "hut", artikel="der", truhe="legendär"),
+)
 # fmt: on
-DINGE = {d.id: d for d in LADEN}
+DINGE = {d.id: d for d in (*LADEN, *SCHAETZE)}
 
 # Which painted Fritte goes with which feeling (the pictures from static/bilder).
 BILD = {
@@ -161,7 +170,7 @@ def ansehen(conn: sqlite3.Connection, heute: date, alte_datei: Path | None = Non
 
 def kaufen(conn: sqlite3.Connection, heute: date, ding_id: str) -> Ding:
     ding = DINGE.get(ding_id)
-    if ding is None:
+    if ding is None or ding.truhe:
         raise LadenFehler("Das gibt es im Laden nicht.")
     stand.vorbereiten(conn)
     with store.transaction(conn):

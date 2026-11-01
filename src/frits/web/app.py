@@ -375,6 +375,7 @@ def create_app(
         undo: dict | None = None,
         link: tuple[str, str] | None = None,
         aktion: dict | None = None,
+        feld: str | None = None,
     ) -> None:
         """A short note on the next page. `stamp` puts an ink stamp on it, e.g. "Bezahlt".
         `undo` remembers how to take the step back and puts a "Rückgängig" button on the note:
@@ -387,6 +388,7 @@ def create_app(
         if link:
             note["link"], note["link_text"] = link
         note["aktion"] = aktion
+        note["feld"] = feld  # the form field this note is about: marked red and focused
         app.state.flashes.append(note)
 
     app.state.hinweise = []  # small notes other parts add to any page, e.g. Fritte's cards
@@ -1461,6 +1463,8 @@ def create_app(
                 if "pattern" in str(exc)
                 else "Bitte nur Zahlen bei Preisen und Zahlungsziel.",
                 "error",
+                feld=getattr(exc, "feld", None)
+                or ("number_pattern" if "pattern" in str(exc) else None),
             )
             return back("/settings")
         updated.save(ws.settings_file)
@@ -1983,6 +1987,8 @@ def create_app(
                 if "pattern" in str(exc)
                 else "Bitte nur Zahlen bei Preisen.",
                 "error",
+                feld=getattr(exc, "feld", None)
+                or ("number_pattern" if "pattern" in str(exc) else None),
             )
             return back(f"/setup/{step}")
         if step == "done":
@@ -2336,6 +2342,14 @@ def _upload_name(path: Path) -> str:
     return re.sub(r" \(\d+\)(?=\.[^.]*$|$)", "", Path(path).name)
 
 
+class FeldFehler(BillingError):
+    """A form value that can't be used, and which field it was, so the page can point at it."""
+
+    def __init__(self, text: str, feld: str):
+        super().__init__(text)
+        self.feld = feld
+
+
 def settings_from_form(current: Settings, form) -> Settings:
     """Apply the fields this form contains. Checkboxes count only if the form lists them,
     because an unticked box isn't sent at all."""
@@ -2357,8 +2371,8 @@ def settings_from_form(current: Settings, form) -> Settings:
                 changes[key] = parse_amount(str(form.get(key))) or Decimal(empty)
             except (BillingError, ValueError, ArithmeticError) as exc:
                 label, example = NUMBER_FIELDS[key]
-                raise BillingError(
-                    f"Beim {label} bitte nur eine Zahl eingeben, zum Beispiel {example}."
+                raise FeldFehler(
+                    f"Beim {label} bitte nur eine Zahl eingeben, zum Beispiel {example}.", key
                 ) from exc
     if "number_pattern" in form:
         pattern = str(form.get("number_pattern", "")).strip() or DEFAULT_PATTERN
@@ -2373,11 +2387,14 @@ def settings_from_form(current: Settings, form) -> Settings:
         try:
             days = int(str(form.get("payment_days") or 14).strip())
         except ValueError as exc:
-            raise BillingError(
-                "Beim Zahlungsziel bitte nur die Zahl der Tage eingeben, zum Beispiel 14."
+            raise FeldFehler(
+                "Beim Zahlungsziel bitte nur die Zahl der Tage eingeben, zum Beispiel 14.",
+                "payment_days",
             ) from exc
         if not 0 <= days <= 120:
-            raise BillingError("Das Zahlungsziel muss zwischen 0 und 120 Tagen liegen.")
+            raise FeldFehler(
+                "Das Zahlungsziel muss zwischen 0 und 120 Tagen liegen.", "payment_days"
+            )
         changes["payment_days"] = days
     if "tax_mode" in form:
         changes["tax_mode"] = (

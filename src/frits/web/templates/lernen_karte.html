@@ -29,7 +29,7 @@
   <li class="halt{{ ' geschafft' if stop.geschafft }}{{ ' angefangen' if stop.gesehen and not stop.geschafft }}">
     <a href="/lernen/{{ e.slug }}">
       <span class="halt-nr">{{ loop.index }}</span>
-      <span class="halt-zeichen" aria-hidden="true">{{ e.symbol }}</span>
+      <span class="halt-zeichen" aria-hidden="true">{% if picture("etappe-" ~ e.slug) %}<img src="{{ picture("etappe-" ~ e.slug) }}" alt="" width="28" height="28">{% else %}{{ e.symbol }}{% endif %}</span>
       <span class="halt-text"><strong>{{ e.title }}</strong><span class="muted">{{ e.line }}</span></span>
       <span class="halt-stand">{% if stop.geschafft %}<span class="stempel stempel-klein" aria-label="geschafft">Gelernt</span>{% else %}{{ stop.gesehen }} von {{ stop.happen | length }}{% endif %}</span>
     </a>

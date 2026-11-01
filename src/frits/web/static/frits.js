@@ -4,7 +4,7 @@
 
   // Ask before steps that can't be undone (numbering an invoice, Storno, discarding), on a
   // card in FRITS's own look instead of the browser's grey box.
-  function rueckfrage(message, ja, done) {
+  function rueckfrage(message, ja, done, gefahr) {
     if (typeof HTMLDialogElement !== "function") { done(window.confirm(message)); return; }
     var d = document.createElement("dialog");
     d.className = "rueckfrage-karte";
@@ -13,7 +13,7 @@
     var row = document.createElement("div");
     row.className = "row";
     var yes = document.createElement("button");
-    yes.type = "button"; yes.className = "primary"; yes.textContent = ja || "Ja";
+    yes.type = "button"; yes.className = gefahr ? "gefahr" : "primary"; yes.textContent = ja || "Ja";
     var no = document.createElement("button");
     no.type = "button"; no.className = "quiet"; no.textContent = "Noch nicht";
     row.appendChild(yes); row.appendChild(no);
@@ -41,12 +41,14 @@
     var message = asker.getAttribute("data-confirm");
     if (message && form.getAttribute("data-bestaetigt") !== "1") {
       e.preventDefault();
+      // A step that undoes something (Stornieren, Löschen) gets a red yes, not the gold one.
+      var gefahr = (button && button.classList.contains("danger")) || !!form.querySelector("button.danger");
       rueckfrage(message, asker.getAttribute("data-confirm-ja"), function (ok) {
         if (!ok) return;
         form.setAttribute("data-bestaetigt", "1");
         if (form.requestSubmit) form.requestSubmit(button || undefined);
         else form.submit();
-      });
+      }, gefahr);
       return;
     }
     form.removeAttribute("data-bestaetigt");
@@ -486,6 +488,21 @@
         });
         var box = form.closest("details");
         if (box) box.open = true;
+      }
+      // Point at the field the note is about: red frame, cursor in it, number selected.
+      var feld = error && error.getAttribute("data-feld");
+      var bad = feld && form.elements.namedItem(feld);
+      if (bad && bad.focus) {
+        bad.classList.add("falsch");
+        bad.setAttribute("aria-invalid", "true");
+        var open = bad.closest("details");
+        if (open) open.open = true;
+        bad.focus();
+        if (bad.select) bad.select();
+        bad.addEventListener("input", function () {
+          bad.classList.remove("falsch");
+          bad.removeAttribute("aria-invalid");
+        }, { once: true });
       }
       form.addEventListener("submit", function () {
         var data = {};
