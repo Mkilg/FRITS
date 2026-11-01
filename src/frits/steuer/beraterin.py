@@ -82,6 +82,10 @@ _TRENNER_ZEILE = re.compile(
 )
 
 
+# Der Anfang einer Sammelzeile, der für alle Teile gilt: "Belege zu", "Nachweise für"
+_KOPF = re.compile(r"^(\S+\s+(?:zu|zum|zur|für|über|von|vom))\s+\S", re.IGNORECASE)
+
+
 def wuensche_aus_text(text: str) -> list[str]:
     zeilen = [z.strip() for z in text.replace("\r", "").split("\n")]
     punkte = [m.group(1).strip() for z in zeilen if (m := _AUFZAEHLUNG.match(z))]
@@ -112,7 +116,10 @@ def zerlegen(zeile: str) -> list[tuple[str, str]]:
         and not t.endswith("-")  # "Kranken- und Pflegeversicherung" bleibt ganz
         for t in teile
     ):
-        return [(t, "") for t in teile]
+        # "Belege zu Arbeitszimmer und Reisekosten": "Belege zu" gilt für beide Teile
+        kopf = _KOPF.match(teile[0])
+        zusammenhang = kopf.group(1) if kopf else ""
+        return [(teile[0], "")] + [(t, zusammenhang) for t in teile[1:]]
     return [(zeile, "")]
 
 
@@ -144,7 +151,15 @@ def _punkte(woerter: set[str], gebiet: Gebiet) -> int:
     stichworte = set(gebiet.provinz.woerter) | _woerter(gebiet.provinz.bereich)
     for s in gebiet.provinz.stuecke:
         stichworte |= _woerter(s.name)
-    return sum(1 for w in woerter if any(_passt(w, s) for s in stichworte))
+    return sum(1 for w in woerter if any(_passt_provinz(w, s) for s in stichworte))
+
+
+def _passt_provinz(wort: str, stichwort: str) -> bool:
+    """Wie _passt, aber allgemeine Wörter zählen nur genau: "Reisekosten" gehört nicht zur
+    Gilde, nur weil dort eine Karte "Eigene Kosten" heißt."""
+    if min(wort, stichwort, key=len) in _ALLGEMEIN:
+        return wort == stichwort
+    return _passt(wort, stichwort)
 
 
 def _nummern(text: str) -> set[int]:
@@ -241,12 +256,19 @@ def _ein_wunsch(teil: str, zusammenhang: str, gebiete: list[Gebiet], stuecke: li
     # Wörter der Provinz ("Ausgangsrechnungen der GbR" gehört zur Gilde, nicht zur Werkstatt).
     nach_id = {g.id: g for g in gebiete}
     provinz_punkte = {gid: _punkte(_woerter(ganz), nach_id[gid]) for gid in ids}
-    bewertet = [
-        (k + 2 * provinz_punkte[s["gebiet"]], k, s)
-        for s in stuecke
-        if s["gebiet"] in ids and (k := _karten_punkte(woerter, s)) >= 2
-    ]
-    bewertet = [(p, s) for p, k, s in bewertet if k >= 3 or p >= 4]
+
+    def bewerten(woerter: set[str]) -> list[tuple[int, dict]]:
+        bewertet = [
+            (k + 2 * provinz_punkte[s["gebiet"]], k, s)
+            for s in stuecke
+            if s["gebiet"] in ids and (k := _karten_punkte(woerter, s)) >= 2
+        ]
+        return [(p, s) for p, k, s in bewertet if k >= 3 or p >= 4]
+
+    # "Belege zu Arbeitszimmer": Das Arbeitszimmer sagt, welche Karte; "Belege" nur, wenn
+    # sonst nichts passt
+    kopf = _KOPF.match(teil)
+    bewertet = (kopf and bewerten(_woerter(teil[kopf.end(1) :]))) or bewerten(woerter)
     if bewertet:
         beste = max(p for p, _ in bewertet)
         karte = next(s for p, s in bewertet if p == beste)

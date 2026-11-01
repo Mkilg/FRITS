@@ -170,7 +170,8 @@ def inhaltsverzeichnis(
                     wo = bereich.get(v["bei_gebiet"], v["bei_gebiet"])
                     zeilen.append(f"       dieselbe Datei wie bei {wo}: {Path(v['pfad']).name}")
             if s["frage"] and s["frage"] != MACHT_BERATERIN:
-                zeilen.append(f"       Frage: {s['frage']}")
+                frage = siezen(s["frage"]) if profil.anrede == "sie" else s["frage"]
+                zeilen.append(f"       Frage: {frage}")
         zeilen.append("")
     zeilen.append(f"Erstellt am {date.today().strftime('%d.%m.%Y')} mit FRITS.")
     return "\n".join(zeilen)

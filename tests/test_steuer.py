@@ -428,7 +428,13 @@ def test_ernte_findet_was_frits_im_jahr_hat(frits_jahr, conn):
     assert [p.name for p in funde.rechnungen] == ["RE-2024-0009.pdf", "RE-2025-0001.pdf"]
     assert [p.name for p in funde.belege] == ["quittung.jpg"]
     assert funde.euer is not None and funde.gewinn == "188,10 €"
-    assert funde.neu == {"rechnungen": 2, "belege": 1, "euer": 1}
+    assert funde.neu == {
+        "rechnungen": 2,
+        "belege": 1,
+        "euer": 1,
+        "buchungsliste": 1,
+        "verfahrensdoku": 1,
+    }
     assert ernte.hat_rechnungen(frits_jahr, 2025)
     assert not ernte.hat_rechnungen(frits_jahr, 2023)
 
@@ -437,20 +443,35 @@ def test_ernte_einbringen_kopiert_und_ist_wiederholbar(frits_jahr, conn):
     quest.start(conn, KIM)
     assert [g.id for g in ernte.ziele(reich(KIM))] == ["werkstatt-1", "gilde-1"]
     neu = ernte.einbringen(conn, frits_jahr, 2025, "werkstatt-1", "kleinunternehmer")
-    assert neu == {"rechnungen": 2, "belege": 1, "euer": 1}
+    assert neu == {"rechnungen": 2, "belege": 1, "euer": 1, "buchungsliste": 1, "verfahrensdoku": 1}
     werkstatt = {s["key"]: s for s in quest.stuecke(conn, 2025, "werkstatt-1")}
     for key in ("ausgangsrechnungen", "belege", "euer"):
         assert werkstatt[key]["status"] == "gesammelt", key
     assert (frits_jahr.invoices / "RE-2025-0001.pdf").exists()  # kopiert, nicht verschoben
     nochmal = ernte.einbringen(conn, frits_jahr, 2025, "werkstatt-1", "kleinunternehmer")
-    assert nochmal == {"rechnungen": 0, "belege": 0, "euer": 0}
+    assert nochmal == {
+        "rechnungen": 0,
+        "belege": 0,
+        "euer": 0,
+        "buchungsliste": 0,
+        "verfahrensdoku": 0,
+    }
 
     # Eine neue Ausgabe: neuer Beleg, und die EÜR wird ersetzt statt verdoppelt
     ausgabe(frits_jahr, "tinte.jpg", date(2025, 6, 1))
     neu = ernte.einbringen(conn, frits_jahr, 2025, "werkstatt-1", "kleinunternehmer")
-    assert neu == {"rechnungen": 0, "belege": 1, "euer": 1}
+    assert neu == {"rechnungen": 0, "belege": 1, "euer": 1, "buchungsliste": 1, "verfahrensdoku": 0}
     euer_dateien = quest.dateien(conn, 2025, werkstatt["euer"]["id"])
     assert sorted(d["original"] for d in euer_dateien) == ["EUER_2025.csv", "EUER_2025.pdf"]
+    # Buchungsliste und Verfahrensdoku liegen bei ihren Karten, die Liste nur einmal
+    for key, datei in (
+        ("buchungsliste", "Buchungsliste_2025.csv"),
+        ("verfahrensdoku", "Verfahrensdokumentation_2025.pdf"),
+    ):
+        assert werkstatt[key]["art"] == "bonus"
+        dateien = quest.dateien(conn, 2025, werkstatt[key]["id"])
+        assert [d["original"] for d in dateien] == [datei]
+        assert quest.stueck(conn, werkstatt[key]["id"])["status"] == "gesammelt"
 
 
 def test_ernte_legt_fehlende_faecher_an(frits_jahr, conn):
@@ -459,6 +480,7 @@ def test_ernte_legt_fehlende_faecher_an(frits_jahr, conn):
     namen = {s["name"]: s["status"] for s in quest.stuecke(conn, 2025, "gilde-1")}
     assert namen["Rechnungen der Gesellschaft"] == "gesammelt"
     assert namen["EÜR der Gesellschaft"] == "gesammelt"  # die Karte aus dem Katalog
+    assert namen["Buchungsliste"] == "gesammelt"  # neue Karte, die Gilde hat keine
 
 
 # ---------- Die Seiten ----------
@@ -634,7 +656,10 @@ def test_frits_ernte_im_browser(client, ws):
     page = client.get("/steuer/2025")
     assert "FRITS-Ernte" in page.text and "+1 neu" in page.text
     page = post(client, "/steuer/2025/ernte", gebiet="werkstatt-1")
-    assert "FRITS-Ernte eingebracht: 1 Rechnung, die EÜR → Werkstatt" in page.text
+    assert (
+        "FRITS-Ernte eingebracht: 1 Rechnung, die EÜR mit Buchungsliste und Verfahrensdoku → Werkstatt"
+        in page.text
+    )
     assert "Alles aus FRITS ist schon auf der Insel" in page.text
     page = post(client, "/steuer/2025/ernte", gebiet="gehoeft-1")
     assert "Wähle aus, zu welchem Betrieb" in page.text
@@ -1571,3 +1596,25 @@ def test_runde_11_sie_offene_wuensche_und_lange_zeilen(conn):
     assert [t for t, _ in teile] == ["Depot-Jahresübersicht", "Quellensteuer"]
     # Kein Zerlegen mitten im Wort
     assert len(beraterin.zerlegen("Kranken- und Pflegeversicherung")) == 1
+
+
+def test_runde_12_inhaltsverzeichnis_per_sie_und_reisekosten(conn):
+    """Nachtest Marie-2 nach Runde 11: gespeicherte Vorlage im Inhaltsverzeichnis, Reisekosten."""
+    p = Profil(**{**MARIE.__dict__, "anrede": "sie"})
+    quest.start(conn, p)
+    sid = next(s for s in quest.stuecke(conn, 2025, "rathaus") if s["key"] == "steuer-id")
+    quest.setze_status(conn, sid["id"], "fragen", "Ich finde sie nicht. Hast du sie noch?")
+    inhalt = truhe.inhaltsverzeichnis(
+        p, reich(p), quest.stuecke(conn, 2025), quest.dateien(conn, 2025)
+    )
+    assert "Frage: Ich finde sie nicht. Haben Sie sie noch?" in inhalt
+    # "Belege zu" gilt für beide Teile, und Reisekosten gehören in die Werkstatt
+    teile = beraterin.zerlegen("Belege zu Arbeitszimmer und Reisekosten")
+    assert teile == [("Belege zu Arbeitszimmer", ""), ("Reisekosten", "Belege zu")]
+    alle = quest.stuecke(conn, 2025)
+    name = {s["id"]: (s["gebiet"], s["key"]) for s in alle}
+    wuensche = beraterin.zuordnen("- Belege zu Arbeitszimmer und Reisekosten", reich(p), alle)
+    assert [[name.get(i) for i in w.stuecke] for w in wuensche] == [
+        [("werkstatt-1", "arbeitszimmer")],
+        [("werkstatt-1", "reisen")],
+    ]

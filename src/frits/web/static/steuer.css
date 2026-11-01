@@ -246,6 +246,7 @@ main:has(.sq-tisch) > .flash { max-width: 760px; margin: 0.8rem auto; position: 
 /* Namensschild mit Perlen (eine Perle pro Pflicht-Stück) */
 .sq-schild { margin-top: -6px; position: relative; z-index: 2; background: var(--papier); padding: 0.2rem 0.55rem 0.3rem; border-radius: 3px; box-shadow: 0 3px 6px rgba(30, 15, 0, .35); text-align: center; min-width: 90px; }
 .sq-schild strong { display: block; font: 700 0.85rem/1.15 var(--schrift); white-space: nowrap; }
+.sq-schild-name { display: block; max-width: 8.5rem; margin: 0 auto; font: italic 500 0.7rem/1.15 var(--schrift); opacity: .75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sq-perlen { display: flex; gap: 3px; justify-content: center; flex-wrap: wrap; max-width: 116px; margin-top: 3px; }
 .sq-perlen i { width: 7px; height: 7px; border-radius: 50%; background: #d8ccb0; box-shadow: inset 0 1px 1px rgba(0,0,0,.2); }
 .sq-perlen i.voll { background: var(--moos); }
@@ -404,7 +405,7 @@ main:has(.sq-tisch) > .flash { max-width: 760px; margin: 0.8rem auto; position: 
 .sq-abdruck.fragen { color: var(--tinte-hell); }
 .sq-abdruck.neu, .gestempelt .sq-abdruck { animation: sq-stempel .45s cubic-bezier(.2, 1.6, .4, 1) both; }
 .sq-karte.status-gesammelt .sq-etiketten, .sq-karte.status-gibts_nicht .sq-etiketten, .sq-karte.status-fragen .sq-etiketten { padding-right: 7rem; min-height: 1.4rem; }
-.sq-mini-insel .sq-schild strong { display: none; }
+.sq-mini-insel .sq-schild strong, .sq-mini-insel .sq-schild-name { display: none; }
 
 /* Stempel-Animation über die ganze Seite (kurz, beim Ablegen) */
 .sq-stempel-flug { position: fixed; z-index: 1000; pointer-events: none; font: 900 2rem/1 var(--schrift); letter-spacing: .12em; color: #3e7a32; border: 5px solid currentColor; padding: 0.4rem 0.8rem; border-radius: 6px; transform: translate(-50%, -50%) rotate(-12deg); animation: sq-stempel .45s cubic-bezier(.2, 1.6, .4, 1) both; background: rgba(252, 246, 230, .4); }
