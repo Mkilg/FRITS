@@ -12,10 +12,22 @@
 <body data-effekte="{{ settings.effects }}"{% if sounds %} data-frits-sound="on" data-frits-sound-base="{{ sounds }}"{% endif %}>
 <header class="top">
   <a class="brand" href="/"><span class="brand-fry">{{ mascot("welcome") }}</span><span>FRITS</span></a>
+  {# Everyday places in the row; the rest behind "Mehr", so the row stays one line #}
+  {% set more = [("/lernen", "KI-Werkstatt"), ("/settings", "Einstellungen"), ("/ueber", "Über FRITS")] %}
+  {% set ns = namespace(here=false) %}
+  {% for href, label in more %}{% if nav.startswith(href) %}{% set ns.here = true %}{% endif %}{% endfor %}
   <nav>
-    {% for href, label in [("/", "Heute"), ("/drafts", "Entwürfe"), ("/invoices", "Rechnungen"), ("/quotes", "Angebote"), ("/expenses", "Ausgaben"), ("/customers", "Kunden"), ("/steuer", "Steuer-Quest"), ("/lernen", "KI-Werkstatt"), ("/settings", "Einstellungen"), ("/ueber", "Über FRITS")] %}
+    {% for href, label in [("/", "Heute"), ("/drafts", "Entwürfe"), ("/invoices", "Rechnungen"), ("/quotes", "Angebote"), ("/expenses", "Ausgaben"), ("/customers", "Kunden"), ("/steuer", "Steuer-Quest")] %}
     <a href="{{ href }}" {% if nav == href or (href != "/" and nav.startswith(href)) %}aria-current="page"{% endif %}>{{ label }}</a>
     {% endfor %}
+    <details class="mehr">
+      <summary {% if ns.here %}aria-current="page"{% endif %}>Mehr</summary>
+      <div class="mehr-liste">
+        {% for href, label in more %}
+        <a href="{{ href }}" {% if nav.startswith(href) %}aria-current="page"{% endif %}>{{ label }}</a>
+        {% endfor %}
+      </div>
+    </details>
   </nav>
   <div class="top-actions">
     {% if sounds %}
@@ -24,7 +36,7 @@
     <form method="post" action="/sound">
       <input type="hidden" name="token" value="{{ token }}">
       <input type="hidden" name="back" value="{{ nav }}">
-      <button class="quiet" title="Klänge an oder aus">{{ "🔔 Klang an" if settings.sound else "🔕 Klang aus" }}</button>
+      <button class="quiet" title="Klänge an oder aus">{{ "🔔" if settings.sound else "🔕" }}<span class="breit"> {{ "Klang an" if settings.sound else "Klang aus" }}</span></button>
     </form>
     <form method="post" action="/feierabend">
       <input type="hidden" name="token" value="{{ token }}">

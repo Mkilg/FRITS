@@ -61,6 +61,13 @@
     input.dispatchEvent(new Event("change", { bubbles: true }));
   });
 
+  // "Mehr" in the top row closes again when you click anywhere else.
+  document.addEventListener("click", function (e) {
+    document.querySelectorAll("details.mehr[open]").forEach(function (d) {
+      if (!d.contains(e.target)) d.removeAttribute("open");
+    });
+  });
+
   // ---------- Stamps and the two kinds of joy (Einstellungen > Spiel-Effekte) ----------
   function playful() { return document.body.getAttribute("data-effekte") === "verspielt"; }
   function calmMotion() {
