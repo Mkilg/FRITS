@@ -98,12 +98,17 @@ MOOD_PICTURES = {
 }
 
 
-def painted_pictures(static: Path) -> set[str]:
+def painted_pictures(static: Path) -> dict[str, str]:
+    """Picture name -> its address, e.g. "fritte-fertig" -> "/static/bilder/fritte-fertig.webp"."""
     folder = Path(static) / "bilder"
     if not folder.is_dir():
-        return set()
-    # Only plain names, so a file name can never break the page.
-    return {p.stem for p in folder.glob("*.png") if re.fullmatch(r"[a-z0-9-]+", p.stem)}
+        return {}
+    found = {}
+    for path in sorted(folder.iterdir()):
+        # Only plain names, so a file name can never break the page.
+        if path.suffix in (".png", ".webp") and re.fullmatch(r"[a-z0-9-]+", path.stem):
+            found.setdefault(path.stem, f"/static/bilder/{path.name}")
+    return found
 
 
 NAV_SYMBOLS = {
@@ -119,12 +124,12 @@ NAV_SYMBOLS = {
 STAMP_PICTURES = {"stempel-rund": ".stempel", "stempel-oval": ".stempel.stempel-fertig"}
 
 
-def picture_css(pictures: set[str]) -> Markup:
+def picture_css(pictures: dict[str, str]) -> Markup:
     """CSS that puts the painted pictures in place. Without pictures FRITS looks the same,
     just with plain colours instead of painted ones."""
 
     def url(name: str) -> str:
-        return f"url(/static/bilder/{name}.png)"
+        return f"url({pictures[name]})"
 
     rules = []
     if "schreibtisch-tag" in pictures:
@@ -145,11 +150,11 @@ def picture_css(pictures: set[str]) -> Markup:
     return Markup("\n".join(rules))
 
 
-def mascot_or_picture(pictures: set[str]):
+def mascot_or_picture(pictures: dict[str, str]):
     def mascot(mood: str) -> Markup:
         name = MOOD_PICTURES.get(mood)
         if name in pictures:
-            return Markup('<img class="fritte" src="/static/bilder/{}.png" alt="">').format(name)
+            return Markup('<img class="fritte" src="{}" alt="">').format(pictures[name])
         return mascot_markup(mood)
 
     return mascot
@@ -289,7 +294,7 @@ def create_app(
     pictures = painted_pictures(static)
     templates.env.globals.update(
         mascot=mascot_or_picture(pictures),
-        picture=lambda name: f"/static/bilder/{name}.png" if name in pictures else None,
+        picture=pictures.get,
         picture_css=picture_css(pictures),
     )
 

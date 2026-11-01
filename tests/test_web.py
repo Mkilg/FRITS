@@ -344,23 +344,25 @@ def test_spiel_effekte_ruhig_or_verspielt(client, ws):
 def test_painted_pictures_take_over_when_they_are_there(tmp_path):
     from frits.web.app import mascot_or_picture, painted_pictures, picture_css
 
-    assert painted_pictures(tmp_path) == set()
-    assert picture_css(set()) == ""
-    assert "<svg" in mascot_or_picture(set())("done")
+    assert painted_pictures(tmp_path) == {}
+    assert picture_css({}) == ""
+    assert "<svg" in mascot_or_picture({})("done")
 
     folder = tmp_path / "bilder"
     folder.mkdir()
-    for name in (
+    for name in ("fritte-fertig.webp", "schreibtisch-tag.png", "symbol-rechnungen.png"):
+        (folder / name).write_bytes(b"picture")
+    (folder / "stempel-rund.png").write_bytes(b"picture")
+    (folder / "Böse Datei.png").write_bytes(b"picture")
+    (folder / "notiz.txt").write_text("kein Bild")
+    pictures = painted_pictures(tmp_path)
+    assert set(pictures) == {
         "fritte-fertig",
         "schreibtisch-tag",
         "symbol-rechnungen",
         "stempel-rund",
-        "Böse Datei",
-    ):
-        (folder / f"{name}.png").write_bytes(b"png")
-    pictures = painted_pictures(tmp_path)
-    assert pictures == {"fritte-fertig", "schreibtisch-tag", "symbol-rechnungen", "stempel-rund"}
-    assert 'src="/static/bilder/fritte-fertig.png"' in mascot_or_picture(pictures)("done")
+    }
+    assert 'src="/static/bilder/fritte-fertig.webp"' in mascot_or_picture(pictures)("done")
     assert "<svg" in mascot_or_picture(pictures)("thinking")  # not painted yet
     css = picture_css(pictures)
     assert "--tisch-bild: url(/static/bilder/schreibtisch-tag.png)" in css
