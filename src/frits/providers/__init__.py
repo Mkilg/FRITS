@@ -16,6 +16,7 @@ from frits.schema import ExtractionResult
 DEFAULT_MODELS = {
     "claude": "claude-haiku-5-5",
     "claude_retry": "claude-sonnet-5-5",
+    "claude_chat": "claude-opus-5-5",  # the Notfall-Chat: any document, so the most capable model
     "openai": "gpt-5-mini",
     "openrouter": "anthropic/claude-haiku-5.5",
     "ollama": "qwen3:8b",
@@ -25,6 +26,7 @@ DEFAULT_MODELS = {
 PRICES = {
     "claude-haiku-5-5": (0.10, 0.50),
     "claude-sonnet-5-5": (2.00, 10.00),
+    "claude-opus-5-5": (4.00, 20.00),
 }
 
 KEY_ENV = {
@@ -97,6 +99,9 @@ class Provider(Protocol):
 
     def extract(self, redacted_text: str) -> tuple[ExtractionResult, Usage]: ...
 
+    # Optional: providers that can hold a conversation (the Notfall-Chat) also have
+    # chat(system: str, messages: list[{"role", "content"}]) -> tuple[str, Usage].
+
 
 def get_api_key(provider: str) -> str | None:
     """Environment first (development), then the macOS Keychain (Fritz's computer)."""
@@ -123,7 +128,9 @@ def make_provider(name: str, models: dict[str, str] | None = None) -> Provider:
     if name == "claude":
         from frits.providers.anthropic_provider import ClaudeProvider
 
-        return ClaudeProvider(_require_key(name), models["claude"], models["claude_retry"])
+        return ClaudeProvider(
+            _require_key(name), models["claude"], models["claude_retry"], models["claude_chat"]
+        )
     if name in ("openai", "openrouter", "ollama"):
         from frits.providers.openai_compat import OpenAICompatProvider
 
