@@ -51,6 +51,42 @@
 </section>
 {% endif %}
 
+{% set offene, fertige = liste %}
+<section class="card liste" id="liste">
+  <div class="liste-kopf">
+    <h2>Deine Liste</h2>
+    {% if settings.haustier %}<span class="liste-karten" title="Jeder abgehakte Punkt wird eine Karte für den nächsten Kassensturz, drei am Tag.">{% if karten_uebrig %}✅ Noch {{ karten_uebrig }} {{ "Karte" if karten_uebrig == 1 else "Karten" }} für Fritte heute{% else %}Heute keine Karten mehr, abhaken tut trotzdem gut{% endif %}</span>{% endif %}
+  </div>
+  {% if offene or fertige %}
+  <ul class="aufgaben">
+    {% for p in offene %}
+    <li class="punkt">
+      <form method="post" action="/aufgaben/{{ p.id }}/abhaken" data-leise><input type="hidden" name="token" value="{{ token }}"><button class="haken" title="Abhaken" aria-label="Abhaken: {{ p.text }}"></button></form>
+      <span class="punkt-text">{{ p.text }}</span>
+      {% if p.ziel %}<a class="punkt-ziel" href="{{ p.ziel }}">{{ p.ziel_text }} ›</a>{% endif %}
+      <form method="post" action="/aufgaben/{{ p.id }}/streichen" data-leise><input type="hidden" name="token" value="{{ token }}"><button class="punkt-weg" title="Von der Liste streichen" aria-label="Streichen: {{ p.text }}">×</button></form>
+    </li>
+    {% endfor %}
+    {% for p in fertige %}
+    <li class="punkt fertig">
+      <form method="post" action="/aufgaben/{{ p.id }}/zurueck" data-leise><input type="hidden" name="token" value="{{ token }}"><button class="haken an" title="Doch noch nicht erledigt" aria-label="Wieder öffnen: {{ p.text }}">✓</button></form>
+      <span class="punkt-text">{{ p.text }}</span>
+      <span class="punkt-wann">{{ "heute" if p.erledigt == heute else p.erledigt | de_date }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">Ein paar Punkte reichen. Was heute nicht passt, darf einfach stehen bleiben.</p>
+  {% endif %}
+  <form method="post" action="/aufgaben" class="liste-neu" data-liste data-busy="Ich schreibe es auf.">
+    <input type="hidden" name="token" value="{{ token }}">
+    <label for="liste-text" class="unsichtbar">Neue Punkte für deine Liste</label>
+    <textarea id="liste-text" name="text" rows="2" maxlength="2000" placeholder="Was steht an? Einfach drauflos schreiben, zum Beispiel: Rechnung für den Workshop schreiben, Bahnticket eintragen, Steuerbescheid ansehen">{{ liste_rest }}</textarea>
+    <button>Auf die Liste</button>
+  </form>
+  <p class="hint">Jede Zeile wird ein Punkt.{% if ai_ready %} Einen langen Satz teilt die KI auf, die Namen schwärze ich vorher hier auf deinem Computer.{% endif %} <span class="taste-hinweis"><kbd data-taste-cmd>⌘</kbd> + <kbd>↩</kbd> trägt ein.</span></p>
+</section>
+
 <section class="card">
   <h2>Entwürfe</h2>
   {% if drafts %}
