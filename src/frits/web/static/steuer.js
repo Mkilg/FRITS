@@ -262,7 +262,8 @@
     var hand = document.querySelector(".sq-hand form");
     if (name && hand && t.hasAttribute("data-stueck")) {
       var karte = Array.prototype.find.call(hand.querySelectorAll("button[name=zettel]"), function (b) { return b.value === name; });
-      if (karte) { stempeln(hand, e.clientX, e.clientY, karte); return; }
+      // Erst fragen, ob der Zettel wirklich passt (sonst landet ein Urlaubsfoto in der Truhe)
+      if (karte) { karte.click(); return; }
     }
     if (name && t.hasAttribute("data-gebiet")) {
       dialogOeffnen(name, t.getAttribute("data-gebiet"), t.getAttribute("data-titel"));
@@ -503,6 +504,27 @@
       nein.addEventListener("click", schliessen);
       reihe.appendChild(ja);
       reihe.appendChild(nein);
+      // Ein Zettel aus der Hand, der nirgends passt: beiseitelegen (nichts wird gelöscht)
+      var beiseite = knopf.form && knopf.form.getAttribute("data-beiseite");
+      if (beiseite && knopf.name === "zettel") {
+        var weg = document.createElement("button");
+        weg.type = "button";
+        weg.className = "quiet";
+        weg.textContent = "Gehört nirgends hin";
+        weg.addEventListener("click", function () {
+          var f = document.createElement("form");
+          f.method = "post";
+          f.action = beiseite;
+          [["token", knopf.form.elements.token.value], ["name", knopf.value], ["back", location.pathname]].forEach(function (paar) {
+            var i = document.createElement("input");
+            i.type = "hidden"; i.name = paar[0]; i.value = paar[1];
+            f.appendChild(i);
+          });
+          document.body.appendChild(f);
+          f.submit();
+        });
+        reihe.appendChild(weg);
+      }
     }
     ja.addEventListener("click", function () { schliessen(); abschicken(knopf); });
     if (fragen) reihe.appendChild(ja);
@@ -510,6 +532,12 @@
     var ort = knopf.parentNode;
     ort.classList.add("sq-rueckfrage-ort");
     ort.appendChild(blase);
+    if (knopf.classList.contains("sq-handkarte")) {
+      // Über der gewählten Handkarte, aber nie über den Rand hinaus
+      var links = Math.max(0, Math.min(knopf.offsetLeft - 20, ort.clientWidth - blase.offsetWidth));
+      blase.style.left = links + "px";
+      blase.style.setProperty("--pfeil", Math.max(12, knopf.offsetLeft - links + knopf.offsetWidth / 2 - 9) + "px");
+    }
     // Oben kein Platz? Dann klappt die Blase nach unten auf
     var r = blase.getBoundingClientRect();
     if (r.top < 8) blase.classList.add("unten");
@@ -570,7 +598,7 @@
     karte.appendChild(reihe);
     // Enter springt zur nächsten Frage statt gleich abzuschicken
     karte.addEventListener("keydown", function (e) {
-      if (e.key === "Enter" && e.target.tagName === "INPUT" && i < karten.length - 1) {
+      if (e.key === "Enter" && (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") && i < karten.length - 1) {
         e.preventDefault();
         zeige(i + 1);
       }
