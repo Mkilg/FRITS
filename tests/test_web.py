@@ -1,6 +1,7 @@
 import re
 import shutil
 import time
+from dataclasses import replace
 from datetime import date
 from decimal import Decimal
 
@@ -927,3 +928,14 @@ def test_earlier_invoice_is_entered_from_the_invoices_page(client, ws):
         tax="klein",
     )
     assert "Zukunft" in future.text
+
+
+def test_phones_get_a_tab_bar_but_not_during_the_first_setup(client, ws):
+    page = client.get("/").text
+    tabs = page[page.index('<nav class="tabs"') : page.index("</nav>", page.index('<nav class="tabs"'))]
+    for label in ("Heute", "Ausgaben", "Quest", "Mehr"):
+        assert label in tabs
+    assert 'href="/invoices"' in tabs  # the rest sits behind "Mehr"
+    settings = Settings.load(ws.settings_file)
+    replace(settings, setup_done=False).save(ws.settings_file)
+    assert 'class="tabs"' not in client.get("/setup/welcome").text

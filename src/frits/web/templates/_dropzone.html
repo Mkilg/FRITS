@@ -18,7 +18,7 @@
   <details class="dz-text">
     <summary>{{ dz_text_label or "Text einfügen, z. B. aus einer E-Mail" }}</summary>
     <textarea name="text" rows="5" placeholder="Text hier hineinkopieren …" aria-label="{{ dz_text_label or 'Text einfügen' }}"></textarea>
-    <div class="row"><button class="primary">{{ dz_send or "In den Eingang" }}</button>
+    <div class="row"><button class="{{ 'primary' if dz_primary is not defined or dz_primary }}">{{ dz_send or "In den Eingang" }}</button>
       <span class="muted dz-tipp"><kbd data-taste-cmd>⌘</kbd><kbd>↩</kbd> schickt ab</span></div>
   </details>
   {% if dz_read %}

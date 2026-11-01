@@ -45,7 +45,7 @@
     <form method="post" action="/sound">
       <input type="hidden" name="token" value="{{ token }}">
       <input type="hidden" name="back" value="{{ nav }}">
-      <button class="quiet" title="Klänge an oder aus">{{ "🔔" if settings.sound else "🔕" }}<span class="breit"> {{ "Klang an" if settings.sound else "Klang aus" }}</span></button>
+      <button class="quiet" title="Klänge an oder aus"><svg class="glocke" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 16.5h12l-1.6-2.2V10a4.4 4.4 0 0 0-8.8 0v4.3z M10.2 18.6a1.9 1.9 0 0 0 3.6 0" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>{% if not settings.sound %}<path d="M4.5 4.5l15 15" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>{% endif %}</svg><span class="breit"> {{ "Klang an" if settings.sound else "Klang aus" }}</span></button>
     </form>
     <form method="post" action="/feierabend" data-feierabend>
       <input type="hidden" name="token" value="{{ token }}">
@@ -68,6 +68,25 @@
   {% elif not ai_on %}Noch keine KI eingerichtet: FRITS arbeitet ohne. Einrichten unter <a href="/settings">Einstellungen</a>.
   {% else %}KI: {{ providers.get(settings.provider, settings.provider) }}. Namen, Adressen und Kontonummern werden vorher auf diesem Computer geschwärzt.{% endif %}
 </footer>
+{% if not (nav.startswith("/setup") and not settings.setup_done) %}
+{# Phones: the four everyday places as a tab bar at the bottom, the rest behind "Mehr" #}
+{% set tabs = [("/", "Heute", "symbol-eingang"), ("/expenses", "Ausgaben", "symbol-ausgaben"), ("/steuer", "Quest", "symbol-steuer")] %}
+{% if settings.haustier %}{% set tabs = tabs + [("/fritte", "Fritte", "fritte-willkommen")] %}{% endif %}
+<nav class="tabs" aria-label="Schnellwahl">
+  {% for href, label, bild in tabs %}
+  <a href="{{ href }}" {% if nav == href or (href != "/" and nav.startswith(href)) %}aria-current="page"{% endif %}>
+    {% if picture(bild) %}<img src="{{ picture(bild) }}" alt="" width="26" height="26">{% endif %}<span>{{ label }}</span></a>
+  {% endfor %}
+  <details class="mehr">
+    <summary><span class="punkte" aria-hidden="true"></span><span>Mehr</span></summary>
+    <div class="mehr-liste">
+      {% for href, label in [("/drafts", "Entwürfe"), ("/invoices", "Rechnungen"), ("/quotes", "Angebote"), ("/customers", "Kunden")] + more %}
+      <a href="{{ href }}" {% if nav.startswith(href) %}aria-current="page"{% endif %}>{{ label }}</a>
+      {% endfor %}
+    </div>
+  </details>
+</nav>
+{% endif %}
 {% if sounds %}<script src="{{ sounds }}frits-sound.js"></script>{% endif %}
 <script src="/static/frits.js"></script>
 {% set stamped = flashes | selectattr("stamp") | list %}
