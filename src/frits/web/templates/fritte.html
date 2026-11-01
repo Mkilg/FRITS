@@ -13,7 +13,7 @@
   <div>
     {% set alte = karten | rejectattr("art", "equalto", "start") | list | length %}
     {% if alte %}
-    <p><strong>Willkommen bei Fritte!</strong> Dein bisheriger Papierkram liegt schon als {{ alte }} {{ "Karte" if alte == 1 else "Karten" }} auf dem Tisch, und Fritte hat dir ein Glas Pfeffer ins Regal gestellt. Schau, was Würze daraus macht.</p>
+    <p><strong>Willkommen bei Fritte!</strong> Dein Papierkram liegt schon als {{ alte }} {{ "Karte" if alte == 1 else "Karten" }} auf dem Tisch, dazu die Karte „Fritte zieht ein“. Fritte hat dir ein Glas Pfeffer ins Regal gestellt. Schau, was Würze daraus macht.{% if geschenk %} Für ältere Vorgänge, die nicht mehr auf den Tisch passen, gab es schon {{ geschenk }} Salzkörner als Willkommensgeschenk.{% endif %}</p>
     {% else %}
     <p><strong>Willkommen bei Fritte!</strong> Fritte ist gerade eingezogen und hat dir ein Glas Pfeffer mitgebracht. Er wirkt, sobald drei verschiedene Kartenarten auf dem Tisch liegen. Jede erledigte Rechnung, Ausgabe oder Zahlung wird zu einer Karte.</p>
     {% endif %}
@@ -75,14 +75,16 @@
     {% if saison.geschafft %}
     <p><strong>🏆 Saisonziel geschafft!</strong> Der Pokal steht in Frittes Zimmer.</p>
     {% else %}
-    <p>Saisonziel: in <strong>{{ saison.ziel }} von {{ saison.wochen }} Wochen</strong> Papierkram machen. Bisher {{ "eine Woche" if saison.erreicht == 1 else saison.erreicht ~ " Wochen" }}. Geschafft gibt es {{ saison.bonus }} Salzkörner extra und einen Pokal. Urlaub und Pausen sind eingeplant, und wenn es nicht klappt, ist das auch gut: Die nächste Saison beginnt einfach neu.</p>
+    <p>Saisonziel: in <strong>{{ saison.ziel }} von {{ saison.wochen }} Wochen</strong> Papierkram machen. Bisher {{ "eine Woche" if saison.erreicht == 1 else saison.erreicht ~ " Wochen" }}{% if not saison.erreicht %} (gezählt wird ab Frittes Einzug){% endif %}. Geschafft gibt es {{ saison.bonus }} Salzkörner extra und einen Pokal. Urlaub und Pausen sind eingeplant, und wenn es nicht klappt, ist das auch gut: Die nächste Saison beginnt einfach neu.</p>
     {% endif %}
   </div>
-  {% if fest_moeglich %}
-  {% if saison.fest %}
-  <p>🎉 <strong>{{ fest_name }} {{ saison.fest[0] | lower ~ saison.fest[1:] }}:</strong> Die Girlande hängt noch bis zum Ende der Saison. Im <a href="/fritte/album">Album</a> stehen alle Feste.</p>
+  {% if not fest_moeglich %}
+  <p class="hint">🎉 {{ fest_name }}: ab der ersten Frittenbude kann Fritte in jeder Saison ein Fest feiern.</p>
   {% else %}
-  <p><strong>{{ fest_name }}:</strong> Einmal in jeder Saison kann Fritte ein Fest in ihrer Bude feiern. Es kommt ins Album, und eine Girlande hängt bis zum Saisonende. Kein Muss, einfach eine schöne Sache für gesparte Salzkörner.</p>
+  {% if saison.fest %}
+  <p>🎉 <strong>{{ fest_name }} {{ saison.fest[0] | lower ~ saison.fest[1:] }}:</strong> Die Wimpelkette hängt noch bis zum Ende der Saison. Im <a href="/fritte/album">Album</a> stehen alle Feste.</p>
+  {% else %}
+  <p><strong>{{ fest_name }}:</strong> Einmal in jeder Saison kann Fritte ein Fest in ihrer Bude feiern. Es kommt ins Album, und eine Wimpelkette hängt bis zum Saisonende. Kein Muss, einfach eine schöne Sache für gesparte Salzkörner.</p>
   <form method="post" action="/fritte/feiern" data-confirm="Das {{ fest_name }} für {{ fest_preis }} Salzkörner feiern?">
     <input type="hidden" name="token" value="{{ token }}">
     <button {{ "disabled" if f.guthaben < fest_preis }}>Fest feiern für {{ fest_preis }} 🧂</button>

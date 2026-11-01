@@ -195,6 +195,7 @@ def register_haustier(
             stufen=ausbau.STUFEN,
             naechste=ausbau.naechste(conn),
             fest_moeglich=saison.fest_moeglich(conn),
+            geschenk=int(stand.einstellung(conn, "willkommen_geschenk", "0") or 0),
             fest_preis=saison.fest_preis(conn),
             fest_name=saison.FESTE[saison.quartal(today())[0]],
         )

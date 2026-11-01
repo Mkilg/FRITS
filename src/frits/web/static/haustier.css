@@ -495,10 +495,10 @@ details[open] > summary::before { content: "▾ "; }
 .pokal-jahre .jahr { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
 
 /* ---------- closer to the gouache: paper grain and soft light over the drawn room ---------- */
-.zimmer .papier { position: absolute; inset: 0; z-index: 0; pointer-events: none; mix-blend-mode: multiply; opacity: .55;
+.zimmer .papier { position: absolute; inset: 0; z-index: 0; pointer-events: none; mix-blend-mode: multiply; opacity: .9;
   background:
     radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(90, 57, 29, .22) 100%),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .55 0 0 0 0 .45 0 0 0 0 .3 0 0 0 .18 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23p)'/%3E%3C/svg%3E"); }
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .55 0 0 0 0 .45 0 0 0 0 .3 0 0 0 .32 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23p)'/%3E%3C/svg%3E"); }
 /* A painted room (zimmer-<stage> in static/bilder) replaces the drawn one. */
 .zimmer.gemalt { background: var(--zimmer-bild) center / cover no-repeat, #ecdcb6; }
 .zimmer.gemalt::before, .zimmer.gemalt .fenster, .zimmer.gemalt .vorhang, .zimmer.gemalt .lampe,

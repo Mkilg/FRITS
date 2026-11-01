@@ -457,6 +457,7 @@ def _einrichten(conn, tag: str, alte_datei: Path | None) -> None:
                 conn, tag, geschenk, "start", f"Willkommensgeschenk für {len(rest)} ältere Vorgänge"
             )
         setze(conn, "willkommen_vorgaenge", str(len(found)))
+        setze(conn, "willkommen_geschenk", str(geschenk))
         nimm(conn, STARTGEWUERZ, "gewuerz", tag, 0)
         setze(conn, "willkommen", "kassensturz")
         setze(conn, "schluessel_v3", "1")

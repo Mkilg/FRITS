@@ -33,7 +33,7 @@ class Stufe:
 STUFEN: tuple[Stufe, ...] = (
     Stufe(1, "Zimmer", "🛏️", 0, "Ein Fenster, ein Teppich, ein Anfang.",
           0, ("gewöhnlich",), 1.0),
-    Stufe(2, "Stube", "🛋️", 80, "Holzvertäfelung, Vorhänge und eine Lampe. "
+    Stufe(2, "Stube", "🛋️", 150, "Holzvertäfelung, Vorhänge und eine Lampe. "
           "+1 Regalplatz, seltene Gewürze auf dem Markt.", 1, ("gewöhnlich", "selten"), 1.0),
     Stufe(3, "Werkstatt", "🔨", 200, "Eine Werkbank für große Vorhaben. "
           "+1 Regalplatz, legendäre Gewürze auf dem Markt.",
