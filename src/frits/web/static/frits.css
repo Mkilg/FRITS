@@ -146,6 +146,9 @@ form { margin: 0; }
 
 .muted, .hint { color: var(--muted); }
 .hint { font-size: 0.88rem; margin: 0.4rem 0; }
+.hint.warn-text { color: var(--ink); border-left: 3px solid #c98a00; padding-left: 0.6rem; }
+details.abroad { margin: 0.6rem 0; }
+details.abroad summary { cursor: pointer; font-weight: 600; }
 .platzhalter { color: var(--muted); font-style: italic; }
 .note { display: block; color: var(--ketchup); font-size: 0.78rem; }
 .badge { display: inline-block; padding: 0.1rem 0.6rem; border-radius: 999px; font-size: 0.8rem;

@@ -24,6 +24,15 @@
   <label class="field">Eigener Stundensatz (leer = dein normaler) <input name="hourly_rate" inputmode="decimal" value="{{ customer.hourly_rate | qty if customer and customer.hourly_rate else '' }}"></label>
   <label class="field">Andere Schreibweisen, mit Komma getrennt <input name="aliases" value="{{ customer.aliases | join(', ') if customer else '' }}" placeholder="z. B. Frau M., Bäckerei S."></label>
   <p class="hint">Andere Schreibweisen helfen beim Schwärzen: Auch „Frau M.“ wird dann zum Platzhalter.</p>
+  {% set where = customer.umsatzsteuer if customer else "" %}
+  <details class="abroad" {{ "open" if where }}>
+    <summary>Kunde im Ausland?</summary>
+    <label class="field">Wo sitzt der Kunde?
+      <select name="umsatzsteuer">{% for key, label in customer_tax.items() %}<option value="{{ key }}" {{ "selected" if key == where }}>{{ label }}</option>{% endfor %}</select>
+    </label>
+    <label class="field">USt-IdNr des Kunden (bei Firmen in der EU Pflicht) <input name="ust_id" value="{{ customer.ust_id or '' if customer else '' }}" placeholder="z. B. ATU12345678"></label>
+    <p class="hint">Mit Regelbesteuerung schreibt FRITS dann keine deutsche Umsatzsteuer auf die Rechnung, sondern den passenden Hinweis (Reverse Charge oder Leistungsort im Ausland). Als Kleinunternehmer ändert sich nichts. Bei Kunden in der EU musst du die Umsätze außerdem in der Zusammenfassenden Meldung angeben.</p>
+  </details>
   <div class="row actions"><button class="primary">Speichern</button></div>
 </form>
 {% if customer %}

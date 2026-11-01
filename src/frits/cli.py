@@ -137,7 +137,7 @@ def cmd_redact_preview(args) -> None:
 
 def cmd_drafts(args) -> None:
     from frits import store
-    from frits.billing import Draft, totals
+    from frits.billing import Draft, draft_totals
 
     ws, settings = _context()
     conn = store.connect(ws.db)
@@ -146,14 +146,14 @@ def cmd_drafts(args) -> None:
         print("Keine offenen Entwürfe.")
     for row in rows:
         draft = Draft.from_json(row["data"])
-        sums = totals(draft.lines, settings)
+        sums = draft_totals(draft, settings)
         flag = " (Fragen offen)" if draft.questions or draft.warnings else ""
         print(f"{row['id']:4}  {draft.customer_name or '?':30} {sums.gross:>10} EUR{flag}")
 
 
 def cmd_show(args) -> None:
     from frits import store
-    from frits.billing import Draft, blockers, totals
+    from frits.billing import Draft, blockers, draft_totals
 
     ws, settings = _context()
     row = (
@@ -169,7 +169,7 @@ def cmd_show(args) -> None:
     for line in draft.lines:
         price = f"{line.unit_price} EUR" if line.unit_price is not None else "Preis fehlt"
         print(f"  {line.quantity} {line.unit:8} {line.description:40} {price}")
-    sums = totals(draft.lines, settings)
+    sums = draft_totals(draft, settings)
     print(f"  Summe: {sums.gross} EUR")
     for text in draft.warnings:
         print(f"! {text}")
