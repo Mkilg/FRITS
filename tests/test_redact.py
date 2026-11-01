@@ -113,3 +113,22 @@ def test_leak_gate_blocks_customers_and_patterns():
         assert_no_leaks(RedactedText("von Quell", Mapping()), [c])
     with pytest.raises(LeakError):
         assert_no_leaks(RedactedText("mail an a@b.de", Mapping()))
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Versicherungsnummer 65 170839 k 003",  # OCR read the letter small
+        "eTIN: KILGMRE80A01",
+        "Lohnsteuerbescheinigung eTIN KILGMRE80A01 Steuerklasse 1",
+    ],
+)
+def test_lohnsteuer_numbers_are_redacted(nlp, text):
+    r = redact(text, [], nlp)
+    assert "170839" not in r.text and "KILGMRE" not in r.text
+    assert_no_leaks(r)
+
+
+def test_etin_rule_leaves_ordinary_words_alone(nlp):
+    r = redact("RECHNUNG 2026A01 und Modell ABC12 sowie Kunde MEIER", [], nlp)
+    assert "2026A01" in r.text and "ABC12" in r.text

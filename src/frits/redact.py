@@ -114,7 +114,10 @@ _STEUER_ID_LABEL = re.compile(
     r"steuerliche[n]?\s+id)[^\n\d]{0,25}$"
 )
 # Sozialversicherungs- / Rentenversicherungsnummer: 2 digits, birth date (6), letter, 3 digits.
-_SVNR = re.compile(r"\b\d{2}[ \t]?\d{6}[ \t]?[A-Z][ \t]?\d{3}\b")
+_SVNR = re.compile(r"\b\d{2}[ \t]?\d{6}[ \t]?[A-Za-z][ \t]?\d{3}\b")  # OCR: "k" for "K"
+# eTIN on the Lohnsteuerbescheinigung: letters from the name, then the birth date with the
+# month as a letter (A = January ... L = December), e.g. KILGMRE80A01. Reveals name and age.
+_ETIN = re.compile(r"\b[A-ZÄÖÜ]{4,9}\d{2}[A-La-l]\d{2}[A-Z0-9]{0,2}\b")
 _BIRTHDATE = re.compile(r"(?i)\b(?:geb\.|geboren(?:\s+am)?)\s*(\d{1,2}\.\s?\d{1,2}\.\s?\d{2,4})")
 _IBAN_START = re.compile(r"\b[A-Z]{2}\d{2}(?=[\sA-Z0-9])")
 _SALUTATION = re.compile(
@@ -296,6 +299,8 @@ def _pattern_spans(text: str) -> list[Span]:
             spans.append(_value_span(m.start(), m.end(), "STEUERID", text, PATTERN))
     for m in _SVNR.finditer(text):
         spans.append(_value_span(m.start(), m.end(), "SVNR", text, PATTERN))
+    for m in _ETIN.finditer(text):
+        spans.append(_value_span(m.start(), m.end(), "ETIN", text, PATTERN))
     spans.extend(_iban_spans(text))
     return spans
 
