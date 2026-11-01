@@ -3,7 +3,7 @@ Fantastisches Rechnungsschreibungs IT-System
 
 Drop a note, email or photo into a folder and get an invoice draft back. Names, addresses and bank details are replaced on your own computer before any AI sees the text. Mascot: a French fry.
 
-Status: v1 is done and in use; FRITS keeps growing (Steuer-Quest, Notfall-Chat, a small game around the paperwork). It is a free, non-commercial hobby project, made by Marie for her friend Fritz, for freelancers in Germany.
+Status: v1 is done and in use; FRITS keeps growing (Steuer-Quest, Notfall-Chat, a small game around the paperwork). It is a free, non-commercial hobby project for freelancers in Germany, made by Marie Kilg as a private person. FRITS is not a project of the ARD or any of its broadcasters.
 
 ## Hinweis
 
@@ -41,7 +41,7 @@ Inside Docker, FRITS can't open Mail or Finder on your Mac (a container is a clo
 so "In Mail öffnen" falls back to a normal email link. The API key comes from `.env`
 because the container has no access to your Mac's Keychain.
 
-### Directly on your Mac (how Fritz will run it)
+### Directly on your Mac
 
 ```sh
 brew install uv tesseract tesseract-lang
@@ -53,7 +53,7 @@ uv run frits ui                 # opens the browser; the setup assistant starts
 Your FRITS folder is `~/Documents/FRITS` (set `FRITS_HOME` to use another folder).
 Here the key goes into the Keychain, and Mail opens ready-to-send messages.
 
-## For Fritz: the Mac app
+## The Mac app (no installing)
 
 A ready-to-run `FRITS.app` (no installing, works offline, also from a USB stick) is built automatically. See [packaging/macos](packaging/macos/README.md).
 
