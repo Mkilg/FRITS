@@ -170,7 +170,8 @@ def ausgaben(conn) -> dict[str, int]:
     seen: Counter = Counter()
     keys = {}
     for rid, day, vendor, source in rows(
-        conn, "SELECT id, date, vendor, source_file FROM expenses ORDER BY id"
+        conn,
+        "SELECT id, date, vendor, source_file FROM expenses WHERE struck IS NULL ORDER BY id",
     ):
         if source:
             keys.setdefault(f"ausgabe:datei:{source}", int(rid))

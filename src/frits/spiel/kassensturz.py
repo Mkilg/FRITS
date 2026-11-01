@@ -167,7 +167,8 @@ def _karte(conn, schluessel: str, art: str, gesehen: str, ausgaben=None) -> Kart
         r = stand.rows(
             conn,
             "SELECT e.vendor, e.gross, (SELECT MIN(j.received) FROM jobs j"
-            " WHERE j.filename = e.source_file) FROM expenses e WHERE e.id = ?",
+            " WHERE j.filename = e.source_file) FROM expenses e"
+            " WHERE e.id = ? AND e.struck IS NULL",
             (rid,),
         )
         if not r:

@@ -621,7 +621,7 @@ def test_a_corrected_expense_or_the_same_receipt_twice_is_one_card(conn):
     started(conn)
     eid = add_expense(conn, TODAY, "Copyshop", "12.34")
     kassensturz_jetzt(conn)
-    conn.execute("DELETE FROM expenses WHERE id = ?", (eid,))
+    conn.execute("UPDATE expenses SET struck = '2026-11-02T10:00:00' WHERE id = ?", (eid,))
     add_expense(conn, TODAY, "Copyshop", "12.43")  # the amount fixed
     assert stand.abgleichen(conn, TODAY) == 0
     came = TODAY - timedelta(days=1)
