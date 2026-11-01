@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}Belegbuch {{ jahr }} · Steuer-Quest{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/steuer.css"><script>document.documentElement.classList.add("sq-js")</script><script src="/static/steuer.js" defer></script>{% endblock %}
+{% block flashes %}{% endblock %}
+{% block content %}
+<div class="sq sq-tisch" data-klang="{{ 'an' if klang else 'aus' }}"{% include "_steuer_stil.html" %}>
+{% include "_steuer_meldungen.html" %}
+{% include "_steuer_kopf.html" %}
+{% set zurueck = "/steuer/" ~ jahr ~ "/belege" %}
+<div class="sq-bote sq-belegbuch">
+  <div class="sq-buch">
+    <section class="sq-papier sq-buchkopf">
+      <h1>Belegbuch {{ jahr }}</h1>
+      <p class="muted">Alles, was schon bei deinen Karten liegt, an einem Ort. Klick auf einen Beleg, um ihn anzusehen.</p>
+      <ul class="sq-buch-summen">
+        <li><b>{{ summen.belege }}</b> Beleg{{ "e" if summen.belege != 1 }}</li>
+        <li><b>{{ summen.angaben }}</b> eingetippte Angabe{{ "n" if summen.angaben != 1 }}</li>
+        <li><b>{{ summen.fragen }}</b> Frage{{ "n" if summen.fragen != 1 }} für die Mail</li>
+        <li><b>{{ summen.leer }}</b> Karte{{ "n" if summen.leer != 1 }} noch leer</li>
+      </ul>
+      <p class="muted">Zusammen {{ summen.groesse }}.{% if korb %} Im Eingangskorb warten noch <a href="/steuer/{{ jahr }}#sq-korb">{{ korb | length }} Zettel</a>, die gehören noch zu keiner Karte.{% endif %}</p>
+      {% if zahlen %}
+      <div class="sq-buch-zahlen">
+        <h2>Deine Zahlen {{ jahr }} laut FRITS</h2>
+        <dl>
+          <div><dt>Einnahmen</dt><dd>{{ zahlen.income_total | eur }}</dd></div>
+          <div><dt>Ausgaben</dt><dd>{{ zahlen.expense_total | eur }}</dd></div>
+          <div><dt>{{ "Gewinn" if zahlen.profit >= 0 else "Verlust" }}</dt><dd>{{ zahlen.profit | abs | eur }}</dd></div>
+        </dl>
+        <p class="muted">Aus {{ zahlen.invoice_count }} bezahlten Rechnung{{ "en" if zahlen.invoice_count != 1 }} und {{ zahlen.expense_count }} Ausgabe{{ "n" if zahlen.expense_count != 1 }} in FRITS. Mit der Ernte auf der Insel kommen sie als EÜR in die Truhe.</p>
+      </div>
+      {% endif %}
+    </section>
+
+    {% for p in belegprovinzen %}
+    {% set gefuellt = p.karten | selectattr("dateien") | list %}
+    {% set mitbenutzt = p.karten | selectattr("mit") | list %}
+    {% set gefragt = p.karten | selectattr("frage") | list %}
+    {% if gefuellt or mitbenutzt or gefragt or p.leer %}
+    <section class="sq-papier sq-buch-provinz" id="provinz-{{ p.g.id }}" style="--r: {{ [-0.4, 0.3, -0.2, 0.5][loop.index0 % 4] }}deg">
+      <header>
+        <h2><a href="/steuer/{{ jahr }}/gebiet/{{ p.g.id }}">{{ p.g.titel }}</a></h2>
+        <p class="muted">{{ p.g.bereich }} · In der Truhe im Ordner „{{ p.ordner }}“</p>
+      </header>
+      {% for k in p.karten if k.dateien or k.mit or k.frage %}
+      <article class="sq-buch-karte" id="karte-{{ k.id }}">
+        <h3>{{ k.name }}{% if k.status == "gibts_nicht" %} <small>gibt es dieses Jahr nicht</small>{% elif k.status == "fragen" and k.frage == MACHT_BERATERIN %} <small>macht deine Beraterin</small>{% endif %}</h3>
+        {% if k.dateien or k.mit %}
+        <ul class="sq-buch-dateien">
+          {% for d in k.dateien %}
+          <li class="sq-beleg art-{{ d.art }}">
+            {% if d.art == "angabe" %}
+            <div class="sq-beleg-vorschau"><span class="sq-beleg-text">{{ d.text }}</span></div>
+            {% elif d.da %}
+            <a class="sq-beleg-vorschau" href="/steuer/{{ jahr }}/datei/{{ d.id }}" target="_blank" rel="noopener" title="{{ 'Ansehen' if d.zeigbar else 'Herunterladen' }}">
+              {% if d.art == "bild" %}<img src="/steuer/{{ jahr }}/datei/{{ d.id }}" alt="" loading="lazy">{% else %}<span class="sq-beleg-icon">{{ "PDF" if d.art == "pdf" else (d.name.rsplit(".", 1)[-1] | upper if "." in d.name else "DATEI") }}</span>{% endif %}
+            </a>
+            {% else %}
+            <div class="sq-beleg-vorschau"><span class="sq-beleg-icon">fehlt</span></div>
+            {% endif %}
+            <div class="sq-beleg-info">
+              <strong>{{ "Eingetippt" if d.art == "angabe" else d.original }}</strong>
+              <small>{% if d.art != "angabe" %}{{ d.groesse_text }} · {% endif %}seit {{ datum(d.hinzugefuegt[:10]) }}</small>
+              {% if not d.da %}<small class="sq-warnung">Die Datei ist nicht mehr im Ordner. Leg sie bitte noch einmal auf die Karte.</small>{% endif %}
+              {% if d.da and d.art != "angabe" %}
+              <div class="reihe">
+                <a class="button quiet" href="/steuer/{{ jahr }}/datei/{{ d.id }}" target="_blank" rel="noopener">{{ "Ansehen" if d.zeigbar else "Herunterladen" }}</a>
+                <form method="post" action="/steuer/{{ jahr }}/datei/{{ d.id }}/ki">
+                  <input type="hidden" name="token" value="{{ token }}">
+                  <button class="quiet" title="Öffnet den freien Chat. FRITS schwärzt Namen und Nummern vorher, und du siehst, was rausgehen würde.">Mit KI besprechen</button>
+                </form>
+              </div>
+              {% endif %}
+            </div>
+          </li>
+          {% endfor %}
+          {% for v in k.mit %}
+          <li class="sq-beleg verweis"><div class="sq-beleg-vorschau"><span class="sq-beleg-icon">↗</span></div><div class="sq-beleg-info"><strong>{{ v.original }}</strong><small>liegt bei {{ v.bei_titel }}, zählt hier mit</small></div></li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+        {% set eigene_frage = k.frage if k.frage != MACHT_BERATERIN else "" %}
+        <details class="sq-buch-frage"{% if eigene_frage %} open{% endif %}>
+          <summary>{{ "Deine Frage an die Beraterin" if eigene_frage else "Frage dazu an die Beraterin" }}</summary>
+          <form method="post" action="/steuer/{{ jahr }}/stueck/{{ k.id }}/frage">
+            <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back" value="{{ zurueck }}#karte-{{ k.id }}">
+            <label class="sr-only" for="frage-{{ k.id }}">Frage zu {{ k.name }}</label>
+            <textarea id="frage-{{ k.id }}" name="frage" rows="2" maxlength="500" placeholder="z. B. Zählt das auch, wenn ich nur die Hälfte privat nutze?">{{ eigene_frage }}</textarea>
+            <p class="reihe"><button class="quiet">Merken</button> <small class="muted">Kommt in deine Mail an die Beraterin.</small></p>
+          </form>
+        </details>
+      </article>
+      {% endfor %}
+      {% if p.leer %}
+      <p class="sq-buch-leer">Noch leer: {% for k in p.leer %}<a href="/steuer/{{ jahr }}/gebiet/{{ p.g.id }}">{{ k.name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</p>
+      {% endif %}
+    </section>
+    {% endif %}
+    {% endfor %}
+  </div>
+
+  <aside class="sq-rand">
+    <a class="sq-zurueck" href="/steuer/{{ jahr }}">← Zur Insel</a>
+    <div class="sq-fritte-platz">
+      {% set stimmung = "done" if summen.leer == 0 else "thinking" %}{% include "_steuer_fritte.html" %}
+      <p class="sq-sprechblase">{% if summen.belege + summen.angaben == 0 %}Noch leer hier. Zieh deinen ersten Beleg auf eine Karte, dann taucht er hier auf.{% elif summen.leer %}Schon {{ summen.belege + summen.angaben }} Stück gesichert. Unten in jeder Provinz steht, was noch fehlt.{% else %}Alle Pflichtkarten haben etwas. Jetzt nur noch den Drachen besiegen!{% endif %}</p>
+    </div>
+    <div class="sq-papier sq-schief sq-wer-sieht" style="--r: 0.8deg">
+      <h2>Wer sieht deine Belege?</h2>
+      <p>Nur du. Die Steuer-Quest schickt nichts an eine KI. Die Vorschläge im Eingangskorb rät FRITS aus dem Dateinamen, hier auf deinem Computer.</p>
+      <p>Bei „Mit KI besprechen“ liest FRITS den Beleg hier, schwärzt Namen, Adressen und Nummern, und zeigt dir genau, was rausgehen würde. Raus geht erst etwas, wenn du dort eine Frage stellst.</p>
+      <p>Deine Beraterin bekommt die Belege erst, wenn du am Ende die Truhe packst und selbst verschickst.</p>
+    </div>
+  </aside>
+</div>
+</div>
+{% endblock %}

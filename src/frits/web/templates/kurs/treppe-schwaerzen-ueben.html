@@ -1,0 +1,25 @@
+{% import "kurs/_teile.html" as t with context %}
+
+{% set brief = [
+  "Sehr geehrte Frau ", ("Albrecht", 1, "ein Name"), ",", "\n",
+  "anbei die ", ("Nebenkostenabrechnung 2025", 0, "Worum es geht, darf die KI wissen"), " für Ihre Wohnung im ", ("Gartenweg 12", 1, "eine Adresse"), ", ", ("50667 Köln", 1, "Postleitzahl und Ort"), ".", "\n",
+  "Die Nachzahlung beträgt ", ("214,60 €", 0, "Den Betrag braucht die KI zum Rechnen"), ". Bitte überweisen Sie bis ", ("30.11.2026", 0, "Die Frist darf bleiben, sonst kann die KI nicht helfen"), " auf ", ("DE89 3704 0044 0532 0130 00", 1, "eine IBAN"), ".", "\n",
+  "Rückfragen an ", ("hausverwaltung.koenig@example.de", 1, "eine E-Mail-Adresse"), " oder ", ("0221 9988776", 1, "eine Telefonnummer"), ".", "\n",
+  "Mit freundlichen Grüßen", "\n",
+  ("Petra König", 1, "ein Name"), ", Hausverwaltung ", ("König", 1, "ein Nachname, der sich in der Firma versteckt"), "\n",
+  "Aktenzeichen: ", ("NK-2025-0815", 1, "eine Nummer, die dich verrät"),
+] %}
+<div class="schwaerzspiel" data-schwaerzspiel>
+  <div class="brief" aria-label="Ein Brief zum Schwärzen">
+    {%- for teil in brief -%}
+      {%- if teil is string -%}{% if teil == "\n" %}<br>{% else %}{{ teil }}{% endif %}
+      {%- else -%}<button type="button" class="wort" data-wort{% if teil[1] %} data-geheim{% endif %} data-warum="{{ teil[2] }}" aria-pressed="false">{{ teil[0] }}</button>{%- endif -%}
+    {%- endfor -%}
+  </div>
+  <div class="row">
+    <button type="button" class="primary" data-pruefen>Fritte, hab ich alles?</button>
+    <button type="button" class="quiet" data-aufloesen>Zeig mir die Lösung</button>
+  </div>
+  <div class="ergebnis" aria-live="polite" data-ergebnis></div>
+</div>
+<p class="hint">Genau das macht die <a href="/lernen/werkbank">Werkbank</a> mit jedem Text, automatisch. Den Nachnamen in „Hausverwaltung König“ übersehen auch Profis gern.</p>

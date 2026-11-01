@@ -245,5 +245,15 @@ def test_a_late_invoice_points_to_a_corrected_return(tmp_path):
     )
     soll = _settings(vat_basis="soll")
     assert "3. Quartal 2026" in late_notice(db, soll, number, date(2026, 11, 2))
-    assert late_notice(db, _settings(), number, date(2026, 11, 2)) is None  # Ist: when paid
+    ist = _settings(vat_basis="ist")
+    assert late_notice(db, ist, number, date(2026, 11, 2)) is None  # Ist: when paid
+    # Not chosen yet: Soll, the legal default, so the hint comes.
+    assert late_notice(db, _settings(), number, date(2026, 11, 2)) is not None
     assert late_notice(db, soll, number, date(2026, 10, 5)) is None  # deadline not passed
+
+
+def test_soll_until_fritz_chooses(tmp_path):
+    from frits.ustva import basis_of
+
+    assert Settings().vat_basis == "" and basis_of(Settings()) == "soll"
+    assert basis_of(_settings(vat_basis="ist")) == "ist"

@@ -91,6 +91,8 @@ def test_buchungsliste_adds_up_to_the_euer(tmp_path):
     )
     assert any(r["Belegnummer"] == "GS G-77" and r["USt-Satz (%)"] == "19" for r in rows)
     assert any(r["Belegdatei"] == "ticket.png" for r in rows)
+    assert "Konto" not in rows[0]
+    assert next(r for r in rows if r["Belegnummer"] == "A-3")["Belegdatei"] == "fehlt"
     eu = next(r for r in rows if r["Belegnummer"] == "2026-0002")
     assert eu["Zeile Anlage EÜR"].startswith("Umsatzsteuerfreie")
     assert [b.day for b in buchungen(ws, 2026)] == sorted(b.day for b in buchungen(ws, 2026))
@@ -115,7 +117,7 @@ def test_verfahrensdoku_describes_the_real_setup(tmp_path):
     path = verfahrensdoku(ws, 2026, tmp_path / "out", date(2027, 2, 1))
     text = " ".join(" ".join(p.extract_text() for p in PdfReader(path).pages).split())
     assert "Verfahrensdokumentation 2026" in text
-    assert "monatlich" in text and "Soll-Versteuerung" in text
+    assert "monatlich" in text and "Soll-Versteuerung" in text and "Normalfall" in text
     assert "8 Jahre" in text and "keine Steuerberatung" in text
 
 

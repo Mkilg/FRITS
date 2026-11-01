@@ -710,7 +710,7 @@ def test_rare_pages_sit_behind_mehr_and_it_shows_where_you_are(client):
     page = client.get("/").text
     nav = page[page.index("<nav>") : page.index("</nav>")]
     assert '<details class="mehr">' in nav
-    for label in ("KI-Werkstatt", "Einstellungen", "Über FRITS"):
+    for label in ("So funktionieren KI-Agenten", "Einstellungen", "Über FRITS"):
         assert label in nav[nav.index("mehr-liste") :]
     settings_page = client.get("/settings").text
     assert '<summary aria-current="page">Mehr</summary>' in settings_page
@@ -771,3 +771,46 @@ def test_painted_pictures_keep_their_space_while_loading(tmp_path):
     html = tag("leer-eingang", "leer-bild")
     assert 'class="leer-bild"' in html and 'width="420" height="299"' in html
     assert tag("gibts-nicht", "x") == ""
+
+
+def test_earlier_invoice_is_entered_from_the_invoices_page(client, ws):
+    page = client.get("/invoices").text
+    assert "Rechnung von früher nachtragen" in page and "Zurückdatieren" in page
+    response = client.post(
+        "/invoices/frueher",
+        data={
+            "token": client.token,
+            "number": "2026-0003",
+            "customer": "Radio Süd",
+            "issue_date": "2026-03-01",
+            "description": "Moderation",
+            "net": "1.200,00",
+            "tax": "klein",
+            "paid": "2026-03-20",
+        },
+        files={"original": ("alt.pdf", b"%PDF-1.4 alt", "application/pdf")},
+        follow_redirects=True,
+    )
+    assert "Rechnung 2026-0003 ist nachgetragen" in response.text
+    assert "nachgetragen</small>" in response.text
+    assert client.get("/invoices/2026-0003/pdf").content == b"%PDF-1.4 alt"
+    again = post(
+        client,
+        "/invoices/frueher",
+        number="2026-0003",
+        customer="X",
+        issue_date="2026-03-01",
+        net="5",
+        tax="klein",
+    )
+    assert "gibt es in FRITS schon" in again.text
+    future = post(
+        client,
+        "/invoices/frueher",
+        number="2026-0099",
+        customer="X",
+        issue_date="2027-01-01",
+        net="5",
+        tax="klein",
+    )
+    assert "Zukunft" in future.text

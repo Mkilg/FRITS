@@ -52,8 +52,10 @@ from frits.billing import (
     CUSTOMER_TAX,
     DEFAULT_PATTERN,
     DOMESTIC_RATES,
+    EARLIER_TAX,
     BillingError,
     Draft,
+    add_earlier,
     approve,
     blockers,
     cancel,
@@ -862,7 +864,54 @@ def create_app(
             invoices=list_invoices(db(), today()),
             credits=gutschriften.listing(db()),
             today_iso=today().isoformat(),
+            earlier_tax=EARLIER_TAX,
+            earlier_default="klein" if settings().tax_mode != "regelbesteuerung" else "19",
         )
+
+    @app.post("/invoices/frueher", dependencies=guarded)
+    async def invoice_earlier(request: Request):
+        """An invoice Fritz wrote before FRITS: entered with its own number and date."""
+        form = await request.form()
+        try:
+            issued = date.fromisoformat(str(form.get("issue_date", "")))
+            served = str(form.get("service_date") or "")
+            paid = str(form.get("paid") or "")
+            upload = form.get("original")
+            original = None
+            if upload is not None and getattr(upload, "filename", ""):
+                original = await upload.read(MAX_UPLOAD) or None
+            number = add_earlier(
+                db(),
+                number=str(form.get("number", "")),
+                customer=str(form.get("customer", "")),
+                issue_date=issued,
+                service_date=date.fromisoformat(served) if served else None,
+                description=str(form.get("description", "")),
+                net=parse_amount(str(form.get("net", ""))),
+                tax=str(form.get("tax", "")),
+                paid_date=date.fromisoformat(paid) if paid else None,
+                original=original,
+                invoices_dir=ws.invoices,
+                settings=settings(),
+                today=today(),
+            )
+        except BillingError as exc:
+            flash(str(exc), "error")
+            return back("/invoices#frueher")
+        except ValueError:
+            flash(
+                "Bitte die Daten prüfen: Rechnungsdatum und Betrag fehlen oder passen nicht.",
+                "error",
+            )
+            return back("/invoices#frueher")
+        row = db().execute("SELECT gross FROM invoices WHERE number = ?", (number,)).fetchone()
+        flash(
+            f"Rechnung {number} ist nachgetragen: {eur(Decimal(row['gross']))} brutto. Bitte kurz mit "
+            "dem Original vergleichen. Sie zählt jetzt in EÜR und Umsatzsteuer mit.",
+            cue="done",
+            stamp="Gebucht",
+        )
+        return back(f"/invoices#r-{number}")
 
     @app.get("/invoices/{number}/pdf")
     def invoice_pdf(number: str):
@@ -921,7 +970,7 @@ def create_app(
     def invoice_email(number: str):
         conn = db()
         row = conn.execute("SELECT * FROM invoices WHERE number = ?", (number,)).fetchone()
-        if row is None:
+        if row is None or not row["pdf_path"]:  # entered from before FRITS without a PDF
             raise HTTPException(404)
         customer = customer_by(row["customer"])
         subject, body = emails.invoice_email(dict(row), customer, settings())
@@ -1563,7 +1612,7 @@ def create_app(
     def ustva_page(request: Request, year: int | None = None, nr: int | None = None):
         current = settings()
         period = current.vat_period if current.vat_period in ustva.PERIODS else "quartal"
-        basis = current.vat_basis if current.vat_basis in ustva.BASES else "ist"
+        basis = ustva.basis_of(current)
         if year is None or nr is None:
             year, nr = ustva.next_due(today(), period)
         try:
@@ -1593,6 +1642,7 @@ def create_app(
             basis=basis,
             periods=ustva.PERIODS,
             bases=ustva.BASES,
+            basis_chosen=current.vat_basis in ustva.BASES,
             booked=booked,
             klein=current.tax_mode != "regelbesteuerung",
             today_iso=today().isoformat(),
@@ -1616,7 +1666,7 @@ def create_app(
         current = settings()
         try:
             meldung = ustva.voranmeldung(
-                ws.db, current, year, nr, current.vat_period, current.vat_basis
+                ws.db, current, year, nr, current.vat_period, ustva.basis_of(current)
             )
             paid = _paid_day(form.get("paid"), today())
         except (ValueError, BillingError) as exc:
@@ -1961,7 +2011,15 @@ def create_app(
     from frits.web.lernen import register_lernen
 
     register_lernen(
-        app, page=page, settings=settings, customers=customers, nlp=nlp, guarded=guarded
+        app,
+        page=page,
+        back=back,
+        flash=flash,
+        db=db,
+        settings=settings,
+        customers=customers,
+        nlp=nlp,
+        guarded=guarded,
     )
 
     from frits.web.notfall import register_notfall

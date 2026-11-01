@@ -77,6 +77,7 @@ class Draft:
     customer_ust_id: str | None = None
     customer_country: str = "DE"  # ISO 3166 code, for the e-invoice
     customer_reference: str | None = None  # Leitweg-ID or order number the customer asked for
+    earlier: bool = False  # written before FRITS and only entered here ("nachgetragen")
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), default=str, ensure_ascii=False)
@@ -509,6 +510,124 @@ def cancel(conn, number: str, settings: Settings, invoices_dir: Path, today: dat
     return storno, pdf_path
 
 
+# What an invoice written before FRITS may look like, in Fritz's words.
+EARLIER_TAX = {
+    "19": "mit 19 % Umsatzsteuer",
+    "7": "mit 7 % Umsatzsteuer",
+    "klein": "ohne Umsatzsteuer (Kleinunternehmer, § 19 UStG)",
+    "eu": "an eine Firma in der EU (Reverse Charge)",
+    "drittland": "an eine Firma außerhalb der EU",
+}
+_EARLIER_NUMBER = re.compile(r"[A-Za-z0-9][A-Za-z0-9 ._/-]{0,39}")
+
+
+def add_earlier(
+    conn,
+    *,
+    number: str,
+    customer: str,
+    issue_date: date,
+    description: str,
+    net: Decimal,
+    tax: str,
+    settings: Settings,
+    service_date: date | None = None,
+    paid_date: date | None = None,
+    original: bytes | None = None,
+    invoices_dir: Path | None = None,
+    today: date | None = None,
+) -> str:
+    """Enter an invoice Fritz wrote before FRITS, so EÜR, UStVA and his list are complete.
+
+    This is not backdating: FRITS numbers and dates its own invoices only on the day they are
+    made. An earlier invoice keeps the number and date printed on it, gets no new PDF (the
+    original, if given, is kept next to the others) and then counts like any other invoice.
+    """
+    today = today or date.today()
+    number = " ".join(number.split())
+    customer = " ".join(customer.split())
+    if not _EARLIER_NUMBER.fullmatch(number):
+        raise BillingError(
+            "Bitte die Rechnungsnummer so eingeben, wie sie auf der Rechnung steht "
+            "(Buchstaben, Ziffern, - / . und höchstens 40 Zeichen)."
+        )
+    if not customer:
+        raise BillingError("Bitte den Kunden eingeben.")
+    if tax not in EARLIER_TAX:
+        raise BillingError("Bitte wählen, wie die Rechnung besteuert war.")
+    if net is None or net <= 0:
+        raise BillingError("Bitte den Betrag eingeben.")
+    if issue_date > today:
+        raise BillingError("Eine Rechnung von früher kann nicht in der Zukunft liegen.")
+    if service_date and service_date > today:
+        raise BillingError("Das Leistungsdatum liegt in der Zukunft.")
+    if paid_date and (paid_date > today or paid_date < issue_date - timedelta(days=366)):
+        raise BillingError("Bitte das Zahldatum prüfen.")
+    if conn.execute("SELECT 1 FROM invoices WHERE number = ?", (number,)).fetchone():
+        raise BillingError(f"Die Rechnungsnummer {number} gibt es in FRITS schon.")
+    snapshot = {
+        "19": {"mode": "regelbesteuerung", "rate": "19", "customer": ""},
+        "7": {"mode": "regelbesteuerung", "rate": "7", "customer": ""},
+        "klein": {"mode": "kleinunternehmer", "rate": "0", "customer": ""},
+        "eu": {"mode": "regelbesteuerung", "rate": "19", "customer": "eu"},
+        "drittland": {"mode": "regelbesteuerung", "rate": "19", "customer": "drittland"},
+    }[tax]
+    line = Line(
+        description.strip() or f"Rechnung {number}",
+        (service_date or issue_date).isoformat(),
+        Decimal(1),
+        "pauschal",
+        money(net),
+    )
+    draft = Draft(
+        customer_id=None,
+        customer_name=customer,
+        customer_address=None,
+        lines=[line],
+        questions=[],
+        warnings=[],
+        source_file="",
+        tax=snapshot,
+        customer_tax=snapshot["customer"],
+        earlier=True,
+    )
+    sums = totals(draft.lines, settings, snapshot)
+    due = None if paid_date else issue_date + timedelta(days=settings.payment_days)
+    pdf_path = None
+    if original:
+        if not original.startswith(b"%PDF"):
+            raise BillingError("Die Originalrechnung bitte als PDF hereingeben.")
+        folder = Path(invoices_dir or ".") / "Nachgetragen"
+        safe = re.sub(r"[^A-Za-z0-9._-]+", "-", number).strip("-")
+        pdf_path = folder / f"{safe}_{_slug(customer)}.pdf"
+        _never_overwrite(pdf_path)
+    with store.transaction(conn):
+        cur = conn.execute(
+            "INSERT INTO drafts (created, data, status, invoice_number) VALUES (?, ?, ?, ?)",
+            (store.now(), draft.to_json(), "approved", number),
+        )
+        conn.execute(
+            "INSERT INTO invoices (number, customer, issue_date, paid_date, net, vat, gross,"
+            " draft_id, due_date, pdf_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                number,
+                customer,
+                issue_date.isoformat(),
+                paid_date.isoformat() if paid_date else None,
+                str(sums.net),
+                str(sums.vat),
+                str(sums.gross),
+                cur.lastrowid,
+                due.isoformat() if due else None,
+                str(pdf_path) if pdf_path else None,
+            ),
+        )
+        if pdf_path:
+            pdf_path.parent.mkdir(parents=True, exist_ok=True)
+            pdf_path.write_bytes(original)
+    return number
+
+
 def _tax_from_invoice(row) -> dict:
     """For invoices issued before FRITS kept a tax snapshot: read it back from the stored sums."""
     net, vat = Decimal(row["net"]), Decimal(row["vat"])
@@ -667,6 +786,8 @@ def invoice_status(row, today: date | None = None) -> str:
 def list_invoices(conn, today: date | None = None) -> list[dict]:
     rows = conn.execute(
         "SELECT i.*, c.number AS cancelled_by,"
+        " (SELECT json_extract(d.data, '$.earlier') FROM drafts d WHERE d.id = i.draft_id)"
+        " AS earlier,"
         " (SELECT o.paid_date FROM invoices o WHERE o.number = i.cancels) AS original_paid,"
         " (SELECT COUNT(*) FROM reminders r WHERE r.invoice_number = i.number) AS reminders,"
         " (SELECT MAX(r.new_due_date) FROM reminders r WHERE r.invoice_number = i.number)"

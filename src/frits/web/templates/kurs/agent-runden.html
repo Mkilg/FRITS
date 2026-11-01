@@ -1,0 +1,39 @@
+{% import "kurs/_teile.html" as t with context %}
+
+{% set agent = werkzeug.agent %}
+<div class="runden" data-auswahl>
+  <svg class="kurs-svg runden-kreis" viewBox="0 0 320 320" aria-hidden="true">
+    <circle cx="160" cy="160" r="112" fill="none" stroke="#d9c9a2" stroke-width="14"/>
+    <circle cx="160" cy="160" r="112" fill="none" stroke="#a3c466" stroke-width="4" stroke-dasharray="10 12"/>
+    <circle cx="160" cy="160" r="54" fill="#fcf6e6" stroke="#9c6f1f" stroke-width="2"/>
+    <text x="160" y="155" text-anchor="middle" font-family="var(--schrift)" font-size="17" fill="#3a2412">Dein</text>
+    <text x="160" y="176" text-anchor="middle" font-family="var(--schrift)" font-size="17" fill="#3a2412">Auftrag</text>
+  </svg>
+  <div class="runden-knoepfe" aria-label="Die vier Schritte einer Runde">
+    <button type="button" class="r-oben" data-zeige="schauen"><span aria-hidden="true">👀</span> Schauen</button>
+    <button type="button" class="r-rechts" data-zeige="planen"><span aria-hidden="true">🧠</span> Planen</button>
+    <button type="button" class="r-unten" data-zeige="tun"><span aria-hidden="true">✋</span> Tun</button>
+    <button type="button" class="r-links" data-zeige="pruefen"><span aria-hidden="true">✅</span> Prüfen</button>
+  </div>
+  <div class="runden-text">
+    <div class="tafel" data-tafel="schauen"><h3>👀 Schauen</h3><p>{% if agent %}Er liest die Dateien in seinem Ordner, zum Beispiel <code>geschwaerzt/beleg-01.txt</code> bis <code>beleg-12.txt</code>.{% else %}Er liest, was du in den Chat kopiert hast. Sonst nichts.{% endif %}</p></div>
+    <div class="tafel" data-tafel="planen"><h3>🧠 Planen</h3><p>Er überlegt den nächsten Schritt: „Ich sortiere die Belege nach Monat.“</p></div>
+    <div class="tafel" data-tafel="tun"><h3>✋ Tun</h3><p>{% if agent %}Er will einen Befehl ausführen, etwa einen Ordner anlegen. <strong>Hier fragt er dich, wenn er gut eingestellt ist.</strong> Hier greifst du ein.{% else %}Er schreibt dir eine Antwort, zum Beispiel eine Tabelle. Ausführen kann er nichts, das machst du.{% endif %}</p></div>
+    <div class="tafel" data-tafel="pruefen"><h3>✅ Prüfen</h3><p>Er schaut, ob es geklappt hat. Wenn nicht, beginnt die nächste Runde. So lange, bis der Auftrag erledigt ist.</p></div>
+  </div>
+</div>
+
+<div class="abspielen" data-abspielen>
+  <button type="button" class="tiny" data-abspielen-start>▶ Eine Runde abspielen</button>
+  <ol class="protokoll">
+    <li><span class="p-wer">👀</span> {% if agent %}liest 12 Dateien in <code>geschwaerzt/</code>{% else %}liest deinen eingefügten Text mit 12 Belegen{% endif %}</li>
+    <li><span class="p-wer">🧠</span> „Ich lege für jeden Monat einen Ordner an und sortiere ein.“</li>
+    {% if agent %}
+    <li class="p-frage"><span class="p-wer">✋</span> möchte ausführen: <code>mkdir ergebnis/2026-03</code> <span class="p-knopf">Erlauben?</span> <span class="p-knopf">Ablehnen</span></li>
+    <li><span class="p-wer">✋</span> verschiebt 4 Belege nach <code>ergebnis/2026-03</code></li>
+    {% else %}
+    <li><span class="p-wer">✋</span> schreibt dir eine Tabelle: Monat, Betrag, Art</li>
+    {% endif %}
+    <li><span class="p-wer">✅</span> „12 von 12 einsortiert. Fertig.“</li>
+  </ol>
+</div>
