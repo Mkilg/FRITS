@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Datensicherung · FRITS{% endblock %}
+{% block content %}
+<h1>Datensicherung</h1>
+<p class="lead">Ein Mac kann kaputtgehen. Deine Rechnungen und Belege musst du aber 8 bis 10 Jahre aufheben. Deshalb packt FRITS den ganzen Ordner FRITS in eine verschlossene Datei auf einem zweiten Datenträger, zum Beispiel einem USB-Stick oder in iCloud Drive.</p>
+
+{% if zurueck %}
+<section class="card accent">
+  <h2>Sicherung ausgepackt</h2>
+  <p>Sie liegt jetzt im neuen Ordner <code>{{ zurueck }}</code>. Dein bisheriger Ordner ist unverändert.</p>
+  <p>So nimmst du die Sicherung:</p>
+  <ol>
+    <li>FRITS beenden (Feierabend › FRITS beenden).</li>
+    <li>Im Finder den bisherigen Ordner <code>FRITS</code> umbenennen, zum Beispiel in <code>FRITS alt</code>.</li>
+    <li>Den Ordner aus der Sicherung in <code>FRITS</code> umbenennen und FRITS wieder öffnen.</li>
+  </ol>
+</section>
+{% endif %}
+
+<section class="card">
+  <h2>Sichern</h2>
+  {% if letzte %}
+  <p>Letzte Sicherung: <strong>{{ letzte.strftime("%d.%m.%Y um %H:%M") }}</strong>{% if faellig %}, das ist über eine Woche her.{% endif %}</p>
+  {% elif ziel %}
+  <p>In <code>{{ ziel }}</code> liegt noch keine Sicherung{% if faellig %}, oder der Datenträger ist gerade nicht angesteckt{% endif %}.</p>
+  {% else %}
+  <p>Noch keine Sicherung eingerichtet. Wähl einen Ort, dann geht es mit einem Klick.</p>
+  {% endif %}
+  <form method="post" action="/sicherung" class="form" data-busy="Ich sichere. Das dauert je nach Menge einen Moment.">
+    <input type="hidden" name="token" value="{{ token }}">
+    {% if vorschlaege %}
+    <fieldset class="orte">
+      <legend>Wohin?</legend>
+      {% for label, ordner in vorschlaege %}
+      <label><input type="radio" name="ziel" value="{{ ordner }}" {{ "checked" if ordner == ziel or (not ziel and loop.first) }}> {{ label }} <span class="muted">{{ ordner }}</span></label>
+      {% endfor %}
+      {% if ziel and ziel not in vorschlaege | map(attribute=1) %}
+      <label><input type="radio" name="ziel" value="{{ ziel }}" checked> Bisheriger Ort <span class="muted">{{ ziel }}</span></label>
+      {% endif %}
+    </fieldset>
+    {% else %}
+    <label class="field">Ordner für die Sicherung
+      <input name="ziel" value="{{ ziel }}" placeholder="/Volumes/USB-Stick/FRITS-Sicherung">
+    </label>
+    <p class="hint">Steck einen USB-Stick oder eine Festplatte an und lade die Seite neu, dann schlage ich sie dir vor.</p>
+    {% endif %}
+    <button class="primary">Jetzt sichern</button>
+  </form>
+  <p class="hint">FRITS löscht nie eine alte Sicherung. Die Zuordnungen der Schwärzung kommen nicht mit, sie bleiben nur auf diesem Mac.</p>
+</section>
+
+<section class="card">
+  <h2>Das Passwort</h2>
+  <p>Jede Sicherung ist mit einem Passwort verschlossen. Ohne Passwort kann niemand sie öffnen, auch du nicht. Es liegt im Schlüsselbund dieses Macs. Schreib es dir einmal auf Papier und leg es zu deinen Unterlagen. Wenn der Mac kaputtgeht, brauchst du es.</p>
+  {% if kennwort %}
+  <p class="kennwort"><code id="kennwort">{{ kennwort }}</code> <button type="button" class="quiet tiny" data-kopieren="#kennwort">Kopieren</button></p>
+  {% else %}
+  <form method="post" action="/sicherung/kennwort">
+    <input type="hidden" name="token" value="{{ token }}">
+    <button>Passwort zeigen</button>
+  </form>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Sicherung zurückholen</h2>
+  <p>FRITS packt die Sicherung in einen <strong>neuen</strong> Ordner neben deinem FRITS-Ordner aus. Dabei wird nichts überschrieben.</p>
+  <form method="post" action="/sicherung/zurueck" enctype="multipart/form-data" class="form" data-busy="Ich packe die Sicherung aus.">
+    <input type="hidden" name="token" value="{{ token }}">
+    <label class="field">Sicherung (FRITS-Sicherung_….zip)
+      <input type="file" name="datei" accept=".zip">
+    </label>
+    <label class="field">Passwort
+      <input name="passwort" autocomplete="off">
+    </label>
+    <button>Auspacken</button>
+  </form>
+</section>
+<script src="/static/lernen.js" defer></script>
+{% endblock %}

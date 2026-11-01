@@ -41,6 +41,7 @@ from frits import (
     gutschriften,
     haustier,
     setup,
+    sicherung,
     store,
     system,
     umgebung,
@@ -1674,6 +1675,74 @@ def create_app(
         replace(current, sound=not current.sound).save(ws.settings_file)
         return back(str((await request.form()).get("back") or "/"))
 
+    # ----- Datensicherung -----
+
+    def _sicherung_page(request: Request, **extra):
+        current = settings()
+        return page(
+            request,
+            "sicherung.html",
+            ziel=current.backup_dir,
+            letzte=sicherung.letzte(current.backup_dir),
+            faellig=sicherung.faellig(current.backup_dir),
+            vorschlaege=sicherung.vorschlaege(),
+            **extra,
+        )
+
+    @app.get("/sicherung", response_class=HTMLResponse)
+    def sicherung_page(request: Request):
+        return _sicherung_page(request)
+
+    @app.post("/sicherung", dependencies=guarded)
+    async def sicherung_jetzt(request: Request):
+        form = await request.form()
+        ziel = str(form.get("ziel") or settings().backup_dir).strip()
+        if not ziel:
+            flash("Wähl zuerst aus, wohin die Sicherung soll.", "error")
+            return back("/sicherung")
+        try:
+            path = sicherung.sichern(ws, Path(ziel), sicherung.kennwort())
+        except sicherung.SicherungError as exc:
+            flash(str(exc), "error")
+            return back("/sicherung")
+        if ziel != settings().backup_dir:
+            replace(settings(), backup_dir=ziel).save(ws.settings_file)
+        flash(f"Gesichert: {path.name} in {path.parent}.", cue="saved")
+        return back(str(form.get("back") or "/sicherung"))
+
+    @app.post("/sicherung/kennwort", dependencies=guarded)
+    def sicherung_kennwort(request: Request):
+        try:
+            shown = sicherung.kennwort()
+        except sicherung.SicherungError as exc:
+            flash(str(exc), "error")
+            return back("/sicherung")
+        return _sicherung_page(request, kennwort=shown)
+
+    @app.post("/sicherung/zurueck", dependencies=guarded)
+    async def sicherung_zurueck(request: Request):
+        form = await request.form()
+        upload = form.get("datei")
+        passwort = str(form.get("passwort") or "").strip()
+        if not getattr(upload, "filename", "") or not passwort:
+            flash("Bitte die Sicherung auswählen und ihr Passwort eingeben.", "error")
+            return back("/sicherung")
+        stamp = today().strftime("%d.%m.%Y")
+        ziel = ws.root.parent / f"FRITS aus Sicherung {stamp}"
+        n = 2
+        while ziel.exists():
+            ziel = ws.root.parent / f"FRITS aus Sicherung {stamp} ({n})"
+            n += 1
+        with TemporaryDirectory() as work:
+            tmp = Path(work) / "sicherung.zip"
+            tmp.write_bytes(await upload.read())
+            try:
+                sicherung.wiederherstellen(tmp, passwort, ziel)
+            except sicherung.SicherungError as exc:
+                flash(str(exc), "error")
+                return back("/sicherung")
+        return _sicherung_page(request, zurueck=ziel)
+
     # ----- Feierabend -----
 
     @app.post("/feierabend", dependencies=guarded)
@@ -1709,6 +1778,8 @@ def create_app(
             karten=spiel_stand.abgleichen(conn, today(), fritte_datei(ws.root))
             if settings().haustier
             else 0,
+            sicherung_ziel=settings().backup_dir,
+            sicherung_faellig=sicherung.faellig(settings().backup_dir),
         )
 
     @app.get("/health")

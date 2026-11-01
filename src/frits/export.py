@@ -209,6 +209,14 @@ def _doku_text(settings: Settings, jahr: int, heute: date) -> list[tuple[str, st
             else ", Soll-Versteuerung (nach Leistung)."
         )
     )
+    sicherung = (
+        "Die Datensicherung von FRITS packt den ganzen Ordner verschlüsselt (AES) in eine "
+        f"Datei auf einem zweiten Datenträger ({settings.backup_dir}) und erinnert, wenn die "
+        "letzte Sicherung älter als eine Woche ist. Alte Sicherungen werden nicht gelöscht."
+        if settings.backup_dir
+        else "Der Ordner FRITS wird regelmäßig auf einen zweiten Datenträger gesichert "
+        "(Datensicherung in FRITS oder Time Machine)."
+    )
     return [
         (
             "1. Allgemeines",
@@ -276,10 +284,8 @@ def _doku_text(settings: Settings, jahr: int, heute: date) -> list[tuple[str, st
                 "Rechnungen und Buchungsbelege werden 8 Jahre aufbewahrt, Bücher und "
                 "Jahresabschlüsse (hier die EÜR) 10 Jahre, sonstige Geschäftsbriefe 6 Jahre "
                 "(§ 147 Abs. 3 AO, § 14b UStG). Die Frist beginnt mit Ende des Kalenderjahres. "
-                "FRITS löscht nichts von selbst. Der Ordner FRITS wird regelmäßig auf einen "
-                "zweiten Datenträger gesichert (zum Beispiel mit Time Machine). Für eine "
-                "Außenprüfung können die Daten als CSV und PDF ausgegeben werden "
-                "(Datenzugriff nach § 147 Abs. 6 AO)."
+                f"FRITS löscht nichts von selbst. {sicherung} Für eine Außenprüfung können "
+                "die Daten als CSV und PDF ausgegeben werden (Datenzugriff nach § 147 Abs. 6 AO)."
             ),
         ),
         (

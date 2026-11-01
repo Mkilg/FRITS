@@ -129,6 +129,7 @@ class Settings:
     haustier: bool = True  # Fritte's room and shop on the Heute page
     auto_read: bool = True  # files dropped or pasted on "Heute" are read right away
     setup_done: bool = False
+    backup_dir: str = ""  # where FRITS puts its locked backups (USB stick, iCloud Drive)
 
     @property
     def owner(self) -> Customer:

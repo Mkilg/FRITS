@@ -412,3 +412,9 @@ body:has(.sq-tisch) .bottom a { color: var(--gold); }
 
 .notfall-hinweis { margin: 0.4rem 0 1rem; padding: 0.5rem 0.9rem; border-radius: var(--radius);
   background: rgba(252, 246, 230, .75); border: 1px dashed var(--papier-schatten); font-size: 0.92rem; }
+
+/* Datensicherung: one place per line; long folder paths wrap instead of widening the page */
+.orte { min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 0.5rem 0.9rem 0.7rem; margin: 0 0 0.9rem; }
+.orte label { display: flex; flex-wrap: wrap; gap: 0 0.5rem; align-items: baseline; padding: 0.35rem 0; cursor: pointer; }
+.orte .muted { flex-basis: 100%; padding-left: 1.6rem; font-size: 0.85em; overflow-wrap: anywhere; }
+.kennwort code { font-size: 1.1em; overflow-wrap: anywhere; }
