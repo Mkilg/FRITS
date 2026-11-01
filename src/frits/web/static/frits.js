@@ -249,7 +249,23 @@
   // A dull "plopp" made right here in the browser: a low tone that falls fast, plus a short rustle.
   // The Steuer-Quest uses the same sound.
   var audio = null;
+  // Inside the music frame (see frits-sound.js) the frame's page plays the plopp: its sound
+  // is unlocked by the first click and stays across page changes.
+  function frameHost() {
+    try { return window.top !== window && window.top.Frits ? window.top.Frits : null; } catch (e) { return null; }
+  }
+  function unlockAudio() {
+    var host = frameHost();
+    if (host) { host.unlockAudio(); return; }
+    var Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    try { audio = audio || new Ctx(); } catch (e) { return; }
+    if (audio.state === "suspended" && audio.resume) audio.resume();
+  }
+  document.addEventListener("pointerdown", unlockAudio, true);
   function stampSound() {
+    var host = frameHost();
+    if (host) { host.stampSound(); return; }
     var Ctx = window.AudioContext || window.webkitAudioContext;
     if (!Ctx) return;
     try { audio = audio || new Ctx(); } catch (e) { return; }
@@ -330,6 +346,17 @@
   // Sound switched off: forget the music that should carry on to the next page (frits-sound.js).
   if (document.body.getAttribute("data-frits-sound") !== "on") {
     try { sessionStorage.removeItem("frits-music"); } catch (e) { /* egal */ }
+    try { if (window.top !== window && window.top.FritsSound) window.top.FritsSound.music.stop(); } catch (e) { /* egal */ }
+  }
+
+  // Inside the music frame: links to other sites, mail and "frits://" open in the whole
+  // window, not in the frame (many sites refuse to be shown in a frame).
+  if (window.top !== window) {
+    document.addEventListener("click", function (e) {
+      var a = e.target.closest && e.target.closest("a[href]");
+      if (!a || a.target) return;
+      if (!/^https?:$/.test(a.protocol) || a.origin !== location.origin) a.target = "_top";
+    }, true);
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
@@ -363,6 +390,12 @@
       if (both[0].url && both[0].url !== location.href) {
         history.pushState({ feierabend: true }, "", both[0].url);
         swapped = true;
+        try {  // inside the music frame: the address bar shows the Feierabend page too
+          if (window.top !== window) {
+            window.top.history.replaceState(null, "", both[0].url);
+            window.top.document.title = next.title;
+          }
+        } catch (err) { /* egal */ }
       }
       window.scrollTo(0, 0);
       start();
@@ -417,5 +450,5 @@
       });
   });
 
-  window.Frits = { feedback: feedback, stampSound: stampSound, playful: playful };
+  window.Frits = { feedback: feedback, stampSound: stampSound, playful: playful, unlockAudio: unlockAudio };
 })();

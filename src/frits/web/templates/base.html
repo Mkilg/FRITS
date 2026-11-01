@@ -9,7 +9,7 @@
   <link rel="icon" href="{{ picture('app-icon') or '/static/fry.svg' }}">
   {% block head %}{% endblock %}
 </head>
-<body data-effekte="{{ settings.effects }}"{% if sounds %} data-frits-sound="on" data-frits-sound-base="{{ sounds }}"{% endif %}>
+<body data-effekte="{{ settings.effects }}"{% if request.method == "GET" %} data-frits-get{% endif %}{% if sounds %} data-frits-sound="on" data-frits-sound-base="{{ sounds }}"{% endif %}>
 <header class="top">
   <a class="brand" href="/"><span class="brand-fry">{{ mascot("welcome") }}</span><span>FRITS</span></a>
   {% if nav.startswith("/setup") and not settings.setup_done %}
@@ -40,7 +40,7 @@
   </nav>
   <div class="top-actions">
     {% if sounds %}
-    <button type="button" class="quiet" data-frits-music="{{ music }}" data-frits-music-main data-label-playing="♪ Musik läuft" aria-pressed="false" title="{{ 'Abenteuer-Musik für die Steuer-Quest' if nav.startswith('/steuer') else 'Musik: ' ~ (moods[settings.music].title if settings.music in moods else 'Entspannt') ~ '. Die Stimmung wählst du in den Einstellungen' }}. Nochmal klicken schaltet sie aus.">♪ Musik</button>
+    <button type="button" class="quiet" data-frits-music="{{ music }}" data-frits-music-main data-label-playing="♪ Musik läuft" data-label-waiting="♪ Weiterhören" aria-pressed="false" title="{{ 'Abenteuer-Musik für die Steuer-Quest' if nav.startswith('/steuer') else 'Musik: ' ~ (moods[settings.music].title if settings.music in moods else 'Entspannt') ~ '. Die Stimmung wählst du in den Einstellungen' }}. Nochmal klicken schaltet sie aus.">♪ Musik</button>
     {% endif %}
     <form method="post" action="/sound">
       <input type="hidden" name="token" value="{{ token }}">
