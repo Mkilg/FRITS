@@ -22,6 +22,8 @@ class Customer:
     phone: str | None = None
     hourly_rate: Decimal | None = None
     aliases: tuple[str, ...] = field(default_factory=tuple)
+    umsatzsteuer: str = ""  # "" Germany, "eu" another EU country, "drittland" outside the EU
+    ust_id: str | None = None
 
     @property
     def display_name(self) -> str:
@@ -47,6 +49,8 @@ def parse_note(path: Path) -> Customer | None:
         phone=_opt(meta.get("phone")),
         hourly_rate=Decimal(str(rate)) if rate is not None else None,
         aliases=tuple(str(a).strip() for a in meta.get("aliases") or ()),
+        umsatzsteuer=_where(meta.get("umsatzsteuer")),
+        ust_id=_opt(meta.get("ust_id")),
     )
 
 
@@ -84,10 +88,20 @@ def save_note(folder: Path, customer: Customer) -> Path:
         meta["hourly_rate"] = float(customer.hourly_rate)
     if customer.aliases:
         meta["aliases"] = list(customer.aliases)
+    if customer.umsatzsteuer:
+        meta["umsatzsteuer"] = customer.umsatzsteuer
+    if customer.ust_id:
+        meta["ust_id"] = customer.ust_id
     front = yaml.safe_dump(meta, allow_unicode=True, sort_keys=False)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(f"---\n{front}---\n{body}", encoding="utf-8")
     return path
+
+
+def _where(value: object) -> str:
+    """Only the values FRITS knows; anything else means Germany."""
+    text = str(value or "").strip().lower()
+    return text if text in ("eu", "drittland") else ""
 
 
 def _opt(value: object) -> str | None:

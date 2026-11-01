@@ -30,13 +30,17 @@ from markupsafe import Markup
 
 from frits import __version__, about, emails, euer, expenses, haustier, setup, store, system
 from frits.billing import (
+    CUSTOMER_TAX,
     DEFAULT_PATTERN,
+    VAT_RATES,
     BillingError,
     Draft,
     approve,
     blockers,
     cancel,
     discard_draft,
+    draft_totals,
+    limit_check,
     list_invoices,
     load_draft,
     mark_paid,
@@ -47,7 +51,6 @@ from frits.billing import (
     save_draft,
     service_period,
     set_customer,
-    totals,
     unit_price,
     valid_pattern,
 )
@@ -232,6 +235,7 @@ def _templates() -> Jinja2Templates:
     env.globals.update(
         mascot=mascot_markup,
         units=UNITS,
+        customer_tax=CUSTOMER_TAX,
         providers=PROVIDERS,
         supported=",".join(sorted(SUPPORTED)),
     )
@@ -512,14 +516,24 @@ def create_app(
                     original = extract_text(source).text
                 except IngestError:
                     original = None
+        problems, limit_warnings = [], []
+        if row["status"] == "draft":
+            problems = blockers(draft, current)
+            if draft.kind != "quote":
+                extra, limit_warnings = limit_check(
+                    conn, current, today().year, draft_totals(draft, current).net
+                )
+                problems += extra
         return page(
             request,
             "draft.html",
             draft=draft,
             row=row,
-            sums=totals(draft.lines, current, draft.tax),
+            sums=draft_totals(draft, current),
             period=service_period(draft.lines),
-            problems=blockers(draft, current) if row["status"] == "draft" else [],
+            problems=problems,
+            limit_warnings=limit_warnings,
+            vat_rates=VAT_RATES,
             customers=customers(),
             original=original,
             sent_text=job["sent_text"] if job else None,
@@ -670,7 +684,7 @@ def create_app(
         current = settings()
         quotes = list_quotes(db())
         for quote in quotes:
-            quote["gross"] = totals(quote["draft"].lines, current).gross
+            quote["gross"] = draft_totals(quote["draft"], current).gross
         return page(request, "quotes.html", quotes=quotes, customers=customers())
 
     @app.get("/quotes/{number}/pdf")
@@ -708,7 +722,7 @@ def create_app(
         current = settings()
         customer = customer_by(row["customer_id"])
         subject, body = emails.quote_email(
-            dict(row), totals(draft.lines, current).gross, customer, current
+            dict(row), draft_totals(draft, current).gross, customer, current
         )
         result = system.compose_email(
             customer.email if customer and customer.email else "",
@@ -785,6 +799,10 @@ def create_app(
             phone=str(form.get("phone", "")).strip() or None,
             hourly_rate=rate,
             aliases=tuple(a.strip() for a in str(form.get("aliases", "")).split(",") if a.strip()),
+            umsatzsteuer=where
+            if (where := str(form.get("umsatzsteuer", ""))) in CUSTOMER_TAX
+            else "",
+            ust_id=str(form.get("ust_id", "")).replace(" ", "").upper() or None,
         )
         save_note(ws.customers, customer)
         flash(f"{customer.display_name} ist gespeichert.")
@@ -1309,7 +1327,7 @@ def _open_drafts(conn, current: Settings) -> list[dict]:
                 "id": row["id"],
                 "created": row["created"],
                 "draft": draft,
-                "sums": totals(draft.lines, current),
+                "sums": draft_totals(draft, current),
                 "ready": not blockers(draft, current),
             }
         )
@@ -1348,7 +1366,9 @@ def _apply_form(draft: Draft, form, customer_by, current: Settings) -> None:
         form.getlist("price"),
         strict=False,
     )
-    for description, when, quantity, unit, price in fields:
+    # The VAT column only shows with Regelbesteuerung; without it every line keeps the normal rate.
+    rates = [str(v) for v in form.getlist("vat")]
+    for index, (description, when, quantity, unit, price) in enumerate(fields):
         if not str(description).strip() and not str(quantity).strip():
             continue  # the empty row at the bottom
         amount = parse_amount(str(quantity))
@@ -1359,7 +1379,9 @@ def _apply_form(draft: Draft, form, customer_by, current: Settings) -> None:
         if given is None:  # an empty price field takes the price list's price, if one fits
             customer = customer_by(draft.customer_id) if draft.customer_id else None
             given = unit_price(unit, customer, current, str(description))
-        lines.append(reviewed_line(str(description), str(when), amount, unit, given))
+        chosen_rate = rates[index] if index < len(rates) else ""
+        rate = Decimal(chosen_rate) if chosen_rate in ("19", "7", "0") else None
+        lines.append(reviewed_line(str(description), str(when), amount, unit, given, rate))
     draft.lines = lines
     if form.get("questions_done") == "on":
         draft.questions = []
