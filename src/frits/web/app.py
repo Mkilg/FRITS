@@ -195,7 +195,10 @@ def mascot_or_picture(pictures: dict[str, str]):
     def mascot(mood: str) -> Markup:
         name = MOOD_PICTURES.get(mood)
         if name in pictures:
-            return Markup('<img class="fritte" src="{}" alt="">').format(pictures[name])
+            # Fixed size in the HTML, so nothing jumps while the picture loads
+            return Markup('<img class="fritte" src="{}" alt="" width="84" height="112">').format(
+                pictures[name]
+            )
         return mascot_markup(mood)
 
     return mascot

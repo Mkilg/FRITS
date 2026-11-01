@@ -82,6 +82,13 @@
     <p class="hint">Wie viel Freude soll FRITS zeigen, wenn etwas erledigt ist? Die Steuer-Quest ist immer verspielt.</p>
     <label class="choice big"><input type="radio" name="effects" value="ruhig" {{ "checked" if settings.effects != "verspielt" }}> <strong>Ruhig</strong>: ein Stempel auf die Karte, beim Kassensturz ein kurzes Hochzählen, sonst nichts. Gut für konzentriertes Arbeiten.</label>
     <label class="choice big"><input type="radio" name="effects" value="verspielt" {{ "checked" if settings.effects == "verspielt" }}> <strong>Verspielt</strong>: Stempel mit Funkeln, Zahlen zählen hoch, die Fritte hüpft vor Freude.</label>
+    <div class="vorschau-zeile">
+      <button type="button" class="quiet" data-vorschau-start>▶ So sieht's aus</button>
+      <div class="vorschau" data-vorschau data-effekte="{{ settings.effects }}" aria-hidden="true">
+        <div class="mascot-small">{{ mascot("done") }}</div>
+        <div class="flash ok mit-stempel"><span>Rechnung 2026-0001 ist fertig: <strong data-vorschau-zahl>480,00 €</strong></span> <span class="stempel stempel-fertig">Fertig</span></div>
+      </div>
+    </div>
     <label class="choice"><input type="checkbox" name="haustier" {{ "checked" if settings.haustier }}> Fritte als Haustier auf der Seite „Heute“: ihr Zimmer, Salzkörner für erledigten Papierkram und ein kleiner Laden</label>
   </section>
   <div class="row actions"><button class="primary">Speichern</button></div>

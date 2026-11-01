@@ -230,6 +230,15 @@
       if (!d.contains(e.target)) d.removeAttribute("open");
     });
   });
+  // ...and opens towards the side where there is room, so it never sticks out of a narrow window.
+  document.querySelectorAll("details.mehr").forEach(function (d) {
+    d.addEventListener("toggle", function () {
+      var list = d.querySelector(".mehr-liste");
+      if (!d.open || !list) return;
+      list.classList.remove("nach-rechts");
+      if (list.getBoundingClientRect().left < 4) list.classList.add("nach-rechts");
+    });
+  });
 
   // ---------- Stamps and the two kinds of joy (Einstellungen > Spiel-Effekte) ----------
   function playful() { return document.body.getAttribute("data-effekte") === "verspielt"; }
@@ -299,6 +308,25 @@
     zeigeTasten();
     if (playful() && !calmMotion()) document.querySelectorAll("[data-zaehlen]").forEach(countUp);
   }
+  // Settings: try "Ruhig" and "Verspielt" before saving. The preview card plays the chosen kind.
+  function preview() {
+    var box = document.querySelector("[data-vorschau]");
+    if (!box) return;
+    var chosen = document.querySelector('input[name="effects"]:checked');
+    var fresh = box.cloneNode(true);  // a fresh copy starts its animations again
+    fresh.setAttribute("data-effekte", chosen ? chosen.value : "ruhig");
+    box.parentNode.replaceChild(fresh, box);
+    if (document.body.getAttribute("data-frits-sound") === "on") setTimeout(stampSound, 150);
+    if (fresh.getAttribute("data-effekte") === "verspielt" && !calmMotion()) {
+      fresh.querySelectorAll("[data-vorschau-zahl]").forEach(countUp);
+    }
+  }
+  document.addEventListener("click", function (event) {
+    if (event.target.closest && event.target.closest("[data-vorschau-start]")) preview();
+  });
+  document.addEventListener("change", function (event) {
+    if (event.target.name === "effects") preview();
+  });
   // Sound switched off: forget the music that should carry on to the next page (frits-sound.js).
   if (document.body.getAttribute("data-frits-sound") !== "on") {
     try { sessionStorage.removeItem("frits-music"); } catch (e) { /* egal */ }
