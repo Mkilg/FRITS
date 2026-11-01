@@ -22,6 +22,59 @@
     if (window.Frits && window.Frits.feedback) window.Frits.feedback("done", !!stamped);
   }
 
+  function plopp() {
+    // The stamp "plopp" for a right answer, only with sound on (Einstellungen › Klang)
+    if (document.body.getAttribute("data-frits-sound") === "on" && window.Frits && window.Frits.stampSound) {
+      window.Frits.stampSound();
+    }
+  }
+
+  // ---------- Exercises: the bite counts as solved once every exercise on it is done ----------
+  var aufgaben = [];
+  function aufgabe() {
+    var a = { fertig: false };
+    aufgaben.push(a);
+    return function () {
+      if (a.fertig) return;
+      a.fertig = true;
+      if (aufgaben.every(function (x) { return x.fertig; })) geloest();
+    };
+  }
+  function geloest() {
+    if (!root.hasAttribute("data-uebung")) return;
+    var marke = root.querySelector("[data-uebung-marke]");
+    var body = new FormData();
+    body.append("token", root.getAttribute("data-token"));
+    body.append("happen", root.getAttribute("data-happen"));
+    fetch("/lernen/uebung", { method: "POST", body: body, credentials: "same-origin" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (antwort) {
+        if (!antwort) return;
+        if (marke) {
+          marke.textContent = antwort.salz ? "✓ Übung gelöst! +1 Salzkorn beim nächsten Kassensturz" : "✓ Übung gelöst";
+          marke.classList.add("geloest", "frisch");
+        }
+        if (antwort.neu) joy(true);
+        offenSetzen(antwort.offen || []);
+      })
+      .catch(function () {});
+  }
+  function offenSetzen(offen) {
+    var fehlt = document.querySelector("[data-uebung-fehlt]");
+    var form = document.querySelector("[data-stempel-form]");
+    if (!fehlt || !form) return;
+    fehlt.hidden = offen.length === 0;
+    form.hidden = offen.length > 0;
+    if (offen.length) {
+      fehlt.textContent = "";
+      var a = document.createElement("a");
+      a.className = "button";
+      a.href = "/lernen/" + offen[0];
+      a.textContent = "Noch eine Übung in dieser Etappe →";
+      fehlt.appendChild(a);
+    }
+  }
+
   // ---------- Pick one, see its panel (tabs, stairs, modes, the Codex table ...) ----------
   each(document.querySelectorAll("[data-auswahl]"), function (group) {
     var buttons = own(group, "[data-zeige]", "[data-auswahl]");
@@ -56,9 +109,10 @@
   each(document.querySelectorAll("[data-quiz]"), function (quiz) {
     var fragen = quiz.querySelectorAll("[data-frage]");
     var stand = quiz.querySelector("[data-quiz-stand]");
-    var richtig = 0, beantwortet = 0;
+    var richtig = 0, beantwortet = 0, geschafft = 0;
+    var fertig = aufgabe();
     each(fragen, function (frage) {
-      var erster = true;
+      var erster = true, gekonnt = false;
       var meldung = frage.querySelector(".rueckmeldung");
       var antworten = frage.querySelectorAll("[data-antwort]");
       each(antworten, function (b) {
@@ -68,6 +122,12 @@
           b.classList.add(ok ? "gewaehlt-richtig" : "gewaehlt-falsch");
           meldung.textContent = (ok ? "✓ " : "Hmm. ") + b.getAttribute("data-sagt");
           meldung.className = "rueckmeldung " + (ok ? "gut-text" : "schlecht-text");
+          if (ok && !gekonnt) {
+            gekonnt = true;
+            geschafft += 1;
+            plopp();
+            if (geschafft === fragen.length) fertig();
+          }
           if (!erster) return;
           erster = false;
           beantwortet += 1;
@@ -89,6 +149,8 @@
   each(document.querySelectorAll("[data-schwaerzspiel]"), function (spiel) {
     var woerter = spiel.querySelectorAll("[data-wort]");
     var ergebnis = spiel.querySelector("[data-ergebnis]");
+    var fertig = aufgabe();
+    var geschenkt = false;  // after "Zeig mir die Lösung" it only counts once done by hand again
     each(woerter, function (w) {
       w.addEventListener("click", function () {
         w.setAttribute("aria-pressed", w.getAttribute("aria-pressed") === "true" ? "false" : "true");
@@ -111,7 +173,7 @@
       kopf.className = "ergebnis-kopf";
       if (!uebersehen.length && !zuviel.length) {
         kopf.textContent = "🎉 Perfekt! Alle " + geheim + " erwischt, und nichts zu viel.";
-        joy(true);
+        if (!geschenkt) { plopp(); fertig(); }
       } else {
         kopf.textContent = "Du hast " + gefunden + " von " + geheim + " erwischt.";
       }
@@ -139,8 +201,14 @@
     spiel.querySelector("[data-pruefen]").addEventListener("click", pruefen);
     spiel.querySelector("[data-aufloesen]").addEventListener("click", function () {
       each(woerter, function (w) { w.setAttribute("aria-pressed", w.hasAttribute("data-geheim") ? "true" : "false"); });
+      geschenkt = true;
       pruefen();
-      ergebnis.firstChild.textContent = "So wäre es richtig. Probier es gern noch einmal selbst.";
+      geschenkt = false;
+      each(woerter, function (w) {
+        w.addEventListener("click", function () { geschenkt = false; }, { once: true });
+      });
+      ergebnis.firstChild.textContent = "So wäre es richtig. Tipp die Wörter noch einmal selbst an, dann zählt die Übung.";
+      each(woerter, function (w) { w.setAttribute("aria-pressed", "false"); w.classList.remove("treffer"); });
     });
   });
 
@@ -170,14 +238,23 @@
   });
 
   // ---------- Switches ----------
-  each(document.querySelectorAll("[data-schalter]"), function (s) {
+  var schalter = document.querySelectorAll("[data-schalter]");
+  var schalterFertig = schalter.length ? aufgabe() : null;
+  function alleSchalter() {
+    return Array.prototype.every.call(schalter, function (s) {
+      var ziel = s.classList.contains("umgekehrt") ? "false" : "true";
+      return s.getAttribute("aria-pressed") === ziel;
+    });
+  }
+  each(schalter, function (s) {
     var ziel = s.classList.contains("umgekehrt") ? "false" : "true";
     var lob = (s.closest("li") || s.closest(".einstellung-mock")).querySelector(".schalter-lob");
     s.addEventListener("click", function () {
       var jetzt = s.getAttribute("aria-pressed") === "true" ? "false" : "true";
       s.setAttribute("aria-pressed", jetzt);
       if (lob) lob.hidden = jetzt !== ziel;
-      if (jetzt === ziel) joy(false);
+      if (jetzt === ziel) plopp();
+      if (alleSchalter()) schalterFertig();
     });
   });
 
@@ -187,6 +264,7 @@
     var meldung = box.querySelector("[data-reihen-meldung]");
     var loesung = box.querySelector("[data-reihen-loesung]");
     var naechster = 1, fehler = 0;
+    var fertig = aufgabe();
     each(knoepfe, function (b) {
       b.addEventListener("click", function () {
         if (b.disabled) return;
@@ -200,9 +278,10 @@
           if (naechster > knoepfe.length) {
             meldung.textContent = "🎉 Genau so! Das ist das Rezept für jeden Papierkram.";
             loesung.classList.add("offen");
-            joy(true);
+            fertig();
           } else {
             meldung.textContent = "✓ Richtig. Und dann?";
+            plopp();
           }
         } else {
           fehler += 1;
@@ -228,11 +307,13 @@
     var haken = box.querySelectorAll("input[type=checkbox]");
     var fertig = box.querySelector("[data-spick-fertig]");
     var war = false;
+    var gemacht = aufgabe();
     each(haken, function (h) {
       h.addEventListener("change", function () {
         var alle = Array.prototype.every.call(haken, function (x) { return x.checked; });
         fertig.hidden = !alle;
-        if (alle && !war) joy(true);
+        if (h.checked) plopp();
+        if (alle && !war) gemacht();
         war = alle;
       });
     });

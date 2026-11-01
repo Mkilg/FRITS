@@ -7,7 +7,14 @@
     <button type="button" class="tiny kopieren" data-kopieren="#text-{{ key }}">Kopieren</button>
   </figcaption>
   <p class="hint">{{ p.when }}</p>
+  {% if p.text | length > 420 %}
+  {# Long prompts stay folded: "Kopieren" takes the whole text anyway, reading it is optional. #}
+  <details class="prompt-falte"><summary>Ganzen Text ansehen ({{ p.text.splitlines() | length }} Zeilen)</summary>
   <pre id="text-{{ key }}" class="art-{{ p.kind }}" tabindex="0">{{ p.text }}</pre>
+  </details>
+  {% else %}
+  <pre id="text-{{ key }}" class="art-{{ p.kind }}" tabindex="0">{{ p.text }}</pre>
+  {% endif %}
 </figure>
 {% endmacro %}
 

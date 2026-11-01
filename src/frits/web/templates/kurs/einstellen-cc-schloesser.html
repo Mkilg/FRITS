@@ -19,9 +19,4 @@
   <div class="tafel" data-tafel="ask"><p>Löschen (<code>rm</code>) und Verschieben (<code>mv</code>) nur nach Nachfrage.</p></div>
   <div class="tafel" data-tafel="sandbox"><p>Das stärkste Schloss: Der Mac selbst sperrt die Ordner für alle Befehle, die Claude startet, auch für Programme, die Claude schreibt. Einschalten geht auch mit <code>/sandbox</code>.</p></div>
 </div>
-<div class="nebeneinander drei">
-  <div class="seite"><p class="seite-kopf">deny</p><p>verboten. Gewinnt immer.</p></div>
-  <div class="seite"><p class="seite-kopf">ask</p><p>erst fragen.</p></div>
-  <div class="seite"><p class="seite-kopf">allow</p><p>ohne Fragen erlaubt.</p></div>
-</div>
-<p class="hint">Speichern als <code>~/KI-Werkstatt/.claude/settings.json</code>. Quellen: {{ t.quelle("claude_permissions", "Berechtigungen") }}, {{ t.quelle("claude_sandbox", "Sandbox") }}, {{ t.quelle("claude_settings", "Einstellungsdateien") }}</p>
+<p class="hint"><code>deny</code> = verboten (gewinnt immer), <code>ask</code> = erst fragen, <code>allow</code> = erlaubt. Speichern als <code>~/KI-Werkstatt/.claude/settings.json</code>. Quellen: {{ t.quelle("claude_permissions", "Berechtigungen") }}, {{ t.quelle("claude_sandbox", "Sandbox") }}, {{ t.quelle("claude_settings", "Einstellungsdateien") }}</p>

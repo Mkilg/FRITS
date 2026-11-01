@@ -81,6 +81,7 @@ class Happen:
     sagt: str  # what Fritte says, one or two short sentences
     werkzeuge: tuple[str, ...] = ()  # only for these tools; empty: for everyone
     bild: str = ""  # painted picture that may replace the drawn graphic (static/bilder/<bild>)
+    uebung: bool = False  # an exercise: done only when solved, and the stage waits for it
 
     def passt(self, werkzeug: str) -> bool:
         return not self.werkzeuge or werkzeug in self.werkzeuge
@@ -150,6 +151,7 @@ ETAPPEN: tuple[Etappe, ...] = (
                 "Übung: Chat oder Agent?",
                 "done",
                 "Kurzer Test! Wer von beiden kann das?",
+                uebung=True,
             ),
             Happen(
                 "gedaechtnis",
@@ -180,12 +182,14 @@ ETAPPEN: tuple[Etappe, ...] = (
                 "warning",
                 "Tipp auf alle Wörter, die eine KI nicht sehen sollte. Dann frag mich, "
                 "ob du alles erwischt hast.",
+                uebung=True,
             ),
             Happen(
                 "welche-stufe",
                 "Übung: Welche Stufe passt?",
                 "done",
                 "Vier Briefe, vier Entscheidungen. Welche Stufe würdest du nehmen?",
+                uebung=True,
             ),
         ),
     ),
@@ -202,6 +206,7 @@ ETAPPEN: tuple[Etappe, ...] = (
                 "„Lies den Ordner nicht“ im Prompt ist eine Bitte. Eine Einstellung im "
                 "Werkzeug ist ein Schloss. Gut ist beides, das Schloss ist wichtiger.",
                 bild="kurs-bitte-schloss",
+                uebung=True,
             ),
             Happen(
                 "trick",
@@ -327,6 +332,7 @@ ETAPPEN: tuple[Etappe, ...] = (
                 "Cursor kann Befehle selbst ausführen. Du entscheidest, wie viel. "
                 "Welche Einstellung würdest du nehmen?",
                 werkzeuge=("cursor",),
+                uebung=True,
             ),
             Happen(
                 "cursor-ignore",
@@ -342,6 +348,7 @@ ETAPPEN: tuple[Etappe, ...] = (
                 "done",
                 "Zwei Häkchen, dann ist Cursor bereit für Papierkram.",
                 werkzeuge=("cursor",),
+                uebung=True,
             ),
             # Chat
             Happen(
@@ -351,6 +358,7 @@ ETAPPEN: tuple[Etappe, ...] = (
                 "Viele Chats dürfen deine Gespräche zum Lernen benutzen. "
                 "Das schaltest du aus. Probier den Schalter!",
                 werkzeuge=("chat",),
+                uebung=True,
             ),
             Happen(
                 "chat-temporaer",
@@ -366,6 +374,7 @@ ETAPPEN: tuple[Etappe, ...] = (
                 "Verbindest du den Chat mit Mail, Kalender oder Cloud-Ordnern, wird aus ihm "
                 "ein Agent. Dann gilt alles, was du über Agenten gelernt hast.",
                 werkzeuge=("chat",),
+                uebung=True,
             ),
             Happen(
                 "ueberblick",
@@ -401,6 +410,7 @@ ETAPPEN: tuple[Etappe, ...] = (
                 "warning",
                 "„Liebe Cloud-KI, schwärz das bitte“ klingt gut, hilft aber nicht. "
                 "Siehst du, warum?",
+                uebung=True,
             ),
             Happen(
                 "drei-wege",
@@ -436,6 +446,7 @@ ETAPPEN: tuple[Etappe, ...] = (
                 "thinking",
                 "Probier es selbst! Ich schwärze jeden Text, ganz ohne KI und ohne Internet. "
                 "Und die Antwort der KI bekommt danach ihre Namen zurück.",
+                uebung=True,
             ),
         ),
     ),
@@ -450,6 +461,7 @@ ETAPPEN: tuple[Etappe, ...] = (
                 "Ein Rezept für alles",
                 "thinking",
                 "Egal ob Steuer, Miete oder Amt: Es sind immer dieselben fünf Schritte.",
+                uebung=True,
             ),
             Happen(
                 "beispiele",
@@ -463,6 +475,7 @@ ETAPPEN: tuple[Etappe, ...] = (
                 "feierabend",
                 "Fünf Fragen vor jedem Mal. Hak sie ab, dann hast du den Kurs geschafft!",
                 bild="kurs-urkunde",
+                uebung=True,
             ),
         ),
     ),
@@ -497,6 +510,15 @@ def naechste_etappe(e: Etappe) -> Etappe | None:
 SCHLUESSEL_WERKZEUG = "lernen:werkzeug"
 SCHLUESSEL_GESEHEN = "lernen:gesehen"
 GESCHAFFT_PREFIX = "lernen:geschafft:"  # one row per finished stage; the game counts them
+UEBUNG_PREFIX = "lernen:uebung:"  # one row per solved exercise ("<etappe>/<happen>"), a card each
+
+
+def happen(key: str) -> tuple[Etappe, Happen] | None:
+    """The stage and bite for "<etappe>/<happen>", or None."""
+    etappe_slug, _, happen_slug = key.partition("/")
+    e = NACH_SLUG.get(etappe_slug)
+    h = next((h for h in e.happen if h.slug == happen_slug), None) if e else None
+    return (e, h) if h else None
 
 
 QUELLEN = {

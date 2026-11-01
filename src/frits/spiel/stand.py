@@ -70,6 +70,7 @@ GRUND = {
     "aufgabe": 1,  # a point ticked off "Deine Liste", three a day
     "steuer": 1,  # a piece collected in the Steuer-Quest
     "steuerjahr": 25,  # the whole tax year done: the big one, once a year
+    "uebung": 1,  # an exercise in that course solved, once each
     "lernen": 2,  # a stage of the course "So funktionieren KI-Agenten" finished, once each
     "start": 3,  # Fritte moves in (only once, in the first Kassensturz)
     "korrektur": 0,  # an invoice or payment that replaces a cancelled one already scored
@@ -85,6 +86,7 @@ ARTEN_TEXT = {
     "steuer": "Steuer-Unterlage gesammelt",
     "steuerjahr": "Steuerjahr in der Steuer-Quest geschafft",
     "lernen": "Etappe im Kurs „So funktionieren KI-Agenten“ geschafft",
+    "uebung": "Übung im Kurs „So funktionieren KI-Agenten“ gelöst",
 }
 # Where each kind of card comes from. Storno invoices are not cards.
 # Expenses and reminders have their own rules below.
@@ -101,6 +103,9 @@ QUELLEN = {
     # frits.lernen.GESCHAFFT_PREFIX is "lernen:geschafft:" (17 letters), the stage comes after it
     "lernen": "SELECT substr(schluessel, 18) FROM spiel_einstellung"
     " WHERE schluessel LIKE 'lernen:geschafft:%'",
+    # frits.lernen.UEBUNG_PREFIX is "lernen:uebung:" (14 letters), then "<etappe>/<happen>"
+    "uebung": "SELECT substr(schluessel, 15) FROM spiel_einstellung"
+    " WHERE schluessel LIKE 'lernen:uebung:%'",
 }
 WILLKOMMEN_KARTEN = 12  # up to this many old cards are played as the first Kassensturz
 WILLKOMMEN_GESCHENK = 60  # at most this many Salzkörner for the rest: the journey is the fun

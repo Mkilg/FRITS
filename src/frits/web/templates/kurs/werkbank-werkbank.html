@@ -1,7 +1,7 @@
 {% import "kurs/_teile.html" as t with context %}
 
 {% set aufgabe_feld = aufgabe if aufgabe is defined else request.query_params.get("aufgabe", "") %}
-<p>Deine Kunden, typische Muster (IBAN, E-Mail, Telefon, Adressen), Anreden wie „Frau Albrecht“ und ein Sprachmodell für Namen. <strong>Alles auf diesem Computer, ohne KI und ohne Internet.</strong></p>
+<p class="hint">Erkennt deine Kunden, IBAN, E-Mail, Telefon, Adressen und Namen. Alles auf diesem Computer.</p>
 <form method="post" action="/lernen/werkbank" class="form">
   <input type="hidden" name="token" value="{{ token }}">
   <label class="field">Dein Text (ein Brief, eine E-Mail, eine Notiz)
@@ -46,7 +46,7 @@
 {% endif %}
 
 <h2>Die Antwort der KI zurückholen</h2>
-<p>Kopier die Antwort der KI hier hinein. FRITS setzt die echten Namen wieder ein, auch nur auf diesem Computer.</p>
+<p class="hint">Antwort der KI hier einfügen, FRITS setzt die echten Namen wieder ein.</p>
 <form method="post" action="/lernen/werkbank" class="form">
   <input type="hidden" name="token" value="{{ token }}">
   <input type="hidden" name="stueck" value="{{ stueck.key }}">
@@ -66,6 +66,6 @@
   <pre id="text-zurueck" tabindex="0">{{ zurueck }}</pre>
 </figure>
 {% endif %}
-<p class="hint">Die Zuordnung „wer ist wer“ liegt nur im Arbeitsspeicher. Wenn du FRITS schließt, ist sie weg. Sie wird nie gespeichert und nie verschickt.</p>
+<p class="hint">Die Zuordnung „wer ist wer“ liegt nur im Arbeitsspeicher und ist weg, wenn du FRITS schließt.</p>
 {% endif %}
-<p class="hint">Kopieren ist dir zu umständlich? Im <a href="/notfall">Notfall-Chat</a> passiert dasselbe Schwärzen, und du kannst direkt mit der KI weiterreden, auch über ganze PDFs und Fotos.</p>
+<p class="hint">Bequemer: Im <a href="/notfall">Chat von FRITS</a> passiert dasselbe, auch mit PDFs und Fotos.</p>

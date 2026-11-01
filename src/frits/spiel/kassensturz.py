@@ -242,6 +242,13 @@ def _karte(conn, schluessel: str, art: str, gesehen: str, ausgaben=None) -> Kart
         if etappe is None:
             return None
         return Karte(schluessel, art, "Etappe gelernt", etappe.title, base, {})
+    if art == "uebung":
+        from frits.lernen import happen
+
+        found = happen(key)
+        if found is None:
+            return None
+        return Karte(schluessel, art, "Übung gelöst", found[1].title, base, {})
     if art == "start":
         return Karte(
             schluessel, art, "Fritte zieht ein", "Willkommen! Dazu +1 Würze", base,

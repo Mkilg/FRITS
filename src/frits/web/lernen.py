@@ -14,7 +14,7 @@ from collections import OrderedDict
 from collections.abc import Callable
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from frits import lernen
 from frits.customers import Customer
@@ -67,6 +67,26 @@ def register_lernen(
             (lernen.GESCHAFFT_PREFIX + "%",),
         ).fetchall()
         return {r[0][len(lernen.GESCHAFFT_PREFIX) :] for r in rows}
+
+    def geloest(c) -> set[str]:
+        rows = c.execute(
+            "SELECT schluessel FROM spiel_einstellung WHERE schluessel LIKE ?",
+            (lernen.UEBUNG_PREFIX + "%",),
+        ).fetchall()
+        return {r[0][len(lernen.UEBUNG_PREFIX) :] for r in rows}
+
+    def offen(c, e: lernen.Etappe, tool: str) -> list[str]:
+        """The exercises of this stage (for this tool) not solved yet, as "<etappe>/<happen>"."""
+        solved = geloest(c)
+        keys = [f"{e.slug}/{h.slug}" for h in e.fuer(tool) if h.uebung]
+        return [k for k in keys if k not in solved]
+
+    def loesen(c, key: str) -> bool:
+        """Mark an exercise solved. True the first time (that is when it earns a card)."""
+        neu = key not in geloest(c)
+        if neu:
+            stand.setze(c, lernen.UEBUNG_PREFIX + key, "1")
+        return neu
 
     def karte(c) -> list[dict]:
         """The course map: every stage with its bites for the chosen tool and what is done."""
@@ -132,6 +152,8 @@ def register_lernen(
             "werkzeuge": lernen.WERKZEUGE,
             "gesehen": gesehen(c),
             "geschafft": e.slug in geschafft(c),
+            "offen": offen(c, e, tool),
+            "geloest": f"{e.slug}/{h.slug}" in geloest(c),
             "prompts": lernen.PROMPTS,
             "quellen": lernen.QUELLEN,
             "stand": lernen.STAND,
@@ -219,11 +241,35 @@ def register_lernen(
         if slug not in lernen.SLUGS:
             raise HTTPException(404)
         e = lernen.etappe(slug)
-        alles = abschliessen(conn(), e)
+        c = conn()
+        fehlt = offen(c, e, werkzeug(c) or lernen.STANDARD_WERKZEUG)
+        if fehlt:
+            flash("Erst die Übung, dann der Stempel! Sie dauert nur eine Minute.")
+            return back(f"/lernen/{fehlt[0]}")
+        alles = abschliessen(c, e)
         nach = lernen.naechste_etappe(e)
         if nach is None or alles:
             return back("/lernen")
         return RedirectResponse(f"/lernen/{nach.slug}", status_code=303)
+
+    @app.post("/lernen/uebung", dependencies=guarded)
+    async def uebung_geloest(request: Request):
+        """kurs.js reports a solved exercise. The game turns each one into a card, once."""
+        form = await request.form()
+        key = str(form.get("happen", ""))
+        found = lernen.happen(key)
+        if found is None or not found[1].uebung:
+            raise HTTPException(400)
+        e, _ = found
+        c = conn()
+        neu = loesen(c, key)
+        return JSONResponse(
+            {
+                "neu": neu,
+                "salz": neu and settings().haustier,
+                "offen": offen(c, e, werkzeug(c) or lernen.STANDARD_WERKZEUG),
+            }
+        )
 
     @app.post("/lernen/werkbank", dependencies=guarded)
     async def werkbank(request: Request):
@@ -268,6 +314,7 @@ def register_lernen(
             return happen_page(
                 request, "werkbank", fehler=str(exc), text=text, extra=extra, aufgabe=task
             )
+        loesen(conn(), "werkbank/werkbank")
         app.state.werkbank[stueck.key] = stueck
         while len(app.state.werkbank) > KEEP:
             app.state.werkbank.popitem(last=False)

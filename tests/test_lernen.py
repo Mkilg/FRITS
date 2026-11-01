@@ -118,6 +118,11 @@ def test_bites_are_small(client):  # noqa: F811
 def test_finishing_a_stage_stamps_it_and_gives_a_card(client, ws):  # noqa: F811
     choose(client, "claude-code")
     client.get("/lernen/agent/haende")
+    # Without the exercise there is no stamp: FRITS sends Fritz to it
+    response = post(client, "/lernen/agent/geschafft")
+    assert response.url.path == "/lernen/agent/wer-kann-was"
+    assert "Erst die Übung" in response.text
+    solve(client, "agent/wer-kann-was")
     response = post(client, "/lernen/agent/geschafft")
     assert "Etappe 2 geschafft" in response.text
     assert "Salzkörner" in response.text
@@ -136,10 +141,21 @@ def test_finishing_a_stage_stamps_it_and_gives_a_card(client, ws):  # noqa: F811
     cards = conn.execute("SELECT schluessel FROM spiel_karten WHERE art = 'lernen'").fetchall()
     # picking the tool finished stage 1, the button stage 2; pressing it again adds nothing
     assert sorted(c[0] for c in cards) == ["lernen:agent", "lernen:start"]
+    cards = conn.execute("SELECT schluessel FROM spiel_karten WHERE art = 'uebung'").fetchall()
+    assert [c[0] for c in cards] == ["uebung:agent/wer-kann-was"]
+
+
+def solve(client, key):  # noqa: F811
+    response = client.post("/lernen/uebung", data={"token": client.token, "happen": key})
+    assert response.status_code == 200, key
+    return response.json()
 
 
 def test_the_last_stage_finishes_the_course(client):  # noqa: F811
     for e in lernen.ETAPPEN:
+        for h in e.fuer(lernen.STANDARD_WERKZEUG):
+            if h.uebung:
+                solve(client, f"{e.slug}/{h.slug}")
         response = post(client, f"/lernen/{e.slug}/geschafft")
     assert "Kurs geschafft" in response.text
     assert "Du hast alles geschafft" in client.get("/lernen").text
@@ -149,7 +165,7 @@ def test_the_map_remembers_where_you_were(client):  # noqa: F811
     choose(client, "chat")
     assert "Los geht's" in client.get("/lernen").text
     client.get("/lernen/start/hallo")
-    post(client, "/lernen/start/geschafft")
+    post(client, "/lernen/start/geschafft")  # the first stage has no exercise
     page = client.get("/lernen").text
     assert "Weiter, wo du warst" in page
     assert 'href="/lernen/agent"' in page
@@ -283,3 +299,45 @@ def test_a_painted_picture_replaces_the_drawn_graphic(client):  # noqa: F811
     assert "<svg" in drawn and 'class="kurs-bild"' not in drawn
     # Painted pictures for the course are named kurs-<name>, see frits/bilder/kurs-bild-prompts.md
     assert all(h.bild.startswith("kurs-") for e in lernen.ETAPPEN for h in e.happen if h.bild)
+
+
+def test_an_exercise_counts_once_and_opens_the_stamp(client):  # noqa: F811
+    choose(client, "chat")
+    page = client.get("/lernen/treppe/welche-stufe").text
+    assert "data-uebung" in page and "1 Salzkorn" in page
+    assert "data-stempel-form hidden" in page  # the stamp waits for the exercises
+    first = solve(client, "treppe/schwaerzen-ueben")
+    assert first == {"neu": True, "salz": True, "offen": ["treppe/welche-stufe"]}
+    assert solve(client, "treppe/schwaerzen-ueben")["neu"] is False
+    assert solve(client, "treppe/welche-stufe")["offen"] == []
+    page = client.get("/lernen/treppe/welche-stufe").text
+    assert "✓ Übung gelöst" in page and "data-stempel-form hidden" not in page
+    # only real exercises, and only with the token
+    assert (
+        client.post(
+            "/lernen/uebung", data={"token": client.token, "happen": "treppe/stufen"}
+        ).status_code
+        == 400
+    )
+    assert (
+        client.post("/lernen/uebung", data={"token": client.token, "happen": "x/y"}).status_code
+        == 400
+    )
+    assert (
+        client.post(
+            "/lernen/uebung", data={"token": "falsch", "happen": "treppe/welche-stufe"}
+        ).status_code
+        == 403
+    )
+
+
+def test_the_workbench_counts_as_its_exercise(client):  # noqa: F811
+    post(client, "/lernen/werkbank", action="schwaerzen", text="Liebe Frau Albrecht, danke.")
+    assert "✓ Übung gelöst" in client.get("/lernen/werkbank").text
+
+
+def test_long_prompts_are_folded_but_still_copyable(client):  # noqa: F811
+    choose(client, "chat")
+    page = client.get("/lernen/prompts/hausordnung").text
+    assert '<details class="prompt-falte">' in page
+    assert 'id="text-regeln"' in page and 'data-kopieren="#text-regeln"' in page

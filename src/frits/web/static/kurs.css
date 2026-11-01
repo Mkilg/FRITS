@@ -335,3 +335,15 @@ body .kurs .stempel.stempel-gelernt { font-size: 1rem; padding: 0.2rem 0.8rem; }
   .kurs-js .tafel.offen, .reihen-knopf.wackeln { animation: none; }
   .protokoll li { transition: none; }
 }
+
+/* ---------- Exercises and their reward ---------- */
+.uebung-marke { display: inline-block; margin: 0 0 0.6rem; font-size: 0.82rem; padding: 0.1rem 0.6rem; border-radius: 999px;
+  background: #fff5d9; border: 1px solid var(--ocker); color: var(--eiche-tief); }
+.uebung-marke.geloest { background: #e6efd8; border-color: var(--moos); color: var(--moos-dunkel); }
+.uebung-marke.frisch { animation: tafel-auf .3s ease-out; }
+.uebung-fehlt { margin: 0; }
+.uebung-fehlt[hidden], .kurs-weiter form[hidden] { display: none; }
+.prompt-falte summary { cursor: pointer; color: var(--tinte-hell); font-size: 0.88rem; margin: 0.2rem 0; }
+.prompt-falte[open] summary { margin-bottom: 0.4rem; }
+/* Stamps on the map were pressed long ago: no landing animation (it made the page wider for a moment) */
+body .kurs .stempel.stempel-klein { animation: none; }
