@@ -115,6 +115,8 @@
   <label class="choice big"><input type="radio" name="tax_mode" value="kleinunternehmer" {{ "checked" if settings.tax_mode == "kleinunternehmer" }}> <strong>Kleinunternehmer</strong> (§ 19 UStG)<br><span class="muted">Keine Umsatzsteuer auf der Rechnung. Typisch, wenn du weniger als 25.000 € im Jahr umsetzt.</span></label>
   <label class="choice big"><input type="radio" name="tax_mode" value="regelbesteuerung" {{ "checked" if settings.tax_mode == "regelbesteuerung" }}> <strong>Mit Umsatzsteuer</strong><br><span class="muted">FRITS rechnet 19 % auf und weist sie aus.</span></label>
   <label class="field">Steuernummer <input name="steuernummer" value="{{ settings.steuernummer }}"></label>
+  <label class="field">USt-IdNr (falls du eine hast) <input name="ust_id" value="{{ settings.ust_id }}" placeholder="z. B. DE123456789"></label>
+  <p class="hint">Die brauchst du nur für Kunden in anderen EU-Ländern, etwa einen Sender in Wien. Ohne sie kann FRITS dort keine Rechnung mit Reverse Charge schreiben. Beantragen kannst du sie kostenlos beim Bundeszentralamt für Steuern.</p>
   <fieldset class="prices">
     <legend>Rechnungsnummern</legend>
     <label class="field">Schema <input name="number_pattern" value="{{ settings.number_pattern }}" placeholder="JJJJ-NNNN"></label>

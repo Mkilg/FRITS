@@ -64,6 +64,25 @@
     if (mode === "abroad") html += row("Netto", net) + row("Umsatzsteuer 0 %", 0);
     html += row("Gesamt", cents(net + vat), "total");
     table.tFoot.innerHTML = html;
+
+    // What the page said before Fritz typed may be out of date now: the question before the
+    // number is given names the live total, and solved hints go away. The server checks
+    // everything again when he presses the button.
+    var approve = document.querySelector("[data-confirm-live]");
+    if (approve) {
+      approve.setAttribute("data-confirm",
+        approve.getAttribute("data-confirm-live").replace("{gross}", eur(cents(net + vat))));
+    }
+    var hasDates = Array.prototype.some.call(
+      table.querySelectorAll('tbody [name="date"]'), function (i) { return i.value.trim() !== ""; });
+    var hasLines = order.length > 0 && net !== 0;
+    document.querySelectorAll("[data-gone-when]").forEach(function (el) {
+      var gone = el.getAttribute("data-gone-when") === "dates" ? hasDates : hasLines;
+      el.hidden = gone;
+    });
+    document.querySelectorAll(".problems").forEach(function (box) {
+      box.hidden = !box.querySelector("li:not([hidden])");
+    });
   }
 
   // A new empty row as soon as the last one gets a description, so Fritz never has to

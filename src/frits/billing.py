@@ -342,6 +342,9 @@ def blockers(draft: Draft, settings: Settings) -> list[str]:
     for line in draft.lines:
         if line.unit_price is None:
             problems.append(f"Preis fehlt für „{line.description}“.")
+    priced = [line.net for line in draft.lines if line.net is not None]
+    if draft.lines and len(priced) == len(draft.lines) and not any(priced):
+        problems.append("Die Rechnung ergibt 0,00 €. Bitte Menge und Preis eintragen.")
     return problems
 
 

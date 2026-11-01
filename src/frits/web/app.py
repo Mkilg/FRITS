@@ -368,6 +368,7 @@ def create_app(
             music=_music_track(current.music, request.url.path),
             moods=_music_moods(),
             nav=request.url.path,
+            ai_on=ai_ready(current),
         )
         return templates.TemplateResponse(request, name, context)
 
@@ -1171,6 +1172,7 @@ def create_app(
             "expenses.html",
             year=year,
             expenses=items,
+            struck=expenses.list_expenses(ws.db, year=year, struck=True),
             total=sum((e.gross for e in items), Decimal(0)),
             receipts=receipts,
             chosen=chosen,
@@ -1301,6 +1303,25 @@ def create_app(
             )
         return back(f"/expenses?year={gone.date.year}" if gone else "/expenses")
 
+    @app.post("/expenses/{expense_id}/restore", dependencies=guarded)
+    def expense_restore(expense_id: int):
+        back_to = next(
+            (e for e in expenses.list_expenses(ws.db, struck=True) if e.id == expense_id), None
+        )
+        if back_to and expenses.restore_expense(ws.db, expense_id):
+            flash(f"Wieder da: {eur(back_to.gross)} bei {back_to.vendor}.")
+        return back(f"/expenses?year={back_to.date.year}" if back_to else "/expenses")
+
+    @app.get("/expenses/{expense_id}/beleg")
+    def expense_receipt(expense_id: int):
+        found = next((e for e in expenses.list_expenses(ws.db) if e.id == expense_id), None)
+        if found is None or not found.source_file:
+            raise HTTPException(404)
+        path = ws.done / Path(found.source_file).name  # only the name: never leave "done"
+        if not path.is_file():
+            raise HTTPException(404)
+        return FileResponse(path, filename=path.name, content_disposition_type="inline")
+
     @app.post("/rueckgaengig", dependencies=guarded)
     def undo_last():
         """Take the last step back (a deleted expense, a discarded draft)."""
@@ -1361,11 +1382,11 @@ def create_app(
         period = current.vat_period if current.vat_period in ustva.PERIODS else "quartal"
         basis = current.vat_basis if current.vat_basis in ustva.BASES else "ist"
         if year is None or nr is None:
-            year, nr = ustva.current(today(), period)
+            year, nr = ustva.next_due(today(), period)
         try:
             ustva.bounds(year, period, nr)
         except ValueError:
-            year, nr = ustva.current(today(), period)
+            year, nr = ustva.next_due(today(), period)
         db()  # tables exist
         meldung = ustva.voranmeldung(ws.db, current, year, nr, period, basis)
         last = 4 if period == "quartal" else 12

@@ -65,7 +65,7 @@
         </select>
       </label>
       <label class="field">Kategorie
-        <select name="category">{% for key, c in categories.items() %}<option value="{{ key }}" {{ "selected" if key == "sonstiges" }}>{{ c.label }}</option>{% endfor %}</select>
+        <select name="category">{% for key, c in categories.items() %}<option value="{{ key }}" {{ "selected" if key == (g.category or "sonstiges") }}>{{ c.label }}</option>{% endfor %}</select>
       </label>
       <div class="row actions"><button class="primary">Speichern</button></div>
     </form>
@@ -80,7 +80,7 @@
     <tbody>
     {% for e in expenses %}
     <tr>
-      <td>{{ e.date | de_date }}</td><td>{{ e.vendor }}</td><td>{{ e.description }}</td>
+      <td>{{ e.date | de_date }}</td><td>{{ e.vendor }}</td><td>{{ e.description }}{% if e.source_file %} <a class="muted" href="/expenses/{{ e.id }}/beleg" target="_blank" rel="noopener">Beleg</a>{% endif %}</td>
       <td>{{ categories[e.category].label }}</td><td class="amount">{{ e.gross | eur }}</td>
       <td class="actions"><form method="post" action="/expenses/{{ e.id }}/delete"><input type="hidden" name="token" value="{{ token }}"><button class="tiny quiet danger">Löschen</button></form></td>
     </tr>
@@ -90,6 +90,22 @@
   </table></div>
   {% else %}
   <p class="muted">Noch keine Ausgaben in {{ year }}.</p>
+  {% endif %}
+  {% if struck %}
+  <details class="spaced">
+    <summary>Gelöscht ({{ struck | length }}): zählen nicht, bleiben fürs Finanzamt im Archiv</summary>
+    <div class="table-wrap"><table class="table struck">
+      <tbody>
+      {% for e in struck %}
+      <tr>
+        <td><s>{{ e.date | de_date }}</s></td><td><s>{{ e.vendor }}</s></td><td><s>{{ e.description }}</s></td>
+        <td class="amount"><s>{{ e.gross | eur }}</s></td>
+        <td class="actions"><form method="post" action="/expenses/{{ e.id }}/restore"><input type="hidden" name="token" value="{{ token }}"><button class="tiny quiet">Zurückholen</button></form></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+  </details>
   {% endif %}
 </section>
 {% endblock %}

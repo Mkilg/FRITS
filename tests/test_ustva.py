@@ -159,7 +159,7 @@ def test_page_shows_kennzahlen_and_books_the_payment(tmp_path, monkeypatch):
     mark_paid(conn, number, date(2026, 9, 1))
     app = create_app(ws, nlp_loader=lambda: None, today=lambda: TODAY)
     with TestClient(app) as client:
-        page = client.get("/ustva").text
+        page = client.get("/ustva?year=2026&nr=3").text
         assert "3. Quartal 2026" in page and "12.10.2026" in page
         assert '<code id="kz-81">1000</code>' in page and "190,00 €" in page
         client.post(
@@ -169,7 +169,7 @@ def test_page_shows_kennzahlen_and_books_the_payment(tmp_path, monkeypatch):
         )
         (paid,) = expenses.list_expenses(ws.db)
         assert (paid.gross, paid.category) == (Decimal("190.00"), VAT_PAYMENT)
-        assert "eingetragen am 09.10.2026" in client.get("/ustva").text
+        assert "eingetragen am 09.10.2026" in client.get("/ustva?year=2026&nr=3").text
         client.post(
             "/ustva/art",
             data={"token": app.state.token, "period": "monat", "basis": "soll"},
@@ -179,3 +179,36 @@ def test_page_shows_kennzahlen_and_books_the_payment(tmp_path, monkeypatch):
         assert "Oktober 2026" in client.get("/ustva").text
         replace(Settings.load(ws.settings_file), tax_mode="kleinunternehmer").save(ws.settings_file)
         assert "brauchst du keine" in client.get("/ustva").text
+
+
+def test_soll_counts_in_the_period_of_the_service(tmp_path):
+    db = tmp_path / "frits.db"
+    conn = store.connect(db)
+    # Moderation done in October, invoice written on 2 November (§ 13 Abs. 1 Nr. 1a UStG).
+    draft = Draft(
+        "kunde",
+        "Sender AG",
+        "Funkweg 2, 50667 Köln",
+        [Line("Moderation", "2026-10-30", Decimal(1), "pauschal", Decimal(1000))],
+        [],
+        [],
+        "notiz.txt",
+    )
+    number, _ = approve(
+        conn, new_draft(conn, draft), _settings(), tmp_path / "r", date(2026, 11, 2)
+    )
+    assert voranmeldung(db, _settings(), 2026, 10, "monat", "soll").feld("81").amount == 1000
+    assert voranmeldung(db, _settings(), 2026, 11, "monat", "soll").feld("81") is None
+    # The Storno corrects in its own month.
+    cancel(conn, number, _settings(), tmp_path / "r", date(2026, 12, 3))
+    assert voranmeldung(db, _settings(), 2026, 12, "monat", "soll").feld("81").amount == -1000
+
+
+def test_the_next_deadline_is_shown_first():
+    from frits.ustva import next_due
+
+    assert next_due(date(2026, 11, 2), "quartal") == (2026, 4)  # Q3 was due on 12.10.
+    assert next_due(date(2026, 10, 5), "quartal") == (2026, 3)
+    assert next_due(date(2026, 11, 2), "monat") == (2026, 10)
+    assert next_due(date(2026, 12, 20), "monat") == (2026, 12)
+    assert next_due(date(2027, 1, 5), "quartal") == (2026, 4)

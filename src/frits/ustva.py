@@ -16,9 +16,9 @@ When an invoice counts:
 
 * ``ist`` (Istversteuerung, § 20 UStG, usual for freelancers and small firms on request):
   in the period the customer paid. A Storno counts when the money went back.
-* ``soll`` (Sollversteuerung, the legal default): in the period the invoice was written.
-  Strictly it is the period of the service; FRITS uses the invoice date, which is the
-  same period in almost every case. A Storno counts on its own date.
+* ``soll`` (Sollversteuerung, the legal default): in the period the service was done
+  (§ 13 Abs. 1 Nr. 1a UStG), read from the line dates; without dates the invoice date.
+  A Storno counts on its own date (§ 17 UStG).
 
 Vorsteuer counts on the day of the receipt, as entered in Ausgaben.
 
@@ -35,7 +35,7 @@ from decimal import ROUND_DOWN, ROUND_HALF_UP, Decimal
 from pathlib import Path
 
 from frits import gutschriften
-from frits.billing import Draft, _tax_from_invoice, totals
+from frits.billing import Draft, _tax_from_invoice, service_dates, totals
 from frits.expenses import CENT, list_expenses
 from frits.settings import Settings
 
@@ -85,10 +85,7 @@ class Voranmeldung:
         """10th of the following month (§ 18 Abs. 1 UStG), moved past a weekend.
 
         Holidays move it too; ELSTER knows those, FRITS doesn't."""
-        day = self.end + timedelta(days=10)
-        while day.weekday() >= 5:
-            day += timedelta(days=1)
-        return day
+        return due_date(self.year, self.period, self.number)
 
     def feld(self, kz: str) -> Feld | None:
         return next((f for f in self.felder if f.kz == kz), None)
@@ -136,6 +133,25 @@ def current(today: date, period: str) -> tuple[int, int]:
     return (today.year, today.month - 1) if today.month > 1 else (today.year - 1, 12)
 
 
+def due_date(year: int, period: str, number: int) -> date:
+    """10th of the month after the period (§ 18 Abs. 1 UStG), moved past a weekend."""
+    day = bounds(year, period, number)[1] + timedelta(days=10)
+    while day.weekday() >= 5:
+        day += timedelta(days=1)
+    return day
+
+
+def next_due(today: date, period: str) -> tuple[int, int]:
+    """The period whose deadline comes next: the one that just ended, unless its deadline
+    has passed already; then the running one."""
+    year, number = current(today, period)
+    if due_date(year, period, number) >= today:
+        return year, number
+    if period == "quartal":
+        return today.year, (today.month - 1) // 3 + 1
+    return today.year, today.month
+
+
 def _groups(conn: sqlite3.Connection, row, settings: Settings):
     """(kind, rate, net, vat) for one issued invoice, from the snapshot frozen at approval."""
     data = None
@@ -160,6 +176,18 @@ def _groups(conn: sqlite3.Connection, row, settings: Settings):
         yield kind, rate, net, vat
 
 
+def _service_day(conn: sqlite3.Connection, row) -> date:
+    """When the VAT arises with Sollversteuerung (§ 13 Abs. 1 Nr. 1a UStG): the end of the
+    service, from the line dates; without dates the invoice date, which then is the
+    Leistungsdatum printed on the invoice."""
+    issued = date.fromisoformat(row["issue_date"])
+    if row["cancels"] or row["draft_id"] is None:
+        return issued
+    found = conn.execute("SELECT data FROM drafts WHERE id = ?", (row["draft_id"],)).fetchone()
+    days = service_dates(Draft.from_json(found["data"]).lines) if found else []
+    return days[-1] if days else issued
+
+
 def _euros(amount: Decimal) -> Decimal:
     """Whole euros towards zero, as the form wants for the bases."""
     return amount.quantize(Decimal(1), rounding=ROUND_DOWN)
@@ -179,10 +207,20 @@ def voranmeldung(
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     try:
-        rows = conn.execute(
-            f"SELECT * FROM invoices WHERE {column} >= ? AND {column} <= ?",
-            (start.isoformat(), end.isoformat()),
-        ).fetchall()
+        if basis == "ist":
+            rows = conn.execute(
+                "SELECT * FROM invoices WHERE paid_date >= ? AND paid_date <= ?",
+                (start.isoformat(), end.isoformat()),
+            ).fetchall()
+        else:  # by the day the service was done; a Storno corrects on its own date (§ 17)
+            near = conn.execute(
+                "SELECT * FROM invoices WHERE issue_date >= ? AND issue_date <= ?",
+                (
+                    (start - timedelta(days=400)).isoformat(),
+                    (end + timedelta(days=400)).isoformat(),
+                ),
+            ).fetchall()
+            rows = [row for row in near if start <= _service_day(conn, row) <= end]
         bases: dict[tuple[str, Decimal], Decimal] = {}
         for row in rows:
             result.invoices += 1

@@ -132,6 +132,33 @@ def guess_vendor(text: str) -> str | None:
     return None
 
 
+# Words on a receipt that point to one expense category. First match wins, so the more
+# specific ones come first. Only a suggestion: Fritz sees it in the form and can change it.
+_CATEGORY_WORDS = (
+    ("bewirtung", r"bewirtung|restaurant|gastst[äa]tte|caf[ée]\b|trinkgeld"),
+    (
+        "reisekosten",
+        (
+            r"deutsche bahn|\bdb\b|fahrkarte|bahncard|ticket|flixbus|\bice\b|\bic\b|hotel"
+            r"|übernachtung|parkhaus|parkschein|taxi|flug|lufthansa|\bbvg\b|\bmvg\b|\bhvv\b"
+        ),
+    ),
+    ("telekommunikation", r"telekom|vodafone|\bo2\b|1&1|mobilfunk|\bdsl\b"),
+    ("fortbildung", r"seminar|kurs|workshop|fachbuch|konferenz|tagung"),
+    ("buero", r"porto|briefmarke|deutsche post|dhl|druckerpatrone|toner|papier|büro"),
+    ("software", r"abo\b|abonnement|subscription|software|lizenz|adobe|microsoft|apple\.com"),
+    ("waren", r"baumarkt|obi\b|hornbach|bauhaus|toom|material"),
+)
+
+
+def guess_category(text: str) -> str | None:
+    lowered = text.casefold()
+    for key, pattern in _CATEGORY_WORDS:
+        if re.search(pattern, lowered):
+            return key
+    return None
+
+
 def guess(text: str, today: date) -> dict[str, str]:
     """Suggestions for the expense form. Keys only for what was found."""
     found = {
@@ -139,5 +166,6 @@ def guess(text: str, today: date) -> dict[str, str]:
         "date": guess_date(text, today),
         "vendor": guess_vendor(text),
         "vat_rate": guess_vat(text),
+        "category": guess_category(text),
     }
     return {key: value for key, value in found.items() if value}

@@ -64,6 +64,7 @@
 </main>
 <footer class="bottom">
   {% if settings.strict_local %}Strikter Modus: Nur die lokale KI wird benutzt.
+  {% elif not ai_on %}Noch keine KI eingerichtet: FRITS arbeitet ohne. Einrichten unter <a href="/settings">Einstellungen</a>.
   {% else %}KI: {{ providers.get(settings.provider, settings.provider) }}. Namen, Adressen und Kontonummern werden vorher auf diesem Computer geschwärzt.{% endif %}
 </footer>
 {% if sounds %}<script src="{{ sounds }}frits-sound.js"></script>{% endif %}
