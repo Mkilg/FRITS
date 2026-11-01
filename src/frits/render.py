@@ -135,8 +135,11 @@ def render_reminder(
     issued: date,
     new_due: date,
     customer_address: str | None,
+    previous: date | None = None,
 ) -> Path:
     """A friendly payment reminder. No fees, no threats: Fritz's customers are people he likes."""
+    from frits.reminders import reminder_text
+
     pdf = _start(settings, invoice["customer"], customer_address)
     title = "Zahlungserinnerung" if level == 1 else f"{level}. Zahlungserinnerung"
     pdf.set_font("DejaVu", "B", 16)
@@ -146,21 +149,11 @@ def render_reminder(
     pdf.cell(0, 6, _de(issued), new_x="LMARGIN", new_y="NEXT")
     pdf.ln(6)
     issue = date.fromisoformat(invoice["issue_date"])
-    text = [
-        "Guten Tag,",
-        (
-            f"meine Rechnung {invoice['number']} vom {_de(issue)} über "
-            f"{eur(Decimal(invoice['gross']))} ist noch offen. Vielleicht ist sie im Alltag "
-            "untergegangen, das passiert."
-        ),
-        (
-            f"Bitte überweisen Sie den Betrag bis zum {_de(new_due)} auf das unten genannte Konto "
-            f"und geben Sie die Rechnungsnummer {invoice['number']} an. Falls Sie schon bezahlt "
-            "haben, betrachten Sie dieses Schreiben bitte als erledigt."
-        ),
-        "Vielen Dank und freundliche Grüße",
-        settings.name,
-    ]
+    middle = reminder_text(
+        invoice["number"], issue, eur(Decimal(invoice["gross"])), level, new_due, previous
+    )
+    middle[-1] = middle[-1].replace(" und geben Sie", " auf das unten genannte Konto und geben Sie")
+    text = ["Guten Tag,", *middle, "Vielen Dank und freundliche Grüße", settings.name]
     for paragraph in text:
         pdf.multi_cell(0, 6, paragraph, new_x="LMARGIN", new_y="NEXT")
         pdf.ln(3)
