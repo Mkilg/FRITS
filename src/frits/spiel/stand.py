@@ -57,6 +57,17 @@ CREATE TABLE IF NOT EXISTS spiel_markt (
     woche TEXT PRIMARY KEY,        -- ISO week, e.g. "2026-W44"
     wuerfe INTEGER NOT NULL DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS spiel_truhen (
+    id INTEGER PRIMARY KEY,
+    grund TEXT NOT NULL UNIQUE,    -- why: "voll:3", "glueck:rechnung:2026-0007", "drachensieg:2025"
+    text TEXT NOT NULL,            -- where it came from, for Fritz
+    mindestens TEXT,               -- the least rarity it holds, if any
+    erhalten TEXT NOT NULL,
+    geoeffnet TEXT,                -- NULL while closed
+    reihe INTEGER,                 -- 1, 2, 3 ... in the order chests were opened
+    stufe INTEGER,                 -- 0 gewöhnlich, 1 selten, 2 legendär
+    inhalt TEXT                    -- what was inside, as JSON
+);
 """
 
 # Base Salzkörner of each kind of card.
@@ -74,6 +85,7 @@ GRUND = {
     "lernen": 2,  # a stage of the course "So funktionieren KI-Agenten" finished, once each
     "start": 3,  # Fritte moves in (only once, in the first Kassensturz)
     "korrektur": 0,  # an invoice or payment that replaces a cancelled one already scored
+    "joker": 0,  # a Jokerkarte from one of Fritte's chests (its Körner are in the chest)
 }
 ARTEN_TEXT = {
     "rechnung": "Rechnung geschrieben oder Gutschrift erfasst",
@@ -555,7 +567,7 @@ def pflegetage(conn, heute: date) -> set[date]:
         (
             "SELECT gesehen FROM spiel_karten"
             " WHERE (kassensturz IS NULL OR kassensturz != 0)"
-            " AND art NOT IN ('start', 'feierabend', 'aufgabe', 'lernen')"  # no paperwork
+            " AND art NOT IN ('start', 'feierabend', 'aufgabe', 'lernen', 'joker')"  # no paperwork
         ),
     ):
         for (value,) in rows(conn, sql):

@@ -96,7 +96,7 @@
   </div>
 </section>
 
-{% set huete = laden | selectattr("art", "equalto", "hut") | selectattr("id", "in", f.gekauft) | list %}
+{% set huete = (laden + schaetze) | selectattr("art", "equalto", "hut") | selectattr("id", "in", f.gekauft) | list %}
 {% if huete %}
 <section class="card" id="huete">
   <h2>Hutschrank</h2>

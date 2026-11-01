@@ -85,6 +85,12 @@ ERFOLGE: tuple[Erfolg, ...] = (
            lambda f: f["ort"] >= 2),
     Erfolg("weltreise", "Weit herumgekommen", "🗺️", "An allen fünf Orten eine Bude eröffnet.",
            lambda f: f["ort"] >= 5),
+    Erfolg("truhe", "Die erste Truhe", "🎁", "Eine von Frittes Truhen geöffnet.",
+           lambda f: f["truhen"] >= 1),
+    Erfolg("glueckspilz", "Glückspilz", "🍀", "Etwas Legendäres in einer Truhe gefunden.",
+           lambda f: f["truhe_legendaer"]),
+    Erfolg("schatzsucherin", "Schatzsucherin", "🧭", "Alle Schätze aus Frittes Truhen gefunden.",
+           lambda f: f["schaetze"] >= f["schaetze_alle"]),
 )  # fmt: skip
 AUSBAU_STICKER = ("stube", "werkstatt", "hof", "bude")
 
@@ -118,6 +124,14 @@ def _fakten(conn, heute: date) -> dict:
         "stufe": max(ausbau.stufe(conn).nummer, len(ausbau.STUFEN) if ausbau.ruf(conn) else 0),
         "ort": ausbau.ort(conn).nummer,
         "pokale": len(saison.pokale(conn)),
+        "truhen": conn.execute(
+            "SELECT COUNT(*) FROM spiel_truhen WHERE geoeffnet IS NOT NULL"
+        ).fetchone()[0],
+        "truhe_legendaer": bool(
+            conn.execute("SELECT 1 FROM spiel_truhen WHERE stufe = 2").fetchone()
+        ),
+        "schaetze": sum(1 for d in haustier.SCHAETZE if d.id in dinge),
+        "schaetze_alle": len(haustier.SCHAETZE),
     }
 
 

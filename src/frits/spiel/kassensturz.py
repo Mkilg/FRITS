@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 
 from frits import store
-from frits.spiel import album, ausbau, saison, stand
+from frits.spiel import album, ausbau, saison, stand, truhen
 from frits.spiel import gewuerze as gw
 from frits.spiel.gewuerze import NACH_ID, Gewuerz
 
@@ -251,6 +251,11 @@ def _karte(conn, schluessel: str, art: str, gesehen: str, ausgaben=None) -> Kart
         if found is None:
             return None
         return Karte(schluessel, art, "Übung gelöst", found[1].title, base, {})
+    if art == "joker":
+        wert = truhen.joker_wert(conn, schluessel)
+        if wert is None:
+            return None
+        return Karte(schluessel, art, "Jokerkarte", f"aus Truhe Nr. {key}", wert, {"joker": True})
     if art == "start":
         return Karte(
             schluessel, art, "Fritte zieht ein", "Willkommen! Dazu +1 Würze", base,
@@ -389,9 +394,24 @@ def tagesgerichte(conn, heute: date) -> list[Gewuerz]:
     return gerichte
 
 
-def _extras(conn, rezept: str | None) -> list[Gewuerz]:
-    """What comes before the shelf: last time's jar, then today's dish."""
-    extras = [gw.EINGEKOCHT] if eingekocht(conn) else []
+def truhenglas(conn) -> Gewuerz | None:
+    """Würze found in a chest waits in its own jar for the next Kassensturz."""
+    wert = truhen.truhenwuerze(conn)
+    if not wert:
+        return None
+    return Gewuerz(
+        "truhenwuerze", "Truhenwürze", "✨", "rezept", 0,
+        f"Aus einer Truhe: +{gw._zahl(wert)} Würze, einmal.",
+        plus_wuerze=lambda karten, umfeld: wert,
+    )  # fmt: skip
+
+
+def vorab(conn, rezept: str | None) -> list[Gewuerz]:
+    """What comes before the shelf: a chest's jar, last time's jar, then today's dish."""
+    glas = truhenglas(conn)
+    extras = [glas] if glas else []
+    if eingekocht(conn):
+        extras.append(gw.EINGEKOCHT)
     if rezept and rezept != gw.EINKOCHEN and rezept in gw.REZEPT_NACH_ID:
         extras.append(gw.REZEPT_NACH_ID[rezept])
     return extras
@@ -408,7 +428,7 @@ def vorschau(
             k.fakten["saison"] = True
     return karten, berechnen(
         [k.als_dict() for k in karten],
-        [*_extras(conn, rezept), *regal(conn)],
+        [*vorab(conn, rezept), *regal(conn)],
         umfeld(conn, heute, aufgeraeumt),
     )
 
@@ -444,7 +464,7 @@ def durchfuehren(
     if rezept and rezept not in {g.id for g in tagesgerichte(conn, heute)}:
         rezept = None  # only today's dishes; an old form can't pick another one
     with store.transaction(conn):
-        extras = _extras(conn, rezept)
+        extras = vorab(conn, rezept)
         karten, ergebnis = vorschau(conn, heute, aufgeraeumt, rezept)
         if not any(k.art != "korrektur" for k in karten):  # corrections just come along
             raise stand.SpielFehler(
@@ -466,6 +486,7 @@ def durchfuehren(
             gericht = gw.REZEPT_NACH_ID[rezept]
             record["rezept"] = {"id": gericht.id, "name": gericht.name, "zeichen": gericht.zeichen}
         stand.setze(conn, "eingekocht", "1" if rezept == gw.EINKOCHEN else "0")
+        stand.setze(conn, "truhen_wuerze", "0")
         cur = conn.execute(
             "INSERT INTO spiel_kassenstuerze (tag, summe, ergebnis) VALUES (?, ?, ?)",
             (heute.isoformat(), ergebnis["summe"], json.dumps(record, ensure_ascii=False)),
@@ -476,8 +497,12 @@ def durchfuehren(
             [(nummer, k.schluessel) for k in karten],
         )
         n = len(karten)
-        if any(k.art == "start" for k in karten):  # the welcome round is a present
+        willkommen = any(k.art == "start" for k in karten)
+        if willkommen:  # the welcome round is a present
             stand.setze(conn, "willkommen_ks", str(nummer))
+        record["truhen"] = truhen.fuellen(conn, heute, nummer, karten, willkommen)
+        for i in record["truhen"]["glueck"]:
+            record["karten"][i]["glueck"] = True
         stand.buche(
             conn, heute.isoformat(), ergebnis["summe"], "kassensturz",
             f"Kassensturz Nr. {nummer}: {n} {'Karte' if n == 1 else 'Karten'}",
@@ -507,11 +532,10 @@ def durchfuehren(
             record["erfolge"] = [
                 {"name": e.name, "zeichen": e.zeichen, "text": e.text} for e in neu
             ]
-        if fertig or neu or geschafft:
-            conn.execute(
-                "UPDATE spiel_kassenstuerze SET ergebnis = ? WHERE id = ?",
-                (json.dumps(record, ensure_ascii=False), nummer),
-            )
+        conn.execute(  # the record grew (the chests at least)
+            "UPDATE spiel_kassenstuerze SET ergebnis = ? WHERE id = ?",
+            (json.dumps(record, ensure_ascii=False), nummer),
+        )
     return nummer
 
 
