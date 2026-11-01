@@ -45,9 +45,11 @@
   </div>
 </header>
 <main>
+  {% block flashes %}
   {% for f in flashes %}{% if f.text %}
   <div class="flash {{ f.kind }}{{ ' mit-stempel' if f.stamp }}" role="status">{{ f.text }}{% if f.stamp %} <span class="stempel stempel-{{ f.stamp | lower }}" aria-hidden="true">{{ f.stamp }}</span>{% endif %}</div>
   {% endif %}{% endfor %}
+  {% endblock %}
   {% block content %}{% endblock %}
 </main>
 <footer class="bottom">

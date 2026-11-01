@@ -525,3 +525,248 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
   .sq-einnahme { grid-template-columns: 1fr repeat(2, 64px); }
   .sq-fragebogen { padding: 1.1rem; }
 }
+
+/* =====================================================================
+   Runde 2: lesbar auf dem Tisch, klarer Auftrag, Belohnungs-Moment, Intro
+   ===================================================================== */
+
+/* ---------- Lesbar: Schrift liegt immer auf Papier, nie direkt auf dem Holz ---------- */
+.sq .sq-rand-titel {
+  display: inline-block; align-self: flex-start; margin: 0 0 0.5rem; padding: 0.25rem 0.7rem;
+  background: var(--papierkarte); color: var(--tinte); text-shadow: none; border-radius: 2px;
+  box-shadow: var(--karten-schatten), 0 4px 10px rgba(20, 8, 2, .35); transform: rotate(-1.2deg);
+}
+.sq-korb > div:first-child > p, .sq-korb .sq-leer {
+  color: var(--tinte); text-shadow: none; font-family: inherit; font-size: 0.88rem; line-height: 1.4;
+  background: var(--papierkarte); border: 0; border-radius: 2px; padding: 0.6rem 0.75rem;
+  box-shadow: var(--karten-schatten), 0 6px 12px rgba(20, 8, 2, .3);
+}
+.sq-ding span:last-child {
+  color: var(--tinte); text-shadow: none; font-size: 0.85rem; line-height: 1.3;
+  background: var(--papierkarte); padding: 0.4rem 0.6rem; border-radius: 2px;
+  box-shadow: var(--karten-schatten), 0 5px 10px rgba(20, 8, 2, .3);
+}
+.sq-ding:hover span:last-child { background: #fff8e2; }
+.sq-zurueck {
+  color: var(--tinte); text-shadow: none; background: var(--papierkarte); padding: 0.3rem 0.7rem; border-radius: 2px;
+  box-shadow: var(--karten-schatten), 0 5px 10px rgba(20, 8, 2, .3); font-weight: 700;
+}
+.sq-zurueck:hover { color: var(--terrakotta-dunkel); }
+.sq-nah-insel h1 {
+  color: var(--tinte); text-shadow: none; background: var(--papierkarte); padding: 0.3rem 1rem 0.35rem;
+  border-radius: 2px; box-shadow: var(--karten-schatten), 0 6px 14px rgba(20, 8, 2, .35);
+}
+.sq-nah-insel .bereich { color: var(--tinte); text-shadow: none; background: rgba(252, 246, 230, .92); padding: 0.15rem 0.6rem; border-radius: 2px; }
+.sq-fusszeile {
+  width: fit-content; max-width: calc(100% - 2rem); align-items: center; padding: 0.45rem 1rem;
+  background: var(--papierkarte); color: var(--tinte); text-shadow: none; border-radius: 2px;
+  box-shadow: var(--karten-schatten), 0 6px 14px rgba(20, 8, 2, .35);
+}
+.sq-fusszeile a { color: var(--terrakotta-dunkel); font-weight: 700; }
+.sq-arena > p {
+  color: var(--tinte); text-shadow: none; background: rgba(252, 246, 230, .94); padding: 0.4rem 0.9rem;
+  border-radius: 2px; box-shadow: 0 6px 14px rgba(20, 8, 2, .35); max-width: 46rem;
+}
+.sq-arena > p a { color: var(--terrakotta-dunkel); }
+
+/* ---------- Der Auftrag (immer ein klarer nächster Schritt) ---------- */
+.sq-auftrag {
+  max-width: 920px; margin: -0.4rem auto 0.8rem; position: relative; z-index: 6;
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 0.6rem 1.1rem; align-items: center;
+  padding: 0.75rem 1.1rem 0.75rem 0.9rem; border-radius: 3px; color: var(--tinte);
+  background: linear-gradient(175deg, #fffaf0, var(--creme)); border: 1px solid #d9c18a;
+  box-shadow: 0 0 0 4px rgba(233, 189, 79, .35), 0 12px 24px rgba(20, 8, 2, .45);
+  animation: sq-auftrag-rein .6s cubic-bezier(.2, 1.4, .4, 1) both;
+}
+.sq-auftrag::before, .sq-auftrag::after { /* Papierrollen links und rechts */
+  content: ""; position: absolute; top: -6px; bottom: -6px; width: 14px; border-radius: 7px;
+  background: linear-gradient(90deg, #c9a565, #f3e2b6 45%, #b48a48); box-shadow: 0 4px 8px rgba(20, 8, 2, .35);
+}
+.sq-auftrag::before { left: -9px; } .sq-auftrag::after { right: -9px; }
+.sq-auftrag-siegel {
+  width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; flex: none;
+  background: radial-gradient(circle at 40% 30%, #f6d77a, var(--gold) 55%, var(--ocker-dunkel));
+  color: #5a3a08; font: 700 1.6rem var(--schrift); box-shadow: 0 3px 0 #8a5f18, 0 6px 10px rgba(0,0,0,.25);
+  animation: sq-wippen 2.4s ease-in-out infinite;
+}
+.sq-auftrag .sq-kicker { color: var(--terrakotta-dunkel); }
+.sq-auftrag h2 { margin: 0.05rem 0 0.1rem; font-size: 1.35rem; color: var(--tinte); }
+.sq-auftrag-text p { margin: 0; font-size: 0.92rem; }
+.sq-auftrag-perlen { display: flex; gap: 4px; margin-top: 0.35rem; }
+.sq-auftrag-perlen i { width: 22px; height: 7px; border-radius: 4px; background: #e2d4b0; box-shadow: inset 0 1px 1px rgba(0,0,0,.15); }
+.sq-auftrag-perlen i.voll { background: linear-gradient(90deg, var(--moos), var(--moos-hell)); }
+.sq-auftrag-lohn { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.8rem; }
+.sq-auftrag-lohn li { padding: 0.12rem 0.55rem 0.12rem 1.45rem; border-radius: 999px; background: #fff1c4; border: 1px solid #e3c770; position: relative; white-space: nowrap; font-weight: 700; color: #6b4a0e; }
+.sq-auftrag-lohn li::before { content: ""; position: absolute; left: 0.4rem; top: 50%; width: 0.7rem; height: 0.7rem; margin-top: -0.35rem; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fbe7a2, var(--gold) 60%, var(--ocker-dunkel)); }
+.sq-auftrag .sq-siegelknopf { font-size: 1.08rem; padding: 0.7rem 1.3rem; white-space: nowrap; animation: sq-pochen 2.2s ease-in-out infinite; }
+@keyframes sq-auftrag-rein { from { opacity: 0; transform: translateY(-14px) rotate(-1deg); } }
+@keyframes sq-wippen { 0%, 100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg) scale(1.05); } }
+@keyframes sq-pochen { 0%, 100% { box-shadow: 0 4px 0 #5e1612, 0 8px 14px rgba(0,0,0,.3); } 50% { box-shadow: 0 4px 0 #5e1612, 0 0 0 6px rgba(223, 95, 85, .25), 0 8px 18px rgba(0,0,0,.3); } }
+@media (max-width: 900px) {
+  .sq-auftrag { grid-template-columns: auto minmax(0, 1fr); }
+  .sq-auftrag-lohn { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; }
+  .sq-auftrag .sq-siegelknopf { grid-column: 1 / -1; justify-self: start; }
+}
+
+/* Leuchtfeuer über der Provinz, zu der der Auftrag führt */
+.sq-parzelle.auftragsziel { z-index: 70; }
+.sq-parzelle.auftragsziel .sq-diorama::before {
+  content: ""; position: absolute; left: 50%; top: 58%; width: 150px; height: 70px; margin-left: -75px; border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(255, 220, 120, .75), rgba(233, 189, 79, .25) 55%, transparent 72%);
+  animation: sq-feuer 1.8s ease-in-out infinite;
+}
+.sq-leuchtfeuer {
+  position: absolute; left: 50%; top: -30px; transform: translateX(-50%); pointer-events: none;
+  display: flex; flex-direction: column; align-items: center; animation: sq-huepfen 1.1s ease-in-out infinite;
+}
+.sq-leuchtfeuer span {
+  font: 700 0.78rem var(--schrift); white-space: nowrap; color: #5a3a08; padding: 0.2rem 0.6rem; border-radius: 999px;
+  background: linear-gradient(#ffeaa6, var(--gold)); box-shadow: 0 3px 0 #8a5f18, 0 6px 12px rgba(0,0,0,.3);
+}
+.sq-leuchtfeuer::after { content: ""; width: 0; height: 0; border: 9px solid transparent; border-top: 12px solid var(--gold); margin-top: -1px; filter: drop-shadow(0 3px 2px rgba(0,0,0,.3)); }
+@keyframes sq-huepfen { 0%, 100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, -9px); } }
+@keyframes sq-feuer { 0%, 100% { opacity: .55; transform: scale(.92); } 50% { opacity: 1; transform: scale(1.08); } }
+
+/* Die Burg als Nebenquest, wenn sie (noch) fehlt */
+.sq-geist .sq-diorama img { filter: grayscale(.6) brightness(1.08) opacity(.55) drop-shadow(0 6px 4px rgba(30, 15, 0, .2)); }
+.sq-geist .sq-schild { border-style: dashed; }
+.sq-geist .sq-schild small { display: block; font-size: 0.68rem; color: var(--terrakotta-dunkel); white-space: nowrap; }
+.sq-geist:hover .sq-diorama img { filter: grayscale(0) opacity(.9) drop-shadow(0 6px 4px rgba(30, 15, 0, .3)); }
+
+/* Auf der Provinz-Seite: die Karte, mit der man anfängt */
+.sq-karte.als-naechstes { box-shadow: 0 0 0 3px var(--gold), 0 0 24px 4px rgba(233, 189, 79, .55), 0 10px 22px rgba(20, 8, 2, .4); }
+.sq-etikett.start { background: var(--gold); color: #5a3a08; border-color: var(--ocker-dunkel); animation: sq-pochen-klein 1.6s ease-in-out infinite; }
+@keyframes sq-pochen-klein { 50% { transform: scale(1.08); } }
+
+/* ---------- Meldungen: kleine Zettel oben rechts, große Momente als Dialog ---------- */
+.sq-zettelchen { position: fixed; right: 18px; bottom: 18px; z-index: 200; display: flex; flex-direction: column; gap: 0.5rem; max-width: min(380px, calc(100vw - 36px)); }
+.sq-meldung {
+  margin: 0; padding: 0.65rem 2rem 0.65rem 0.9rem; position: relative; border-radius: 2px; font-size: 0.92rem; color: var(--tinte);
+  background: var(--papierkarte); border-left: 5px solid var(--moos); box-shadow: 0 10px 22px rgba(20, 8, 2, .4);
+  animation: sq-zettel-rein .45s cubic-bezier(.2, 1.4, .4, 1) both;
+}
+.sq-meldung.warn, .sq-meldung.fehler { border-left-color: var(--wachs); }
+.sq-meldung.beute, .sq-meldung.treffer { border-left-color: var(--gold); }
+.sq-meldung.weg { animation: sq-zettel-raus .4s ease-in forwards; }
+.sq-weg { position: absolute; right: 0.3rem; top: 0.2rem; border: 0; background: none; font-size: 1.2rem; color: #8a7a5c; cursor: pointer; }
+@keyframes sq-zettel-rein { from { opacity: 0; transform: translateX(40px) rotate(3deg); } }
+@keyframes sq-zettel-raus { to { opacity: 0; transform: translateX(40px) rotate(3deg); } }
+
+.sq-belohnung {
+  border: 0; padding: 2.2rem 2rem 1.6rem; width: min(460px, calc(100vw - 32px)); text-align: center; color: var(--tinte); overflow: visible;
+  background: radial-gradient(ellipse at 50% 20%, #fffdf5, var(--papier) 45%, var(--creme)); border-radius: 4px;
+  box-shadow: 0 0 0 6px rgba(233, 189, 79, .55), 0 30px 60px rgba(10, 4, 0, .6);
+}
+.sq-belohnung[open] { animation: sq-belohnung-rein .55s cubic-bezier(.2, 1.5, .4, 1) both; }
+.sq-belohnung::backdrop { background: radial-gradient(ellipse at 50% 40%, rgba(60, 30, 5, .35), rgba(10, 4, 0, .75)); }
+.sq-belohnung-licht { position: absolute; left: 50%; top: 0; width: 360px; height: 360px; margin: -180px 0 0 -180px; pointer-events: none; z-index: -1;
+  background: repeating-conic-gradient(from 0deg, rgba(255, 220, 120, .55) 0 8deg, transparent 8deg 22deg); border-radius: 50%;
+  -webkit-mask: radial-gradient(circle, #000 30%, transparent 70%); mask: radial-gradient(circle, #000 30%, transparent 70%);
+  animation: sq-drehen 14s linear infinite; }
+.sq-belohnung-siegel { width: 96px; height: 96px; margin: -78px auto 0.4rem; display: grid; place-items: center; font-size: 2.6rem; color: #fff;
+  border-radius: 50%; background: radial-gradient(circle at 40% 35%, #d9564d, var(--wachs) 60%, #7c1d18); animation: sq-siegel-drauf .7s .15s cubic-bezier(.2, 1.8, .4, 1) both; }
+.sq-belohnung-siegel:has(img) { background: none; }
+.sq-belohnung-siegel img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 8px 8px rgba(0,0,0,.35)); }
+.sq-belohnung h2 { margin: 0 0 0.6rem; font-size: 2rem; color: var(--terrakotta-dunkel); }
+.sq-beute { list-style: none; margin: 0 0 1rem; padding: 0; display: flex; flex-direction: column; gap: 0.35rem; }
+.sq-beute li { padding: 0.4rem 0.7rem; border-radius: 3px; background: #fff3cc; border: 1px solid #ecd48a; font-weight: 600; animation: sq-zettel-rein .5s both; }
+.sq-beute li:nth-child(2) { animation-delay: .25s; } .sq-beute li:nth-child(3) { animation-delay: .5s; } .sq-beute li:nth-child(4) { animation-delay: .75s; }
+.sq-naechster { border-top: 2px dashed #d9c79c; padding-top: 0.8rem; margin-bottom: 1rem; }
+.sq-naechster p { margin: 0.15rem 0; }
+.sq-belohnung-knoepfe { display: flex; gap: 0.8rem; justify-content: center; align-items: center; flex-wrap: wrap; }
+@keyframes sq-belohnung-rein { from { opacity: 0; transform: scale(.7) rotate(-4deg); } }
+@keyframes sq-siegel-drauf { from { opacity: 0; transform: scale(2.4) rotate(-30deg); } }
+@keyframes sq-drehen { to { transform: rotate(360deg); } }
+
+/* ---------- Fragebogen: Provinzen als Karten zum Antippen ---------- */
+.sq-schritte li { padding: 0; }
+.sq-schritte li > button, .sq-schritte li > span { display: block; width: 100%; padding: 0.4rem 0.6rem; background: none; border: 0; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.sq-schritte li > button:hover { color: var(--terrakotta-dunkel); text-decoration: underline; }
+.sq-schritte li::before { content: none; }
+.sq-fb-ausweg { margin-left: 0.8rem; font: 600 0.78rem system-ui, sans-serif; letter-spacing: 0; text-transform: none; color: var(--tinte-hell); }
+.sq-felder:not(:has(input[name=zusammen]:checked)) .nur-zusammen { display: none; }
+.sq-provinzwahl { display: grid; grid-template-columns: repeat(auto-fill, minmax(175px, 1fr)); gap: 0.8rem; margin: 1rem 0; }
+.sq-wahlkarte {
+  position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.15rem;
+  padding: 0.6rem 0.6rem 0.7rem; border-radius: 4px; background: rgba(255, 255, 255, .55); border: 2px dashed #c9b88e;
+  transition: transform .15s, box-shadow .2s, background .2s;
+}
+.sq-wahlkarte:hover { transform: translateY(-3px) rotate(-.6deg); }
+.sq-wahlkarte strong { font-size: 0.92rem; line-height: 1.2; }
+.sq-wahlkarte .muted { font-size: 0.76rem; }
+.sq-wahlbild { width: 110px; height: 82px; display: grid; place-items: end center; }
+.sq-wahlbild img { max-width: 110px; max-height: 92px; object-fit: contain; filter: grayscale(.85) opacity(.55); transition: filter .3s, transform .3s; }
+.sq-wahlbild img.geliehen { filter: var(--farbe) grayscale(.85) opacity(.55); }
+.sq-wahlkarte.gewaehlt { border: 2px solid var(--moos); background: #f1f6df; box-shadow: 0 5px 0 rgba(75, 106, 42, .25), 0 0 0 3px rgba(163, 196, 102, .35); }
+.sq-wahlkarte.gewaehlt .sq-wahlbild img { filter: drop-shadow(0 5px 4px rgba(30, 15, 0, .3)); transform: scale(1.06); }
+.sq-wahlkarte.gewaehlt .sq-wahlbild img.geliehen { filter: var(--farbe) drop-shadow(0 5px 4px rgba(30, 15, 0, .3)); }
+.sq-wahl { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.3rem; font-size: 0.85rem; }
+.sq-wahl input[type=checkbox] { width: 1.25rem; height: 1.25rem; accent-color: var(--moos-dunkel); }
+.sq-zaehler-feld { display: inline-flex; align-items: center; gap: 0.2rem; }
+.sq-zaehler-feld button { width: 30px; height: 30px; border-radius: 50%; border: 1px solid #c9b88e; background: var(--papier); font: 700 1.1rem system-ui, sans-serif; color: var(--tinte); cursor: pointer; line-height: 1; }
+.sq-zaehler-feld button:hover { background: #fff; border-color: var(--moos); }
+.sq .sq-zaehler-feld input[type=number] { width: 46px; text-align: center; font: 700 1.1rem var(--schrift); -moz-appearance: textfield; appearance: textfield; padding: 0.15rem; }
+.sq-zaehler-feld input::-webkit-inner-spin-button, .sq-zaehler-feld input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.sq-gemerkt { font-size: 0.8rem; color: var(--moos-dunkel); opacity: 0; transition: opacity .3s; }
+.sq-gemerkt.da { opacity: 1; }
+
+/* ---------- Intro ---------- */
+.sq-intro { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: calc(100vh - 100px); padding: 1.5rem 1rem 3rem; }
+.sq-intro::before { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 0; background: radial-gradient(ellipse at 50% 45%, transparent 25%, rgba(10, 4, 0, .72) 85%); }
+.sq-intro-buehne { position: relative; z-index: 1; width: min(860px, 100%); display: flex; flex-direction: column; gap: 2.5rem; align-items: center; }
+.sq-szene { display: flex; flex-direction: column; align-items: center; gap: 1.2rem; text-align: center; }
+.sq-szene-bild { position: relative; width: min(520px, 90vw); height: 300px; display: grid; place-items: center; }
+.sq-szene-bild img { max-width: 100%; max-height: 300px; object-fit: contain; filter: drop-shadow(0 24px 24px rgba(10, 4, 0, .5)); }
+.sq-szene-bild.klein { height: 210px; }
+.sq-szene-bild.klein img { max-height: 210px; }
+.sq-erzaehler {
+  margin: 0; max-width: 40rem; padding: 0.9rem 1.3rem; border-radius: 3px; font: 1.22rem/1.5 var(--schrift); color: var(--tinte);
+  background: var(--papierkarte); box-shadow: var(--karten-schatten), 0 14px 30px rgba(10, 4, 0, .5);
+}
+.sq-erzaehler strong { color: var(--terrakotta-dunkel); }
+.sq .sq-intro-titel { margin: 0; font-size: 2.6rem; color: #ffe6a8; text-shadow: 0 2px 0 #6e4a12, 0 6px 20px rgba(0,0,0,.6); }
+.sq-intro-knoepfe { display: flex; gap: 1rem; align-items: center; justify-content: center; flex-wrap: wrap; margin: 0; }
+.sq-siegelknopf.gross { font-size: 1.25rem; padding: 0.85rem 1.8rem; animation: sq-pochen 2.2s ease-in-out infinite; }
+.sq-intro-zurueck { color: var(--tinte); background: var(--papierkarte); padding: 0.45rem 0.9rem; border-radius: 2px; text-decoration: none; box-shadow: var(--karten-schatten); }
+.sq-intro-steuer { position: relative; z-index: 1; display: none; gap: 1rem; align-items: center; margin: 1.6rem 0 0; }
+.sq-intro-weiter { font: 700 1rem var(--schrift); padding: 0.55rem 1.2rem; border-radius: 999px; border: 0; cursor: pointer; background: var(--papierkarte); color: var(--tinte); box-shadow: 0 4px 0 #b39c68, 0 8px 16px rgba(0,0,0,.35); }
+.sq-intro-weiter kbd { font: 600 0.7rem system-ui, sans-serif; padding: 0.1rem 0.35rem; border: 1px solid #c9b88e; border-radius: 3px; margin-left: 0.4rem; color: #8a7a5c; }
+.sq-intro-skip { color: #ffe3a6; font-size: 0.85rem; text-shadow: 0 1px 3px #000; }
+.sq-intro-punkte { position: relative; z-index: 1; display: none; gap: 0.5rem; list-style: none; padding: 0; margin: 1rem 0 0; }
+.sq-intro-punkte li { width: 10px; height: 10px; border-radius: 50%; background: rgba(246, 236, 210, .35); transition: background .3s, transform .3s; }
+.sq-intro-punkte li.an { background: var(--gold); transform: scale(1.3); }
+/* Mit JavaScript: eine Szene nach der anderen, wie in einem Film */
+.sq-js .sq-intro:not(.kurz) .sq-szene { display: none; }
+.sq-js .sq-intro:not(.kurz) .sq-szene.jetzt { display: flex; animation: sq-szene-rein .8s ease-out both; }
+.sq-js .sq-intro:not(.kurz) .sq-intro-steuer, .sq-js .sq-intro:not(.kurz) .sq-intro-punkte { display: flex; }
+.sq-js .sq-intro.am-ende .sq-intro-steuer { visibility: hidden; }
+@keyframes sq-szene-rein { from { opacity: 0; transform: translateY(18px) scale(.98); } }
+.sq-szene.jetzt .sq-szene-bild.insel img { animation: sq-aufsteigen 2.4s cubic-bezier(.2, .9, .3, 1) both; }
+@keyframes sq-aufsteigen { from { opacity: 0; transform: translateY(60px) scale(.85); filter: blur(6px); } }
+.sq-intro-nebel { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 60%, rgba(255,255,255,.85), transparent 65%); animation: sq-nebel-weg 2.6s ease-out forwards; pointer-events: none; }
+@keyframes sq-nebel-weg { to { opacity: 0; transform: scale(1.4); } }
+.sq-szene.jetzt .sq-szene-bild.drache img { animation: sq-drache-auf 1s cubic-bezier(.2, 1.4, .4, 1) both; }
+@keyframes sq-drache-auf { from { transform: scale(.4) rotate(-20deg); opacity: 0; } }
+.sq-flugzettel { position: absolute; left: 50%; top: 50%; width: 30px; height: 38px; background: var(--papier); border-radius: 2px; box-shadow: 0 4px 8px rgba(0,0,0,.3);
+  animation: sq-verstreuen 1.6s calc(.4s + var(--i) * .08s) cubic-bezier(.2, .8, .3, 1) both; }
+@keyframes sq-verstreuen { from { transform: translate(-50%, -50%) rotate(0); opacity: 0; }
+  to { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(var(--dreh)); opacity: 1; } }
+.sq-szene-bild.wachsen { grid-template-columns: auto 220px; gap: 1rem; }
+.sq-szene-bild.wachsen .fritte { height: 230px; }
+.sq-szene-bild.wachsen .haus { grid-column: 2; grid-row: 1; width: 220px; opacity: 0; }
+.sq-szene.jetzt .wachsen .haus.stufe1 { animation: sq-stufe 3.6s 0.3s infinite; }
+.sq-szene.jetzt .wachsen .haus.stufe2 { animation: sq-stufe 3.6s 1.5s infinite; }
+.sq-szene.jetzt .wachsen .haus.stufe3 { animation: sq-stufe-letzte 3.6s 2.7s infinite; }
+@keyframes sq-stufe { 0% { opacity: 0; transform: scale(.85); } 8%, 30% { opacity: 1; transform: none; } 36%, 100% { opacity: 0; } }
+@keyframes sq-stufe-letzte { 0% { opacity: 0; transform: scale(.85); } 8%, 30% { opacity: 1; transform: scale(1.05); } 36%, 100% { opacity: 0; } }
+.sq-intro-glanz { position: absolute; inset: 15%; border-radius: 50%; background: radial-gradient(circle, rgba(255, 220, 120, .6), transparent 65%); z-index: -1; animation: sq-feuer 2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .sq-auftrag, .sq-auftrag-siegel, .sq-auftrag .sq-siegelknopf, .sq-leuchtfeuer, .sq-parzelle.auftragsziel .sq-diorama::before,
+  .sq-belohnung[open], .sq-belohnung-licht, .sq-belohnung-siegel, .sq-beute li, .sq-meldung, .sq-siegelknopf.gross,
+  .sq-szene.jetzt, .sq-szene-bild img, .sq-flugzettel, .sq-etikett.start { animation: none !important; }
+  .sq-szene.jetzt .wachsen .haus.stufe3 { opacity: 1; }
+}
+
+.sq-mini-insel .sq-leuchtfeuer, .sq-mini-insel .sq-parzelle.auftragsziel .sq-diorama::before { display: none; }
+.sq-felder .sq-kachel { grid-column: 1 / -1; }
+.sq-siegelknopf { font-family: var(--schrift); }

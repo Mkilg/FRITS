@@ -497,8 +497,10 @@ def fragebogen(client, jahr=2025, teil1=None, teil2=None, teil3=None):
 
 
 def test_ganze_quest_im_browser(client, ws):
-    # Ohne Fragebogen geht es zum Fragebogen, für das Vorjahr
+    # Ohne Fragebogen beginnt es mit dem Intro, für das Vorjahr; von dort zum Fragebogen
     page = client.get("/steuer", follow_redirects=True)
+    assert "Papierdrache" in page.text and "Mein Reich gründen" in page.text
+    page = client.get("/steuer/2025/fragebogen")
     assert "Wer lebt in deinem Reich?" in page.text
     assert "Teil 1 von 3" in page.text
 
@@ -510,11 +512,11 @@ def test_ganze_quest_im_browser(client, ws):
         familienstand="ledig",
         beraterin_email="b@example.com",
     )
-    assert "Woher kommt dein Geld?" in page.text
+    assert "Welche Provinzen hat deine Insel?" in page.text
     page = post(client, "/steuer/2025/fragebogen", teil="2", m_wohnungen_0="1")
     assert "Welche Schätze" in page.text
     page = post(client, "/steuer/2025/fragebogen", teil="3", haken="vorsorge")
-    assert "Dein Reich steht: 3 Provinzen" in page.text
+    assert "Dein Reich steht!" in page.text and "Deine Insel hat 3 Provinzen" in page.text
     assert "Gehöft" in page.text and "Burg" in page.text
 
     conn = store.connect(ws.db)
@@ -526,7 +528,7 @@ def test_ganze_quest_im_browser(client, ws):
         files={"datei": ("miete.pdf", b"mieten", "application/pdf")},
     )
     assert "+1 Beleg!" in page.text
-    assert "Erfolg freigeschaltet: Erster Fund" in page.text
+    assert "Neuer Orden: Erster Fund" in page.text
 
     # Etwas in den Eingangskorb legen: es erscheint als Zettel und lässt sich einsortieren
     (quest.lager(ws.root) / "kasse.pdf").write_bytes(b"kv")
@@ -584,7 +586,7 @@ def test_gemeinsame_erklaerung_im_fragebogen(client, ws):
         teil2={"m_angestellt_0": "1", "m_angestellt_1": "1"},
         teil3={"haken": ["kinder_betreuung", "unsinn"]},
     )
-    assert "Dein Reich steht: 4 Provinzen" in page.text
+    assert "Deine Insel hat 4 Provinzen" in page.text
     profil = Profil.load(quest.profil_datei(ws.root, 2025))
     assert profil.personen == ["Alex", "Sam"]
     assert profil.haken == ["kinder_betreuung"]
@@ -660,3 +662,72 @@ def test_gemalte_bilder_und_leihgaben():
         lagen = wiesenplan(n)
         assert len(set(lagen)) == n
         assert all(5 <= x <= 95 and 0 < y < 100 for x, y in lagen)
+
+
+# ---------- Runde 2: Auftrag, Zwischenspeichern, Abbrechen ----------
+
+
+def test_auftrag_zeigt_immer_einen_naechsten_schritt(conn, ws):
+    quest.start(conn, MARIE)
+    alle = quest.stuecke(conn, 2025)
+    staende = spiel.provinzen(reich(MARIE), alle)
+    a = spiel.auftrag(2025, staende, spiel.drache(alle), 0, alle)
+    assert a.art == "provinz" and a.ziel.startswith("/steuer/2025/gebiet/")
+    assert "Gold-Siegel" in a.belohnungen and "Orden „Erste Ernte“" in a.belohnungen
+
+    # Angefangene Provinzen gehen vor: dort ist das Ziel am nächsten
+    ziel = next(s for s in alle if s["gebiet"] == "gehoeft-2" and s["art"] != "bonus")
+    quest.setze_status(conn, ziel["id"], "gibts_nicht")
+    alle = quest.stuecke(conn, 2025)
+    a = spiel.auftrag(2025, spiel.provinzen(reich(MARIE), alle), spiel.drache(alle), 0, alle)
+    assert a.gebiet_id == "gehoeft-2" and a.erledigt == 1
+
+    # Liegen Zettel im Eingangskorb, kommen die zuerst
+    a = spiel.auftrag(2025, spiel.provinzen(reich(MARIE), alle), spiel.drache(alle), 3, alle)
+    assert a.art == "korb" and "3 Zettel" in a.text
+
+    # Alles erledigt: zur Beute
+    for s in alle:
+        quest.setze_status(conn, s["id"], "gibts_nicht")
+    alle = quest.stuecke(conn, 2025)
+    a = spiel.auftrag(2025, spiel.provinzen(reich(MARIE), alle), spiel.drache(alle), 0, alle)
+    assert a.art == "sieg" and a.ziel == "/steuer/2025/sieg"
+
+
+def test_fragebogen_merkt_sich_alles_auch_ohne_weiter(client, ws):
+    # Tippen speichert sofort (z. B. vor einem Tab-Wechsel), ohne die Seite zu verlassen
+    r = client.post(
+        "/steuer/2025/fragebogen",
+        data={"token": client.token, "teil": "1", "name": "Fritz", "kinder": "2", "merken": "1"},
+    )
+    assert r.status_code == 204
+    assert 'value="Fritz"' in client.get("/steuer/2025/fragebogen").text
+    # Auch nach einem Neustart von FRITS ist der Entwurf noch da
+    client.app.state.steuer_entwurf.clear()
+    assert 'value="Fritz"' in client.get("/steuer/2025/fragebogen").text
+    # Wer im Intro zurückkommt, macht weiter, wo er war
+    assert "Weiter, wo ich war" in client.get("/steuer/2025/intro").text
+
+
+def test_neues_jahr_laesst_sich_abbrechen(client, ws):
+    fragebogen(client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1"})
+    karte = client.get("/steuer/2025").text
+    assert "Neue Quest für 2024" in karte and "Dein Auftrag" in karte
+    assert "Burg?" in karte  # die Burg wartet als Nebenquest
+    intro = client.get("/steuer/2024/intro").text
+    assert "Neue Insel für 2024?" in intro and 'href="/steuer/2025"' in intro
+    assert "Zurück zu 2025" in client.get("/steuer/2024/fragebogen").text
+
+
+def test_siegel_kommt_als_belohnung_mit_naechstem_auftrag(client, ws):
+    fragebogen(client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1"})
+    page = None
+    for s in quest.stuecke(quest.ensure_schema(store.connect(ws.db)), 2025, "rathaus"):
+        page = post(
+            client,
+            f"/steuer/2025/stueck/{s['id']}/status",
+            status="gibts_nicht",
+            back="/steuer/2025/gebiet/rathaus",
+        )
+    assert "data-belohnung" in page.text and "Gold-Siegel!" in page.text
+    assert "Nächster Auftrag" in page.text and "Versiegle Werkstatt" in page.text
