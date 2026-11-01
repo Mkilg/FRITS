@@ -120,6 +120,7 @@ form { margin: 0; }
 
 .muted, .hint { color: var(--muted); }
 .hint { font-size: 0.88rem; margin: 0.4rem 0; }
+.platzhalter { color: var(--muted); font-style: italic; }
 .note { display: block; color: var(--ketchup); font-size: 0.78rem; }
 .badge { display: inline-block; padding: 0.1rem 0.6rem; border-radius: 999px; font-size: 0.8rem;
   background: var(--creme); border: 1px solid var(--line); white-space: nowrap; }
