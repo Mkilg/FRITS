@@ -4,44 +4,24 @@ Calm on purpose (Fritz likes slow productivity): Fritte is never sad, never ill 
 gone. After a quiet stretch she just dozes with her scarf and book, and wakes up happy.
 What counts is the weekly rhythm, not a daily streak.
 
-Salzkörner (salt grains) are earned from real paperwork. They are counted from the
-records FRITS already keeps (invoices, payments, quotes, reminders, expenses), so Fritz
-also gets grains for work he did before this feature existed. Only what he bought,
-what she wears and the Feierabend days live in fritte.toml next to frits.db.
+Salzkörner, cards and what she owns live in the game tables (frits.spiel.stand).
+This module is about her: her mood, her room, her hats.
 """
 
 from __future__ import annotations
 
 import sqlite3
-import tomllib
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date, timedelta
 from pathlib import Path
 
-import tomli_w
-
-# How many Salzkörner each kind of paperwork brings.
-PUNKTE = {
-    "rechnung": 3,  # an invoice got its number
-    "bezahlt": 2,  # a payment was recorded
-    "angebot": 2,
-    "erinnerung": 1,  # a friendly payment reminder
-    "ausgabe": 1,
-    "feierabend": 1,  # the shutdown ritual, once a day
-}
-PUNKTE_TEXT = (
-    ("Rechnung geschrieben", PUNKTE["rechnung"]),
-    ("Zahlung eingetragen", PUNKTE["bezahlt"]),
-    ("Angebot geschrieben", PUNKTE["angebot"]),
-    ("Zahlungserinnerung", PUNKTE["erinnerung"]),
-    ("Ausgabe eingetragen", PUNKTE["ausgabe"]),
-    ("Feierabend gemacht (einmal am Tag)", PUNKTE["feierabend"]),
-)
+from frits import store
+from frits.spiel import stand
+from frits.spiel.stand import SpielFehler as LadenFehler
 
 MUNTER_BIS = 4  # days since the last paperwork: up to here she's lively
 GEMUETLICH_BIS = 11  # then cosy; after that she dozes
 WOCHEN = 4  # how many weeks the rhythm dots show
-TAGE_MERKEN = 70  # care days kept in fritte.toml
 
 
 @dataclass(frozen=True)
@@ -105,50 +85,14 @@ SAETZE = {
 
 
 @dataclass
-class Zustand:
-    """What lives in fritte.toml."""
-
-    gekauft: list[str] = field(default_factory=list)
-    traegt: str = ""  # id of the hat she wears, or ""
-    ausgegeben: int = 0
-    feierabende: int = 0
-    letzter_feierabend: str = ""
-    pflegetage: list[str] = field(default_factory=list)  # ISO days with paperwork
-    punkte_gesehen: int = 0  # grains earned when Fritz last looked
-
-    @classmethod
-    def laden(cls, path: Path) -> Zustand:
-        path = Path(path)
-        if not path.exists():
-            return cls()
-        try:
-            data = tomllib.loads(path.read_text(encoding="utf-8"))
-        except (tomllib.TOMLDecodeError, UnicodeDecodeError):
-            return cls()  # a broken file must never break the Heute page
-        known = cls.__dataclass_fields__
-        z = cls(**{k: v for k, v in data.items() if k in known})
-        z.gekauft = [d for d in z.gekauft if d in DINGE]
-        if z.traegt not in z.gekauft or DINGE[z.traegt].art != "hut":
-            z.traegt = ""
-        return z
-
-    def speichern(self, path: Path) -> None:
-        data = {k: getattr(self, k) for k in self.__dataclass_fields__}
-        Path(path).parent.mkdir(parents=True, exist_ok=True)
-        Path(path).write_text(tomli_w.dumps(data), encoding="utf-8")
-
-
-@dataclass
 class Fritte:
     """Everything the page needs to show her."""
 
     laune: str
     satz: str
     bild: str  # mascot mood: welcome | thinking | done | feierabend
-    verdient: int
     guthaben: int
-    neu_verdient: int  # since the last visit
-    erster_besuch: bool  # then neu_verdient is a welcome gift for the work done so far
+    wartend: int  # cards waiting for the Kassensturz
     tage_ruhig: int | None  # days since the last paperwork, None if there was none yet
     wochen: list[bool]  # oldest first, the last one is this week
     zimmer: list[Ding]
@@ -160,87 +104,10 @@ class Fritte:
         return LAUNE_NAME[self.laune]
 
 
-# ---------- counting the paperwork ----------
-
-
-def _rows(conn: sqlite3.Connection, sql: str) -> list:
-    try:
-        return conn.execute(sql).fetchall()
-    except sqlite3.OperationalError:  # e.g. no expenses table yet
-        return []
-
-
-def _zahl(conn, sql: str) -> int:
-    rows = _rows(conn, sql)
-    return int(rows[0][0] or 0) if rows else 0
-
-
-def verdiente_punkte(conn: sqlite3.Connection, zustand: Zustand) -> int:
-    return (
-        PUNKTE["rechnung"] * _zahl(conn, "SELECT COUNT(*) FROM invoices WHERE cancels IS NULL")
-        + PUNKTE["bezahlt"]
-        * _zahl(conn, "SELECT COUNT(*) FROM invoices WHERE paid_date IS NOT NULL")
-        + PUNKTE["angebot"] * _zahl(conn, "SELECT COUNT(*) FROM quotes")
-        + PUNKTE["erinnerung"] * _zahl(conn, "SELECT COUNT(*) FROM reminders")
-        + PUNKTE["ausgabe"] * _zahl(conn, "SELECT COUNT(*) FROM expenses")
-        + PUNKTE["feierabend"] * zustand.feierabende
-    )
-
-
-def _tage_aus_db(conn: sqlite3.Connection) -> set[date]:
-    days = set()
-    for sql in (
-        "SELECT issue_date FROM invoices",
-        "SELECT paid_date FROM invoices",
-        "SELECT emailed FROM invoices",
-        "SELECT created FROM quotes",
-        "SELECT created FROM reminders",
-        "SELECT received FROM jobs",
-    ):
-        for (value,) in _rows(conn, sql):
-            try:
-                days.add(date.fromisoformat(str(value)[:10]))
-            except (TypeError, ValueError):
-                continue
-    return days
-
-
-def _pflegetage(conn, zustand: Zustand, heute: date) -> set[date]:
-    days = _tage_aus_db(conn)
-    for value in zustand.pflegetage:
-        try:
-            days.add(date.fromisoformat(value))
-        except ValueError:
-            continue
-    return {d for d in days if d <= heute}
-
-
-def _merke_tag(zustand: Zustand, heute: date) -> None:
-    tag = heute.isoformat()
-    if tag not in zustand.pflegetage:
-        zustand.pflegetage.append(tag)
-    zustand.pflegetage = sorted(zustand.pflegetage)[-TAGE_MERKEN:]
-
-
-# ---------- what the page shows ----------
-
-
-def ansehen(conn: sqlite3.Connection, path: Path, heute: date, merken: bool = True) -> Fritte:
-    """How Fritte is today. With merken=True this visit counts as "seen" for the
-    "+5 seit deinem letzten Besuch" note, and new paperwork marks today as a care day."""
-    erster_besuch = not Path(path).exists()
-    zustand = Zustand.laden(path)
-    verdient = verdiente_punkte(conn, zustand)
-    neu = max(0, verdient - zustand.punkte_gesehen)
-    if merken and (erster_besuch or verdient != zustand.punkte_gesehen):
-        # Something new since last time (an expense, say, which has no date of its own).
-        # On the very first visit the grains are for older work, so today doesn't count.
-        if verdient > zustand.punkte_gesehen and not erster_besuch:
-            _merke_tag(zustand, heute)
-        zustand.punkte_gesehen = verdient
-        zustand.speichern(path)
-
-    tage = _pflegetage(conn, zustand, heute)
+def ansehen(conn: sqlite3.Connection, heute: date, alte_datei: Path | None = None) -> Fritte:
+    """How Fritte is today. Also turns new paperwork into waiting cards."""
+    wartend = stand.abgleichen(conn, heute, alte_datei)
+    tage = stand.pflegetage(conn, heute)
     tage_ruhig = (heute - max(tage)).days if tage else None
     if tage_ruhig is None:
         laune = "neu"
@@ -257,67 +124,46 @@ def ansehen(conn: sqlite3.Connection, path: Path, heute: date, merken: bool = Tr
         start = montag - timedelta(weeks=n)
         wochen.append(any(start <= d < start + timedelta(days=7) for d in tage))
 
+    gekauft = [d for d in stand.besitz(conn, "ding") if d in DINGE]
+    hut = stand.einstellung(conn, "hut")
     return Fritte(
         laune=laune,
         satz=SAETZE[laune],
         bild=BILD[laune],
-        verdient=verdient,
-        guthaben=max(0, verdient - zustand.ausgegeben),
-        neu_verdient=neu,
-        erster_besuch=erster_besuch,
+        guthaben=stand.guthaben(conn),
+        wartend=wartend,
         tage_ruhig=tage_ruhig,
         wochen=wochen,
-        zimmer=[DINGE[d] for d in zustand.gekauft if DINGE[d].art == "zimmer"],
-        hut=DINGE.get(zustand.traegt),
-        gekauft=set(zustand.gekauft),
+        zimmer=[DINGE[d] for d in gekauft if DINGE[d].art == "zimmer"],
+        hut=DINGE[hut] if hut in gekauft and DINGE[hut].art == "hut" else None,
+        gekauft=set(gekauft),
     )
 
 
 # ---------- changing things ----------
 
 
-class LadenFehler(Exception):
-    pass
-
-
-def kaufen(conn: sqlite3.Connection, path: Path, ding_id: str) -> Ding:
+def kaufen(conn: sqlite3.Connection, heute: date, ding_id: str) -> Ding:
     ding = DINGE.get(ding_id)
     if ding is None:
         raise LadenFehler("Das gibt es im Laden nicht.")
-    zustand = Zustand.laden(path)
-    if ding.id in zustand.gekauft:
-        raise LadenFehler(f"{ding.name}: hat Fritte schon.")
-    guthaben = verdiente_punkte(conn, zustand) - zustand.ausgegeben
-    if guthaben < ding.preis:
-        fehlen = ding.preis - max(0, guthaben)
-        raise LadenFehler(
-            f"Für {ding.name} fehlen noch {fehlen} Salzkörner. Die kommen ganz von allein."
-        )
-    zustand.gekauft.append(ding.id)
-    zustand.ausgegeben += ding.preis
-    if ding.art == "hut":
-        zustand.traegt = ding.id  # a new hat goes straight on
-    zustand.speichern(path)
+    stand.vorbereiten(conn)
+    with store.transaction(conn):
+        if stand.besitzt(conn, ding.id):
+            raise LadenFehler(f"{ding.name}: hat Fritte schon.")
+        stand.bezahlen(conn, heute.isoformat(), ding.preis, f"{ding.name} gekauft")
+        stand.nimm(conn, ding.id, "ding", heute.isoformat(), ding.preis)
+        if ding.art == "hut":
+            stand.setze(conn, "hut", ding.id)  # a new hat goes straight on
     return ding
 
 
-def aufsetzen(path: Path, ding_id: str) -> None:
+def aufsetzen(conn: sqlite3.Connection, ding_id: str) -> None:
     """Put a hat on, or take it off again (ding_id "" or the hat she already wears)."""
-    zustand = Zustand.laden(path)
-    if ding_id in zustand.gekauft and DINGE[ding_id].art == "hut" and zustand.traegt != ding_id:
-        zustand.traegt = ding_id
+    stand.vorbereiten(conn)
+    ding = DINGE.get(ding_id)
+    traegt = stand.einstellung(conn, "hut")
+    if ding and ding.art == "hut" and stand.besitzt(conn, ding.id) and traegt != ding.id:
+        stand.setze(conn, "hut", ding.id)
     else:
-        zustand.traegt = ""
-    zustand.speichern(path)
-
-
-def feierabend(path: Path, heute: date) -> bool:
-    """The shutdown ritual brings one grain a day. Returns True if this one counted."""
-    zustand = Zustand.laden(path)
-    if zustand.letzter_feierabend == heute.isoformat():
-        return False
-    zustand.feierabende += 1
-    zustand.letzter_feierabend = heute.isoformat()
-    _merke_tag(zustand, heute)
-    zustand.speichern(path)
-    return True
+        stand.setze(conn, "hut", "")

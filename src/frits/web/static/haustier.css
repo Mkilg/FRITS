@@ -131,3 +131,164 @@
 .ware.gekauft { background: rgba(163, 196, 102, .14); }
 .ware .preis { margin-top: auto; color: var(--muted); }
 #huete button[aria-pressed="true"] { background: var(--ocker); }
+
+/* ======================================================================
+   The everyday game: cards, spice jars, the Kassensturz, the shop.
+   ====================================================================== */
+.spiel-kopf { display: flex; align-items: baseline; gap: 1rem 1.5rem; flex-wrap: wrap; margin-bottom: .6rem; }
+.spiel-kopf h1 { margin: 0; }
+.spiel-reiter { display: flex; gap: .3rem; flex: initial; }
+.spiel-reiter a { padding: .3rem .8rem; border-radius: 999px; border: 1px solid var(--papier-schatten); background: var(--papier); color: var(--ink); text-decoration: none; }
+.spiel-reiter a[aria-current="page"] { background: var(--ocker); border-color: var(--ocker-dunkel); }
+.kopf-salz { margin: 0 0 0 auto; }
+.fritte-ecke .wartet { font-weight: 600; color: var(--terrakotta-dunkel); }
+button.gross { font-size: 1.1rem; padding: .7rem 1.6rem; }
+
+/* ---------- a card ---------- */
+.spielkarte {
+  position: relative; display: flex; flex-direction: column; gap: .15rem;
+  width: 9.5rem; min-height: 12.5rem; padding: .55rem .6rem 2.2rem;
+  background: var(--papierkarte); border: 1px solid var(--papier-schatten); border-radius: 7px;
+  box-shadow: 0 1px 0 var(--papier-schatten), 0 6px 12px rgba(60, 35, 10, .16);
+  transition: transform .18s ease, opacity .25s ease, box-shadow .18s ease;
+}
+.spielkarte::before { /* coloured band on the left: the card's kind */
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; border-radius: 7px 0 0 7px; background: var(--karte-farbe, var(--ocker));
+}
+.art-rechnung { --karte-farbe: var(--tinte-hell); }
+.art-bezahlt { --karte-farbe: var(--moos); }
+.art-angebot { --karte-farbe: var(--ocker); }
+.art-ausgabe { --karte-farbe: var(--terrakotta); }
+.art-erinnerung { --karte-farbe: var(--wachs); }
+.art-feierabend { --karte-farbe: var(--tinte); }
+.karte-art { font-family: var(--schrift); font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.karte-bild { display: grid; place-items: center; height: 4.2rem; font-size: 2.4rem; }
+.karte-bild img { max-height: 4.2rem; max-width: 100%; object-fit: contain; }
+.karte-titel { font-family: var(--schrift); font-size: .92rem; line-height: 1.2; color: var(--eiche-tief); }
+.karte-detail { font-size: .78rem; color: var(--muted); line-height: 1.25; overflow-wrap: anywhere; }
+.karte-marken { display: flex; flex-wrap: wrap; gap: .2rem; }
+.marke { font-size: .68rem; padding: 0 .4rem; border-radius: 999px; background: rgba(163, 196, 102, .35); color: var(--moos-dunkel); }
+.karte-koerner {
+  position: absolute; right: .5rem; bottom: .45rem; min-width: 2.4rem; text-align: center;
+  padding: .05rem .5rem; border-radius: 999px; background: var(--moos-dunkel); color: #fff; font-weight: 700;
+}
+.spielkarte.klein { width: 5.2rem; min-height: 6.8rem; padding: .35rem .4rem 1.8rem; }
+.spielkarte.klein .karte-bild { height: 2.8rem; font-size: 1.7rem; }
+.spielkarte.klein .karte-bild img { max-height: 2.8rem; }
+.spielkarte.klein .karte-art { font-size: .62rem; }
+.kartenreihe { display: flex; flex-wrap: wrap; gap: .5rem; margin: .6rem 0 .9rem; align-items: stretch; }
+.kartenreihe .spielkarte { width: 7.6rem; min-height: 11rem; font-size: .95em; }
+
+/* ---------- a spice jar ---------- */
+.gewuerzglas { position: relative; display: inline-flex; flex-direction: column; align-items: center; width: 5.4rem; }
+.glas-deckel { width: 62%; height: .75rem; border-radius: 3px 3px 1px 1px; background: linear-gradient(180deg, var(--eiche-hell), var(--eiche)); box-shadow: inset 0 -2px 0 var(--eiche-dunkel); }
+.glas-koerper {
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: .1rem;
+  width: 100%; height: 5.6rem; padding: .3rem .25rem .35rem; border-radius: .5rem .5rem .9rem .9rem;
+  background: linear-gradient(90deg, rgba(255, 255, 255, .55), rgba(255, 255, 255, .15) 30%, rgba(255, 255, 255, .05) 70%, rgba(255, 255, 255, .4)),
+    rgba(214, 228, 222, .55);
+  border: 1.5px solid rgba(110, 98, 83, .35); box-shadow: 0 4px 8px rgba(60, 35, 10, .15);
+}
+.glas-zeichen { font-size: 1.8rem; line-height: 1; filter: saturate(.85); }
+.glas-zeichen img { height: 2.2rem; width: auto; display: block; }
+.glas-etikett {
+  width: 100%; text-align: center; padding: .1rem .15rem; border-radius: 2px;
+  background: var(--papier); border-top: 3px solid var(--etikett, var(--moos)); font-family: var(--schrift); font-size: .72rem; line-height: 1.15; color: var(--eiche-tief);
+}
+.selten-gewoehnlich { --etikett: var(--moos); }
+.selten-selten { --etikett: var(--tinte-hell); }
+.selten-legendaer { --etikett: var(--gold); }
+.selten-legendaer .glas-koerper { box-shadow: 0 0 0 2px rgba(233, 189, 79, .55), 0 4px 10px rgba(156, 111, 31, .35); }
+.gewuerzglas.klein { width: 3.6rem; }
+.gewuerzglas.klein .glas-koerper { height: 3.8rem; }
+.gewuerzglas.klein .glas-zeichen { font-size: 1.25rem; }
+.gewuerzglas.klein .glas-etikett { font-size: .58rem; }
+.regal-vorschau { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .5rem; margin-bottom: .9rem; }
+
+/* ---------- the shelf and the market ---------- */
+.regalbrett {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr)); gap: .9rem; padding: .8rem .8rem 1.1rem;
+  background: linear-gradient(180deg, transparent calc(100% - 14px), var(--eiche) calc(100% - 14px), var(--eiche-dunkel));
+  border-radius: 3px;
+}
+.regal-platz { display: flex; flex-direction: column; align-items: center; gap: .3rem; text-align: center; }
+.regal-platz.leer { justify-content: center; min-height: 7.5rem; border: 2px dashed var(--papier-schatten); border-radius: .6rem; color: var(--muted); font-size: .85rem; }
+.glas-text { margin: 0; font-size: .8rem; color: var(--muted); }
+.row.klein { gap: .25rem; justify-content: center; }
+.row.klein button { padding: .15rem .5rem; font-size: .8rem; }
+.markt { display: grid; grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); gap: .9rem; }
+.gewuerz-ware { align-items: center; text-align: center; }
+.seltenheit { font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; color: var(--etikett); font-weight: 700; }
+.wuerfeln { margin-top: .9rem; }
+.kassenbuch { width: 100%; border-collapse: collapse; font-size: .92rem; }
+.kassenbuch th, .kassenbuch td { padding: .3rem .4rem; border-bottom: 1px dotted var(--papier-schatten); text-align: left; }
+.kassenbuch .amount { text-align: right; font-variant-numeric: tabular-nums; }
+.kassenbuch .plus { color: var(--moos-dunkel); }
+.kassenbuch .minus { color: var(--terrakotta-dunkel); }
+details > summary { cursor: pointer; list-style: none; }
+details > summary h2 { display: inline; }
+details > summary::before { content: "▸ "; color: var(--muted); }
+details[open] > summary::before { content: "▾ "; }
+.kassensturz-hinweis { margin: .8rem 0; padding: .7rem .9rem; border-radius: var(--radius); background: rgba(217, 164, 65, .15); }
+
+/* ---------- the Kassensturz show ---------- */
+.kassensturz-show { position: relative; }
+.ks-kopf { display: flex; align-items: baseline; gap: 1rem; }
+.ks-regal { display: flex; flex-wrap: wrap; gap: .8rem; align-items: flex-end; padding: .7rem 1rem 1rem; margin-bottom: 1rem;
+  background: linear-gradient(180deg, transparent calc(100% - 12px), var(--eiche) calc(100% - 12px), var(--eiche-dunkel)); }
+.ks-tisch {
+  display: grid; grid-template-columns: minmax(14rem, 17rem) 1fr; gap: 1.2rem; align-items: start;
+  padding: 1.2rem; border-radius: 6px;
+  background: radial-gradient(ellipse at 30% 20%, #5f7d3a, #3f5a26 70%), #4b6a2a; /* green felt */
+  box-shadow: inset 0 0 0 6px var(--eiche), inset 0 0 0 8px var(--eiche-dunkel), 0 10px 24px rgba(40, 20, 5, .3);
+}
+.ks-rechnung { display: grid; grid-template-columns: 1fr auto 1fr; gap: .5rem; align-items: center; position: relative; }
+.ks-box { position: relative; padding: .5rem .4rem .6rem; border-radius: 6px; text-align: center; color: #fff; box-shadow: 0 3px 0 rgba(0, 0, 0, .25); }
+.ks-box.koerner { background: var(--tinte-hell); }
+.ks-box.wuerze { background: var(--terrakotta); }
+.ks-box strong { display: block; font-family: var(--schrift); font-size: 2rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.ks-label { font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; opacity: .9; }
+.ks-mal { color: var(--creme); font-size: 1.6rem; font-weight: 700; }
+.ks-ergebnis {
+  grid-column: 1 / -1; position: relative; padding: .7rem; border-radius: 6px; text-align: center;
+  background: var(--papierkarte); box-shadow: 0 3px 0 rgba(0, 0, 0, .25);
+}
+.ks-ergebnis .ks-label { color: var(--muted); }
+.ks-ergebnis strong { display: block; font-family: var(--schrift); font-size: 2.6rem; color: var(--eiche-tief); line-height: 1.1; font-variant-numeric: tabular-nums; }
+.ks-ergebnis .stempel-gebucht { position: absolute; right: .4rem; top: .3rem; color: var(--wachs); animation: none; }
+.ks-ergebnis .stempel-gebucht.drauf { animation: stempel-drauf .35s cubic-bezier(.2, 1.6, .4, 1) both; }
+.laeuft .ks-ergebnis .stempel-gebucht:not(.drauf) { visibility: hidden; }
+.ks-fritte { grid-column: 1 / -1; display: flex; justify-content: center; }
+.ks-fritte img, .ks-fritte svg { height: 7.5rem; width: auto; }
+.ks-karten { display: flex; flex-wrap: wrap; gap: .6rem; align-content: flex-start; }
+.ks-karten .spielkarte.verdeckt { opacity: .35; transform: translateY(6px) scale(.97); }
+.ks-karten .spielkarte.aktiv { transform: translateY(-10px) rotate(-1.5deg); box-shadow: 0 1px 0 var(--papier-schatten), 0 14px 22px rgba(0, 0, 0, .3); }
+.ks-aktionen { margin-top: 1rem; }
+.ks-plus {
+  position: absolute; left: 50%; top: 30%; z-index: 5; pointer-events: none; white-space: nowrap;
+  transform: translateX(-50%); padding: .1rem .5rem; border-radius: 999px;
+  font-family: var(--schrift); font-weight: 800; font-size: 1.15rem; color: #fff; background: var(--tinte-hell);
+  animation: aufsteigen 1s ease-out forwards;
+}
+.ks-plus.gewuerz { background: var(--moos-dunkel); }
+.ks-plus.wuerze { background: var(--terrakotta); top: -10%; }
+.ks-plus.mal { background: var(--wachs); font-size: 1.8rem; top: -30%; }
+@keyframes aufsteigen { 0% { opacity: 0; transform: translate(-50%, 8px) scale(.6); } 20% { opacity: 1; transform: translate(-50%, 0) scale(1.1); } 100% { opacity: 0; transform: translate(-50%, -34px) scale(1); } }
+.pochen { animation: pochen .25s ease-out; }
+@keyframes pochen { 50% { transform: scale(1.12); } }
+.wackeln { animation: wackeln .4s ease-in-out; }
+@keyframes wackeln { 25% { transform: rotate(-9deg) translateY(-4px); } 75% { transform: rotate(7deg) translateY(-2px); } }
+.gross-werden { animation: pochen .5s ease-out; }
+.beben { animation: beben .35s linear; }
+@keyframes beben { 20% { transform: translate(-4px, 2px); } 40% { transform: translate(4px, -2px); } 60% { transform: translate(-3px, -1px); } 80% { transform: translate(2px, 1px); } }
+.jubeln { animation: hopsen .5s ease-in-out 2; }
+.funkeln { animation: funkel-rand 1.2s ease-out; }
+@keyframes funkel-rand { 0% { box-shadow: inset 0 0 0 6px var(--eiche), inset 0 0 0 8px var(--eiche-dunkel), 0 0 0 0 rgba(233, 189, 79, .9); }
+  100% { box-shadow: inset 0 0 0 6px var(--eiche), inset 0 0 0 8px var(--eiche-dunkel), 0 0 0 26px rgba(233, 189, 79, 0); } }
+/* Ruhig: no shaking, no wiggling jars; numbers still count. */
+[data-effekte="ruhig"] .beben, [data-effekte="ruhig"] .wackeln { animation: none; }
+@media (max-width: 760px) { .ks-tisch { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) {
+  .kassensturz-show *, .kassensturz-show { animation: none !important; transition: none !important; }
+}
+.ks-aktionen [hidden] { display: none !important; }

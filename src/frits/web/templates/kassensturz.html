@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% import "_spiel.html" as spiel %}
+{% block title %}Kassensturz · FRITS{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/haustier.css">{% endblock %}
+{% block content %}
+<section class="kassensturz-show" data-kassensturz>
+  <div class="ks-kopf">
+    <h1>Kassensturz Nr. {{ k.nummer }}</h1>
+    <span class="muted">{{ k.tag | de_date }}</span>
+  </div>
+
+  <div class="ks-regal" aria-label="Gewürzregal">
+    {% for g in k.gewuerze %}{{ spiel.glas(g) }}{% else %}<p class="hint">Kein Gewürz im Regal. Im <a href="/fritte/laden#markt">Laden</a> gibt es welche, die machen aus Körnern viel mehr.</p>{% endfor %}
+  </div>
+
+  <div class="ks-tisch">
+    <div class="ks-rechnung" aria-live="polite">
+      <div class="ks-box koerner"><span class="ks-label">Körner</span><strong data-ks="koerner">{{ k.koerner }}</strong></div>
+      <span class="ks-mal" aria-hidden="true">×</span>
+      <div class="ks-box wuerze"><span class="ks-label">Würze</span><strong data-ks="wuerze">{{ spiel.zahl(k.wuerze) }}</strong></div>
+      <div class="ks-ergebnis">
+        <span class="ks-label">Salzkörner</span>
+        <strong data-ks="summe">{{ k.summe }}</strong>
+        <span class="stempel stempel-gebucht" data-ks="stempel" aria-hidden="true">Gebucht</span>
+      </div>
+      <div class="ks-fritte" aria-hidden="true">{{ mascot("done") }}</div>
+    </div>
+    <div class="ks-karten">
+      {% for karte in k.karten %}{{ spiel.karte(karte, loop.index0, k.pro_karte[loop.index0]) }}{% endfor %}
+    </div>
+  </div>
+
+  <div class="row ks-aktionen">
+    <button type="button" class="quiet" data-ks="nochmal" hidden>Noch einmal ansehen</button>
+    <button type="button" class="quiet" data-ks="weiter" hidden>Überspringen</button>
+    <a class="button primary" href="/fritte/laden">In den Laden ({{ guthaben }} 🧂)</a>
+    <a class="button" href="/fritte">Zu Fritte</a>
+  </div>
+</section>
+<script type="application/json" id="ks-daten">{{ {"schritte": k.schritte, "koerner": k.koerner, "wuerze": k.wuerze, "summe": k.summe, "pro_karte": k.pro_karte} | tojson }}</script>
+<script src="/static/kassensturz.js"></script>
+{% endblock %}
