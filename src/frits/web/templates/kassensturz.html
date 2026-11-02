@@ -38,7 +38,7 @@
   {% endif %}
   {% if k.saison %}
   <div class="ks-ausbau ks-saison" data-ks="saison">
-    <span class="sticker-rund" aria-hidden="true">🏆</span>
+    <span class="sticker-rund" aria-hidden="true">{{ zeichen("pokal", "🏆") }}</span>
     <div><strong>Saisonziel {{ k.saison.name }} geschafft!</strong><br><span>{% if k.saison.wochen %}In {{ k.saison.erreicht or k.saison.ziel }} Wochen dieser Saison hast du Papierkram gemacht.{% else %}{{ k.saison.erreicht or k.saison.ziel }} von {{ k.saison.ziel }} Salzkörnern in dieser Saison.{% endif %} Dafür gibt es {{ k.saison.bonus }} Salzkörner extra und einen Pokal für Frittes Zimmer.</span></div>
   </div>
   {% endif %}
@@ -59,7 +59,7 @@
       <div class="row truhe-auf-form">
         <form method="post" action="/fritte/truhe/oeffnen">
           <input type="hidden" name="token" value="{{ token }}">
-          <button class="primary">🎁 Truhe öffnen{% if offene_truhen > 1 %} ({{ offene_truhen }} warten){% endif %}</button>
+          <button class="primary">{{ zeichen("truhe", "🎁") }} Truhe öffnen{% if offene_truhen > 1 %} ({{ offene_truhen }} warten){% endif %}</button>
         </form>
         {% if offene_truhen > 1 %}
         <form method="post" action="/fritte/truhe/alle">

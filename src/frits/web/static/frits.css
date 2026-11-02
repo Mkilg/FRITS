@@ -508,7 +508,7 @@ main {
 }
 /* ... and everything on paper keeps dark ink */
 :where(.card, .flash, .speech, .notfall-hinweis, .table-wrap, table, ul.cards, ul.list, .paper, .dropzone, .lesson,
-  .vorschau, .spiel-reiter a, .reiter a, .kapitel-leiste a, .kurs-reiter a, .werkzeug-chip, .halt a, .happen-nr, dialog.rueckfrage-karte, .badge, kbd, code, pre) {
+  .vorschau, .spiel-reiter a, .reiter a, .kapitel-leiste a, .kurs-reiter a, .werkzeug-chip, .kurs-kopf, .halt a, .happen-nr, dialog.rueckfrage-karte, .badge, kbd, code, pre) {
   --ink: var(--ink-papier); --muted: var(--muted-papier); --link: var(--tinte); --kopf: var(--eiche-tief); --line: #e6d7b6;
   color: var(--ink);
 }
@@ -569,7 +569,12 @@ button.feierabend:hover { background: var(--tinte); color: var(--papier); border
 /* Drawn salt and painted small symbols sit in the text like letters */
 .salz-zeichen { vertical-align: -2px; color: var(--eiche-tief); }
 img.zeichen-bild { width: 1.3em; height: 1.3em; object-fit: contain; vertical-align: -0.3em; }
-.halt-zeichen img { width: 28px; height: 28px; object-fit: contain; display: block; }
+.halt-zeichen img { width: 40px; height: 40px; object-fit: contain; display: block; }
+img.salz-bild { width: 1.15em; height: 1.15em; object-fit: contain; vertical-align: -0.22em; }
+.glocke-bild { position: relative; display: inline-block; width: 26px; height: 26px; vertical-align: -7px; }
+.glocke-bild img, .glocke-bild svg { position: absolute; inset: 0; width: 26px; height: 26px; }
+button.klang:not(.an) .glocke-bild img { filter: grayscale(.85) opacity(.55); }
+button.klang.an .glocke-bild img { filter: drop-shadow(0 0 4px rgba(233, 189, 79, .6)); }
 
 /* The question before a step that can't be undone: a card, not the browser's grey box. */
 dialog.rueckfrage-karte { max-width: min(30rem, calc(100vw - 2rem)); border: 1px solid var(--line);
