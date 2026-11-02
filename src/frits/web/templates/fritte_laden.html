@@ -6,7 +6,7 @@
 <div class="spiel-kopf">
   <h1>Frittes Laden</h1>
   {% include "_spiel_reiter.html" %}
-  <p class="salz kopf-salz"><span aria-hidden="true">🧂</span> <strong>{{ f.guthaben }}</strong> Salzkörner</p>
+  <p class="salz kopf-salz">{{ salz }} <strong>{{ f.guthaben }}</strong> Salzkörner</p>
 </div>
 
 <section class="card" id="regal">
@@ -54,14 +54,14 @@
       {% if g.id in im_regal %}
       <span class="badge ok">im Regal</span>
       {% elif regal | length >= plaetze %}
-      <span class="preis">{{ kosten }} 🧂 <span class="hint">· Regal voll</span></span>
+      <span class="preis">{{ kosten }} {{ salz }} <span class="hint">· Regal voll</span></span>
       {% elif f.guthaben >= kosten %}
       <form method="post" action="/fritte/gewuerz/kaufen">
         <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="gewuerz" value="{{ g.id }}">
-        <button class="primary">Kaufen für {{ kosten }} 🧂</button>
+        <button>Kaufen für {{ kosten }} {{ salz }}</button>
       </form>
       {% else %}
-      <span class="preis">{{ kosten }} 🧂 <span class="hint">· noch {{ kosten - f.guthaben }}</span></span>
+      <span class="preis">{{ kosten }} {{ salz }} <span class="hint">· noch {{ kosten - f.guthaben }}</span></span>
       {% endif %}
     </div>
     {% else %}
@@ -70,7 +70,7 @@
   </div>
   <form method="post" action="/fritte/markt/wuerfeln" class="wuerfeln">
     <input type="hidden" name="token" value="{{ token }}">
-    <button {{ "disabled" if f.guthaben < wurf_preis }}>🎲 Neu würfeln für {{ wurf_preis }} 🧂</button>
+    <button {{ "disabled" if f.guthaben < wurf_preis }}>{{ zeichen("wuerfel", "🎲") }} Neu würfeln für {{ wurf_preis }} {{ salz }}</button>
   </form>
 </section>
 
@@ -88,10 +88,10 @@
       {% elif f.guthaben >= d.preis %}
       <form method="post" action="/fritte/kaufen">
         <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="ding" value="{{ d.id }}">
-        <button class="primary">Kaufen für {{ d.preis }} 🧂</button>
+        <button>Kaufen für {{ d.preis }} {{ salz }}</button>
       </form>
       {% else %}
-      <span class="preis">{{ d.preis }} 🧂 <span class="hint">· noch {{ d.preis - f.guthaben }}</span></span>
+      <span class="preis">{{ d.preis }} {{ salz }} <span class="hint">· noch {{ d.preis - f.guthaben }}</span></span>
       {% endif %}
     </div>
     {% endfor %}

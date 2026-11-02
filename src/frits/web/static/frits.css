@@ -547,7 +547,18 @@ nav.tabs { display: none; }
   body:has(nav.tabs) .bottom { margin-bottom: 0.5rem; }
 }
 
-.glocke { vertical-align: -3px; }
+/* Sound bell: ink, filled ochre when sound is on, struck through when off */
+.glocke { vertical-align: -6px; }
+button.klang { color: var(--tinte); padding-left: 0.6rem; padding-right: 0.6rem; }
+button.klang .glocke-koerper { fill: transparent; }
+button.klang.an .glocke-koerper { fill: var(--ocker); }
+button.klang:not(.an) { color: var(--muted); }
+/* Feierabend: an inviting way out, but not the loudest thing on every page */
+button.feierabend { background: transparent; color: var(--tinte); border: 1.5px solid var(--tinte); font-weight: 600; }
+button.feierabend:hover { background: var(--tinte); color: var(--papier); border-color: var(--tinte); }
+/* Drawn salt and painted small symbols sit in the text like letters */
+.salz-zeichen { vertical-align: -2px; color: var(--eiche-tief); }
+img.zeichen-bild { width: 1.3em; height: 1.3em; object-fit: contain; vertical-align: -0.3em; }
 .halt-zeichen img { width: 28px; height: 28px; object-fit: contain; display: block; }
 
 /* The question before a step that can't be undone: a card, not the browser's grey box. */
@@ -557,3 +568,4 @@ dialog.rueckfrage-karte { max-width: min(30rem, calc(100vw - 2rem)); border: 1px
 dialog.rueckfrage-karte::backdrop { background: rgba(40, 28, 10, 0.35); }
 dialog.rueckfrage-karte p { margin: 0 0 1rem; }
 dialog.rueckfrage-karte .row { gap: 0.6rem; justify-content: flex-end; flex-wrap: wrap; }
+main .kopf-salz .salz-zeichen { color: var(--papier-schatten); }
