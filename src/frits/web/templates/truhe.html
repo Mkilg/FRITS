@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Truhe · FRITS{% endblock %}
 {% block head %}<link rel="stylesheet" href="/static/haustier.css">{% endblock %}
+{% import "_spiel.html" as spiel %}
 {% set klasse = fund.seltenheit | replace('ö', 'oe') | replace('ä', 'ae') %}
 {% set seltenheit_name = {"gewöhnlich": "Gewöhnlich", "selten": "Selten", "legendär": "Legendär"}[fund.seltenheit] %}
 {% block content %}
@@ -29,7 +30,7 @@
   {% if mit %}
   <div class="truhe-mehr">
     <span class="hint">Außerdem in {{ "der anderen Truhe" if mit | length == 1 else "den anderen " ~ mit | length ~ " Truhen" }}:</span>
-    {% for x in mit %}<a class="fund-chip selten-{{ x.inhalt.seltenheit | replace('ö', 'oe') | replace('ä', 'ae') }}" href="/fritte/truhe/{{ x.id }}" title="{{ x.inhalt.seltenheit }}: {{ x.inhalt.text }}"><span aria-hidden="true">{{ x.inhalt.zeichen }}</span> {{ x.inhalt.name }}</a>{% endfor %}
+    {% for x in mit %}<a class="fund-chip selten-{{ x.inhalt.seltenheit | replace('ö', 'oe') | replace('ä', 'ae') }}" href="/fritte/truhe/{{ x.id }}" title="{{ x.inhalt.seltenheit }}: {{ x.inhalt.text }}"><span aria-hidden="true">{{ spiel.bild_zeichen(x.inhalt.art, x.inhalt.id, x.inhalt.zeichen) }}</span> {{ x.inhalt.name }}</a>{% endfor %}
   </div>
   {% endif %}
   <div class="row truhe-aktionen">

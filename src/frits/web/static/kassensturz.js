@@ -23,6 +23,14 @@
   function glas(id) { return root.querySelector('.ks-regal [data-gewuerz="' + id + '"]'); }
   function chip(i) { return karten[i] && karten[i].querySelector(".karte-koerner"); }
   function later(fn, ms) { timers.push(setTimeout(fn, ms)); }
+  // Into view when its lower edge hides below the window or under the sticky buttons and the
+  // tab bar (that room is the node's scroll-margin-bottom).
+  function insBild(node) {
+    var rand = parseFloat(getComputedStyle(node).scrollMarginBottom) || 0;
+    if (node.getBoundingClientRect().bottom > window.innerHeight - rand) {
+      node.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
+    }
+  }
   function stopAll() { timers.forEach(clearTimeout); timers = []; }
 
   // ---------- sound: a short wooden "tock" that climbs with every step ----------
@@ -104,9 +112,7 @@
     if (banner && !gezeigt) {
       gezeigt = true;
       var zeigen = function () {
-        if (banner.getBoundingClientRect().bottom > window.innerHeight) {
-          banner.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
-        }
+        insBild(banner);
       };
       if (gestempelt === true) later(zeigen, 1600); else zeigen();
     }
@@ -116,6 +122,9 @@
     later(function () {
       karten.forEach(function (k) { k.classList.remove("aktiv"); });
       bump(summeEl.parentNode, "gross-werden");
+      // The sum below the fold (a tall shelf on the phone): bring it up before the stamp lands,
+      // so the stamp is seen (Lena R43: it landed under the button bar, the page never moved).
+      insBild(summeEl.parentNode);
       countUp(summeEl, data.summe, playful ? 900 : 600, function () {
         stempel.classList.add("drauf");
         if (window.Frits && window.Frits.stampSound && soundOn()) window.Frits.stampSound();

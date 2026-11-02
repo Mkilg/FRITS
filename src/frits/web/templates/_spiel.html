@@ -26,11 +26,18 @@
 </div>
 {% endmacro %}
 
+{# A painted picture for a thing or a spice, the preserving jar for a dish without its own
+   picture (Lena R43: emoji next to painted pepper), else the emoji. #}
+{% macro bild_zeichen(art, id, emoji) -%}
+{%- set url = picture('ding-' ~ id) if art == 'ding' else ((picture('gewuerz-' ~ id) or picture('symbol-einkochen')) if art == 'gewuerz' else '') -%}
+{%- if url %}<img class="zeichen-bild" src="{{ url }}" alt="">{% else %}{{ emoji }}{% endif -%}
+{%- endmacro %}
+
 {% macro glas(g, klein=False) %}
 <div class="gewuerzglas selten-{{ g.seltenheit | replace('ö', 'oe') | replace('ä', 'ae') }}{{ ' klein' if klein }}" data-gewuerz="{{ g.id }}" title="{{ g.name }}: {{ g.text }}">
   <span class="glas-deckel" aria-hidden="true"></span>
   <span class="glas-koerper">
-    <span class="glas-zeichen" aria-hidden="true">{% if picture('gewuerz-' ~ g.id) %}<img src="{{ picture('gewuerz-' ~ g.id) }}" alt="">{% else %}{{ g.zeichen }}{% endif %}</span>
+    <span class="glas-zeichen" aria-hidden="true">{{ bild_zeichen('gewuerz', g.id, g.zeichen) }}</span>
     <span class="glas-etikett">{{ g.name }}</span>
   </span>
 </div>
