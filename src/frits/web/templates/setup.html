@@ -112,7 +112,7 @@
   <p class="hint">Keine Sorge: Auch deine eigenen Angaben bekommt die KI nie zu sehen. Dein Name, deine Adresse und deine IBAN werden vor jeder Anfrage auf diesem Computer geschwärzt, genau wie die deiner Kunden.</p>
 
   {% elif step == "tax_status" %}
-  <label class="choice big"><input type="radio" name="tax_mode" value="kleinunternehmer" {{ "checked" if settings.tax_mode == "kleinunternehmer" }}> <strong>Kleinunternehmer</strong> (§ 19 UStG)<br><span class="muted">Keine Umsatzsteuer auf der Rechnung. Typisch, wenn du weniger als 25.000 € im Jahr umsetzt.</span></label>
+  <label class="choice big"><input type="radio" name="tax_mode" value="kleinunternehmer" {{ "checked" if settings.tax_mode == "kleinunternehmer" }}> <span><strong>Kleinunternehmer</strong> (§&nbsp;19&nbsp;UStG)</span><br><span class="muted">Keine Umsatzsteuer auf der Rechnung. Typisch, wenn du weniger als 25.000 € im Jahr umsetzt.</span></label>
   <label class="choice big"><input type="radio" name="tax_mode" value="regelbesteuerung" {{ "checked" if settings.tax_mode == "regelbesteuerung" }}> <strong>Mit Umsatzsteuer</strong><br><span class="muted">FRITS rechnet 19 % auf und weist sie aus.</span></label>
   <label class="field">Steuernummer <input name="steuernummer" value="{{ settings.steuernummer }}"></label>
   <label class="field">USt-IdNr (falls du eine hast) <input name="ust_id" value="{{ settings.ust_id }}" placeholder="z. B. DE123456789"></label>
