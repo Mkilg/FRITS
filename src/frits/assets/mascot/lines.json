@@ -60,6 +60,7 @@
     "overdue_calm": {"mood": "warning", "text": "Eine Rechnung ist noch offen. Soll ich eine freundliche Erinnerung vorbereiten?"},
     "error_calm": {"mood": "warning", "text": "Das hat nicht geklappt. Deine Daten sind sicher, nichts ist verloren. Versuch es gleich noch einmal."},
     "welcome_back": {"mood": "welcome", "text": "Schön, dass du da bist. Hier ist, was seit letztem Mal passiert ist."},
+    "first_visit": {"mood": "welcome", "text": "Schön, dass du da bist! Hier siehst du jeden Tag, was als Nächstes dran ist."},
     "feierabend": {"mood": "feierabend", "text": "Alles notiert, nichts geht verloren. Feierabend! Bis zum nächsten Büro-Block."}
   }
 }

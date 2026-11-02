@@ -213,3 +213,8 @@ def test_a_quest_bundle_counts_its_whole_day_even_past_the_page_limit(tmp_path):
     zeilen = stand.kassenbuch(conn, limit=2)  # the first window only sees 6 rows
     assert [z["text"] for z in zeilen] == ["Kassensturz Nr. 1", "Steuer-Quest 2026: 12 Buchungen"]
     assert zeilen[1]["betrag"] == 24 and len(zeilen[1]["teile"]) == 12
+
+
+def test_the_first_visit_does_not_speak_of_last_time(client):
+    page = client.get("/").text
+    assert "seit letztem Mal" not in page and "was als Nächstes dran ist" in page

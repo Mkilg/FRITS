@@ -118,6 +118,10 @@ FALLBACK_LINES = {
         "welcome",
         "Schön, dass du da bist. Hier ist, was seit letztem Mal passiert ist.",
     ),
+    "first_visit": (
+        "welcome",
+        "Schön, dass du da bist! Hier siehst du jeden Tag, was als Nächstes dran ist.",
+    ),
     "error_calm": (
         "warning",
         "Das hat nicht geklappt. Deine Daten sind sicher, nichts ist verloren.",
@@ -575,7 +579,9 @@ def create_app(
                     f"Deine {len(drafts)} Entwürfe sind fertig. Schau sie dir an, wenn es dir passt.",
                 )
         else:
-            moment = mascot_line("welcome_back")
+            # Nothing written or filed yet: no "seit letztem Mal" on the very first visit (Lena)
+            fresh = not invoices and not receipts and not waiting
+            moment = mascot_line("first_visit" if fresh else "welcome_back")
         naechstes = _naechstes(current, check_me, waiting, drafts, overdue, receipts)
         quest_auftrag = None
         if not naechstes:
