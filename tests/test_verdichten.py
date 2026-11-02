@@ -28,7 +28,7 @@ def quest_stueck(conn, status, tag):
     )
 
 
-def test_one_daily_goal_counts_paperwork_list_and_quest(conn):
+def test_one_daily_goal_counts_paperwork_and_quest_not_ticks(conn):
     z = tagesziel.zaehlen(conn, TODAY)
     assert (z["erledigt"], z["ziel"], z["geschafft"]) == (0, 3, False)
     assert z["text"] == "Tagesziel: 0 von 3 geschafft"
@@ -40,12 +40,13 @@ def test_one_daily_goal_counts_paperwork_list_and_quest(conn):
     aufgaben.hinzufuegen(conn, ["Mama anrufen"], TODAY)
     pid = conn.execute("SELECT id FROM aufgaben").fetchone()[0]
     aufgaben.abhaken(conn, pid, TODAY, spiel=True)
-    assert tagesziel.zaehlen(conn, TODAY)["erledigt"] == 2
+    assert tagesziel.zaehlen(conn, TODAY)["erledigt"] == 1  # like chests: a tick is no paperwork
 
     quest_stueck(conn, "gibts_nicht", TODAY)  # stamping away is no progress
     quest_stueck(conn, "gesammelt", TODAY - timedelta(days=1))  # yesterday
-    assert tagesziel.zaehlen(conn, TODAY)["erledigt"] == 2
+    assert tagesziel.zaehlen(conn, TODAY)["erledigt"] == 1
     quest_stueck(conn, "fragen", TODAY)
+    quest_stueck(conn, "gesammelt", TODAY)
     z = tagesziel.zaehlen(conn, TODAY)
     assert (z["erledigt"], z["geschafft"], z["text"]) == (3, True, "Tagesziel geschafft")
 
