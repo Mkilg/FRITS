@@ -59,6 +59,19 @@ FRITS also runs completely inside a browser tab: https://mkilg.github.io/FRITS/ 
 is switched on). There is no FRITS server; your data stays in that browser on that device, so
 download a backup now and then (button at the bottom). How it works: [browser/README.md](browser/README.md).
 
+## Mini-Paket „Erst schwärzen, dann fragen“
+
+Ein kleines Paket zum Weitergeben, ohne FRITS: ein Kurs mit Fritte in sechs Etappen, die
+Schwärz-Werkbank (Text rein, geschwärzt raus, Namen zurück) und die Prompts zum Kopieren. Es sind
+nur ein paar HTML-Dateien: Doppelklick auf `index.html` genügt, vom USB-Stick oder auf einer
+Webseite, ohne Internet. Die Seiten dürfen technisch keine Verbindung ins Netz aufbauen.
+
+- Online: https://mkilg.github.io/FRITS/mini/
+- Als ZIP: https://mkilg.github.io/FRITS/mini/erst-schwaerzen-dann-fragen.zip
+- Quelle: [minipaket/](minipaket/), gepflegt mit `uv run python tools/minipaket.py` (holt die
+  Prompts aus dem Kurs in FRITS und die Bilder aus `static/bilder`; `--zip X.zip` baut das Paket).
+  Tests: `node --test minipaket/tests/*.test.cjs` und `node minipaket/tests/e2e.cjs`.
+
 ## The Mac app (no installing)
 
 A ready-to-run `FRITS.app` (no installing, works offline, also from a USB stick) is built automatically. See [packaging/macos](packaging/macos/README.md).

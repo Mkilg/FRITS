@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="connect-src 'none'; form-action 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'">
+<meta name="referrer" content="no-referrer">
+<title>Werkbank · Erst schwärzen, dann fragen</title>
+<link rel="icon" href="bilder/app-icon.webp">
+<link rel="stylesheet" href="mini.css">
+</head>
+<body>
+<header class="kopf">
+  <a class="marke" href="index.html"><img src="bilder/app-icon.webp" alt="">Erst schwärzen, dann fragen</a>
+  <nav aria-label="Bereiche">
+    <a href="index.html">Start</a>
+    <a href="kurs.html">Kurs</a>
+    <a href="werkbank.html" aria-current="page">Werkbank</a>
+    <a href="prompts.html">Prompts</a>
+  </nav>
+</header>
+
+<main data-werkbank>
+  <div class="fritte-sagt">
+    <img class="fritte" src="bilder/fritte-nachdenken.webp" alt="Fritte mit einem Bleistift">
+    <div class="blase">
+      <h1>Die Werkbank</h1>
+      <p class="speech">Füg einen Text ein oder zieh eine Textdatei hierher. Ich schwärze sofort, ganz ohne KI und ohne Internet.</p>
+    </div>
+  </div>
+
+  <noscript><div class="lesson warn">Die Werkbank braucht JavaScript. Es läuft nur hier in deinem Browser.</div></noscript>
+
+  <section class="card schritt">
+    <h2><span class="schritt-nr">1</span>Text rein</h2>
+    <label class="feld" for="text">Dein Text <span class="muted">(Brief, E-Mail, Notiz …)</span></label>
+    <textarea id="text" rows="8" placeholder="Hier einfügen, zum Beispiel mit ⌘V" data-text spellcheck="false"></textarea>
+    <label class="ablage" data-ablage>📄 Textdatei hierher ziehen oder <u>auswählen</u> (.txt, .md, .eml, .csv, .html)
+      <input type="file" accept=".txt,.md,.eml,.csv,.tsv,.json,.html,.htm,.xml,text/*" data-datei>
+    </label>
+    <p class="hint" data-datei-meldung aria-live="polite"></p>
+    <div class="row">
+      <button type="button" class="tiny" data-beispiel>Beispiel laden</button>
+      <button type="button" class="tiny quiet" data-leeren>Alles leeren</button>
+    </div>
+    <label class="feld" for="woerter">Was auch weg soll <span class="muted">(ein Wort pro Zeile, zum Beispiel ein Firmenname)</span></label>
+    <textarea id="woerter" class="klein" rows="2" data-woerter spellcheck="false" placeholder="Malerbetrieb Huber"></textarea>
+  </section>
+
+  <section class="card schritt">
+    <h2><span class="schritt-nr">2</span>Drüberschauen</h2>
+    <p class="zaehler" data-zaehler aria-live="polite"></p>
+    <div class="legende"><span><button type="button" class="balken" tabindex="-1">[PERSON_1]</button> geschwärzt, tippen zum Aufdecken</span><span><span class="w">Wort</span> tippen zum Schwärzen</span></div>
+    <div class="ergebnis-text" data-ergebnis aria-label="Geschwärzter Text"></div>
+    <div data-hinweise></div>
+    <details>
+      <summary>Welcher Platzhalter steht für wen? <span class="nur-hier">Nur hier sichtbar, geht nicht mit raus.</span></summary>
+      <table class="zuordnung"><thead><tr><th>Platzhalter</th><th>Original</th><th>Art</th></tr></thead><tbody data-zuordnung></tbody></table>
+    </details>
+  </section>
+
+  <section class="card schritt">
+    <h2><span class="schritt-nr">3</span>Ab zur KI</h2>
+    <label class="feld" for="aufgabe">Was soll die KI tun? <span class="muted">(kannst du auch später im Chat schreiben)</span></label>
+    <input type="text" id="aufgabe" data-aufgabe placeholder="Zum Beispiel: Schreib eine freundliche Antwort auf diesen Brief.">
+    <figure class="kopierbox">
+      <figcaption><strong>Dein fertiger Prompt</strong>
+        <span class="row"><button type="button" class="tiny primary" data-kopieren="#prompt">Prompt kopieren</button><button type="button" class="tiny" data-kopieren="#nur-text">Nur den Text</button></span></figcaption>
+      <p class="hint">Den kopierst du in einen Chat. Er enthält nur Geschwärztes und bittet die KI, die Platzhalter stehen zu lassen.</p>
+      <pre id="prompt" tabindex="0" data-prompt></pre>
+      <pre id="nur-text" hidden data-nur-text></pre>
+    </figure>
+  </section>
+
+  <section class="card schritt">
+    <h2><span class="schritt-nr">4</span>Namen zurück</h2>
+    <label class="feld" for="antwort">Die Antwort der KI</label>
+    <textarea id="antwort" rows="6" data-antwort spellcheck="false" placeholder="Hier die Antwort mit [PERSON_1] und Co. einfügen"></textarea>
+    <figure class="kopierbox">
+      <figcaption><strong>Mit echten Namen</strong><button type="button" class="tiny primary" data-kopieren="#zurueck">Kopieren</button></figcaption>
+      <p class="hint">Lies sie einmal durch, bevor du sie benutzt. Die KI kann sich irren.</p>
+      <pre id="zurueck" tabindex="0" data-zurueck></pre>
+    </figure>
+  </section>
+
+  <div class="lesson">
+    <p><strong>Was die Werkbank findet:</strong> E-Mail, Telefon, IBAN und BIC, Straßen und Postleitzahlen, Steuer-ID, Steuernummer, USt-IdNr., Sozialversicherungs- und Geburtsdaten, Kunden-, Vertrags- und Aktenzeichen, Namen nach „Herr“, „Frau“, „Hallo“ oder unter einem Gruß, und viele Vornamen.</p>
+    <p><strong>Was sie nicht sicher findet:</strong> seltene Namen ohne Anrede, Firmennamen, Gesundheitsangaben, Fotos und PDFs. Darum: drüberschauen und antippen.</p>
+    <p class="nur-hier">Nichts davon wird gespeichert. Schließt du die Seite, ist alles weg, auch die Liste der Platzhalter.</p>
+  </div>
+</main>
+
+<footer class="fuss">
+  <p class="schloss-zeile">🔒 Diese Seiten laufen ganz in deinem Browser und schicken nichts weg.</p>
+  <p>Ein kostenloses, privates Projekt von Marie Kilg, aus <a href="https://github.com/Mkilg/FRITS" rel="noopener">FRITS</a>. Keine Rechts- oder Steuerberatung.</p>
+</footer>
+<script src="schwaerzen.js"></script>
+<script src="mini.js"></script>
+<script src="werkbank.js"></script>
+</body>
+</html>

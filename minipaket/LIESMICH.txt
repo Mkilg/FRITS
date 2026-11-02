@@ -1,0 +1,41 @@
+ERST SCHWÄRZEN, DANN FRAGEN
+Ein Mini-Kurs mit Fritte: sensible Unterlagen sicher mit KI bearbeiten
+=====================================================================
+
+So startest du es
+-----------------
+Doppelklick auf  index.html . Es öffnet sich in deinem Browser.
+Mehr braucht es nicht: keine Installation, kein Konto, kein Internet.
+
+Was drin ist
+------------
+  index.html     Start
+  kurs.html      Der Mini-Kurs: sechs kleine Etappen zum Antippen (etwa 20 Minuten)
+  werkbank.html  Die Schwärz-Werkbank: Text rein, geschwärzt raus, Namen wieder zurück
+  prompts.html   Die Prompts zum Kopieren
+  Prompts/       Dieselben Prompts als Textdateien
+  bilder/        Fritte und die Bilder für den Kurs
+
+Dein Datenschutz
+----------------
+Alles läuft nur in deinem Browser. Die Seiten laden nichts nach und
+schicken nichts weg; das ist auch technisch gesperrt (eine Regel im Kopf
+jeder Seite verbietet Verbindungen ins Internet).
+Die Werkbank speichert keine Texte. Schließt du sie, ist alles weg.
+Der Kurs merkt sich nur, welche Etappen du schon gesehen hast, und das
+nur in deinem Browser.
+
+Weitergeben
+-----------
+Du darfst das Paket frei kopieren und weitergeben, zum Beispiel auf einem
+USB-Stick oder auf deiner Webseite (MIT-Lizenz, siehe LIZENZ.txt).
+Auf einer Webseite reicht es, den ganzen Ordner hochzuladen.
+
+Wichtig
+-------
+Die Werkbank findet viel, aber nicht alles. Schau immer selbst drüber.
+Das hier ist keine Rechts- oder Steuerberatung und kommt ohne Gewähr.
+
+Ein kostenloses, privates Projekt von Marie Kilg.
+Es stammt aus FRITS, einem Rechnungsprogramm mit einer Pommes als
+Maskottchen: https://github.com/Mkilg/FRITS
