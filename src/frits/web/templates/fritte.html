@@ -101,7 +101,7 @@
     </div>
     <div class="truhen-text">
       {% if truhen_zu %}
-      <p><strong>{{ "Eine Truhe wartet" if truhen_zu | length == 1 else truhen_zu | length ~ " Truhen warten" }}.</strong> {% set t = truhen_zu[0].text %}{% if truhen_zu | length > 1 %}{% for z in truhen_zu[:3] %}{{ z.text }}{{ "" if z.text[-1:] in [".", "!", "?"] else "." }} {% endfor %}{% if truhen_zu | length > 3 %}Und {{ truhen_zu | length - 3 }} mehr.{% endif %}{% else %}{{ t }}{{ "" if t[-1:] in [".", "!", "?"] else "." }}{% endif %}</p>
+      <p><strong>{{ "Eine Truhe wartet" if truhen_zu | length == 1 else truhen_zu | length ~ " Truhen warten" }}.</strong> {% for satz in truhen_text[0] %}{{ satz }} {% endfor %}{% if truhen_text[1] %}Und {{ truhen_text[1] }} mehr.{% endif %}</p>
       <div class="row truhe-knoepfe">
         <form method="post" action="/fritte/truhe/oeffnen">
           <input type="hidden" name="token" value="{{ token }}">

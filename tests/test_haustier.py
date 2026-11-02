@@ -993,3 +993,37 @@ def test_a_deleted_expense_is_not_counted_as_waiting(conn):
     assert haustier.ansehen(conn, TODAY).wartend == 2
     conn.execute("UPDATE expenses SET struck = '2026-11-02T10:00:00' WHERE id = ?", (eid,))
     assert haustier.ansehen(conn, TODAY).wartend == 1
+
+
+def test_painted_rooms_give_wall_things_their_own_place(client, ws):  # noqa: F811
+    """From stage 3 Marie's painting has its own tool wall and framed picture: the bought
+    picture covers the painted frame instead of hanging over the tools."""
+    from frits.haustier import DINGE, GEMALT_PLATZ
+
+    bild, tasse = DINGE["bild"], DINGE["teetasse"]
+    assert bild.platz() == (bild.x, bild.y, bild.groesse)
+    assert bild.platz(3) == (39.6, 65, 2.6) and tasse.platz(3) == tasse.platz()
+    assert all(i in DINGE and DINGE[i].art == "zimmer" for p in GEMALT_PLATZ.values() for i in p)
+
+    conn = store.connect(ws.db)
+    client.get("/")
+    stand.nimm(conn, "bild", "ding", TODAY.isoformat(), 25)
+    stand.setze(conn, "ausbau", "3")
+    conn.commit()
+    page = client.get("/fritte").text
+    assert "left: 39.6%; bottom: 65%" in page and f"left: {bild.x}%" not in page
+
+
+def test_the_card_note_counts_only_cards_that_really_wait(client, ws):  # noqa: F811
+    """Lena: a waiting card whose paperwork is gone made the note say 11 instead of 10."""
+    conn = store.connect(ws.db)
+    add_invoice(conn, "2026-0001", TODAY - timedelta(days=30))
+    client.get("/")
+    post(client, "/fritte/kassensturz")
+    conn.execute(
+        "INSERT INTO spiel_karten (schluessel, art, gesehen) VALUES ('steuer:999', 'steuer', ?)",
+        (TODAY.isoformat(),),
+    )
+    add_invoice(conn, "2026-0002", TODAY, came=TODAY)
+    note = client.get("/invoices").text
+    assert "Fritte hat eine neue Karte für den Kassensturz: 1 wartet" in note

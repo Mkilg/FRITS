@@ -102,6 +102,21 @@ def haus_sichtbar(conn) -> bool:
     )
 
 
+def truhen_saetze(zu: list, hoechstens: int = 3) -> tuple[list[str], int]:
+    """One sentence per kind of waiting chest, a kind that waits more than once with its
+    number (Lena: not "Glückskarte: Steuer-Unterlage." three times). Also how many chests
+    are left unnamed, for "Und N mehr."."""
+    gruppen: dict[str, int] = {}
+    for t in zu:
+        gruppen[t.text] = gruppen.get(t.text, 0) + 1
+    saetze, genannt = [], 0
+    for text, n in list(gruppen.items())[:hoechstens]:
+        satz = f"{text.rstrip('.!?')} ({n} Truhen)" if n > 1 else text
+        saetze.append(satz if satz[-1:] in (".", "!", "?") else satz + ".")
+        genannt += n
+    return saetze, len(zu) - genannt
+
+
 def vorwahl(summen: dict[str, int], ohne: int) -> str:
     """Which dish is chosen already (Lena): the one that brings the most today, and only one
     that brings more than no dish (the first on a tie). If none does, Einkochen, which pays
@@ -183,8 +198,14 @@ def register_haustier(
         ruhe = ("/fritte", "/feierabend", "/steuer", "/mailto")
         if n <= vorher or path == "/" or path.startswith(ruhe):
             return []
-        neu = n - vorher
         bereit = kassensturz.vorschau(conn, today(), aufgeraeumt=False)[1]["summe"]
+        # The preview drops cards whose paperwork is gone (or from a tax year that no longer
+        # counts): say how many really wait, like Fritte's own page (Lena).
+        n = stand.wartende(conn)
+        stand.setze(conn, "hinweis_wartend", str(n))
+        neu = n - vorher
+        if neu <= 0:
+            return []
         if bereit <= int(stand.einstellung(conn, "hinweis_bereit", "0") or 0):
             return []  # nothing more to look forward to (a correction, say)
         stand.setze(conn, "hinweis_bereit", str(bereit))
@@ -226,13 +247,15 @@ def register_haustier(
             g.id: kassensturz.vorschau(conn, today(), sauber, g.id)[1]["summe"] for g in gerichte
         }
         gericht_vorwahl = vorwahl(gericht_summe, vorschau["summe"])
+        zu = truhen.geschlossen(conn)
         geschaetzt = {d.id for d in haustier.SCHAETZE if d.id in f.gekauft}
         jetzt = saison.jetzt(conn, today())
         return page(
             request,
             "fritte.html",
             f=f,
-            truhen_zu=truhen.geschlossen(conn),
+            truhen_zu=zu,
+            truhen_text=truhen_saetze(zu),
             # what chests hold today; old saves keep their gold and jars only in the chest
             truhen_auf=[
                 t
