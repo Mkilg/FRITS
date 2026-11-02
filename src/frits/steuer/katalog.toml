@@ -59,7 +59,7 @@ person = true
 anlage = "Anlage S, Anlage EÜR und AVEÜR"
 woerter = ["rechnung", "beleg", "geschäftskonto", "fahrt", "arbeitszimmer", "einnahmen", "ausgaben", "eür", "umsatzsteuer", "freiberuf"]
 stuecke = [
-  { key = "ausgangsrechnungen", kern = true, warum = "Ohne deine Rechnungen kann deine Beraterin die Einnahmen nicht belegen. Schreibst du mit FRITS, kommen sie von selbst.", name = "Ausgangsrechnungen", hinweis = "Rechnungen aus FRITS legt FRITS von selbst hierher. Rechnungen aus Word oder Ähnlichem gibst du mir: Leg sie in den Eingangskorb." },
+  { key = "ausgangsrechnungen", kern = true, warum = "Ohne deine Rechnungen kann deine Beraterin die Einnahmen nicht belegen. Schreibst du mit FRITS, kommen sie von selbst.", name = "Ausgangsrechnungen", hinweis = "Rechnungen aus FRITS legt FRITS von selbst hierher. Rechnungen aus Word oder Ähnlichem gibst du mir hier als Datei." },
   { key = "euer", kern = true, beraterin = true, warum = "Ausrechnen musst du sie nicht: Mit Rechnungen und Ausgaben in FRITS legt FRITS sie von selbst dazu.", name = "EÜR-Übersicht", hinweis = "Einnahmen minus Ausgaben. Mit Rechnungen in FRITS kommt sie von selbst. Sonst tipp auf „Macht meine Beraterin“." },
   { key = "buchungsliste", name = "Buchungsliste", hinweis = "Alle Zahlungen des Jahres als Tabelle, passend zur EÜR. Schreibst du mit FRITS, kommt sie von selbst dazu.", art = "bonus" },
   { key = "verfahrensdoku", name = "Verfahrensdokumentation (GoBD)", hinweis = "Kurz beschrieben: wie deine Belege hereinkommen und wo sie sicher liegen. Schreibst du mit FRITS, kommt sie von selbst dazu.", art = "bonus" },

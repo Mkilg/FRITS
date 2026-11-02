@@ -805,9 +805,12 @@ def register_steuer(
             if quest.hat_notiz(c, jahr, "erfolg", e.name):
                 continue  # den Orden gab es schon einmal
             # Lena (Runde 41): „Erster Fund“ kam auf der Insel 2024 noch einmal
-            einmalig = e.key == "erster-fund" and quest.hat_notiz(c, None, "erfolg", e.name)
+            schon_frueher = quest.hat_notiz(c, None, "erfolg", e.name)
             quest.notiere(c, jahr, "erfolg", e.name)
-            if einmalig:
+            if schon_frueher:
+                # Lena (Runde 44): „Erste Ernte“ kam 2026 als „Neuer Orden“ wieder
+                if e.key != "erster-fund":
+                    flash(f"Orden wieder verdient: {e.name}.", "beute")
                 continue
             z = spiel.zierde_fuer(e.key)
             if z:
@@ -851,10 +854,11 @@ def register_steuer(
             if plus and not ferne and basis * faktor:
                 # Der größte Treffer des Kampfes soll man sehen, auch wenn der Sieg ihn verdrängt
                 # (ein Treffer ohne Gold dämpft die Feier nur, der bleibt weg)
-                flash(
-                    f"Letzter Treffer: {basis} × {faktor} = +{spiel.koerner(basis * faktor)}.",
-                    "sieg",
-                )
+                text = f"Letzter Treffer: {basis} × {faktor} = +{spiel.koerner(basis * faktor)}"
+                if plus > basis * faktor:
+                    # Lena (Runde 44): Die Vorschau nannte das Siegel, der Sieg nur +16 von 20
+                    text += f", dazu das Siegel +{plus - basis * faktor}"
+                flash(text + ".", "sieg")
             if goldjahr and fritte_truhe(c, jahr, silber=bool(nachher["zweifel"])):
                 flash(
                     "Fritte hat eine Truhe für dich bekommen. Sie wartet bei Fritte.",
@@ -2249,6 +2253,12 @@ def register_steuer(
             schatz_salz=schatz_salz(jahr, daten),
             kiste_aenderung=spiel.kiste_aenderung(*daten["kiste"]) if daten["kiste"] else "",
             frisch_gepackt=frisch_gepackt,
+            # Lena (Runde 44): Das Finale zeigte eine offene Kiste
+            kiste_zu=(
+                "/static/bilder/truhe-zu.webp"
+                if (resources.files("frits.web") / "static" / "bilder" / "truhe-zu.webp").is_file()
+                else ""
+            ),
             fritte_warten=fritte_warten,
             **daten,
         )
@@ -2305,10 +2315,12 @@ def register_steuer(
             )
         elif kennwort:
             app.state.steuer_passwort[jahr] = kennwort
-            flash("Die Fundkiste ist gepackt und mit Passwort verschlossen.", "erfolg", "done")
+            if schon:  # beim ersten Mal sagt es das Finale, mit Ton auf dem Siegel
+                flash("Die Fundkiste ist gepackt und mit Passwort verschlossen.", "erfolg", "done")
         else:
             app.state.steuer_passwort.pop(jahr, None)
-            flash("Die Fundkiste ist gepackt, ohne Passwort.", "erfolg", "done")
+            if schon:
+                flash("Die Fundkiste ist gepackt, ohne Passwort.", "erfolg", "done")
         quest.notiere(conn(), jahr, "truhe", ziel.name)
         quest.kiste_gepackt(conn(), jahr)
         if not schon:

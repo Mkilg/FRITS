@@ -59,7 +59,7 @@
       {% if frisch_gepackt and zip_pfad %}
       {# Lena (Runde 41): Das Packen ist das Finale des Jahres, nicht nur ein Formular #}
       <div class="sq-kiste-finale" role="status">
-        <div class="sq-kiste-finale-bild" aria-hidden="true">{% if truhe_bild %}<img src="{{ truhe_bild }}" alt="">{% else %}<span class="sq-truhe"><span class="kasten"></span><span class="deckel"></span></span>{% endif %}<span class="sq-kiste-siegel">{{ jahr }}</span></div>
+        <div class="sq-kiste-finale-bild" aria-hidden="true">{% if kiste_zu %}<img src="{{ kiste_zu }}" alt="">{% elif truhe_bild %}<img src="{{ truhe_bild }}" alt="">{% else %}<span class="sq-truhe"><span class="kasten"></span><span class="deckel"></span></span>{% endif %}<span class="sq-kiste-siegel">{{ jahr }}</span></div>
         <div>
           <p class="sq-kiste-finale-titel">Die Fundkiste {{ jahr }} ist zu!</p>
           <p>Alles, was deine Beraterin braucht, liegt darin{% if mit_passwort %}, sicher hinter einem Passwort{% endif %}. Jetzt nur noch abschicken.</p>

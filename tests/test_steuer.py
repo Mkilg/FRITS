@@ -3440,3 +3440,22 @@ def test_runde_42_erster_fund_kommt_nur_einmal(client, ws):
                  files=[("datei", ("b.pdf", b"%PDF b"))]).text  # fmt: skip
     assert quest.stueck(conn, karte["id"])["status"] == "gesammelt"
     assert "Neuer Orden: Erster Fund" not in seite
+
+
+def test_runde_43_kiste_vergleicht_nach_inhalt(client, ws):
+    """Lena (Runde 44): Zurücklegen und dieselbe Datei wieder ablegen hieß „2 neue und 2
+    herausgenommen“ und verlangte ein neues Passwort."""
+    conn, _bonus = _besiegt_mit_bonus(client, ws)
+    seite = post(client, "/steuer/2025/truhe", schloss="passwort").text
+    assert "sq-kiste-finale" in seite and "truhe-zu" in seite
+    assert "Die Fundkiste ist gepackt und mit Passwort" not in seite  # das sagt das Finale
+    assert quest.kiste_stand(conn, 2025) == (0, 0)
+    erste = spiel.pflicht(quest.stuecke(conn, 2025))[0]
+    d = quest.dateien(conn, 2025, erste["id"])[0]
+    post(client, f"/steuer/2025/datei/{d['id']}/entfernen")
+    assert quest.kiste_stand(conn, 2025) == (0, 1)
+    name = quest.lager_dateien(ws.root)[0].name
+    post(client, "/steuer/2025/lager/zuordnen", name=name, stueck_id=str(erste["id"]),
+         trotzdem="1")  # fmt: skip
+    assert quest.kiste_stand(conn, 2025) == (0, 0)  # gleicher Inhalt: nichts neu zu packen
+    assert "Pack die Fundkiste neu" not in client.get("/steuer/2025/sieg").text
