@@ -23,15 +23,19 @@ OFFEN_ZEIGEN = 3  # empty places shown per shelf; the rest wait behind "Noch N P
 
 
 def _kachel(id_: str, name: str, zeichen: str, text: str, erreicht: bool, **mehr) -> dict:
-    return {"id": id_, "name": name, "zeichen": zeichen, "text": text, "erreicht": erreicht,
-            "seit": "", "jahre": [], "zierde": "", **mehr}  # fmt: skip
+    """`zeit`: when it was earned, "YYYY-MM-DD" or with the time ("...T14:05:09");
+    `seit` is its day, for the page."""
+    k = {"id": id_, "name": name, "zeichen": zeichen, "text": text, "erreicht": erreicht,
+         "zeit": "", "jahre": [], "zierde": "", **mehr}  # fmt: skip
+    k["seit"] = (k["zeit"] or "")[:10]
+    return k
 
 
 def _orden_seit(conn) -> dict[str, str]:
-    """When each Orden (by name) was last noted in the quest's chronicle, as YYYY-MM-DD."""
+    """When each Orden (by name) was last noted in the quest's chronicle."""
     try:
         return {
-            r[0]: (r[1] or "")[:10]
+            r[0]: r[1] or ""
             for r in conn.execute(
                 "SELECT text, MAX(zeit) FROM steuer_chronik WHERE art = 'erfolg' GROUP BY text"
             ).fetchall()
@@ -70,7 +74,8 @@ def _orden(conn) -> list[dict] | None:
         )  # fmt: skip
         if o.get("erreicht"):
             k["erreicht"] = True
-            k["seit"] = seit.get(o["name"], "")
+            k["zeit"] = seit.get(o["name"], "")
+            k["seit"] = k["zeit"][:10]
             if o.get("jahr"):
                 k["jahre"].append(int(o["jahr"]))
     for k in kacheln.values():
@@ -89,7 +94,7 @@ def _schaetze(conn) -> dict:
     """The treasures that only Fritte's chests hold (haustier.SCHAETZE)."""
     spielstand.vorbereiten(conn)
     seit = {
-        r[0]: (r[1] or "")[:10]
+        r[0]: r[1] or ""
         for r in conn.execute("SELECT id, gekauft FROM spiel_besitz WHERE art = 'ding'")
     }
     return {
@@ -100,7 +105,7 @@ def _schaetze(conn) -> dict:
             _kachel(
                 f"schatz:{d.id}", d.name, d.zeichen,
                 d.text if d.id in seit else f"Steckt in {SELTEN_TEXT.get(d.truhe, 'einer')} Truhe.",
-                d.id in seit, seit=seit.get(d.id, ""), bild=f"ding-{d.id}",
+                d.id in seit, zeit=seit.get(d.id, ""), bild=f"ding-{d.id}",
             )
             for d in haustier.SCHAETZE
         ],
@@ -115,7 +120,7 @@ def _alltag(conn, heute: date, doppelt: set[str]) -> dict:
         "kacheln": [
             _kachel(
                 f"sticker:{s['erfolg'].id}", s["erfolg"].name, s["erfolg"].zeichen,
-                s["erfolg"].text, bool(s["seit"]), seit=s["seit"] or "",
+                s["erfolg"].text, bool(s["seit"]), zeit=s["seit"] or "",
             )
             for s in album.seiten(conn, heute)
             if s["erfolg"].id not in doppelt
@@ -123,7 +128,9 @@ def _alltag(conn, heute: date, doppelt: set[str]) -> dict:
     }  # fmt: skip
 
 
-def _saisons(conn) -> dict | None:
+def _saisons(conn, heute: date) -> dict:
+    """Trophies and festivals so far, and this season's trophy and festival still to win,
+    so the shelf is there from the start (Lena could not find it)."""
     pokale = sorted(
         (tuple(p.rsplit(" ", 1)) for p in saison.pokale(conn)),
         key=lambda p: (p[1], saison.REIHE.get(p[0], 9)),
@@ -136,8 +143,17 @@ def _saisons(conn) -> dict | None:
         _kachel(f"fest:{name}", fest, "🎉", f"{name}, {ort[0].lower() + ort[1:]}.", True)
         for name, fest, ort in saison.feste(conn)
     ]
-    if not kacheln:
-        return None
+    s = saison.jetzt(conn, heute)
+    if s.name not in saison.pokale(conn):
+        kacheln.append(_kachel(
+            f"pokal:{s.name}", f"Pokal {s.name}", "🏆",
+            f"{s.ziel} von {s.wochen} Wochen mit Papierkram, bis zum {s.ende:%d.%m.}", False,
+        ))  # fmt: skip
+    if not s.fest and saison.fest_moeglich(conn):
+        kacheln.append(_kachel(
+            f"fest:{s.id}", saison.FESTE[int(s.id[-1])], "🎉",
+            "Einmal in dieser Saison kann Fritte ein Fest geben.", False,
+        ))  # fmt: skip
     return {
         "id": "saisons",
         "titel": "Saisons und Feste",
@@ -165,8 +181,7 @@ def faecher(conn, heute: date, alltag: bool = True) -> list[dict]:
         out.append(_schaetze(conn))
         # The quest's own Orden for the dragon says the same as Fritte's sticker: show it once.
         out.append(_alltag(conn, heute, {"drache"} if orden else set()))
-        if fach := _saisons(conn):
-            out.append(fach)
+        out.append(_saisons(conn, heute))
     for fach in out:
         da = [k for k in fach["kacheln"] if k["erreicht"]]
         offen = [k for k in fach["kacheln"] if not k["erreicht"]]
@@ -178,8 +193,8 @@ def faecher(conn, heute: date, alltag: bool = True) -> list[dict]:
 
 def zuletzt(faecher_: list[dict], n: int = ZULETZT) -> list[dict]:
     """The newest earned tiles over all shelves, for the top of the showcase."""
-    mit_tag = [k for f in faecher_ for k in f["kacheln"] if k["erreicht"] and k["seit"]]
-    return sorted(mit_tag, key=lambda k: k["seit"], reverse=True)[:n]
+    mit_tag = [k for f in faecher_ for k in f["kacheln"] if k["erreicht"] and k["zeit"]]
+    return sorted(mit_tag, key=lambda k: k["zeit"], reverse=True)[:n]
 
 
 def stand(faecher_: list[dict]) -> tuple[int, int]:

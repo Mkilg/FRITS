@@ -143,7 +143,7 @@ def neue(conn, heute: date) -> list[Erfolg]:
     for e in ERFOLGE:
         key = f"erfolg:{e.id}"
         if not stand.einstellung(conn, key) and e.pruefen(fakten):
-            stand.setze(conn, key, heute.isoformat())
+            stand.setze(conn, key, stand.zeitstempel(heute))
             found.append(e)
     return found
 

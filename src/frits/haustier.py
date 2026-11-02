@@ -225,7 +225,7 @@ def salz_aus_quest(conn: sqlite3.Connection, jahr: int, gold: int, text: str,
 
 
 GOLD_PRO_KORN = 2
-SALZ_PRO_SIEG = 60
+SALZ_PRO_SIEG = 30  # Lena: with 60, day one already bought the Stube (150)
 
 
 def salz_fuer_gold(gold: int) -> int:

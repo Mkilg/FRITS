@@ -12,7 +12,7 @@ import re
 import sqlite3
 import tomllib
 from collections import Counter
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
@@ -620,6 +620,12 @@ def bezahlen(conn, tag: str, preis: int, text: str) -> None:
 
 
 # ---------- what Fritte owns ----------
+
+
+def zeitstempel(heute: date) -> str:
+    """The day the game decided on, with the clock's time: "2026-11-02T14:05:09", the same
+    form as the Steuer-Quest's chronicle, so the showcase can tell which came last."""
+    return f"{heute.isoformat()}T{datetime.now():%H:%M:%S}"
 
 
 def besitz(conn, art: str) -> list[str]:

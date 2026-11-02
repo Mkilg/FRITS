@@ -189,7 +189,7 @@ def test_leftover_dragon_gold_becomes_salzkoerner_once_a_year(conn):
     assert haustier.salz_aus_quest(conn, 2024, 1, "zu wenig", TODAY) == 0
     assert stand.guthaben(conn) == vorher + 18
     # a victory helps with the house but doesn't buy it (Lena: the Stube costs 150)
-    assert haustier.salz_aus_quest(conn, 2023, 500, "", TODAY) == haustier.SALZ_PRO_SIEG == 60
+    assert haustier.salz_aus_quest(conn, 2023, 500, "", TODAY) == haustier.SALZ_PRO_SIEG == 30
     assert haustier.salz_fuer_gold(37) == 18 and haustier.salz_fuer_gold(-3) == 0
 
 
