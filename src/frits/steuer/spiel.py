@@ -913,6 +913,9 @@ _SCHWACH = {
     "belege",
     "steuer",
     "unterlagen",
+    # "Brief_vom_Arbeitgeber" ist kein Arbeitszimmer und keine Fahrt: Das gemeinsame "arbeit"
+    # allein reicht nur für die Provinz (Marie-Durchlauf 7)
+    "arbeit",
 }
 STARK = 3  # ab so vielen Punkten traut sich FRITS eine Karte vorzuschlagen
 

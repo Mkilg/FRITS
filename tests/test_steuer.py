@@ -2665,7 +2665,7 @@ def test_runde_26_fritte_stutzt_nicht_bei_der_quelle_der_karte(tmp_path):
     from frits.steuer.katalog import quellen_text
 
     steuer_id = {"id": 1, "gebiet": "rathaus", "key": "steuer-id", "name": "Steuer-ID"}
-    lstb = {"id": 2, "gebiet": "arbeit", "key": "lohnsteuerbescheinigung"}
+    lstb = {"id": 2, "gebiet": "kaserne", "key": "lohnsteuerbescheinigung"}
     lstb["name"] = "Lohnsteuerbescheinigung"
     steuer_id["status"] = lstb["status"] = "offen"
     pdf = tmp_path / "x.pdf"
@@ -2723,3 +2723,18 @@ def test_runde_26_sieg_ohne_textwand():
         "Letzter Treffer: 3 × 4 = +12 Gold.",
         "",
     )
+
+
+def test_runde_27_brief_vom_arbeitgeber_ist_kein_arbeitszimmer():
+    alle = [
+        {"id": 1, "gebiet": "kaserne", "key": "fahrten", "status": "offen"},
+        {"id": 2, "gebiet": "kaserne", "key": "lohnsteuerbescheinigung", "status": "offen"},
+        {"id": 3, "gebiet": "werkstatt-1", "key": "arbeitszimmer", "status": "offen"},
+    ]
+    alle[0]["name"] = "Fahrten zur Arbeit und Homeoffice-Tage"
+    alle[1]["name"] = "Lohnsteuerbescheinigung"
+    alle[2]["name"] = "Homeoffice oder Arbeitszimmer"
+    a = spiel.ahnung("Brief_vom_Arbeitgeber.pdf", alle)
+    assert a.stueck is None and a.gebiet == "kaserne"  # nur die Provinz, keine falsche Karte
+    assert spiel.ahnung("Arbeitszimmer_Grundriss.pdf", alle).stueck["key"] == "arbeitszimmer"
+    assert spiel.ahnung("Lohnsteuerbescheinigung_2025.pdf", alle).stueck["id"] == 2
