@@ -2827,3 +2827,41 @@ def test_runde_30_frits_karten_stehen_als_erledigt_da(client, ws):
     fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
     seite = client.get("/steuer/2025/gebiet/werkstatt-1").text
     assert "Hat FRITS schon dabei" in seite and "✓ Ausgangsrechnungen" in seite
+
+
+def test_runde_32_stapel_zaehlt_wie_die_insel(client, ws):
+    # Marie-Runde 8: „3 von 5“ auf der Insel und „Zettel 6 von 12“ in der Provinz
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    alle = quest.stuecke(conn, 2025)
+    gid = next(
+        g
+        for g in {s["gebiet"] for s in alle}
+        if any(s["art"] == "bonus" for s in alle if s["gebiet"] == g)
+        and any(s["art"] != "bonus" for s in alle if s["gebiet"] == g)
+    )
+    eigene = [s for s in alle if s["gebiet"] == gid]
+    pflicht = [s for s in eigene if s["art"] != "bonus"]
+    frei = [s for s in eigene if s["art"] == "bonus"]
+    seite = client.get(f"/steuer/2025/gebiet/{gid}?ansicht=stapel").text
+    assert f"Zettel 1 von {len(pflicht)}" in seite and f"+ {len(frei)} freiwillig" in seite
+    seite = client.get(f"/steuer/2025/gebiet/{gid}?karte={frei[0]['id']}").text
+    assert f"Freiwillig 1 von {len(frei)}" in seite
+
+
+def test_runde_32_nach_dem_sieg_lohnt_sich_noch_etwas(client, ws):
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    for s in spiel.pflicht(quest.stuecke(conn, 2025)):
+        quest.setze_status(conn, s["id"], "fragen")
+    erste = spiel.pflicht(quest.stuecke(conn, 2025))[0]
+    (ws.root / "beleg.pdf").write_bytes(b"%PDF beleg")
+    quest.sammeln(conn, ws.root, erste["id"], ws.root / "beleg.pdf")
+    assert spiel.drache(quest.stuecke(conn, 2025)).besiegt
+    quest.lager(ws.root).mkdir(parents=True, exist_ok=True)
+    (quest.lager(ws.root) / "arbeitszimmer.txt").write_text("Arbeitszimmer 12 qm")
+    sieg = client.get("/steuer/2025/sieg").text
+    assert "Lohnt sich noch" in sieg and "arbeitszimmer.txt" in sieg
+    assert "können Steuern sparen" in sieg or "kann Steuern sparen" in sieg
+    insel = client.get("/steuer/2025").text
+    assert "Im Korb wartet noch ein Zettel." in insel

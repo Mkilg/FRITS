@@ -1726,3 +1726,9 @@ details.sq-mehr-marken .kurz { display: none; }
 .sq-umschalter { margin: 0 0 0.8rem; color: #f3e3c0; font-size: 0.9rem; text-shadow: 0 1px 2px rgba(0,0,0,.95); }
 .sq-umschalter a { color: #ffe6a8; }
 .sq-korb .sq-erledigt p { text-shadow: none; color: #6d6150; }
+
+/* Runde 32 (Marie-Runde 8): eine Zählung im Stapel, Freiwilliges getrennt; „Lohnt sich noch“ nach dem Sieg */
+.sq-kicker-frei { font-weight: 400; letter-spacing: 0; text-transform: none; opacity: .75; }
+.sq-zettel-punkte li:has(> a:not(.bonus)) + li:has(> a.bonus) { margin-left: .55rem; }
+.sq-noch-frei ul { margin: .4rem 0 0; padding-left: 1.1rem; }
+.sq-noch-frei li { margin: .2rem 0; }

@@ -415,10 +415,17 @@ def auftrag(
     """
     basis = f"/steuer/{jahr}"
     if drache_.besiegt and stuecke:
+        # Marie-Runde 8: Freiwilliges und Zettel im Korb gingen nach dem Sieg unter
+        frei = sum(1 for s in stuecke if s["status"] == "offen" and ist_bonus(s))
+        rest = ""
+        if zettel:
+            rest = " Im Korb wartet noch " + ("ein Zettel." if zettel == 1 else f"{zettel} Zettel.")
+        elif frei:
+            rest = " Dort steht auch, was sich freiwillig noch lohnt."
         return Auftrag(
             "sieg",
             "Hol dir deine Beute",
-            "Der Drache ist besiegt. Pack die Fundkiste für deine Beraterin.",
+            "Der Drache ist besiegt. Pack die Fundkiste für deine Beraterin." + rest,
             "Zur Fundkiste",
             f"{basis}/sieg",
             ("Mail an die Beraterin",),
