@@ -96,6 +96,24 @@
 </section>
 
 {% macro seltenheit_name(s) %}{{ {"gewöhnlich": "Gewöhnlich", "selten": "Selten", "legendär": "Legendär"}[s] }}{% endmacro %}
+{% if drachengold or drachenglaeser %}
+<section class="card drachengold" id="drachengold">
+  <span class="drachen-zeichen" aria-hidden="true">🐉</span>
+  <div>
+    <h2>Drachengold</h2>
+    {% if drachenglaeser %}<p><strong>{{ "Ein Glas" if drachenglaeser == 1 else drachenglaeser ~ " Gläser" }} Drachenwürze {{ "wartet" if drachenglaeser == 1 else "warten" }}</strong> auf den nächsten Kassensturz: +{{ drachenglaeser }} Würze.</p>{% endif %}
+    {% if drachengold %}
+    <p>Du hast den Drachen {{ drachengold.jahr }} besiegt und noch <strong>{{ drachengold.gold }} Gold</strong> in der Steuer-Quest. Fritte kocht {{ drachen_preis }} Gold zu einem Glas Drachenwürze ein: +1 Würze beim nächsten Kassensturz, höchstens {{ drachen_max }} Gläser auf einmal.</p>
+    {% if drachenglaeser < drachen_max %}
+    <form method="post" action="/fritte/drachengold" data-confirm="{{ drachen_preis }} Gold aus der Steuer-Quest {{ drachengold.jahr }} zu Drachenwürze einkochen?">
+      <input type="hidden" name="token" value="{{ token }}">
+      <button>🫙 {{ drachen_preis }} Gold einkochen</button>
+    </form>
+    {% endif %}
+    {% endif %}
+  </div>
+</section>
+{% endif %}
 <section class="card truhen" id="truhen">
   <h2>Frittes Truhen</h2>
   <div class="truhen-kopf">

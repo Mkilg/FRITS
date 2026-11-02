@@ -406,10 +406,30 @@ def truhenglas(conn) -> Gewuerz | None:
     )  # fmt: skip
 
 
+DRACHENGOLD_PREIS = 20  # quest gold for one jar of Drachenwürze
+DRACHENGLAESER = 2  # at most this many wait for one Kassensturz
+
+
+def drachenglaeser(conn) -> int:
+    return int(stand.einstellung(conn, "drachen_wuerze", "0") or 0)
+
+
+def drachenglas(conn) -> Gewuerz | None:
+    """Gold from a won Steuer-Quest, boiled down: +1 Würze per jar, once."""
+    n = drachenglaeser(conn)
+    if not n:
+        return None
+    return Gewuerz(
+        "drachenwuerze", "Drachenwürze", "🐉", "rezept", 0,
+        f"Aus Drachengold: +{n} Würze, einmal.",
+        plus_wuerze=lambda karten, umfeld: float(n),
+    )  # fmt: skip
+
+
 def vorab(conn, rezept: str | None) -> list[Gewuerz]:
-    """What comes before the shelf: a chest's jar, last time's jar, then today's dish."""
-    glas = truhenglas(conn)
-    extras = [glas] if glas else []
+    """What comes before the shelf: the dragon's and a chest's jar, last time's jar, then
+    today's dish."""
+    extras = [g for g in (drachenglas(conn), truhenglas(conn)) if g]
     if eingekocht(conn):
         extras.append(gw.EINGEKOCHT)
     if rezept and rezept != gw.EINKOCHEN and rezept in gw.REZEPT_NACH_ID:
@@ -487,6 +507,7 @@ def durchfuehren(
             record["rezept"] = {"id": gericht.id, "name": gericht.name, "zeichen": gericht.zeichen}
         stand.setze(conn, "eingekocht", "1" if rezept == gw.EINKOCHEN else "0")
         stand.setze(conn, "truhen_wuerze", "0")
+        stand.setze(conn, "drachen_wuerze", "0")
         cur = conn.execute(
             "INSERT INTO spiel_kassenstuerze (tag, summe, ergebnis) VALUES (?, ?, ?)",
             (heute.isoformat(), ergebnis["summe"], json.dumps(record, ensure_ascii=False)),
