@@ -1342,7 +1342,9 @@ def test_gold_im_kampf_mit_serie_und_markt_im_browser(client, ws):
     werfen = {"stueck_id": str(karte["id"]), "aktion": "zettel", "zettel": "scan-eins.pdf"}
     seite = post(client, "/steuer/2025/drache/schlag", **werfen)
     # Volltreffer: Serie 2, also 2 Salzkörner × 2
-    assert 'class="sq-rechnung"' in seite.text and '+4 <svg class="salz-zeichen"' in seite.text
+    # the salt sign is the painted shaker, or the drawn one when the picture is missing
+    assert 'class="sq-rechnung"' in seite.text
+    assert re.search(r'\+4 <(svg|img) class="salz-zeichen', seite.text)
     assert quest.gold(conn, 2025) == gold_vorher + 4
     # Zurücklegen bucht das Gold zurück; danach zahlt die Karte als Frage nur ihre 1
     datei = quest.dateien(conn, 2025, karte["id"])[0]

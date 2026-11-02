@@ -9,7 +9,7 @@
 </div>
 {% if willkommen %}
 <section class="card willkommen-spiel">
-  <span class="sticker-rund" aria-hidden="true">🎁</span>
+  <span class="sticker-rund" aria-hidden="true">{{ zeichen("truhe", "🎁") }}</span>
   <div>
     {% set alte = karten | rejectattr("art", "equalto", "start") | list | length %}
     {% if alte %}
@@ -39,7 +39,7 @@
   <div class="haus-leiste">
     <p class="speech">{{ f.satz }}</p>
     <div class="haus-zahlen">
-      <p class="salz">{{ salz }} <strong data-zaehlen>{{ f.guthaben }}</strong> Salzkörner{% if f.bereit %} <a class="hint" href="#kassensturz">(+{{ f.bereit }} warten)</a>{% endif %}{% if truhen_zu %} <a class="truhe-wartet" href="#truhen">🎁 {{ "1 Truhe wartet" if truhen_zu | length == 1 else truhen_zu | length ~ " Truhen warten" }}</a>{% endif %}</p>
+      <p class="salz">{{ salz }} <strong data-zaehlen>{{ f.guthaben }}</strong> Salzkörner{% if f.bereit %} <a class="hint" href="#kassensturz">(+{{ f.bereit }} warten)</a>{% endif %}{% if truhen_zu %} <a class="truhe-wartet" href="#truhen">{{ zeichen("truhe", "🎁") }} {{ "1 Truhe wartet" if truhen_zu | length == 1 else truhen_zu | length ~ " Truhen warten" }}</a>{% endif %}</p>
     </div>
   </div>
 </section>
