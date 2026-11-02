@@ -15,6 +15,13 @@ Sagt der Mac stattdessen, die App sei „beschädigt“: Terminal öffnen, `xatt
 
 Läuft ohne Internet, auf Macs mit Apple-Chip und Intel, ab macOS 13. Deine Daten liegen in `Dokumente/FRITS`, nicht im App-Ordner.
 
+### Neu in 1.7.3
+- **Ausgaben am Handy:** Jede Ausgabe steht als Zeile mit dem Betrag rechts. Die Summe ist immer zu sehen, ohne seitlich zu wischen.
+- **Heute** zeigt den Einstieg in die Steuer-Quest, solange es noch keine gibt. Beim ersten Besuch steht kein „seit letztem Mal“ mehr da.
+- **Fritte:** Der Kassensturz liegt auf einem gemalten Schreibtisch. Körner und Würze sind Papierkarten, und Steuer-Karten zeigen ihre Provinz. Gekaufte Dinge stehen in den gemalten Zimmern an passenden Plätzen, und statt Emoji gibt es gemalte Bilder. Am Handy bleibt der Stempel im Bild.
+- **Steuer-Quest:** Die Fundkiste hat ein richtiges Finale und erkennt gleiche Belege am Inhalt. Die Kampf-Vorschau sagt ehrlich, was ein Treffer bringt, und die Meldungen sind ruhiger.
+- Keine blauen Knöpfe mehr. „Feierabend“ ist jetzt dunkles Eichenholz, Stempel-Knöpfe sind siegelrot. Das Ablagefeld am Handy ist ordentlich ausgerichtet.
+
 ### Neu in 1.7.2
 - **Rechnungen von früher nachtragen geht glatter:** Eine Lücke in den Nummern ist erlaubt („Stimmt, trotzdem nachtragen“), Beträge wie „600,00 EUR“ oder „600,- €“ werden so angenommen, wie sie auf dem Papier stehen, und Fehlermeldungen stehen direkt am Feld. Eine schon nachgetragene Rechnung wird erkannt („Zur Rechnung“). Eine eigene alte Rechnung nur mit Briefkopf erkennt FRITS unter Ausgaben und fragt nach.
 - Einrichtung kürzer, am Handy keine Hinweise mehr auf Tastenkürzel oder den Finder.
