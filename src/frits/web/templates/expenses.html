@@ -70,7 +70,7 @@
       <label class="field">Kategorie
         <select name="category">{% for key, c in categories.items() %}<option value="{{ key }}" {{ "selected" if key == (g.category or "sonstiges") }}>{{ c.label }}</option>{% endfor %}</select>
       </label>
-      <div class="row actions"><button class="primary">Speichern</button></div>
+      <div class="row actions"><button class="primary">Speichern</button>{% if chosen %} <button class="quiet danger" formaction="/receipts/{{ chosen.id }}/ignore" formnovalidate title="Zählt nirgends mit. Die Datei bleibt im Ordner „done“.">Verwerfen</button>{% endif %}</div>
     </form>
   </section>
 </div>

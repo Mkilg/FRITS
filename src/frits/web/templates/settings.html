@@ -65,6 +65,7 @@
     </label>
     <p class="hint">Der Schlüssel kommt {{ "nur in den Speicher dieses Browsers (nie in eine Sicherung)" if im_browser() else "in den Schlüsselbund dieses Macs" }}, nicht in eine Datei. FRITS zeigt ihn nie wieder an.</p>
     <label class="choice"><input type="checkbox" name="strict_local" {{ "checked" if settings.strict_local }}> Strikter Modus: nur die lokale KI benutzen, nichts verlässt diesen Computer</label>
+    {% include "_ki_kosten.html" %}
   </section>
   <section class="card">
     <h2>Klang</h2>

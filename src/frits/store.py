@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sqlite3
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from frits import expenses, gutschriften
@@ -138,6 +138,26 @@ def add_job(
         (sha256, filename, now(), status, message, sent_text),
     )
     return cur.lastrowid
+
+
+def ki_kosten(conn, heute: date | None = None) -> dict:
+    """What the AI cost, from the audit log: this month and last month, in US-Dollar as the
+    providers bill it. `ohne_preis` counts calls FRITS knows no price for (other models,
+    local AI), so the page can say the sum may be incomplete."""
+    heute = heute or date.today()
+    monat = heute.replace(day=1)
+    vormonat = (monat - timedelta(days=1)).replace(day=1)
+
+    def summe(von: date, bis: date) -> dict:
+        row = conn.execute(
+            "SELECT COUNT(*) AS n, COALESCE(SUM(cost_usd), 0) AS usd,"
+            " SUM(CASE WHEN cost_usd IS NULL AND provider NOT IN ('ollama', 'recorded') THEN 1 ELSE 0 END) AS ohne"
+            " FROM audit WHERE time >= ? AND time < ?",
+            (von.isoformat(), bis.isoformat()),
+        ).fetchone()
+        return {"anfragen": row["n"], "usd": float(row["usd"]), "ohne_preis": row["ohne"] or 0}
+
+    return {"monat": summe(monat, heute + timedelta(days=1)), "vormonat": summe(vormonat, monat)}
 
 
 def log_ai_call(conn, job_id: int | None, usage, text_sha256: str) -> None:

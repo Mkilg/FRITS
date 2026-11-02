@@ -21,7 +21,16 @@ from markupsafe import Markup, escape
 
 from frits.customers import Customer
 from frits.lernen import extra_terms, leftover_name_parts
-from frits.redact import Mapping, RedactedText, assert_no_leaks, redact
+from frits.redact import (
+    LeakError,
+    Mapping,
+    RedactedText,
+    _customer_terms,
+    _pattern_spans,
+    _word_regex,
+    assert_no_leaks,
+    redact,
+)
 
 MAX_DOC = 40_000  # characters per document; longer ones are cut and the page says so
 MAX_DOCS = 8
@@ -139,11 +148,19 @@ class Gespraech:
     cost_usd: float = 0.0
     calls: int = 0
     entwurf: str = ""  # a question whose sending failed, shown again in the field
-    frei: bool = False  # started as Freier Chat: any question, documents optional
+    frei: bool = True  # one chat for everything: any question, documents optional
+    # Documents FRITS could not redact safely: kept here, never sent, tried again after
+    # Fritz adds words under "Auch schwärzen".
+    wartend: list[Dokument] = field(default_factory=list)
 
     @property
     def system(self) -> str:
         return SYSTEM_FREI if self.frei else SYSTEM
+
+    @property
+    def vorschlaege(self) -> tuple[str, ...]:
+        """Quick questions: about the documents when there are some, general ones otherwise."""
+        return VORSCHLAEGE if self.docs or self.wartend else VORSCHLAEGE_FREI
 
     # ----- what Fritz sees -----
 
@@ -235,7 +252,21 @@ class Gespraech:
                 self.extra.append(word)
                 self.auto_hidden.append(word)
         text = self._extras(text)
-        assert_no_leaks(RedactedText(text, self.mapping), people)
+        try:
+            assert_no_leaks(RedactedText(text, self.mapping), people)
+        except LeakError:
+            # Something known is still there (e.g. a name written in an unusual way, or a
+            # number the patterns found only now). Hide exactly those spots too, once, and
+            # check again. Fritz sees them under "Auch schwärzen" and can take them out.
+            rest = _reste(text, self.mapping, people)
+            if not rest:
+                raise
+            for word in rest:
+                if word.casefold() not in (e.casefold() for e in self.extra):
+                    self.extra.append(word)
+                    self.auto_hidden.append(word)
+            text = self._extras(text)
+            assert_no_leaks(RedactedText(text, self.mapping), people)
         return text
 
     def set_extra(self, raw: str, people: list[Customer], nlp) -> None:
@@ -253,6 +284,23 @@ class Gespraech:
             d.redacted = self.schwaerzen(d.original, people, nlp)
         for m in self.messages:
             m.sent = self._extras(_known(m.sent, self.mapping))
+        self.nochmal_wartende(people, nlp)
+
+    def nochmal_wartende(self, people: list[Customer], nlp) -> int:
+        """Try the waiting documents again. Returns how many are safe now."""
+        frei = 0
+        for d in list(self.wartend):
+            if len(self.docs) >= MAX_DOCS:
+                break
+            try:
+                d.redacted = self.schwaerzen(d.original, people, nlp)
+            except LeakError:
+                continue
+            self.wartend.remove(d)
+            d.nr = len(self.docs) + 1
+            self.docs.append(d)
+            frei += 1
+        return frei
 
     def _same(self, entry: dict) -> str | None:
         value = entry["value"].casefold()
@@ -284,6 +332,26 @@ class Gespraech:
             parts[::2] = [pattern.sub(ph, p) for p in parts[::2]]
             text = "".join(parts)
         return text
+
+
+def _reste(text: str, mapping: Mapping, people: list[Customer]) -> list[str]:
+    """The spots the final check would still find: known values and pattern matches,
+    exactly as they are written in the text, never parts of a placeholder."""
+    found: list[str] = []
+    terms = [v for v in mapping.values() if len(v.strip()) >= 3]
+    for customer in people:
+        terms.extend(t for t, _ in _customer_terms(customer) if len(t) >= 3)
+    parts = _SPLIT.split(text)
+    for part in parts[::2]:
+        for term in terms:
+            found.extend(m.group() for m in _word_regex(term).finditer(part))
+        found.extend(part[s.start : s.end] for s in _pattern_spans(part))
+    out: list[str] = []
+    for word in found:
+        word = word.strip()
+        if len(word) >= 2 and "[" not in word and "]" not in word and word not in out:
+            out.append(word)
+    return out
 
 
 def _known(text: str, mapping: Mapping) -> str:
@@ -329,7 +397,12 @@ def add_document(
     text = text.replace("\r\n", "\n").strip()
     cut = len(text) > MAX_DOC
     doc = Dokument(len(g.docs) + 1, name, art, text[:MAX_DOC], cut=cut, ocr=ocr)
-    doc.redacted = g.schwaerzen(doc.original, people, nlp)  # LeakError: the document isn't added
+    try:
+        doc.redacted = g.schwaerzen(doc.original, people, nlp)
+    except LeakError:
+        # Not safe: it waits in this chat (never sent) until Fritz adds words to hide.
+        g.wartend.append(doc)
+        raise
     g.docs.append(doc)
     return doc
 

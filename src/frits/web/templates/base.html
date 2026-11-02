@@ -22,7 +22,7 @@
   </div>
   {% else %}
   {# Everyday places in the row; the rest behind "Mehr", so the row stays one line #}
-  {% set more = [("/chat", "Freier Chat"), ("/notfall", "Notfall-Chat"), ("/lernen", "So funktionieren KI-Agenten"), ("/settings", "Einstellungen"), ("/sicherung", "Datensicherung"), ("/setup/welcome", "Einführung wiederholen"), ("/ueber", "Über FRITS")] %}
+  {% set more = [("/chat", "Chat"), ("/lernen", "So funktionieren KI-Agenten"), ("/settings", "Einstellungen"), ("/sicherung", "Datensicherung"), ("/setup/welcome", "Einführung wiederholen"), ("/ueber", "Über FRITS")] %}
   {% set ns = namespace(here=false) %}
   {% for href, label in more %}{% if nav.startswith(href) %}{% set ns.here = true %}{% endif %}{% endfor %}
   <nav>

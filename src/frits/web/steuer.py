@@ -1387,7 +1387,7 @@ def register_steuer(
                 aktion={"link": f"/steuer/{jahr}/datei/{datei_id}", "link_text": "Ohne KI ansehen"},
             )
         if key:
-            return back(f"/notfall/{key}#unterlagen")
+            return back(f"/chat/{key}#unterlagen")
         return back(f"/steuer/{jahr}/belege#karte-{d['stueck_id']}")
 
     @app.post("/steuer/{jahr}/stueck/{stueck_id}/mitzaehlen", dependencies=guarded)

@@ -1802,7 +1802,7 @@ def test_runde_14_fragen_zeitalter_und_was_gehoert_wohin(client, ws):
     assert "Nächstes: <strong>Zeitalter der Ordnung</strong>" in karte
     assert "Dann wacht der Papierdrache auf" in karte
     gebiet = client.get("/steuer/2025/gebiet/werkstatt-1").text
-    assert "kommt in die Mail an deine Beraterin" in gebiet and 'href="/notfall"' in gebiet
+    assert "kommt in die Mail an deine Beraterin" in gebiet and 'href="/chat"' in gebiet
     stand = spiel.Stand(gesamt=10, gesammelt=1, gibts_nicht=1, fragen=0)
     assert spiel.weg_zum_zeitalter(stand) == (
         "Zeitalter der Ordnung",
@@ -1881,7 +1881,7 @@ def test_runde_15_beleg_mit_ki_oeffnet_den_freien_chat(client, ws):
         follow_redirects=False,
     )
     assert antwort.status_code in (302, 303)
-    assert antwort.headers["location"] == "/notfall/abc#unterlagen"
+    assert antwort.headers["location"] == "/chat/abc#unterlagen"
     assert gesehen and gesehen[0][1] == "rechnung.txt"
 
 
