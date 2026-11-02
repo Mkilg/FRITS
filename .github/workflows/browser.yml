@@ -6,9 +6,9 @@ name: Browser-Version
 on:
   push:
     branches: [main]
-    paths: ["src/**", "browser/**", "uv.lock", "pyproject.toml", ".github/workflows/browser.yml"]
+    paths: ["src/**", "browser/**", "minipaket/**", "tools/minipaket.py", "uv.lock", "pyproject.toml", ".github/workflows/browser.yml"]
   pull_request:
-    paths: ["src/frits/browser/**", "browser/**", ".github/workflows/browser.yml"]
+    paths: ["src/frits/browser/**", "browser/**", "minipaket/**", "tools/minipaket.py", ".github/workflows/browser.yml"]
   workflow_dispatch:
 
 permissions:
@@ -37,13 +37,20 @@ jobs:
       - run: uv sync --frozen --python 3.12
       - name: Bauen
         run: uv run python browser/build.py
+      - name: Mini-Paket „Erst schwärzen, dann fragen“ bauen (liegt dann unter /FRITS/mini/)
+        run: |
+          uv run python tools/minipaket.py --pruefen
+          uv run python tools/minipaket.py --ordner browser/dist/mini --zip browser/dist/mini/erst-schwaerzen-dann-fragen.zip
       - name: Tests ohne Browser
-        run: node --test browser/tests/*.test.mjs
+        run: |
+          node --test browser/tests/*.test.mjs
+          node --test minipaket/tests/*.test.cjs
       - name: Test im echten Browser
         run: |
           npm install --no-save --no-audit --no-fund playwright@1.63.0
           npx playwright install --with-deps chromium
           node tests/e2e.cjs
+          NODE_PATH="$PWD/node_modules" node ../minipaket/tests/e2e.cjs dist/mini
         working-directory: browser
         env:
           FRITS_E2E_SHOTS: ${{ runner.temp }}/bilder
