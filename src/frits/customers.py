@@ -12,6 +12,39 @@ import yaml
 _FRONTMATTER = re.compile(r"\A---\s*\n(.*?)\n---\s*(?:\n|\Z)", re.DOTALL)
 
 
+# Mail providers anyone can sign up with: an address there says nothing about an employer.
+_FREEMAIL = {
+    "example",  # example.org/.com/.net are reserved for examples and tests
+    "gmail",
+    "googlemail",
+    "web",
+    "gmx",
+    "t-online",
+    "yahoo",
+    "outlook",
+    "hotmail",
+    "live",
+    "icloud",
+    "me",
+    "mac",
+    "posteo",
+    "mailbox",
+    "freenet",
+    "aol",
+    "proton",
+    "protonmail",
+    "arcor",
+    "online",
+    "email",
+    "mail",
+    "kabelmail",
+    "vodafone",
+    "tutanota",
+    "tuta",
+    "ymail",
+}
+
+
 @dataclass(frozen=True)
 class Customer:
     id: str
@@ -32,6 +65,17 @@ class Customer:
     @property
     def display_name(self) -> str:
         return self.company or self.name
+
+    @property
+    def firmen_domain(self) -> str | None:
+        """The e-mail's own domain when there is no company: then the invoice may be meant for
+        the organisation behind it (jana.weber@rbb-online.de), not for the person."""
+        if self.company or self.privat or not self.email or "@" not in self.email:
+            return None
+        domain = self.email.rsplit("@", 1)[1].strip().lower()
+        if not domain or domain.split(".")[0] in _FREEMAIL:
+            return None
+        return domain
 
 
 def parse_note(path: Path) -> Customer | None:

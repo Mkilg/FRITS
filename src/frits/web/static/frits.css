@@ -571,6 +571,6 @@ dialog.rueckfrage-karte { max-width: min(30rem, calc(100vw - 2rem)); border: 1px
   border-radius: 14px; padding: 1.3rem 1.4rem 1.1rem; background: var(--card, #fffaf0); color: inherit;
   box-shadow: 0 18px 50px rgba(60, 40, 10, 0.28); font-size: 1.02rem; line-height: 1.5; }
 dialog.rueckfrage-karte::backdrop { background: rgba(40, 28, 10, 0.35); }
-dialog.rueckfrage-karte p { margin: 0 0 1rem; }
+dialog.rueckfrage-karte p { margin: 0 0 1rem; white-space: pre-line; }
 dialog.rueckfrage-karte .row { gap: 0.6rem; justify-content: flex-end; flex-wrap: wrap; }
 main .kopf-salz .salz-zeichen { color: var(--papier-schatten); }

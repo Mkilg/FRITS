@@ -70,12 +70,19 @@
     // everything again when he presses the button.
     var picked = document.querySelector('select[name="customer"]');
     var option = picked && picked.selectedOptions[0];
-    var named = option && option.getAttribute("data-name");
+    // The question before the fixed number shows the whole recipient block, so a missing
+    // company or a cut house number is seen before it is printed for good.
+    var named = option && (option.getAttribute("data-empfaenger") || option.getAttribute("data-name"));
+    var firma = option && option.getAttribute("data-firma");
     var approve = document.querySelector("[data-confirm-live]");
     if (approve) {
       approve.setAttribute("data-confirm", approve.getAttribute("data-confirm-live")
         .replace("{customer}", named || approve.getAttribute("data-customer"))
-        .replace("{gross}", eur(cents(net + vat))));
+        .replace("{gross}", eur(cents(net + vat)))
+        .replace("{firma}", firma
+          ? "\n\nAchtung: Hier steht keine Firma, die Rechnung geht an die Person selbst. Die E-Mail-Adresse gehört zu "
+            + firma + ". Soll die Rechnung an die Firma gehen, trag sie vorher beim Kunden ein."
+          : ""));
     }
     var hasCustomer = !!(option && option.hasAttribute("data-address"));
     var hasDates = Array.prototype.some.call(

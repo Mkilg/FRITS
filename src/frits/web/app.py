@@ -774,9 +774,21 @@ def create_app(
             flash("Es kam nichts an. Zieh eine Datei auf das Feld oder füg Text ein.", "error")
         return back(target)
 
+    def _check_me_aufraeumen(conn) -> None:
+        """A file that already lies in the Steuer-Quest needs no decision: put it away."""
+        for path in sorted(ws.check_me.iterdir()):
+            if not path.is_file() or path.name.endswith(".grund.txt") or path.name.startswith("."):
+                continue
+            jahr = _in_der_steuer_quest(conn, path)
+            if jahr:
+                _check_me_done(path, "steuer")
+                flash(f"{path.name} liegt schon in der Steuer-Quest {jahr}. Ich habe es weggelegt.")
+
     @app.get("/check-me", response_class=HTMLResponse)
     def check_me_page(request: Request):
-        return page(request, "check_me.html", files=_check_me_files(ws))
+        conn = db()
+        _check_me_aufraeumen(conn)
+        return page(request, "check_me.html", files=_check_me_files(ws, conn))
 
     def _check_me_file(name) -> Path:
         path = (ws.check_me / Path(str(name or "")).name).resolve()
@@ -1574,6 +1586,11 @@ def create_app(
             return "Daraus gibt es schon einen Entwurf.", (f"/drafts/{draft['id']}", "Zum Entwurf")
         if job["status"] == "check-me":
             return "Die liegt schon bei „Bitte einmal ansehen“.", ("/check-me", "Ansehen")
+        if job["status"] == "steuer":
+            return (
+                "Die liegt schon in der Steuer-Quest. Du musst nichts mehr tun.",
+                ("/steuer", "Zur Steuer-Quest"),
+            )
         return "Diese Datei habe ich schon einmal gelesen. Du musst nichts mehr tun.", None
 
     def open_receipts(conn) -> list[dict]:
@@ -2218,6 +2235,7 @@ def create_app(
             drafts=len(_open_drafts(conn, settings())),
             overdue=sum(1 for i in invoices if i["status"] == "überfällig"),
             waiting=len(_inbox_files(ws)),
+            pruefen=len(_check_me_files(ws)),
             mood=mood,
             text=text,
             karten=spiel_stand.abgleichen(conn, today(), fritte_datei(ws.root))
@@ -2562,19 +2580,46 @@ def _inbox_files(ws: Workspace) -> list[Path]:
     return sorted(p for p in ws.inbox.iterdir() if p.is_file() and not p.name.startswith("."))
 
 
-def _check_me_files(ws: Workspace) -> list[dict]:
+def _check_me_files(ws: Workspace, conn=None) -> list[dict]:
+    """The files waiting under "Bitte einmal ansehen", each with why it is there and whether
+    the AI saw its blacked-out text (it did when it sorted the file as a letter)."""
+    from frits.pipeline import file_hash
+
     result = []
     for path in sorted(ws.check_me.iterdir()):
         if not path.is_file() or path.name.endswith(".grund.txt") or path.name.startswith("."):
             continue
         reason = path.with_name(path.name + ".grund.txt")
+        gesehen = None
+        if conn is not None:
+            row = conn.execute(
+                "SELECT sent_text FROM jobs WHERE sha256 = ?", (file_hash(path),)
+            ).fetchone()
+            gesehen = row["sent_text"] if row and row["sent_text"] else None
         result.append(
             {
                 "name": path.name,
                 "reason": reason.read_text(encoding="utf-8").strip() if reason.exists() else "",
+                "gesehen": gesehen,
             }
         )
     return result
+
+
+def _in_der_steuer_quest(conn, path: Path) -> int | None:
+    """The tax year whose Steuer-Quest already keeps this very file, if any."""
+    import sqlite3
+
+    from frits.pipeline import file_hash
+
+    try:
+        row = conn.execute(
+            "SELECT jahr FROM steuer_dateien WHERE sha256 = ? ORDER BY jahr DESC",
+            (file_hash(path),),
+        ).fetchone()
+    except sqlite3.OperationalError:  # the Steuer-Quest was never opened
+        return None
+    return row["jahr"] if row else None
 
 
 def _apply_form(draft: Draft, form, customer_by, current: Settings) -> None:

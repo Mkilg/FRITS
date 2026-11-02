@@ -339,3 +339,76 @@ def test_receipt_without_a_date_leaves_the_date_empty(client):
     field = re.search(r'<input type="date" name="date"[^>]*>', page.text).group(0)
     assert 'value=""' in field and "autofocus" in field
     assert '<option value="0.07" selected' in page.text
+
+
+RBB_SIGNATURE = """Viele Grüße
+Jana Weber
+Redaktion Kultur
+Rundfunk Berlin-Brandenburg (rbb)
+Masurenallee 8-14
+14057 Berlin
+Tel. 030 97993-0
+jana.weber@rbb-online.de"""
+
+
+def test_signature_keeps_the_organisation_and_the_house_number_range(nlp):
+    """Tester (Marie): the invoice went to „Jana Weber, Masurenallee 8“, without the rbb and
+    with 8-14 cut to 8."""
+    found = kontakt.details(RBB_SIGNATURE, nlp)
+    assert found["company"] == "Rundfunk Berlin-Brandenburg (rbb)"
+    assert found["address"] == "Masurenallee 8-14, 14057 Berlin"
+    assert found["name"] == "Jana Weber"
+    assert kontakt.details("Hauptstraße 12a-c\n10115 Berlin")["address"].startswith(
+        "Hauptstraße 12a-c"
+    )
+
+
+def test_invoice_question_shows_the_whole_recipient_and_a_missing_company(client, ws):  # noqa: F811
+    (ws.customers / "jana-weber.md").write_text(
+        "---\ntype: kunde\nname: Jana Weber\naddress: Masurenallee 8-14, 14057 Berlin\n"
+        "email: jana.weber@rbb-online.de\n---\n",
+        encoding="utf-8",
+    )
+    page = send(client, "/drafts/new", customer="jana-weber")
+    assert "Sie geht an:&#10;Jana Weber\nMasurenallee 8-14\n14057 Berlin" in page.text
+    assert "Die E-Mail-Adresse gehört zu rbb-online.de" in page.text
+    assert 'data-firma="rbb-online.de"' in page.text
+
+
+def test_check_me_says_honestly_what_the_ai_saw(client, ws, nlp):  # noqa: F811
+    from frits.pipeline import process_file
+    from frits.providers.recorded import RecordedProvider
+    from frits.schema import ExtractionResult
+
+    letter = ws.inbox / "bescheid.txt"
+    letter.write_text("Finanzamt Musterstadt\nEinkommensteuerbescheid 2025\nErstattung 312,00 €\n")
+    other = RecordedProvider(
+        ExtractionResult(doc_type="other", customer_ref=None, items=[], questions=[])
+    )
+    process_file(letter, ws, Settings(), other, nlp)
+    (ws.check_me / "kaputt.pdf").write_bytes(b"%PDF kaputt")
+    page = client.get("/check-me").text
+    assert "aus Sicherheit ging davon nichts an die KI" not in page
+    assert page.count("Das hat die KI gesehen") == 1  # the letter, sorted on its redacted text
+    assert "Davon ging nichts an die KI." in page  # the broken file never went out
+    assert "2 Dateien zum Ansehen" in client.get("/feierabend").text
+
+
+def test_check_me_puts_away_what_the_steuer_quest_already_keeps(client, ws):  # noqa: F811
+    """Tester (Marie): the letter given to the dragon still waited under „Bitte einmal ansehen“."""
+    from frits.pipeline import file_hash
+    from frits.steuer import quest
+
+    brief = ws.check_me / "brief.txt"
+    brief.write_text("Finanzamt\nBescheid\n")
+    conn = quest.ensure_schema(store.connect(ws.db))
+    conn.execute("PRAGMA foreign_keys = OFF")  # only the file row matters here
+    conn.execute(
+        "INSERT INTO steuer_dateien (stueck_id, jahr, pfad, original, sha256, hinzugefuegt)"
+        " VALUES (1, 2025, 'x', 'brief.txt', ?, '2026-11-02')",
+        (file_hash(brief),),
+    )
+    conn.commit()
+    page = client.get("/check-me").text
+    assert "liegt schon in der Steuer-Quest 2025" in page
+    assert not brief.exists() and (ws.done / "brief.txt").exists()

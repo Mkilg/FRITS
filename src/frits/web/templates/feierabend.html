@@ -15,6 +15,7 @@
   <ul class="plain">
     <li>{{ drafts }} {{ "Entwurf" if drafts == 1 else "Entwürfe" }}</li>
     <li>{{ waiting }} {{ "Datei" if waiting == 1 else "Dateien" }} im Eingang</li>
+    {% if pruefen %}<li><a href="/check-me">{{ pruefen }} {{ "Datei" if pruefen == 1 else "Dateien" }} zum Ansehen</a></li>{% endif %}
     <li>{{ overdue }} überfällige {{ "Rechnung" if overdue == 1 else "Rechnungen" }}</li>
   </ul>
   {% if picture("rueckblick-buendel") %}{{ picture_tag("rueckblick-buendel", "buendel") }}{% endif %}

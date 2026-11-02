@@ -77,6 +77,8 @@ _LOCATION_ALLOW = {
 _STREET_SUFFIX = (
     r"(?:straße|strasse|str\.|weg|gasse|allee|platz|ring|damm|ufer|steig|pfad|chaussee)"
 )
+# A house number, also a range like "8-14" or "12a–c" or "3/5": the whole of it is the address.
+_HOUSE = r"\d{1,4}[ \t]?[a-z]?(?:[ \t]?[-–/][ \t]?\d{0,4}[ \t]?[a-z]?)?\b"
 _PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("EMAIL", re.compile(r"\b[\w.+-]+@[\w-]+(?:\.[\w-]+)+\b")),
     ("USTID", re.compile(r"\bDE\s?\d{9}\b")),
@@ -91,12 +93,12 @@ _PATTERNS: list[tuple[str, re.Pattern[str]]] = [
         re.compile(
             rf"\b(?:{_CAP}(?:{_SP}|-)){{0,2}}(?:[A-ZÄÖÜ][a-zäöüß]*{_STREET_SUFFIX}"
             r"|Straße|Strasse|Weg|Gasse|Allee|Platz|Ring|Damm|Ufer)"
-            rf"{_SP}\d{{1,4}}[ \t]?[a-z]?\b"
+            rf"{_SP}{_HOUSE}"
         ),
     ),
     (
         "ADRESSE",
-        re.compile(rf"\b(?:Am|An der|Im|Auf der|Zum|Zur){_SP}{_CAP}{_SP}\d{{1,4}}[ \t]?[a-z]?\b"),
+        re.compile(rf"\b(?:Am|An der|Im|Auf der|Zum|Zur){_SP}{_CAP}{_SP}{_HOUSE}"),
     ),
     (
         "ORT",

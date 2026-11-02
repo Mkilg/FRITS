@@ -132,3 +132,10 @@ def test_lohnsteuer_numbers_are_redacted(nlp, text):
 def test_etin_rule_leaves_ordinary_words_alone(nlp):
     r = redact("RECHNUNG 2026A01 und Modell ABC12 sowie Kunde MEIER", [], nlp)
     assert "2026A01" in r.text and "ABC12" in r.text
+
+
+def test_house_number_range_is_redacted_whole(nlp):
+    """„Masurenallee 8-14“: before, only „Masurenallee 8“ became a placeholder."""
+    for street in ("Masurenallee 8-14", "Hauptstraße 12a-c", "Am Markt 3/5"):
+        result = redact(f"Bitte an {street}, 14057 Berlin liefern.", [], nlp)
+        assert street not in result.text and "-14" not in result.text and "/5" not in result.text
