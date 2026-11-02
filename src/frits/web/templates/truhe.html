@@ -27,6 +27,12 @@
       {% if fund.art == "gold" and not fund.gutgeschrieben %}<span class="hint">Das Gold kommt in die Steuer-Quest, sobald sie bereit ist.</span>{% endif %}
     </div>
   </div>
+  {% if mit %}
+  <div class="truhe-mehr">
+    <span class="hint">Außerdem in {{ "der anderen Truhe" if mit | length == 1 else "den anderen " ~ mit | length ~ " Truhen" }}:</span>
+    {% for x in mit %}<a class="fund-chip selten-{{ x.inhalt.seltenheit | replace('ö', 'oe') | replace('ä', 'ae') }}" href="/fritte/truhe/{{ x.id }}" title="{{ x.inhalt.seltenheit }}: {{ x.inhalt.text }}"><span aria-hidden="true">{{ x.inhalt.zeichen }}</span> {{ x.inhalt.name }}</a>{% endfor %}
+  </div>
+  {% endif %}
   <div class="row truhe-aktionen">
     <button type="button" class="quiet" data-truhe-skip hidden>Gleich zeigen</button>
     {% if weitere %}
@@ -34,6 +40,12 @@
       <input type="hidden" name="token" value="{{ token }}">
       <button class="primary">🎁 Nächste Truhe öffnen ({{ weitere }})</button>
     </form>
+    {% if weitere > 1 %}
+    <form method="post" action="/fritte/truhe/alle">
+      <input type="hidden" name="token" value="{{ token }}">
+      <button>Alle auf einmal</button>
+    </form>
+    {% endif %}
     {% endif %}
     {% if fund.art == "ding" %}<a class="button{{ '' if weitere else ' primary' }}" href="/fritte?neu={{ fund.id }}">Bei Fritte ansehen</a>
     {% elif fund.art == "gewuerz" %}<a class="button{{ '' if weitere else ' primary' }}" href="/fritte/laden#regal">Zum Gewürzregal</a>

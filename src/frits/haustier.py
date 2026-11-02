@@ -61,6 +61,9 @@ LADEN: tuple[Ding, ...] = (
 )
 # Only in Frittes Truhen. Their worth is the story, not the price.
 SCHAETZE: tuple[Ding, ...] = (
+    Ding("muschel", "Muschel", 0, "🐚", "Rauscht ein bisschen, wenn man genau hinhört.", "zimmer", 43, 4, 1.4, truhe="gewöhnlich"),
+    Ding("postkarte", "Postkarte", 0, "💌", "Ein Gruß von irgendwo, mit Reißzwecke an der Wand.", "zimmer", 76, 67, 1.6, truhe="gewöhnlich"),
+    Ding("schleife", "Rote Schleife", 0, "🎀", "Klein, aber fein. Für gute Tage.", "hut", truhe="gewöhnlich"),
     Ding("kleeblatt", "Glücksklee", 0, "🍀", "Vierblättrig, aus einer Truhe. Steht auf der Fensterbank.", "zimmer", 25, 44, 1.6, artikel="der", truhe="selten"),
     Ding("schatzkarte", "Schatzkarte", 0, "🗺️", "Eine alte Karte für die Wand. Das Kreuz markiert die Kasse.", "zimmer", 36, 60, 2.4, truhe="selten"),
     Ding("seemannsmuetze", "Seemannsmütze", 0, "⚓", "Für Fritte, die Schatzsucherin.", "hut", truhe="selten"),
