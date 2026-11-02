@@ -76,7 +76,7 @@
       </div>
       {% if zierde %}
       <div class="sq-zierde" aria-label="Zierden für deine Orden" data-wiese="{{ wiese | join(',') }}">
-        {% for w in zierde %}<a class="sq-zier {{ w.key }}{% if w.key == neu_zier %} neu{% endif %}" href="{{ '/sammlung' if sammlung_da else '#orden' }}" style="--x: {{ w.platz[0] }}%; --y: {{ w.platz[1] }}%; --i: {{ loop.index0 }}" title="{{ w.name }}">{{ zierde_bild(w.key) }}</a>{% endfor %}
+        {% for w in zierde %}<a class="sq-zier {{ w.key }}{% if w.key == neu_zier %} neu{% endif %}" href="{{ '/sammlung' if sammlung_da else '#orden' }}" style="--x: {{ w.platz[0] }}%; --y: {{ w.platz[1] }}%; --i: {{ loop.index0 }}" title="{{ w.name }}: {{ zier_herkunft.get(w.key, 'auf dem Hafenmarkt gekauft') }}" aria-label="{{ w.name }}: {{ zier_herkunft.get(w.key, 'auf dem Hafenmarkt gekauft') }}">{{ zierde_bild(w.key) }}</a>{% endfor %}
       </div>
       {% endif %}
     </div>

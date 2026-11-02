@@ -333,6 +333,8 @@ def register_steuer(
     app.state.steuer_finale = set()
     # Der letzte Zettel aus der Hand, damit man ihn zurücklegen kann
     app.state.steuer_wurf = {}
+    # Der letzte Schlag ohne Datei (Fragen, "Gibt's nicht") darf zurück: Karte und Serie wie vorher
+    app.state.steuer_zurueck = {}
 
     def conn():
         return quest.ensure_schema(store.connect(ws.db))
@@ -418,6 +420,7 @@ def register_steuer(
             "besitz": besitz,
             "helfer": frozenset(k for k, an in besitz.items() if an),
             "zierde": [w for w in spiel.MARKT if w.art == "zierde" and w.key in besitz],
+            "zier_herkunft": zier_herkunft(c),
             # Das Goldene Zeitalter kommt erst mit dem Sieg über den Drachen
             "zeitalter": spiel.zeitalter(
                 gesamt.anteil if drache.besiegt else min(gesamt.anteil, 0.99),
@@ -821,6 +824,15 @@ def register_steuer(
             if fund.neu:
                 quest.notiere(c, jahr, "fund", f"{fund.stueck['name']}: {name}")
         return funde, geparkt
+
+    def zier_herkunft(c) -> dict[str, str]:
+        """Woher jede Zierde kommt. Die Insel ist für alle Jahre dieselbe, darum sagt die Zierde,
+        in welchem Jahr ihr Orden verdient wurde (Lena: Brunnen in 2023 ohne Orden in 2023)."""
+        out = {}
+        for o in quest.orden_fuer_sammlung(c):
+            if o["erreicht"] and o["zierde"] and o["zierde"] not in out:
+                out[o["zierde"]] = f"Belohnung für den Orden „{o['name']}“ ({o['jahr']})"
+        return out
 
     def orden_nachtragen(jahr: int, erfolge) -> int:
         """Orden, die erreicht, aber nie notiert sind (aus älteren Spielständen), kommen in die
@@ -1753,6 +1765,11 @@ def register_steuer(
                 "wie": aktion,
             }
         alt = app.state.steuer_combo.get(jahr) or kampf_anfang()
+        if aktion in ("gibts_nicht", "fragen"):
+            app.state.steuer_zurueck[jahr] = {"stueck_id": s["id"], "combo": dict(alt)}
+            app.state.steuer_wurf[jahr]["zurueck"] = s["id"]
+        else:
+            app.state.steuer_zurueck.pop(jahr, None)
         # Die Gold-Serie wächst nur mit Belegen: Sie vervielfacht nur Beleg-Gold, also soll sie
         # auch nur mit Belegen wachsen. Fragen und "Gibt's nicht" treffen, die Serie wartet.
         combo, ruf = spiel.treffer(alt["combo"], kritisch, zaehlt=kritisch)
@@ -1770,6 +1787,36 @@ def register_steuer(
         mult = spiel.multiplikator(combo, vorher["helfer"])
         if belohnen(jahr, vorher, ferne=False, mult=mult):
             return back(f"/steuer/{jahr}/drache")  # der Falt-Moment
+        return back(f"/steuer/{jahr}/drache#karte")
+
+    @app.post("/steuer/{jahr}/drache/zuruecknehmen", dependencies=guarded)
+    async def drache_zuruecknehmen(request: Request, jahr: int):
+        """Ein Fehlklick im Kampf ("Lieber fragen", "Gibt's nicht", "Finde ich nicht") kostet
+        keinen Zug: Die Karte geht zurück zum Drachen, die Serie steht wie vor dem Klick."""
+        form = await request.form()
+        stueck_id = int(str(form.get("stueck_id") or 0))
+        merk = app.state.steuer_zurueck.get(jahr)
+        s = stueck_im_jahr(jahr, stueck_id)
+        if (
+            not merk
+            or merk["stueck_id"] != stueck_id
+            or s["status"] not in ("gibts_nicht", "fragen")
+        ):
+            flash("Das lässt sich nicht mehr zurücknehmen. Auf der Provinz-Karte geht es noch.")
+            return back(f"/steuer/{jahr}/drache#karte")
+        vorher = lage(jahr)
+        if vorher["drache"].besiegt:
+            flash("Der Drache ist schon besiegt. Den Stempel nimmst du in der Provinz zurück.")
+            return back(f"/steuer/{jahr}/drache")
+        app.state.steuer_zurueck.pop(jahr, None)
+        app.state.steuer_wurf.pop(jahr, None)
+        quest.setze_status(conn(), stueck_id, "offen")
+        combo = dict(merk["combo"])
+        combo["ruf"] = "Zurückgenommen. Die Serie steht wie vorher."
+        combo.pop("frisch", None)
+        app.state.steuer_combo[jahr] = combo
+        flash(f"Zurückgenommen: {s['name']} ist wieder beim Drachen.")
+        belohnen(jahr, vorher)
         return back(f"/steuer/{jahr}/drache#karte")
 
     # ----- Hafenmarkt: Gold ausgeben -----

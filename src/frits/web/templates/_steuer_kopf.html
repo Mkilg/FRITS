@@ -8,7 +8,7 @@
     <li class="sq-marke fragen" title="Fragen an deine Beraterin"><i></i><b data-zaehler="fragen">{{ ressourcen.fragen }}</b> Fragen</li>
     <li class="sq-marke gold"><a href="/steuer/{{ jahr }}/markt" title="Dein Gold. Auf dem Hafenmarkt baust du damit deine Insel aus."><i></i><b data-zaehler="gold">{{ ressourcen.gold }}</b> Gold</a></li>
     {% if sammlung_da is defined and sammlung_da %}{% set sammel = sammlung_stand() %}{% if sammel %}
-    <li class="sq-marke sammlung"><a href="/sammlung" title="Deine Sammlung mit Fritte: Orden, Zierden und Schätze aus allen Jahren. {{ sammel[0] }} von {{ sammel[1] }} Plätzen gefüllt."><i></i><b>{{ sammel[0] }}/{{ sammel[1] }}</b> Sammlung</a></li>
+    <li class="sq-marke sammlung"><a href="/sammlung" title="Deine Sammlung mit Fritte: Orden, Zierden und Schätze aus allen Jahren. {{ sammel[0] }} von {{ sammel[1] }} Plätzen gefüllt."><i></i><b>{{ sammel[0] }}/{{ sammel[1] }}</b><span class="sr-only"> in deiner Sammlung</span></a></li>
     {% endif %}{% endif %}
   </ul>
   {# 100 % erst mit dem Sieg: Fehlt nur noch ein echtes Dokument, steht dort 99 % #}

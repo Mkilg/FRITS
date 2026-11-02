@@ -1,5 +1,6 @@
 """Die Steuer-Quest: Fragebogen, Sammeln, Drache, Beraterin-Mail, FRITS-Ernte und Schatztruhe."""
 
+import re
 import shutil
 import sqlite3
 from datetime import date
@@ -2610,3 +2611,36 @@ def test_runde_22_sammlung_als_marke_in_der_leiste(client, ws):
     for pfad in ("/steuer/2025", "/steuer/2025/markt", "/steuer/2025/belege"):
         seite = client.get(pfad).text
         assert '<li class="sq-marke sammlung"><a href="/sammlung"' in seite, pfad
+
+
+def test_runde_23_zierde_sagt_woher_sie_kommt(client, ws):
+    # Lena (Runde 22): Der Brunnen steht auch in 2023, der Orden ist aber aus 2024
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    quest.notiere(conn, 2024, "erfolg", "Gutes Gedächtnis")
+    insel = client.get("/steuer/2025").text
+    assert "Brunnen: Belohnung für den Orden „Gutes Gedächtnis“ (2024)" in insel
+
+
+def test_runde_23_markt_ohne_alte_saetze(client, ws):
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    markt = client.get("/steuer/2025/markt").text
+    assert "Hier wird es zu Zierde" not in markt
+    assert "×2, ×3" not in markt
+
+
+def test_runde_23_fehlklick_im_kampf_zuruecknehmen(client, ws):
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    _bis_wach(conn)
+    seite = client.get("/steuer/2025/drache").text
+    m = re.search(r'name="stueck_id" value="(\d+)"', seite)
+    sid = int(m.group(1))
+    seite = post(client, "/steuer/2025/drache/schlag", stueck_id=sid, aktion="fragen").text
+    assert "Verklickt? Zurücknehmen" in seite
+    seite = post(client, "/steuer/2025/drache/zuruecknehmen", stueck_id=sid).text
+    assert "ist wieder beim Drachen" in seite
+    assert next(s for s in quest.stuecke(conn, 2025) if s["id"] == sid)["status"] == "offen"
+    # Ein zweites Mal geht nicht: nichts mehr zurückzunehmen
+    seite = post(client, "/steuer/2025/drache/zuruecknehmen", stueck_id=sid).text
+    assert "nicht mehr zurücknehmen" in seite
