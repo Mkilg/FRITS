@@ -41,6 +41,10 @@ class Ding:
     artikel: str = "die"  # der | die | das, for "Die Teetasse hat jetzt einen Platz"
     truhe: str = ""  # only found in chests, with this rarity (never in the shop)
 
+    def platz(self, gemaelde: int = 0) -> tuple[float, float, float]:
+        """x, y and size. In Marie's painted room of this stage it may stand elsewhere."""
+        return GEMALT_PLATZ.get(gemaelde, {}).get(self.id, (self.x, self.y, self.groesse))
+
 
 # fmt: off
 LADEN: tuple[Ding, ...] = (
@@ -73,6 +77,26 @@ SCHAETZE: tuple[Ding, ...] = (
 )
 # fmt: on
 DINGE = {d.id: d for d in (*LADEN, *SCHAETZE)}
+# Marie's painted rooms bring their own furniture: from stage 3 a tool wall, a workbench and
+# a framed picture of their own. Here a thing goes where it fits in that painting (x, y, size),
+# by the stage of the painting shown. A painting not listed keeps the drawn room's places.
+GEMALT_PLATZ: dict[int, dict[str, tuple[float, float, float]]] = {
+    3: {
+        "bild": (39.6, 65, 2.6),  # over the painted frame, not on the tool wall
+        "schatzkarte": (4.3, 57, 1.8),  # the wall left of the window
+        "kerze": (22, 51, 1.6),  # on the window sill, next to the painted plant
+        "kleeblatt": (26.5, 51, 1.6),
+        "waage": (71, 53.5, 1.8),  # on the workbench
+    },
+    4: {
+        "bild": (58.9, 54.5, 2.2),  # over the two small herbarium prints
+        "schatzkarte": (67, 52, 2.0),  # the free wall between prints and workbench
+        "kerze": (21.5, 49.5, 1.6),
+        "kleeblatt": (26, 49.5, 1.6),
+        "waage": (76, 51, 1.8),  # on the workbench, in front of the jars
+        "uhr": (86, 51, 2.0),
+    },
+}
 
 # Which painted Fritte goes with which feeling (the pictures from static/bilder).
 BILD = {

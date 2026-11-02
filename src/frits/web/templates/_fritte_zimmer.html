@@ -1,5 +1,7 @@
 {# Fritte's room. Needs f (haustier.Fritte); neu = id of something just bought. #}
-{% set gemalt = picture('zimmer-' ~ f.stufe) %}
+{# a stage without its own painting shows the stage before it, never the drawn room in between #}
+{% set gemalt = picture('zimmer-' ~ f.stufe) or picture('zimmer-' ~ (f.stufe - 1)) %}
+{% set gemaelde = f.stufe if picture('zimmer-' ~ f.stufe) else (f.stufe - 1 if gemalt else 0) %}
 <div class="zimmer laune-{{ f.laune }} stufe-{{ f.stufe }} ort-{{ f.ort }}{{ ' im-bau' if f.bau }}{{ ' gemalt' if gemalt }}{{ ' fest' if f.fest }}{{ ' ' ~ zimmer_klasse if zimmer_klasse }}"{% if gemalt %} style="--zimmer-bild: url({{ gemalt }})"{% endif %} role="img" aria-label="Fritte in ihrem Zimmer. Sie ist {{ f.laune_name }}.">
   {% if f.stufe >= 5 %}<span class="markise" aria-hidden="true"></span><span class="girlande" aria-hidden="true"></span>{% endif %}
   <span class="fenster" aria-hidden="true"><span class="aussicht"></span>{% if f.stufe >= 4 %}<span class="garten"></span>{% endif %}</span>
@@ -11,7 +13,8 @@
   <span class="teppich" aria-hidden="true"></span>
   <span class="papier" aria-hidden="true"></span>
   {% for d in f.zimmer %}
-  <span class="ding{{ ' neu' if d.id == neu }}" style="left: {{ d.x }}%; bottom: {{ d.y }}%; --g: {{ d.groesse }};" title="{{ d.name }}">
+  {% set x, y, g = d.platz(gemaelde) %}
+  <span class="ding{{ ' neu' if d.id == neu }}" style="left: {{ x }}%; bottom: {{ y }}%; --g: {{ g }};" title="{{ d.name }}">
     {%- if picture('ding-' ~ d.id) %}<img src="{{ picture('ding-' ~ d.id) }}" alt="">{% else %}{{ d.zeichen }}{% endif -%}
   </span>
   {% endfor %}
