@@ -53,7 +53,11 @@
   {# Vorschau statt Rückblick: Der große Faktor gilt für den nächsten Beleg, nicht für den letzten #}
   {% if goldjahr %}
   <div class="sq-combo{% if combo.wartet %} wartet{% endif %}" aria-live="polite"><span class="mult" title="Serie: So oft zählen die Salzkörner für deinen nächsten Beleg">Serie ×{{ combo.naechster }}</span><span class="ruf">{{ combo.ruf }}</span>
+    {% if combo.gewertet is defined %}
+    <small class="sq-combo-regel">Diese Karte war schon gewertet: +{{ koerner(combo.gewertet) }}, ohne Serie. Deine Serie wartet auf die nächste neue Karte.</small>
+    {% else %}
     <small class="sq-combo-regel">Nächster Beleg: {{ combo.basis }} × {{ combo.naechster }} = {{ koerner(combo.basis * combo.naechster) }}. Jeder Beleg lässt die Serie wachsen, Fragen treffen auch, aber die Serie wartet dann.</small>
+    {% endif %}
   </div>
   {% else %}
   {# Alte Jahre zahlen kein Gold: Dann keine Zahl, die etwas verspricht #}
@@ -75,7 +79,7 @@
         <button class="quiet">Falsch? Zurücklegen</button>
       </form>
       {% else %}
-      <span><b>{{ "Volltreffer" if wurf.wie == "datei" else ("Notiert" if wurf.wie == "gibts_nicht" else "Treffer") }}:</b> {{ {"datei": "„" ~ wurf.karte ~ "“ ist gesichert.", "fragen": "„" ~ wurf.karte ~ "“ kommt als Frage in die Mail.", "gibts_nicht": "„" ~ wurf.karte ~ "“ gibt es nicht.", "verweis": "„" ~ wurf.karte ~ "“ benutzt dieselbe Datei mit."}.get(wurf.wie, "") }}</span>
+      <span><b>{{ "Treffer" if wurf.wieder else "Volltreffer" if wurf.wie == "datei" else ("Notiert" if wurf.wie == "gibts_nicht" else "Treffer") }}:</b> {{ {"datei": "„" ~ wurf.karte ~ "“ ist gesichert.", "fragen": "„" ~ wurf.karte ~ "“ kommt als Frage in die Mail.", "gibts_nicht": "„" ~ wurf.karte ~ "“ gibt es nicht.", "verweis": "„" ~ wurf.karte ~ "“ benutzt dieselbe Datei mit."}.get(wurf.wie, "") }}</span>
       {% if wurf.zurueck and not drache.besiegt %}
       <form method="post" action="/steuer/{{ jahr }}/drache/zuruecknehmen">
         <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="stueck_id" value="{{ wurf.zurueck }}">
@@ -87,7 +91,7 @@
       {% if beute.mult > 1 %}
       <span class="sq-rechnung" aria-label="{{ koerner(beute.plus) }} verdient"><span class="chips">{{ beute.basis }}</span><span class="mal">×</span><span class="faktor">{{ beute.mult }}</span><span class="gleich">=</span><b>+{{ karte_gold }} {{ salz }}</b>{% if beute.plus > karte_gold %}<small>+{{ beute.plus - karte_gold }} Bonus</small>{% endif %}</span>
       {% else %}
-      <span class="sq-rechnung" aria-label="{{ koerner(beute.plus) }} verdient"><b>+{{ karte_gold }} {{ salz }}</b>{% if beute.plus > karte_gold %}<small>+{{ beute.plus - karte_gold }} Bonus</small>{% endif %}{% if wurf.wieder and combo.mult > 1 %}<small>ohne Serie, die Karte war schon gewertet</small>{% elif wurf.wie not in ["datei", "zettel", "verweis"] and combo.mult > 1 %}<small>ohne Serie, die zählt nur für Belege</small>{% endif %}</span>
+      <span class="sq-rechnung" aria-label="{{ koerner(beute.plus) }} verdient"><b>+{{ karte_gold }} {{ salz }}</b>{% if beute.plus > karte_gold %}<small>+{{ beute.plus - karte_gold }} Bonus</small>{% endif %}{% if wurf.wieder %}<small>ohne Serie, die Karte war schon gewertet</small>{% elif wurf.wie not in ["datei", "zettel", "verweis"] and combo.mult > 1 %}<small>ohne Serie, die zählt nur für Belege</small>{% endif %}</span>
       {% endif %}
       {% endif %}
     </div>
@@ -106,7 +110,7 @@
         <input type="hidden" name="token" value="{{ token }}">
         <input type="hidden" name="stueck_id" value="{{ k.id }}">
         <div class="sq-ablage">
-          <label class="fach">Datei geben: Volltreffer, die Serie wächst doppelt!<input type="file" name="datei" multiple></label>
+          <label class="fach">{% if goldjahr and combo.gewertet is defined %}Datei geben: schon gewertet, +{{ koerner(combo.gewertet) }} ohne Serie{% else %}Datei geben: Volltreffer, die Serie wächst doppelt!{% endif %}<input type="file" name="datei" multiple></label>
         </div>
         <div class="reihe">
           <button class="sq-siegelknopf" name="aktion" value="datei" data-datei-waehlen>Datei geben</button>

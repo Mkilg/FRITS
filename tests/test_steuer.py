@@ -1346,14 +1346,14 @@ def test_gold_im_kampf_mit_serie_und_markt_im_browser(client, ws):
     assert 'class="sq-rechnung"' in seite.text
     assert re.search(r'\+4 <(svg|img) class="salz-zeichen', seite.text)
     assert quest.gold(conn, 2025) == gold_vorher + 4
-    # Zurücklegen bucht das Gold zurück; danach zahlt die Karte als Frage nur ihre 1
+    # Zurücklegen bucht das Gold zurück; danach zahlt die Karte als Frage nichts mehr
+    # (Lena, Runde 39: sonst brachte Zurück, „Lieber fragen“, Datei wieder dran +1)
     datei = quest.dateien(conn, 2025, karte["id"])[0]
     seite = post(client, f"/steuer/2025/datei/{datei['id']}/entfernen", back="/steuer/2025/drache")
     assert quest.gold(conn, 2025) == gold_vorher and "Salzkörner zurückgebucht" in seite.text
     seite = post(client, "/steuer/2025/drache/schlag", stueck_id=str(karte["id"]), aktion="fragen")
-    assert quest.gold(conn, 2025) == gold_vorher + 1
+    assert quest.gold(conn, 2025) == gold_vorher
     assert f"„{karte['name']}“ kommt als Frage in die Mail" in seite.text
-    assert 'class="sq-rechnung"' in seite.text
 
     # Der Markt: Helfer haben einen Haken, Zierden gibt es für Orden (Runde 21)
     quest.verdiene(conn, 2025, "test", 100, "Testgold")
@@ -3257,3 +3257,74 @@ def test_runde_39_vorjahres_briefe_und_kleine_worte(client, ws):
         client, "/steuer/2025/lager/hochladen", files=[("datei", ("x.pdf", b"%PDF x"))]
     ).text
     assert 'href="/steuer/2025#sq-korb">Zum Korb' in seite
+
+
+def test_runde_40_kein_umweg_ueber_fragen_und_helfer(client, ws):
+    """Lena (Runde 39): Zurück, „Lieber fragen“, Datei wieder dran brachte +1; Goldwaage kaufen
+    und einen gewerteten Schatz umbuchen brachte +4."""
+    fragebogen(
+        client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"}, teil3={"haken": "vorsorge"}
+    )
+    conn = quest.ensure_schema(store.connect(ws.db))
+    karte = spiel.pflicht(quest.stuecke(conn, 2025))[0]
+    datei = [("datei", ("id.pdf", b"%PDF id"))]
+    post(client, f"/steuer/2025/stueck/{karte['id']}/datei", files=datei)
+    start = quest.gold(conn, 2025)
+    d = quest.dateien(conn, 2025, karte["id"])[0]
+    post(client, f"/steuer/2025/datei/{d['id']}/entfernen")
+    post(client, f"/steuer/2025/stueck/{karte['id']}/status", status="fragen")
+    post(client, f"/steuer/2025/stueck/{karte['id']}/datei", files=datei)
+    assert quest.stueck(conn, karte["id"])["status"] == "gesammelt"
+    assert quest.gold(conn, 2025) == start  # netto 0
+
+    schatz = quest.stuecke(conn, 2025, "burg")[0]
+    riester = [("datei", ("riester.pdf", b"%PDF riester"))]
+    post(client, f"/steuer/2025/stueck/{schatz['id']}/datei", files=riester)
+    quest.verdiene(conn, 2025, "test", 100, "Testgold")
+    post(client, "/steuer/2025/markt/kaufen", ware="goldwaage")
+    assert "goldwaage" in quest.helfer(conn, 2025)
+    vorher = quest.gold(conn, 2025)
+    d = quest.dateien(conn, 2025, schatz["id"])[0]
+    seite = post(client, f"/steuer/2025/datei/{d['id']}/entfernen").text
+    assert "bekommst du sie zurück" in seite  # nicht mehr als vorher versprochen
+    name = next(f.name for f in quest.lager_dateien(ws.root) if "riester" in f.name.lower())
+    post(
+        client, "/steuer/2025/lager/zuordnen", name=name, stueck_id=str(schatz["id"]), trotzdem="1"
+    )
+    assert quest.stueck(conn, schatz["id"])["status"] == "gesammelt"
+    assert quest.gold(conn, 2025) == vorher  # netto 0, auch mit der Goldwaage
+
+
+def test_runde_40_serie_bleibt_und_drache_verspricht_ehrlich(client, ws):
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    _bis_wach(conn)
+    lager = quest.lager(ws.root)
+    lager.mkdir(parents=True, exist_ok=True)
+    (lager / "a.pdf").write_bytes(b"%PDF a")
+    erste = spiel.drache(quest.stuecke(conn, 2025)).karte
+    post(client, "/steuer/2025/drache/schlag", stueck_id=str(erste["id"]), aktion="zettel",
+         zettel="a.pdf")  # fmt: skip
+    serie = client.app.state.steuer_combo[2025]["combo"]
+    assert serie > 0
+    d = quest.dateien(conn, 2025, erste["id"])[0]
+    seite = post(client, f"/steuer/2025/datei/{d['id']}/entfernen").text
+    assert "nicht noch einmal" in seite
+    assert client.app.state.steuer_combo[2025]["combo"] == serie  # die Serie bleibt stehen
+    drache = client.get("/steuer/2025/drache").text
+    assert spiel.drache(quest.stuecke(conn, 2025)).karte["id"] == erste["id"]
+    assert "Diese Karte war schon gewertet: +2" in drache
+    assert "schon gewertet, +2" in drache and "Nächster Beleg:" not in drache
+    name = quest.lager_dateien(ws.root)[0].name
+    seite = post(client, "/steuer/2025/drache/schlag", stueck_id=str(erste["id"]),
+                 aktion="zettel", zettel=name).text  # fmt: skip
+    assert "ohne Serie, die Karte war schon gewertet" in seite
+
+
+def test_runde_40_dateinamen_brechen_an_trennzeichen():
+    from frits.web.steuer import umbruch
+
+    assert str(umbruch("Steuerbescheid_2024_Finanzamt.pdf")) == (
+        "Steuerbescheid_<wbr>2024_<wbr>Finanzamt.<wbr>pdf"
+    )
+    assert "&lt;b&gt;" in str(umbruch("<b>_x"))

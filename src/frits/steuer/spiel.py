@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import math
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import date
 
@@ -863,13 +864,16 @@ def verdienste(
     nachher: list[dict],
     mult: int = 1,
     helfer: frozenset[str] | set[str] = frozenset(),
-    ohne_serie: frozenset[str] | set[str] = frozenset(),
+    frueher: Mapping[str, int] | None = None,
 ) -> list[Verdienst]:
     """Was diese Änderung an Gold bringen kann. Ob es schon einmal ausgezahlt wurde,
     entscheidet das Goldbuch (gleicher Grund zahlt nie zweimal).
 
-    ohne_serie: Gründe, die schon einmal zurückgebucht wurden. Sie zahlen nur den Grundwert,
-    auch im Kampf (Lena, Runde 38: sonst bringt Zurücklegen und Neuwerfen mehr als vorher)."""
+    frueher: Gründe, die schon einmal zurückgebucht wurden, mit dem Betrag von damals. Sie
+    zahlen nur den Grundwert, auch im Kampf, und nie mehr als damals (Lena, Runde 38 und 39:
+    sonst bringt Zurücklegen und Neuwerfen mehr, auch nach dem Kauf eines Helfers). Hatte die
+    Karte schon einen Fund, zahlt eine spätere Antwort („Lieber fragen“) nichts mehr."""
+    frueher = frueher or {}
     alt = {s["id"]: s["status"] for s in vorher}
     neu = []
     for s in nachher:
@@ -883,7 +887,13 @@ def verdienste(
         art = "fund" if status == "gesammelt" else "antwort"
         # Fragen und Wünsche füttern keine Gold-Serie (Wünsche kann man selbst erfinden)
         grund = karten_grund(s, art)
-        frisch = grund not in ohne_serie
+        if art == "antwort" and karten_grund(s, "fund") in frueher:
+            continue  # Zurückgelegt und dann „Lieber fragen“: kein Gold für den Umweg
+        frisch = grund not in frueher
+        if not frisch:
+            basis = min(basis, frueher[grund])
+            if not basis:
+                continue
         faktor = mult if status == "gesammelt" and not ist_wunsch(s) and frisch else 1
         # „(×4)“ im Text: Frittes Kassenbuch nennt damit die Serie des Kampfes
         text = s["name"] + (f" (×{faktor})" if faktor > 1 else "")

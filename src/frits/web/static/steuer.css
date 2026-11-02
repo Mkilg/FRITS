@@ -1783,5 +1783,6 @@ details.sq-mehr-marken .kurz { display: none; }
   /* Lena (Runde 38): summary ist inline, min-height griff nicht ("Mehr" 42 × 40) */
   .sq .sq-mehr > summary { display: inline-flex; align-items: center; min-width: 44px; }
   .sq .sq-noch-liste a { display: inline-flex; align-items: center; min-height: 44px; }
+  .sq .sq-meldung > a, .sq .sq-meldung-aktion > a { display: inline-flex; align-items: center; min-height: 44px; }
 }
 .sq-anderes-jahr { display: inline-block; font: 700 .72rem system-ui, sans-serif; color: #8a2b16; background: #fbe3d6; border-radius: 999px; padding: .05rem .4rem; margin-right: .3rem; }
