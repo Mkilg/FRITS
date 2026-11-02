@@ -362,6 +362,7 @@ def test_pages_and_a_whole_round(client, ws):  # noqa: F811
     assert "Kassensturz machen" not in home  # "Heute" is for work: no game button there
     fritte = client.get("/fritte").text
     assert "Willkommen bei Fritte" in fritte and "Ersten Kassensturz machen" in fritte
+    assert "Wie soll Fritte feiern?" in fritte  # never chosen: Fritte asks once
     assert "Vorschau:" in fritte and "Herbst 2026" in fritte
     page = post(client, "/fritte/kassensturz")
     assert "Kassensturz Nr. 1" in page.text and 'id="ks-daten"' in page.text

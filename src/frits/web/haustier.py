@@ -102,19 +102,22 @@ def haus_sichtbar(conn) -> bool:
     )
 
 
-def drachen_serie(gewuerze: int) -> dict:
+def drachen_serie(gewuerze: int, helfer: frozenset[str] = frozenset()) -> dict:
     """What Fritte's shelf does in the Steuer-Quest's dragon fight, with the quest's own
     numbers: each spice raises the gold streak at the start by one, up to a few spices.
-    The Sanduhr helper caps the streak, so the shop says that too when it matters."""
+    `helfer`: the quest's helpers at the table (Kriegstrommel, Sanduhr), so the shop says
+    the same number as the fight (Lena saw ×2 here and ×4 there)."""
     from frits.steuer import spiel
 
-    def start(n: int, helfer: frozenset[str] = frozenset()) -> int:
-        return spiel.multiplikator(spiel.start_serie(n), helfer)
+    def start(n: int, mit: frozenset[str] = frozenset()) -> int:
+        # The number the fight's banner shows before the first Beleg ("Serie ×N"):
+        # a Beleg counts the streak plus two (steuer.drache_seite, combo["naechster"]).
+        return spiel.multiplikator(spiel.start_serie(n) + 2, mit)
 
     return {
-        "jetzt": start(gewuerze),
-        "naechster": start(gewuerze + 1),
-        "sanduhr": start(gewuerze, frozenset({"sanduhr"})),
+        "jetzt": start(gewuerze, helfer),
+        "naechster": start(gewuerze + 1, helfer),
+        "ohne": start(0, helfer),
         "max": spiel.GEWUERZ_START_MAX,
     }
 
@@ -460,7 +463,12 @@ def register_haustier(
             verkauf=lambda g: verkaufs_preis(bezahlt.get(g.id, g.preis)),
             laden=haustier.LADEN,
             schaetze=haustier.SCHAETZE,
-            drachen_serie=drachen_serie(len(shelf)),
+            drachen_serie=drachen_serie(
+                len(shelf),
+                frozenset(
+                    w["ware"].key for w in (insel_regal or {}).get("waren", []) if w.get("an")
+                ),
+            ),
             haus_sichtbar=haus_sichtbar(conn),
             stufe=ausbau.stufe(conn),
             ruf=ausbau.ruf(conn),

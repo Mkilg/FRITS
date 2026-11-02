@@ -251,8 +251,9 @@ def test_the_shop_shows_the_bridge_to_the_dragon(client, ws):  # noqa: F811
     post(client, "/fritte/kassensturz")
     page = client.get("/fritte/laden").text
     assert len(kassensturz.regal(conn)) == 1  # the first spice
-    assert "drachen-bruecke" in page and "startet sie bei <strong>×2</strong>" in page
-    assert "🐉</span> Drachenkampf: Start ×3 statt ×2" in page  # on the spices one could add
+    # The same number the fight's banner shows before the first Beleg (Lena: ×2 here, ×4 there)
+    assert "drachen-bruecke" in page and "erste Beleg <strong>×4</strong>, ohne Gewürze ×2" in page
+    assert "🐉</span> Drachenkampf: erster Beleg ×5 statt ×4" in page  # on spices one could add
     assert "Sanduhr" not in page.split("drachen-bruecke")[1].split("</p>")[0]  # ×2 is under its cap
     for g in gw.GEWUERZE:
         if len(kassensturz.regal(conn)) >= kassensturz.plaetze(conn):
@@ -262,9 +263,19 @@ def test_the_shop_shows_the_bridge_to_the_dragon(client, ws):  # noqa: F811
     assert len(kassensturz.regal(conn)) == 3
     page = client.get("/fritte/laden").text
     assert (
-        "startet sie bei <strong>×4</strong>." in page and "Sanduhr" not in page
+        "erste Beleg <strong>×6</strong>, ohne" in page and "Sanduhr" not in page
     )  # the fight shows it
     assert "drachen-plus" not in page  # a full bridge: no more promises
+
+
+def test_the_bridge_counts_the_quest_helpers_like_the_fight():
+    from frits.steuer import spiel
+    from frits.web.haustier import drachen_serie
+
+    for n in range(5):
+        assert drachen_serie(n)["jetzt"] == spiel.multiplikator(spiel.start_serie(n) + 2)
+    assert drachen_serie(1, frozenset({"trommel"}))["jetzt"] == 5  # the drum: one more
+    assert drachen_serie(3, frozenset({"sanduhr"}))["jetzt"] == 3  # the hourglass caps
 
 
 def test_other_websites_cannot_open_chests(client):  # noqa: F811

@@ -1740,6 +1740,13 @@ def create_app(
             ki_kosten=store.ki_kosten(db()),
         )
 
+    def stil_gewaehlt(form) -> None:
+        """Calm or playful was chosen here: Fritte's welcome then does not ask again (Lena)."""
+        if form.get("effects") in EFFECTS:
+            conn = db()
+            spiel_stand.vorbereiten(conn)
+            spiel_stand.setze(conn, "stil_gefragt", "1")
+
     @app.post("/settings", dependencies=guarded)
     async def settings_save(request: Request):
         form = await request.form()
@@ -1759,6 +1766,7 @@ def create_app(
             )
             return back("/settings")
         updated.save(ws.settings_file)
+        stil_gewaehlt(form)
         key = str(form.get("api_key", ""))
         if (
             key.strip()
@@ -2327,6 +2335,7 @@ def create_app(
         if step == "done":
             updated = replace(updated, setup_done=True)
         updated.save(ws.settings_file)
+        stil_gewaehlt(form)
 
         if step == "store_key" and str(form.get("api_key", "")).strip():
             key = str(form.get("api_key"))

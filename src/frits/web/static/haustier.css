@@ -480,8 +480,11 @@ details[open] > summary::before { content: "▾ "; }
 .landkarte li.jetzt { border-style: solid; border-color: var(--ocker-dunkel); background: rgba(233, 189, 79, .25); color: var(--ink); font-weight: 600; }
 .vorschau-zeile { margin: .6rem 0; }
 .willkommen-spiel { display: flex; gap: .9rem; align-items: center; margin-bottom: .8rem; padding: .7rem 1rem; border-radius: 6px;
-  background: linear-gradient(90deg, rgba(233, 189, 79, .3), rgba(233, 189, 79, .08)), var(--papierkarte); border: 2px solid var(--gold); }
+  /* paper under the gold tint: on the dark board a see-through card was brown on brown (Lena) */
+  background: linear-gradient(90deg, rgba(233, 189, 79, .3), rgba(233, 189, 79, .08)), var(--papierkarte);
+  color: var(--ink); border: 2px solid var(--gold); }
 .willkommen-spiel p { margin: 0; }
+@media (max-width: 600px) { .willkommen-spiel > .sticker-rund { display: none; } }
 .wirkung { font-size: .85rem; color: var(--moos-dunkel); }
 .wirkung.null { color: var(--muted); }
 .ks-ausbau.mit-zimmer { align-items: center; }

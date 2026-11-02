@@ -125,6 +125,16 @@ def test_fritte_page_shows_dishes_and_what_each_jar_does(client, ws):  # noqa: F
     assert "Pfeffer:</strong> 1 von 3 Kartenarten" in page
 
 
+def test_fritte_does_not_ask_again_what_the_settings_already_chose(client, ws):  # noqa: F811
+    """Lena: chose "Verspielt" in the settings, and Fritte's welcome asked again."""
+    conn = store.connect(ws.db)
+    add_invoice(conn, "2026-0001", TODAY - timedelta(days=30))
+    post(client, "/settings", effects="verspielt")
+    page = client.get("/fritte").text
+    assert "Willkommen bei Fritte" in page and "Wie soll Fritte feiern?" not in page
+    assert "Fritte feiert verspielt" in page
+
+
 def test_the_list_notices_finished_work(client, ws):  # noqa: F811
     conn = store.connect(ws.db)
     add_invoice(conn, "2026-0001", TODAY - timedelta(days=30))
