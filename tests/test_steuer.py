@@ -2969,3 +2969,63 @@ def test_heute_nennt_den_naechsten_quest_schritt(client, ws):
     # Ist die Fundkiste gepackt, ist das Jahr fertig und Heute wieder ruhig
     quest.notiere(store.connect(ws.db), 2025, "truhe", "fundkiste.zip")
     assert "Nichts, was eilt" in client.get("/").text
+
+
+def _besiegt_mit_bonus(client, ws):
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    for s in spiel.pflicht(quest.stuecke(conn, 2025)):
+        quest.setze_status(conn, s["id"], "fragen")
+    erste = spiel.pflicht(quest.stuecke(conn, 2025))[0]
+    (ws.root / "beleg.pdf").write_bytes(b"%PDF beleg")
+    quest.sammeln(conn, ws.root, erste["id"], ws.root / "beleg.pdf")
+    bonus = next(s for s in quest.stuecke(conn, 2025) if spiel.ist_bonus(s))
+    return conn, bonus
+
+
+def test_runde_34_fundkiste_neu_packen_nach_neuen_belegen(client, ws):
+    """Lena (Runde 33): Belege nach dem Packen machten die Zip alt, niemand sagte es."""
+    conn, bonus = _besiegt_mit_bonus(client, ws)
+    assert quest.kiste_stand(conn, 2025) is None
+    assert "Pack die Fundkiste" in client.app.state.quest_auftrag(conn)["text"]
+    post(client, "/steuer/2025/truhe", schloss="ohne")
+    assert quest.kiste_stand(conn, 2025) == (0, 0)
+    assert client.app.state.quest_auftrag(conn) is None  # Heute ist ruhig
+    insel = client.get("/steuer/2025").text
+    assert "Die Fundkiste ist gepackt" in insel and "Pack die Fundkiste für" not in insel
+    (ws.root / "spende.pdf").write_bytes(b"%PDF spende")
+    quest.sammeln(conn, ws.root, bonus["id"], ws.root / "spende.pdf")
+    assert quest.kiste_stand(conn, 2025) == (1, 0)
+    heute = client.app.state.quest_auftrag(conn)
+    assert heute and "1 neuer Beleg seit dem Packen" in heute["text"]
+    assert heute["ziel"].endswith("/sieg#kiste")
+    sieg = client.get("/steuer/2025/sieg").text
+    assert 'class="sq-kiste-alt"' in sieg and "1 neuer Beleg seit dem Packen" in sieg
+    post(client, "/steuer/2025/truhe", schloss="ohne")
+    assert quest.kiste_stand(conn, 2025) == (0, 0)
+    assert 'class="sq-kiste-alt"' not in client.get("/steuer/2025/sieg").text
+    spende = next(d for d in quest.dateien(conn, 2025) if d["original"] == "spende.pdf")
+    quest.entferne_datei(conn, spende["id"])
+    assert quest.kiste_stand(conn, 2025) == (0, 1)
+
+
+def test_runde_34_kiste_aenderung_text():
+    assert spiel.kiste_aenderung(0, 0) == ""
+    assert spiel.kiste_aenderung(2, 0) == "2 neue Belege seit dem Packen."
+    assert (
+        spiel.kiste_aenderung(1, 1) == "1 neuer Beleg und 1 Beleg herausgenommen seit dem Packen."
+    )
+
+
+def test_runde_34_fund_banner_nennt_die_salzkoerner(client, ws):
+    """Lena (Runde 33): Ein Schatz brachte +4, das Banner sagte es nicht."""
+    conn, bonus = _besiegt_mit_bonus(client, ws)
+    vorher = quest.gold(conn)
+    seite = post(
+        client,
+        f"/steuer/2025/stueck/{bonus['id']}/datei",
+        files=[("datei", ("spende.pdf", b"%PDF spende"))],
+    ).text
+    assert quest.gold(conn) > vorher
+    salz = spiel.gold_fuer(bonus, "gesammelt", frozenset())
+    assert f"Gesichert: {bonus['name']} · +{spiel.koerner(salz)}" in seite

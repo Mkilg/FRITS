@@ -1735,3 +1735,6 @@ details.sq-mehr-marken .kurz { display: none; }
 .sq-noch-frei .sq-stempelknopf { display: inline-block; margin-top: .3rem; text-decoration: none; }
 /* Am Handy: Zahl mit Salzstreuer (das Wort fällt weg, der Streuer darf nicht mit verschwinden) */
 .sq-marke.gold img.salz-bild, .sq-marke.gold .salz-zeichen { width: 18px; height: 18px; min-width: 18px; flex: none; }
+
+/* Runde 34 (Lena): Belege nach dem Packen, die Fundkiste ist veraltet */
+.sq-kiste-alt { background: #fff6d0; border-left: 5px solid var(--gold); padding: .5rem .7rem; border-radius: 3px; margin: .4rem 0 .8rem; }

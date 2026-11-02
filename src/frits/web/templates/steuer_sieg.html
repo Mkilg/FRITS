@@ -53,8 +53,11 @@
       {% endif %}
     </section>
     {% endif %}
-    <section class="sq-papier">
+    <section class="sq-papier" id="kiste">
       <h2>1. Fundkiste packen</h2>
+      {% if zip_pfad and kiste_aenderung %}
+      <p class="sq-kiste-alt" role="status"><strong>{{ kiste_aenderung }}</strong> Pack die Fundkiste unten neu, sonst fehlen sie bei deiner Beraterin.</p>
+      {% endif %}
       {% if zip_pfad %}
       <p>Gepackt: <strong>{{ zip_pfad.name }}</strong> ({{ "mit Passwort" if mit_passwort else "ohne Passwort" }})</p>
       <form method="post" action="/steuer/{{ jahr }}/truhe/zeigen" class="reihe">
