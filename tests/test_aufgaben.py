@@ -83,7 +83,7 @@ def test_list_on_heute_add_tick_untick_and_strike(client, ai):
     page = post(client, f"/aufgaben/{pid}/abhaken")
     assert "Erledigt: Mama anrufen. Für Fritte liegt eine Karte bereit." in page.text
     assert 'data-cue="done"' in page.text or "data-cue" not in page.text  # with sound only
-    assert "Tagesziel: 1 von 3 geschafft" in page.text  # one goal for the day
+    assert "Tagesziel: 0 von 3 geschafft" in page.text  # ticks are no paperwork (like chests)
     assert punkte(client) == (["Bahnticket eintragen"], ["Mama anrufen"])
     karten = kassensturz.offene_karten(conn)
     assert [(k.art, k.detail, k.koerner) for k in karten if k.art == "aufgabe"] == [
@@ -111,7 +111,7 @@ def test_three_cards_a_day_and_no_second_card_for_the_same_point(client):
         post(client, f"/aufgaben/{pid}/abhaken")
     page = post(client, f"/aufgaben/{ids[3]}/abhaken")
     assert "Fürs Spiel zählen 3 am Tag" in page.text
-    assert "Tagesziel geschafft" in page.text
+    assert "Tagesziel geschafft" not in page.text
     assert (
         conn.execute("SELECT COUNT(*) FROM spiel_karten WHERE art = 'aufgabe'").fetchone()[0] == 3
     )

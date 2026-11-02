@@ -5,7 +5,6 @@ Three things of real work a day, then it's done. Slow productivity: the goal is 
 purpose, and missing it costs nothing. What counts:
 - Fritte's cards of real paperwork that FRITS noticed today (invoice, payment, expense,
   quote, reminder),
-- points ticked off "Deine Liste" (they give Fritte at most three cards a day anyway),
 - Steuer-Quest pieces found or asked about today (the quest's own rule: "Gibt's nicht"
   does not count, or stamping things away would be the fastest way to the goal).
 Fritte's own cards for tax pieces are left out, so one find counts once.
@@ -21,10 +20,13 @@ from frits.spiel import stand
 from frits.spiel.gewuerze import PAPIERKRAM
 
 ZIEL = 3
-ARTEN = PAPIERKRAM | {"aufgabe"}
+# The same rule as Fritte's chests (Lena): ticking off the list is good, but it is no
+# paperwork; it gives Fritte its own small cards instead.
+ARTEN = PAPIERKRAM
 ERKLAERUNG = (
-    "Es zählt echte Arbeit von heute: Rechnungen, Zahlungen, Ausgaben, Angebote,"
-    " Erinnerungen, abgehakte Punkte auf deiner Liste und Funde in der Steuer-Quest."
+    "Es zählt echter Papierkram von heute: Rechnungen, Zahlungen, Ausgaben, Angebote,"
+    " Erinnerungen und Funde in der Steuer-Quest. Wie bei Frittes Truhen zählen abgehakte"
+    " Punkte hier nicht."
 )
 
 
