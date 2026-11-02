@@ -107,8 +107,20 @@ jobs:
           echo "FRITS answered $(( $(date +%s) - begun )) s after the double-click"
           curl -fsS -L http://127.0.0.1:8765/ | grep -q "FRITS"
           sleep 20  # the language model loads in the background; the log says how long
+          # A second start, the way every later double-click is (Safari already open).
+          curl -fsS -X POST http://127.0.0.1:8765/quit >/dev/null 2>&1 || true
+          kill %1 2>/dev/null || true
+          pkill -f "frits.cli ui" || true
+          sleep 3
+          begun=$(date +%s)
+          "$APP/Contents/MacOS/FRITS" &
+          for i in $(seq 1 240); do
+            curl -fsS http://127.0.0.1:8765/health 2>/dev/null | grep -q FRITS && break
+            sleep 0.5
+          done
+          echo "Second start: FRITS answered $(( $(date +%s) - begun )) s after the double-click"
           cat "$HOME/Library/Logs/FRITS.log"
-          kill %1 || true
+          pkill -f "frits.cli ui" || true
 
       - name: Upload zip
         if: github.event_name != 'pull_request'

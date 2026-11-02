@@ -135,6 +135,7 @@ def _tell(message: str) -> None:
 
 
 def serve(port: int | None = None, open_browser: bool = True) -> None:
+    print(f"Python läuft, {_since_start()} nach dem Start.", flush=True)
     import uvicorn
 
     from frits.web.app import create_app
