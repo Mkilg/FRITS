@@ -206,3 +206,102 @@ def test_local_ai_costs_nothing(client, ws):
     store.log_ai_call(conn, None, usage, "y")
     page = client.get("/settings").text
     assert "unter 1 Cent für 1 Anfrage, dazu 2 Anfragen an die lokale KI" in page
+
+
+# ---------- Nachtest 58cdd68: notes in sight, gaps, twice, letterhead only ----------
+
+
+def _enter(client, number, **extra):
+    data = {
+        "number": number,
+        "customer": "Radio Süd",
+        "issue_date": "2025-05-02",
+        "net": "100",
+        "tax": "klein",
+        "bezahlt": "nein",
+        **extra,
+    }
+    return post(client, "/invoices/frueher", **data)
+
+
+def test_a_gap_while_entering_old_invoices_may_be_kept(client, ws):
+    assert "ist nachgetragen" in _enter(client, "2025-008").text
+    page = _enter(client, "2025-011").text
+    # Named as on paper (008, not 0008), the missing ones listed, and a way on.
+    assert "Vor 2025-011 fehlen in FRITS noch 2025-009 und 2025-010" in page
+    assert "Die letzte ist 2025-008" in page
+    assert 'data-feld="number"' in page
+    assert 'form="frueher-form" name="luecke" value="ok">Stimmt, trotzdem nachtragen' in page
+    assert 'id="frueher-form"' in page
+    assert "ist nachgetragen" in _enter(client, "2025-011", luecke="ok").text
+    # The missing ones can come later, in their place.
+    assert "ist nachgetragen" in _enter(client, "2025-009").text
+    numbers = [r[0] for r in store.connect(ws.db).execute("SELECT number FROM invoices")]
+    assert sorted(numbers) == ["2025-008", "2025-009", "2025-011"]
+
+
+def test_notes_after_nachtragen_point_at_their_field(client, ws):
+    missing_day = _enter(client, "2025-003", bezahlt="ja", paid="").text
+    assert 'data-feld="paid"' in missing_day and "Wann kam das Geld?" in missing_day
+    _enter(client, "2025-004")
+    twice = _enter(client, "2025-004").text
+    assert 'data-feld="number"' in twice and "gibt es in FRITS schon" in twice
+    assert 'data-feld="customer"' in _enter(client, "2025-005", customer=" ").text
+
+
+def test_old_invoice_entered_already_is_not_offered_again(client, ws, provider):
+    _enter(client, "2025-007", customer="Deutschlandradio")
+    (ws.inbox / "Rechnung_2025-007_nochmal.pdf").write_bytes(_old_invoice_pdf(WORD))
+    page = post(client, "/inbox/process").text
+    assert provider.calls == []
+    assert "Rechnung 2025-007 ist schon nachgetragen. Du musst nichts mehr tun." in page
+    assert 'href="/invoices#r-2025-007">Zur Rechnung' in page
+    assert _staged(ws) == []
+    assert "Wartet noch" not in client.get("/invoices").text
+    # Dropped on Rechnungen instead: the same answer.
+    response = client.post(
+        "/invoices/frueher/lesen",
+        data={"token": client.token},
+        files={"files": ("alt.pdf", _old_invoice_pdf(WORD), "application/pdf")},
+        follow_redirects=True,
+    )
+    assert "Rechnung 2025-007 ist schon nachgetragen" in response.text
+    assert _staged(ws) == []
+
+
+def test_own_invoice_with_only_the_letterhead_is_asked_about(client, ws):
+    letterhead_only = [x for x in WORD if "IBAN" not in x and "Steuernummer" not in x]
+    assert not eigene_rechnung("\n".join(letterhead_only), FRITZ)
+    response = client.post(
+        "/expenses/beleg",
+        data={"token": client.token},
+        files={"files": ("alt.pdf", _old_invoice_pdf(letterhead_only), "application/pdf")},
+        follow_redirects=True,
+    )
+    assert "Ist das deine eigene Rechnung?" in response.text
+    assert "Als Rechnung von früher nachtragen" in response.text
+    # A bill Fritz received never gets that question.
+    other = client.post(
+        "/expenses/beleg",
+        data={"token": client.token},
+        files={"files": ("adobe.pdf", _old_invoice_pdf(ADOBE.splitlines()), "application/pdf")},
+        follow_redirects=True,
+    )
+    assert "eigene Rechnung" not in other.text
+
+
+def test_one_word_is_enough_for_what_it_was_for():
+    text = (
+        "Fritz Beispiel\nAn: Radio Eins\nRechnung Nr. 2025-013\nDatum: 20.12.2025\n"
+        "Jahresrueckblick-Moderation, 18.12.2025\nNetto: 800,00 €\nGesamt: 952,00 €\n"
+    )
+    found = lesen(text, (FRITZ.name,), TODAY)
+    assert found["description"] == "Jahresrueckblick-Moderation"
+    assert found["service_date"] == "2025-12-18"
+
+
+def test_old_open_invoice_gets_no_payment_day_of_today(client, ws):
+    _enter(client, "2025-020")
+    page = client.get("/invoices").text
+    form = page.split('action="/invoices/2025-020/paid"')[1].split("</form>")[0]
+    assert 'name="paid" required' in form and "2026-11-02" not in form.split("max=")[0]
