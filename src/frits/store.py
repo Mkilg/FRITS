@@ -142,20 +142,28 @@ def add_job(
 
 def ki_kosten(conn, heute: date | None = None) -> dict:
     """What the AI cost, from the audit log: this month and last month, in US-Dollar as the
-    providers bill it. `ohne_preis` counts calls FRITS knows no price for (other models,
-    local AI), so the page can say the sum may be incomplete."""
+    providers bill it. `anfragen` are calls to a paid provider, `lokal` those to the local AI
+    (free). `ohne_preis` counts paid calls FRITS knows no price for (other models), so the page
+    can say the sum may be incomplete."""
     heute = heute or date.today()
     monat = heute.replace(day=1)
     vormonat = (monat - timedelta(days=1)).replace(day=1)
 
     def summe(von: date, bis: date) -> dict:
         row = conn.execute(
-            "SELECT COUNT(*) AS n, COALESCE(SUM(cost_usd), 0) AS usd,"
+            "SELECT SUM(CASE WHEN provider = 'ollama' THEN 0 ELSE 1 END) AS n,"
+            " SUM(CASE WHEN provider = 'ollama' THEN 1 ELSE 0 END) AS lokal,"
+            " COALESCE(SUM(cost_usd), 0) AS usd,"
             " SUM(CASE WHEN cost_usd IS NULL AND provider NOT IN ('ollama', 'recorded') THEN 1 ELSE 0 END) AS ohne"
             " FROM audit WHERE time >= ? AND time < ?",
             (von.isoformat(), bis.isoformat()),
         ).fetchone()
-        return {"anfragen": row["n"], "usd": float(row["usd"]), "ohne_preis": row["ohne"] or 0}
+        return {
+            "anfragen": row["n"] or 0,  # to a paid provider
+            "lokal": row["lokal"] or 0,  # to the local AI on this Mac: free
+            "usd": float(row["usd"]),
+            "ohne_preis": row["ohne"] or 0,
+        }
 
     return {"monat": summe(monat, heute + timedelta(days=1)), "vormonat": summe(vormonat, monat)}
 

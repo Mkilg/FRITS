@@ -12,7 +12,7 @@
 <section class="card" id="regal">
   <h2>Gewürzregal <span class="hint">{{ regal | length }} von {{ plaetze }} Plätzen</span></h2>
   <p class="hint">Die Würze wirkt von links nach rechts. Ein „×“-Gewürz ganz rechts multipliziert alles davor.</p>
-  <p class="drachen-bruecke"><span class="warm-zeichen" aria-hidden="true">🐉</span> Im Drachenkampf der Steuer-Quest hebt jedes Gewürz im Regal die Serie zum Start um eins (höchstens {{ drachen_serie.max }}). Mit deinem Regal startet sie bei <strong>×{{ drachen_serie.jetzt }}</strong>.</p>
+  <p class="drachen-bruecke"><span class="warm-zeichen" aria-hidden="true">🐉</span> Im Drachenkampf der Steuer-Quest wärmen die Gewürze im Regal die Serie vor (höchstens {{ drachen_serie.max }}). Mit deinem Regal zählt der erste Beleg <strong>×{{ drachen_serie.jetzt }}</strong>{% if drachen_serie.jetzt != drachen_serie.ohne %}, ohne Gewürze ×{{ drachen_serie.ohne }}{% endif %}.</p>
   <div class="regalbrett">
     {% for g in regal %}
     <div class="regal-platz">
@@ -47,7 +47,7 @@
       {{ spiel.glas(g) }}
       <span class="seltenheit">{{ g.seltenheit }}</span>
       <span class="hint">{{ g.text }}</span>
-      {% if g.id not in im_regal and regal | length < drachen_serie.max %}<span class="drachen-plus"><span class="warm-zeichen" aria-hidden="true">🐉</span> Drachenkampf: Start ×{{ drachen_serie.naechster }} statt ×{{ drachen_serie.jetzt }}</span>{% endif %}
+      {% if g.id not in im_regal and regal | length < drachen_serie.max and drachen_serie.naechster > drachen_serie.jetzt %}<span class="drachen-plus"><span class="warm-zeichen" aria-hidden="true">🐉</span> Drachenkampf: erster Beleg ×{{ drachen_serie.naechster }} statt ×{{ drachen_serie.jetzt }}</span>{% endif %}
       {% if g.id not in im_regal and w[1] %}
       <span class="wirkung{{ ' null' if not w[0] }}">{% if w[2] == "warten" %}Mit deinen {{ w[1] }} wartenden {{ "Karte" if w[1] == 1 else "Karten" }}{% else %}Beim letzten Kassensturz{% endif %}: {% if w[0] %}<strong>+{{ w[0] }}</strong> Salzkörner{% else %}kein Unterschied{% endif %}</span>
       {% endif %}

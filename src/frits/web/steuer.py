@@ -1130,6 +1130,7 @@ def register_steuer(
             vorn=vorn,
             spaeter=spaeter,
             aus_frits=ernte.aus_frits(g.provinz.key),
+            von_frits_ids=quest.von_frits(c, jahr),
             **daten,
         )
         if gewaehlt in ("stapel", "liste"):
@@ -2003,8 +2004,22 @@ def register_steuer(
             passwort=app.state.steuer_passwort.get(jahr),
             mit_passwort=mit_passwort,
             dateien=quest.dateien(conn(), jahr),
+            lager=quest.lager_dateien(ws.root),
+            noch_frei=noch_frei(daten),
             **daten,
         )
+
+    def noch_frei(daten: dict) -> list[dict]:
+        """Offene freiwillige Zettel, die man selbst finden kann (was FRITS selbst bringt,
+        kommt ohnehin von allein): für „Lohnt sich noch“ nach dem Sieg."""
+        provinz = {g.id: g.provinz.key for g in daten["gebiete"]}
+        return [
+            s
+            for s in daten["stuecke"]
+            if s["status"] == "offen"
+            and spiel.ist_bonus(s)
+            and s["key"] not in ernte.aus_frits(provinz.get(s["gebiet"], ""))
+        ]
 
     @app.post("/steuer/{jahr}/truhe", dependencies=guarded)
     async def truhe_packen(request: Request, jahr: int):

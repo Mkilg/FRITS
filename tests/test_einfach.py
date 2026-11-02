@@ -177,3 +177,20 @@ def test_kassenbuch_shows_the_currency_move_as_one_row(tmp_path):
         ("Steuer-Quest 2026: Fund", 2),
         ("Umstellung auf eine Währung", 37),
     ]
+
+
+def test_kassenbuch_keeps_one_quest_row_per_day_around_a_purchase(tmp_path):
+    from frits import store
+    from frits.spiel import stand
+
+    conn = store.connect(tmp_path / "frits.db")
+    stand.vorbereiten(conn)
+    tag = "2026-11-02"
+    stand.buche(conn, tag, 8, "quest", "Steuer-Quest 2025: Steuer-ID (×4)")
+    stand.buche(conn, tag, -3, "kauf", "Steuer-Quest 2025: Gekauft: Brieftaube")
+    stand.buche(conn, tag, 16, "quest", "Steuer-Quest 2025: Bescheid (×8)")
+    zeilen = stand.kassenbuch(conn)
+    assert [(z["text"], z["betrag"]) for z in zeilen] == [
+        ("Steuer-Quest 2025: 2 Buchungen · Serie bis ×8", 24),
+        ("Steuer-Quest 2025: Gekauft: Brieftaube", -3),
+    ]

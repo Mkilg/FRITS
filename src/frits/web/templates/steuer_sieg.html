@@ -40,6 +40,18 @@
       <ul>{% for s in offene_wuensche %}<li><a href="/steuer/{{ jahr }}/gebiet/{{ s.gebiet }}">{{ s.name }}</a></li>{% endfor %}</ul>
     </section>
     {% endif %}
+    {# Marie-Runde 8: Der Sieg kam früh, Freiwilliges und der Korb gingen unter #}
+    {% set frei = noch_frei %}
+    {% if frei or lager %}
+    <section class="sq-papier sq-noch-frei">
+      <h2>Lohnt sich noch</h2>
+      {% if lager %}<p>Im Eingangskorb {{ "liegt noch ein Zettel" if lager | length == 1 else "liegen noch " ~ (lager | length) ~ " Zettel" }}: <b>{{ lager[0].name }}</b>{% if lager | length > 1 %} und {{ lager | length - 1 }} weitere{% endif %}. <a href="/steuer/{{ jahr }}#sq-korb">Zum Korb</a></p>{% endif %}
+      {% if frei %}
+      <p>Freiwillig, aber oft bares Geld: {{ frei | length }} Zettel{{ " kann" if frei | length == 1 else " können" }} Steuern sparen. Was du jetzt noch findest, packst du einfach neu in die Fundkiste.</p>
+      <ul>{% for gid, karten in frei | groupby("gebiet") %}<li><a href="/steuer/{{ jahr }}/gebiet/{{ gid }}?karte={{ karten[0].id }}">{{ (provinzen | selectattr("gebiet.id", "equalto", gid) | first).gebiet.titel }}</a>: {{ karten[:2] | map(attribute="name") | join(", ") }}{% if karten | length > 2 %} und {{ karten | length - 2 }} weitere{% endif %}</li>{% endfor %}</ul>
+      {% endif %}
+    </section>
+    {% endif %}
     <section class="sq-papier">
       <h2>1. Fundkiste packen</h2>
       {% if zip_pfad %}

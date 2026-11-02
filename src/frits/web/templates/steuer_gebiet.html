@@ -39,11 +39,15 @@
   {% set erste_offen = eigene | selectattr("status", "equalto", "offen") | rejectattr("art", "equalto", "bonus") | first %}
   <div class="sq-akte-spalte">
   {% if stapel %}
-  {% set nr = (eigene | map(attribute="id") | list).index(vorn.id) + 1 %}
+  {# Eine Zählung wie auf der Insel (Marie-Runde 8): Pflicht-Zettel, Freiwilliges getrennt #}
+  {% set pflicht_z = eigene | rejectattr("art", "equalto", "bonus") | list %}
+  {% set frei_z = eigene | selectattr("art", "equalto", "bonus") | list %}
+  {% set reihe = pflicht_z + frei_z %}
+  {% set nr = (reihe | map(attribute="id") | list).index(vorn.id) + 1 %}
   <div class="sq-stapel-kopf">
-    <p class="sq-kicker">Zettel {{ nr }} von {{ eigene | length }}</p>
+    <p class="sq-kicker">{% if vorn.art == "bonus" %}Freiwillig {{ nr - pflicht_z | length }} von {{ frei_z | length }}{% else %}Zettel {{ nr }} von {{ pflicht_z | length }}{% if frei_z %} <span class="sq-kicker-frei">+ {{ frei_z | length }} freiwillig</span>{% endif %}{% endif %}</p>
     <ol class="sq-zettel-punkte" aria-label="Alle Zettel dieser Provinz">
-      {% for s in eigene %}<li><a href="?karte={{ s.id }}" class="{{ 'vorn' if s.id == vorn.id else ('fertig' if s.status != 'offen' else 'offen') }}{% if s.art == 'bonus' %} bonus{% endif %}" title="{{ s.name }}{% if s.status != 'offen' %} ✓{% endif %}" aria-label="{{ s.name }}{% if s.status != 'offen' %}, erledigt{% endif %}"{% if s.id == vorn.id %} aria-current="true"{% endif %}></a></li>{% endfor %}
+      {% for s in reihe %}<li><a href="?karte={{ s.id }}" class="{{ 'vorn' if s.id == vorn.id else ('fertig' if s.status != 'offen' else 'offen') }}{% if s.art == 'bonus' %} bonus{% endif %}" title="{{ s.name }}{% if s.status != 'offen' %} ✓{% endif %}" aria-label="{{ s.name }}{% if s.status != 'offen' %}, erledigt{% endif %}"{% if s.id == vorn.id %} aria-current="true"{% endif %}></a></li>{% endfor %}
     </ol>
   </div>
   {% endif %}
@@ -170,6 +174,8 @@ Steuer-ID: {% endif %}</textarea></label>
     {% if stapel %}
     {% set fertig = eigene | rejectattr("status", "equalto", "offen") | list %}
     {% set von_frits = fertig | selectattr("status", "equalto", "gesammelt") | selectattr("key", "in", aus_frits) | list %}
+    {# Nur was wirklich aus der Ernte kam: Selbst Hochgeladenes ist „Schon erledigt“ (Lena, Runde 31) #}
+    {% if von_frits_ids is not none %}{% set von_frits = von_frits | selectattr("id", "in", von_frits_ids) | list %}{% endif %}
     {% set selbst = fertig | reject("in", von_frits) | list %}
     {% if von_frits %}
     <section class="sq-papier sq-erledigt">
