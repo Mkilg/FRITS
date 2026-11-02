@@ -561,5 +561,22 @@
     if (e.target && e.target.setCustomValidity) e.target.setCustomValidity("");
   }, true);
 
+  // Folded sections ("Fächer" in the settings): a link like /settings#ki opens its fold,
+  // and a field the browser complains about is never hidden in a closed one.
+  function openFold() {
+    var id = decodeURIComponent((location.hash || "").slice(1));
+    var target = id && document.getElementById(id);
+    if (!target) return;
+    var fold = target.tagName === "DETAILS" ? target : target.closest("details");
+    if (fold && !fold.open) fold.open = true;
+    if (target.scrollIntoView) target.scrollIntoView({ block: "start" });
+  }
+  openFold();
+  window.addEventListener("hashchange", openFold);
+  document.addEventListener("invalid", function (e) {
+    var fold = e.target && e.target.closest && e.target.closest("details");
+    if (fold) fold.open = true;
+  }, true);
+
   window.Frits = { feedback: feedback, stampSound: stampSound, playful: playful };
 })();

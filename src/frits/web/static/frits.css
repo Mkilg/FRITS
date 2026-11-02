@@ -84,13 +84,14 @@ nav summary[aria-current="page"] { background: var(--fry); }
   border-radius: var(--radius); box-shadow: 0 8px 20px rgba(60, 35, 10, .18); }
 .mehr-liste a { border-radius: 6px; }
 .mehr-liste.nach-rechts { right: auto; left: 0; }
-/* Bell without words until the window is wide enough for menu, music and sound in one row */
+/* Bell without words until the window is wide enough for menu, music and sound in one row.
+   With five places the menu fits in one row down to 1181px; below it gets its own row. */
 @media (max-width: 1500px) { .top-actions .breit { display: none; } }
 nav a:hover { background: var(--creme); }
 nav a[aria-current="page"] { background: var(--fry); }
 .top-actions { display: flex; gap: 0.4rem; align-items: center; flex: 0 0 auto; }
 .top-actions button { white-space: nowrap; }
-@media (max-width: 1220px) {
+@media (max-width: 1180px) {
   .top { flex-wrap: wrap; gap: 0.3rem 1rem; padding: 0.5rem 1rem; }
   .top-actions { margin-left: auto; }
   nav { order: 3; flex-basis: 100%; }
@@ -507,7 +508,7 @@ main {
 }
 /* ... and everything on paper keeps dark ink */
 :where(.card, .flash, .speech, .notfall-hinweis, .table-wrap, table, ul.cards, ul.list, .paper, .dropzone, .lesson,
-  .vorschau, .spiel-reiter a, .kapitel-leiste a, .kurs-reiter a, .werkzeug-chip, .halt a, .happen-nr, dialog.rueckfrage-karte, .badge, kbd, code, pre) {
+  .vorschau, .spiel-reiter a, .reiter a, .kapitel-leiste a, .kurs-reiter a, .werkzeug-chip, .halt a, .happen-nr, dialog.rueckfrage-karte, .badge, kbd, code, pre) {
   --ink: var(--ink-papier); --muted: var(--muted-papier); --link: var(--tinte); --kopf: var(--eiche-tief); --line: #e6d7b6;
   color: var(--ink);
 }
@@ -597,3 +598,45 @@ main .kopf-salz .salz-zeichen { color: var(--papier-schatten); }
 .abspann-kachel strong { font-size: 1.3rem; font-variant-numeric: tabular-nums; }
 .abspann-alles { margin-top: .8rem; }
 .abspann-alles summary { cursor: pointer; color: var(--tinte); }
+
+/* ---------- Five places, tabs inside a place (Rechnungen | Entwürfe | Angebote) ---------- */
+nav.reiter { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0 0 1.1rem; flex: none; }
+nav.reiter a { padding: 0.4rem 1rem; border-radius: 999px; background: var(--papierkarte); border: 1px solid #e8d6ae;
+  color: var(--ink); text-decoration: none; font-size: 0.95rem; box-shadow: 0 2px 6px rgba(20, 10, 2, .25); }
+nav.reiter a:hover { background: var(--papier); }
+nav.reiter a[aria-current="page"] { background: var(--fry); border-color: var(--ocker-dunkel); font-weight: 600; }
+nav.reiter a::before { content: none !important; }
+/* "Frag FRITS": the one chat, always one click away */
+.top-actions a.frag { white-space: nowrap; }
+.top-actions a.frag[aria-current="page"] { background: var(--fry); }
+@media (max-width: 600px) { .top-actions a.frag { display: none; } }
+@media (pointer: coarse) { nav.reiter a { min-height: 44px; display: inline-flex; align-items: center; } }
+/* Heute: the one next step on top, with the page's only primary button */
+.card.als-naechstes { border-left: 6px solid var(--ocker); padding-top: 0.9rem; }
+.card.als-naechstes.ruhig { border-left-color: var(--moos); }
+.card.als-naechstes .kicker { margin: 0 0 0.2rem; font: 700 0.75rem/1 var(--schrift); letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--terrakotta-dunkel); }
+.card.als-naechstes.ruhig .kicker { color: var(--moos-dunkel); }
+.card.als-naechstes h2 { margin-top: 0.3rem; }
+.card.als-naechstes ul.plain { margin: 0 0 0.8rem; }
+/* Settings in folds: the title and the current value on one line, the fields inside */
+.einstellungen-intro { margin: -0.3rem 0 1rem; color: var(--muted); }
+h2.fach-gruppe { font-size: 1.05rem; margin: 1.4rem 0 0.5rem; color: var(--kopf); letter-spacing: 0.02em; }
+details.card.fach { padding: 0; margin-bottom: 0.6rem; }
+details.card.fach > summary { display: flex; align-items: baseline; gap: 0.5rem 1rem; flex-wrap: wrap; padding: 0.9rem 1.2rem;
+  cursor: pointer; list-style: none; }
+details.card.fach > summary::-webkit-details-marker { display: none; }
+details.card.fach > summary::before { content: "▸"; color: var(--ocker-dunkel); transition: transform .15s; display: inline-block; }
+details.card.fach[open] > summary::before { transform: rotate(90deg); }
+.fach-titel { font: 700 1.15rem var(--schrift); color: var(--kopf); }
+.fach-stand { color: var(--muted); font-size: 0.92rem; margin-left: auto; text-align: right; }
+details.card.fach[open] > summary { border-bottom: 1px dashed var(--line); }
+details.card.fach > :not(summary) { margin-left: 1.2rem; margin-right: 1.2rem; }
+details.card.fach > :last-child { margin-bottom: 1.1rem; }
+details.card.fach > summary + * { margin-top: 0.9rem; }
+.speichern-leiste { justify-content: flex-end; margin-top: 1rem; }
+/* With a fold open the button stays in reach, on its own strip of paper */
+form:has(details.fach[open]) .speichern-leiste { position: sticky; bottom: 0.6rem; z-index: 5; padding: 0.6rem 0.9rem;
+  background: var(--papierkarte); border: 1px solid #e8d6ae; border-radius: var(--radius); box-shadow: var(--karten-schatten); }
+@media (max-width: 600px) { form:has(details.fach[open]) .speichern-leiste { bottom: calc(70px + env(safe-area-inset-bottom)); } }
+@media (max-width: 600px) { nav.reiter { gap: 0.3rem; } nav.reiter a { padding: 0.35rem 0.75rem; font-size: 0.88rem; } }

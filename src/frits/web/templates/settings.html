@@ -2,29 +2,24 @@
 {% block title %}Einstellungen · FRITS{% endblock %}
 {% block content %}
 <h1>Einstellungen</h1>
-<section class="card accent row">
-  <div>
-    <strong>Einführung wiederholen</strong><br>
-    <span class="muted">Alle zehn Schritte der Einrichtung noch einmal, mit KI-Test und Sicherheits-Lektionen. Deine Angaben bleiben erhalten und stehen schon in den Feldern. Du findest sie auch oben unter „Mehr“.</span>
-  </div>
-  <a class="button" href="/setup/welcome">Einführung starten</a>
-</section>
+<p class="einstellungen-intro">Alles in Fächern. Klick ein Fach auf, ändere, was du willst, und speichere unten.</p>
 <form method="post" action="/settings" class="form" data-merken="einstellungen">
   <input type="hidden" name="token" value="{{ token }}">
   <input type="hidden" name="checkboxes" value="strict_local">
   <input type="hidden" name="checkboxes" value="sound">
   <input type="hidden" name="checkboxes" value="haustier">
-  <section class="card">
-    <h2>Über dich</h2>
+  <h2 class="fach-gruppe">Für deine Rechnungen</h2>
+  <details class="card fach" id="ueber-dich"{% if not settings.name or not settings.address %} open{% endif %}>
+    <summary><span class="fach-titel">Über dich</span><span class="fach-stand">{{ settings.name or "Noch leer" }}{% if settings.company %} · {{ settings.company }}{% endif %}</span></summary>
     <p class="hint">Das steht auf jeder Rechnung.</p>
     <label class="field">Dein Name <input name="name" value="{{ settings.name }}"></label>
     <label class="field">Firmenname (optional) <input name="company" value="{{ settings.company }}"></label>
     <label class="field">Adresse <textarea name="address" rows="3" placeholder="Straße Nr.&#10;PLZ Ort">{{ settings.address.replace(', ', '\n') }}</textarea></label>
     <label class="field">E-Mail <input name="email" type="email" value="{{ settings.email }}"></label>
     <label class="field">Telefon <input name="phone" value="{{ settings.phone }}"></label>
-  </section>
-  <section class="card">
-    <h2>Steuern</h2>
+  </details>
+  <details class="card fach" id="steuern">
+    <summary><span class="fach-titel">Steuern</span><span class="fach-stand">{{ "Kleinunternehmer, ohne Umsatzsteuer" if settings.tax_mode == "kleinunternehmer" else "Mit Umsatzsteuer, " ~ (settings.vat_rate | qty) ~ " %" }}{% if not settings.steuernummer %} · Steuernummer fehlt{% endif %}</span></summary>
     <label class="choice"><input type="radio" name="tax_mode" value="kleinunternehmer" {{ "checked" if settings.tax_mode == "kleinunternehmer" }}> Kleinunternehmer (§ 19 UStG): keine Umsatzsteuer auf der Rechnung</label>
     <label class="choice"><input type="radio" name="tax_mode" value="regelbesteuerung" {{ "checked" if settings.tax_mode == "regelbesteuerung" }}> Mit Umsatzsteuer</label>
     <label class="field">Steuersatz in % <input name="vat_rate" inputmode="decimal" value="{{ settings.vat_rate | qty }}" size="4"></label>
@@ -34,29 +29,30 @@
     <label class="field" id="verfahren">Bei mir läuft es anders <small class="muted">(freiwillig, kommt in die Verfahrensdokumentation)</small>
       <textarea name="verfahren_notiz" rows="3" maxlength="1500" placeholder="z. B. Ich sichere zusätzlich mit Time Machine. Papierbelege hebe ich im Ordner im Regal auf.">{{ settings.verfahren_notiz }}</textarea>
     </label>
-  </section>
-  <section class="card">
-    <h2>Bank</h2>
+  </details>
+  <details class="card fach" id="bank"{% if not settings.iban %} open{% endif %}>
+    <summary><span class="fach-titel">Bank</span><span class="fach-stand">{{ "IBAN endet auf " ~ settings.iban.replace(" ", "")[-4:] if settings.iban else "IBAN fehlt noch" }}</span></summary>
     <label class="field">Bank <input name="bank" value="{{ settings.bank }}"></label>
     <label class="field">IBAN <input name="iban" value="{{ settings.iban }}"></label>
     <label class="field">BIC <input name="bic" value="{{ settings.bic }}"></label>
-  </section>
-  <section class="card">
-    <h2>Preise</h2>
+  </details>
+  <details class="card fach" id="preise">
+    <summary><span class="fach-titel">Preise</span><span class="fach-stand">{{ settings.hourly_rate | eur }} pro Stunde · {{ settings.payment_days }} Tage Zahlungsziel</span></summary>
     <label class="field">Stundensatz in € <input name="hourly_rate" inputmode="decimal" value="{{ settings.hourly_rate | qty }}"></label>
     <label class="field">Fahrtkosten pro km in € <input name="km_rate" inputmode="decimal" value="{{ settings.km_rate | qty }}"></label>
     {% include "_prices.html" %}
     <label class="field">Zahlungsziel in Tagen <input name="payment_days" inputmode="numeric" value="{{ settings.payment_days }}"></label>
-  </section>
-  <section class="card">
-    <h2>Rechnungsnummern</h2>
+  </details>
+  <details class="card fach" id="nummern">
+    <summary><span class="fach-titel">Rechnungsnummern</span><span class="fach-stand">Nächste Nummer: {{ next_invoice_number }}</span></summary>
     <label class="field">Schema <input name="number_pattern" value="{{ settings.number_pattern }}" placeholder="JJJJ-NNNN"></label>
     <p class="hint"><code>JJJJ</code> = Jahr, <code>JJ</code> = Jahr zweistellig, <code>NNNN</code> = laufende Nummer mit Nullen davor. Beispiele: <code>JJJJ-NNNN</code> → 2026-0001, <code>RE-JJ-NNN</code> → RE-26-001, <code>NNNNN</code> → 00001 (zählt über alle Jahre weiter). Mit Jahr im Schema beginnt jedes Jahr wieder bei 1.</p>
     <label class="field">Deine letzte Rechnungsnummer vor FRITS (falls du schon Rechnungen geschrieben hast) <input name="last_number_before" value="{{ settings.last_number_before }}" placeholder="z. B. 2026-0042"></label>
     <p class="hint">Die nächste Rechnung bekommt die Nummer <strong>{{ next_invoice_number }}</strong>. Rechnungsnummern müssen lückenlos und eindeutig sein, darum vergibt FRITS sie erst, wenn du eine Rechnung fertig machst.</p>
-  </section>
-  <section class="card" id="ki">
-    <h2>KI</h2>
+  </details>
+  <h2 class="fach-gruppe">KI und Datenschutz</h2>
+  <details class="card fach" id="ki">
+    <summary><span class="fach-titel">KI</span><span class="fach-stand">{% if settings.strict_local %}Strikter Modus: nur die lokale KI{% elif settings.provider == "ollama" or keys.get(settings.provider) %}{{ providers.get(settings.provider, settings.provider) }} · verbunden ✓{% else %}Noch nicht verbunden{% endif %}{% if ki_kosten and ki_kosten.monat.anfragen %} · diesen Monat {{ "unter 1 Cent" if ki_kosten.monat.usd < 0.01 else "etwa " ~ ("%.2f" | format(ki_kosten.monat.usd) | replace(".", ",")) ~ " $" }}{% endif %}</span></summary>
     <label class="field">Welche KI liest deine Notizen?
       <select name="provider">{% for key, label in providers.items() %}<option value="{{ key }}" {{ "selected" if key == settings.provider }}>{{ label }}</option>{% endfor %}</select>
     </label>
@@ -66,9 +62,10 @@
     <p class="hint">Der Schlüssel kommt {{ "nur in den Speicher dieses Browsers (nie in eine Sicherung)" if im_browser() else "in den Schlüsselbund dieses Macs" }}, nicht in eine Datei. FRITS zeigt ihn nie wieder an.</p>
     <label class="choice"><input type="checkbox" name="strict_local" {{ "checked" if settings.strict_local }}> Strikter Modus: nur die lokale KI benutzen, nichts verlässt diesen Computer</label>
     {% include "_ki_kosten.html" %}
-  </section>
-  <section class="card">
-    <h2>Klang</h2>
+  </details>
+  <h2 class="fach-gruppe">Klang und Spiel</h2>
+  <details class="card fach" id="klang">
+    <summary><span class="fach-titel">Klang</span><span class="fach-stand">{{ "Klänge und Musik an" if settings.sound else "Aus" }}</span></summary>
     <label class="choice"><input type="checkbox" name="sound" {{ "checked" if settings.sound }}> Kleine Klänge und Musik zum Arbeiten</label>
     {% if moods %}
     <h3>Musik-Stimmung</h3>
@@ -80,9 +77,9 @@
     </div>
     {% endfor %}
     {% endif %}
-  </section>
-  <section class="card">
-    <h2>Spiel-Effekte</h2>
+  </details>
+  <details class="card fach" id="spiel">
+    <summary><span class="fach-titel">Spiel und Fritte</span><span class="fach-stand">{{ "Ruhig" if settings.effects != "verspielt" else "Verspielt" }} · Fritte {{ "an" if settings.haustier else "aus" }}</span></summary>
     <p class="hint">Wie viel Freude soll FRITS zeigen, wenn etwas erledigt ist? Die Steuer-Quest ist immer verspielt.</p>
     <label class="choice big"><input type="radio" name="effects" value="ruhig" {{ "checked" if settings.effects != "verspielt" }}> <strong>Ruhig</strong>: ein Stempel auf die Karte, beim Kassensturz ein kurzes Hochzählen, sonst nichts. Gut für konzentriertes Arbeiten.</label>
     <label class="choice big"><input type="radio" name="effects" value="verspielt" {{ "checked" if settings.effects == "verspielt" }}> <strong>Verspielt</strong>: Stempel mit Funkeln, Zahlen zählen hoch, die Fritte hüpft vor Freude.</label>
@@ -94,8 +91,8 @@
       </div>
     </div>
     <label class="choice"><input type="checkbox" name="haustier" {{ "checked" if settings.haustier }}> Fritte als Haustier auf der Seite „Heute“: ihr Zimmer, Salzkörner für erledigten Papierkram und ein kleiner Laden</label>
-  </section>
-  <div class="row actions"><button class="primary">Speichern</button></div>
+  </details>
+  <div class="row actions speichern-leiste"><button class="primary">Speichern</button></div>
 </form>
-<p class="hint">Deine Daten liegen in {{ folder }}.</p>
+<p class="hint">Deine Daten liegen in {{ folder }}. Die Einrichtung mit KI-Test und Sicherheits-Lektionen kannst du jederzeit <a href="/setup/welcome">wiederholen</a>.</p>
 {% endblock %}

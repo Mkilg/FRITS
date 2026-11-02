@@ -556,6 +556,7 @@ def create_app(
         return page(
             request,
             "home.html",
+            naechstes=_naechstes(current, check_me, waiting, drafts, overdue, receipts),
             drafts=drafts,
             overdue=overdue,
             open_count=sum(1 for i in invoices if i["status"] in ("offen", "überfällig")),
@@ -574,6 +575,28 @@ def create_app(
             tagesziel=tagesziel.zaehlen(conn, today()) if current.haustier else None,
             pro_tag=aufgaben.PRO_TAG,
         )
+
+    def _naechstes(current, check_me, waiting, drafts, overdue, receipts) -> str:
+        """The one step Heute puts first, with the page's only primary button.
+
+        A single clear next step beats a page of equal boxes (Hick's law, "one primary action"):
+        Fritz sees what to do now, the rest waits quietly below. Order: what blocks everything
+        (own details, a file FRITS could not read), then money coming in, then receipts.
+        "" means nothing is urgent, and Heute says so.
+        """
+        if not current.is_complete:
+            return "angaben"
+        if check_me:
+            return "ansehen"
+        if waiting and ai_ready(current):
+            return "lesen"
+        if drafts:
+            return "entwurf"
+        if overdue:
+            return "erinnern"
+        if receipts:
+            return "beleg"
+        return ""
 
     # ----- Deine Liste (on Heute) -----
 

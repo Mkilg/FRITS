@@ -1,0 +1,10 @@
+{# Tabs inside one place: Rechnungen | Entwürfe | Angebote, Ausgaben | EÜR | Umsatzsteuer.
+   One door in the menu, the related lists one click apart. #}
+{% if nav_ort == "/invoices" %}
+{% set nav_reiter = [("/invoices", "Rechnungen"), ("/drafts", "Entwürfe"), ("/quotes", "Angebote")] %}
+{% else %}
+{% set nav_reiter = [("/expenses", "Ausgaben"), ("/euer", "EÜR")] + ([("/ustva", "Umsatzsteuer")] if settings.tax_mode == "regelbesteuerung" else []) %}
+{% endif %}
+<nav class="reiter" aria-label="{{ 'Rechnungen, Entwürfe und Angebote' if nav_ort == '/invoices' else 'Ausgaben und Auswertungen' }}">
+  {% for href, label in nav_reiter %}<a href="{{ href }}" {% if nav == href %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
+</nav>
