@@ -1302,6 +1302,9 @@ def test_gold_im_kampf_mit_serie_und_markt_im_browser(client, ws):
     fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
     conn = quest.ensure_schema(store.connect(ws.db))
     _bis_wach(conn)
+    # Das Stempeln per Datenbank war "gestern": Hier geht es um die Serie, nicht um das
+    # gemeinsame Tagesziel (das zählt mit Fritte jeden heutigen Fund mit).
+    conn.execute("UPDATE steuer_stuecke SET geaendert = '2026-01-01 10:00:00'")
     gold_vorher = quest.gold(conn, 2025)
     quest.lager(ws.root).mkdir(parents=True, exist_ok=True)
     (quest.lager(ws.root) / "scan-eins.pdf").write_bytes(b"%PDF eins")
