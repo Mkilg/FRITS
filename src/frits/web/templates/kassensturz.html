@@ -53,6 +53,7 @@
     <span class="truhe-klein{{ ' voll' if tr.neu }}" aria-hidden="true">{% if picture('truhe-zu') %}<img src="{{ picture('truhe-zu') }}" alt="">{% else %}<i class="truhe-deckel"></i><i class="truhe-kiste"></i>{% endif %}</span>
     <div>
       {% set anzahl = tr.anzahl or tr.neu | length %}{% if tr.neu %}<strong>{{ "Eine neue Truhe!" if anzahl == 1 else anzahl ~ " neue Truhen!" }}</strong> <span>{{ tr.neu | join(" · ") }}.</span><br>{% endif %}
+      {% if tr.willkommen %}<span>Dein erster Kassensturz ist ein Geschenk. Ab jetzt füllt jede neue Karte echter Papierkram die Truhe.</span> {% endif %}
       {% if tr.dazu %}<span>{{ tr.dazu }} {{ "Karte" if tr.dazu == 1 else "Karten" }} echter Papierkram {{ "kam" if tr.dazu == 1 else "kamen" }} in die Truhe.</span> {% endif %}
       <span class="truhe-fuellung" aria-label="Nächste Truhe: {{ tr.jetzt }} von 5 Karten">{% for i in range(5) %}<i class="{{ 'voll' if i < tr.jetzt }}"></i>{% endfor %}</span> <span class="hint">Nächste Truhe: {{ tr.jetzt }} von 5</span>
       {% if offene_truhen %}

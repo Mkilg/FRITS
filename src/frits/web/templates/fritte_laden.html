@@ -8,9 +8,19 @@
   {% include "_spiel_reiter.html" %}
   <p class="salz kopf-salz">{{ salz }} <strong>{{ f.guthaben }}</strong> Salzkörner</p>
 </div>
+{# Lena (Handy): the shop was ten screens long. Each shelf folds; only the quest's shelf
+   "Für die Insel" stays open (without the quest: the Markttag). A link to #regal, #markt …
+   opens its shelf (see the script below). #}
+{% set offen = "insel" if insel_regal else "markt" %}
 
-<section class="card" id="regal">
-  <h2>Gewürzregal <span class="hint">{{ regal | length }} von {{ plaetze }} Plätzen</span></h2>
+{% if insel_regal %}
+<section class="card" id="insel">
+  {% include "_steuer_helfer_regal.html" ignore missing %}
+</section>
+{% endif %}
+
+<details class="card laden-fach" id="regal"{{ " open" if offen == "regal" }}>
+  <summary><h2>Gewürzregal <span class="hint">{{ regal | length }} von {{ plaetze }} Plätzen · Drache: erster Beleg ×{{ drachen_serie.jetzt }}</span></h2></summary>
   <p class="hint">Die Würze wirkt von links nach rechts. Ein „×“-Gewürz ganz rechts multipliziert alles davor.</p>
   <p class="drachen-bruecke"><span class="warm-zeichen" aria-hidden="true">🐉</span> Im Drachenkampf der Steuer-Quest wärmen die Gewürze im Regal die Serie vor (höchstens {{ drachen_serie.max }}). Mit deinem Regal zählt der erste Beleg <strong>×{{ drachen_serie.jetzt }}</strong>{% if drachen_serie.jetzt != drachen_serie.ohne %}, ohne Gewürze ×{{ drachen_serie.ohne }}{% endif %}.</p>
   <div class="regalbrett">
@@ -34,10 +44,10 @@
     {% endfor %}
     {% for _ in range(plaetze - regal | length) %}<div class="regal-platz leer"><span>freier Platz</span></div>{% endfor %}
   </div>
-</section>
+</details>
 
-<section class="card" id="markt">
-  <h2>Markttag <span class="hint">neue Ware jeden Montag</span></h2>
+<details class="card laden-fach" id="markt"{{ " open" if offen == "markt" }}>
+  <summary><h2>Markttag <span class="hint">{{ markt | length }} {{ "Gewürz" if markt | length == 1 else "Gewürze" }} · neue Ware jeden Montag</span></h2></summary>
   {% if haus_sichtbar and stufe.nummer < 3 and not ruf %}<p class="hint">{{ "Seltene" if stufe.nummer < 2 else "Legendäre" }} Gewürze gibt es erst, wenn Frittes Haus weiter ausgebaut ist ({{ "Stube" if stufe.nummer < 2 else "Werkstatt" }}).</p>{% endif %}
   <div class="markt">
     {% for g in markt %}
@@ -49,7 +59,7 @@
       <span class="hint">{{ g.text }}</span>
       {% if g.id not in im_regal and regal | length < drachen_serie.max and drachen_serie.naechster > drachen_serie.jetzt %}<span class="drachen-plus"><span class="warm-zeichen" aria-hidden="true">🐉</span> Drachenkampf: erster Beleg ×{{ drachen_serie.naechster }} statt ×{{ drachen_serie.jetzt }}</span>{% endif %}
       {% if g.id not in im_regal and w[1] %}
-      <span class="wirkung{{ ' null' if not w[0] }}">{% if w[2] == "warten" %}Mit deinen {{ w[1] }} wartenden {{ "Karte" if w[1] == 1 else "Karten" }}{% else %}Beim letzten Kassensturz{% endif %}: {% if w[0] %}<strong>+{{ w[0] }}</strong> Salzkörner{% else %}kein Unterschied{% endif %}</span>
+      <span class="wirkung{{ ' null' if not w[0] }}">{% if w[2] == "warten" %}{{ "Mit deiner wartenden Karte" if w[1] == 1 else "Mit deinen " ~ w[1] ~ " wartenden Karten" }}{% else %}Beim letzten Kassensturz{% endif %}: {% if w[0] %}<strong>+{{ w[0] }}</strong> {{ "Salzkorn" if w[0] == 1 else "Salzkörner" }}{% else %}kein Unterschied{% endif %}</span>
       {% endif %}
       {% if g.id in im_regal %}
       <span class="badge ok">im Regal</span>
@@ -72,10 +82,11 @@
     <input type="hidden" name="token" value="{{ token }}">
     <button {{ "disabled" if f.guthaben < wurf_preis }}>{{ zeichen("wuerfel", "🎲") }} Neu würfeln für {{ wurf_preis }} {{ salz }}</button>
   </form>
-</section>
+</details>
 
-<section class="card" id="einrichtung">
-  <h2>Einrichtung</h2>
+{% set gekauft_hier = laden | selectattr("id", "in", f.gekauft) | list | length %}
+<details class="card laden-fach" id="einrichtung">
+  <summary><h2>Einrichtung <span class="hint">{{ gekauft_hier }} von {{ laden | length }} gekauft</span></h2></summary>
   <div class="laden">
     {% for d in laden %}
     {% set hat = d.id in f.gekauft %}
@@ -96,18 +107,13 @@
     </div>
     {% endfor %}
   </div>
-</section>
+</details>
 
-{% if insel_regal %}
-<section class="card" id="insel">
-  {% include "_steuer_helfer_regal.html" ignore missing %}
-</section>
-{% endif %}
 
 {% set huete = (laden + schaetze) | selectattr("art", "equalto", "hut") | selectattr("id", "in", f.gekauft) | list %}
 {% if huete %}
-<section class="card" id="huete">
-  <h2>Hutschrank</h2>
+<details class="card laden-fach" id="huete">
+  <summary><h2>Hutschrank <span class="hint">{{ huete | length }} {{ "Hut" if huete | length == 1 else "Hüte" }}</span></h2></summary>
   <div class="row">
     {% for d in huete %}
     <form method="post" action="/fritte/hut">
@@ -116,7 +122,18 @@
     </form>
     {% endfor %}
   </div>
-</section>
+</details>
 {% endif %}
 
+<script>
+  // A link or a redirect to #markt, #regal … opens that shelf and shows it.
+  (function () {
+    function aufklappen() {
+      var fach = location.hash && document.getElementById(location.hash.slice(1));
+      if (fach && fach.tagName === "DETAILS") { fach.open = true; fach.scrollIntoView({ block: "start" }); }
+    }
+    aufklappen();
+    window.addEventListener("hashchange", aufklappen);
+  })();
+</script>
 {% endblock %}
