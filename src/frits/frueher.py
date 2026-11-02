@@ -8,10 +8,14 @@ filled in. Only what looks reasonably sure is returned; Fritz checks and types t
 
 from __future__ import annotations
 
+import json
 import re
+import secrets
+import shutil
 from collections.abc import Iterable
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
+from pathlib import Path
 
 from frits.beleg import amounts, dates
 
@@ -80,6 +84,19 @@ def _issue_date(found: list[tuple[int, date, str]]) -> date | None:
             return day
     for _, day, before in found:
         if not _NOT_ISSUE.search(before) and not _SERVICE_LABEL.search(before):
+            return day
+    return None
+
+
+_DUE = re.compile(
+    r"(?i)(?:zahlbar|fällig|zahlungsziel|überweisen|bis\s+zum|bis\s+spätestens|spätestens)[^\n]{0,30}$"
+)
+
+
+def _due_date(found: list[tuple[int, date, str]], issued: date | None) -> date | None:
+    """The day the money was due ("zahlbar bis 26.03.2025"), if the invoice says so."""
+    for _, day, before in found:
+        if _DUE.search(before) and (issued is None or day > issued):
             return day
     return None
 
@@ -296,6 +313,61 @@ def _description(lines: list[str]) -> str | None:
     return None
 
 
+# Lines that open a letter or say how to pay: never "what it was for".
+_NOT_DESCRIPTION = re.compile(
+    r"(?i)^(?:sehr\s+geehrte|liebe[rs]?\b|hallo|guten\s+tag|vielen\s+dank|mit\s+freundlichen"
+    r"|hiermit|ich\s+(?:erlaube|stelle|berechne)|wie\s+(?:vereinbart|besprochen)|bitte|zahlbar"
+    r"|gemäß|gem\.|pos\.?\b|seite\b|kunden-?nr|ihre?\s|unser|rechnung|invoice|datum\b|steuer"
+    r"|ust|mwst|iban|bic\b|bank|tel|e-?mail|www\.|leistungs|liefer|zeitraum)"
+)
+_DATE_WORDS = re.compile(
+    r"\b\d{1,2}\.\s?(?:\d{1,2}\.\s?|(?:jan|feb|mär|apr|mai|jun|jul|aug|sep|okt|nov|dez)[a-zä]*\.?\s)"
+    r"(?:\d{4}|\d{2})?\b",
+    re.IGNORECASE,
+)
+
+
+def _free_description(lines: list[str], marks: list[str], customer: str | None):
+    """A Word invoice without a table: the first plain line below the number that names the
+    work ("Moderation Podiumsdiskussion „KI im Radio“, 10.02.2025: 1.200,00 €"). Returns the
+    words and a day named in that line, which is then the day of the work."""
+    start = next(
+        (
+            i + 1
+            for i, line in enumerate(lines)
+            if _NUMBER_LABEL.search(line) or _RE_NUMBER.search(line)
+        ),
+        None,
+    )
+    if start is None:
+        return None, None
+    for line in lines[start : start + 12]:
+        if _ANY_NET.search(line) or _VAT_LABEL.search(line):
+            break
+        if any(label.search(line) for label in _GROSS_LABELS):
+            break
+        if (
+            _NOT_DESCRIPTION.match(line)
+            or _CUSTOMER_LABEL.match(line)
+            or _POSTCODE_LINE.match(line)
+            or _SALUTATION.match(line)
+            or _SENDER_HINTS.search(line)
+            or _is_own(line, marks)
+            or (customer and customer.casefold() in line.casefold())
+            or _STREET.search(line)
+        ):
+            continue
+        days = [day for _, day in dates(line)]
+        words = _DATE_WORDS.sub(" ", line)
+        words = _PERCENT.sub(" ", words)
+        words = re.sub(r"(?<![\w])\d[\d.,]*(?![\w])", " ", words)
+        words = _UNIT_WORDS.sub(" ", words)
+        words = " ".join(words.split()).strip(" -–:|,;")
+        if sum(ch.isalpha() for ch in words) >= 5 and len(words.split()) >= 2:
+            return words[:200], days[0] if len(days) == 1 else None
+    return None, None
+
+
 # ---------- all together ----------
 
 
@@ -303,7 +375,7 @@ def lesen(
     text: str, own_name: str | Iterable[str] | None = None, today: date | None = None
 ) -> dict[str, str]:
     """Suggestions for the "Rechnung von früher" form, keys only for what was found:
-    number, customer, issue_date, service_date (ISO), description, net ("1.200,00"),
+    number, customer, issue_date, service_date, due_date (ISO), description, net ("1.200,00"),
     tax (a key of billing.EARLIER_TAX). `own_name` is Fritz's name, or several of his own
     details (name, company, address), so his letterhead is never taken for the customer."""
     today = today or date.today()
@@ -313,14 +385,82 @@ def lesen(
     found_dates = _dates_with_context(text, today)
     issued = _issue_date(found_dates)
     served = _service_date(text, found_dates)
-    tax, net = _tax_and_net([line for line in lines if line], text)
+    filled = [line for line in lines if line]
+    tax, net = _tax_and_net(filled, text)
+    customer = _customer(lines, marks)
+    description = _description(filled)
+    if description is None:
+        description, day = _free_description(filled, marks, customer)
+        if served is None and day is not None and day <= today:
+            served = day
+    due = _due_date(found_dates, issued)
     result = {
-        "number": _number([line for line in lines if line]),
-        "customer": _customer(lines, marks),
+        "number": _number(filled),
+        "customer": customer,
         "issue_date": issued.isoformat() if issued else None,
         "service_date": served.isoformat() if served and served != issued else None,
-        "description": _description([line for line in lines if line]),
+        "due_date": due.isoformat() if due else None,
+        "description": description,
         "net": _german(net) if net is not None and net > 0 else None,
         "tax": tax,
     }
     return {key: value for key, value in result.items() if value}
+
+
+# ---------- Fritz's own invoice, dropped where receipts go ----------
+
+_INVOICE_WORD = re.compile(r"(?i)\brechnung|\binvoice\b")
+# Documents that name Fritz's bank account or tax number but aren't his invoice: a direct
+# debit, a payment notice, a bank statement, a letter from the tax office.
+_NOT_OWN_INVOICE = re.compile(
+    r"(?i)lastschrift|abgebucht|abbuchung|von\s+ihrem\s+konto|auf\s+ihr\s+konto|mandat"
+    r"|gutschrift|kontoauszug|kontostand|saldo|finanzamt|bescheid|lohnsteuerbescheinigung"
+)
+
+
+def _compact(value: str) -> str:
+    return re.sub(r"[\s./-]", "", value or "").casefold()
+
+
+def eigene_rechnung(text: str, settings) -> bool:
+    """Is this an invoice Fritz wrote himself (before FRITS), not one he received?
+
+    It has to name his bank account or tax number, the way his own invoices do, and carry his
+    name or company in the letterhead at the top. A receipt addressed to him has his name
+    there too, but not his IBAN or Steuernummer; a direct debit with his IBAN says so.
+    """
+    if not settings.name or not _INVOICE_WORD.search(text) or _NOT_OWN_INVOICE.search(text):
+        return False
+    compact = _compact(text)
+    keys = [_compact(settings.iban), _compact(settings.steuernummer)]
+    if not any(len(key) >= 8 and key in compact for key in keys):
+        return False
+    lines = [" ".join(line.split()) for line in text.splitlines() if line.strip()]
+    if _number(lines) is None:
+        return False
+    marks = _own_marks((settings.name, settings.company))
+    return any(_is_own(line, marks) for line in lines[:6])
+
+
+# ---------- waiting for Fritz to check ----------
+# An old invoice waits in ws.staging/<token>/ while Fritz checks what FRITS read from it: the
+# file itself and "gelesen.json" with the guesses ("job" when it came in through Heute).
+
+
+def merken(folder: Path, datei: str | None, felder: dict, job: int | None = None) -> None:
+    data = {"datei": datei, "felder": felder}
+    if job is not None:
+        data["job"] = job
+    (folder / "gelesen.json").write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+
+
+def vormerken(staging: Path, source: Path, text: str, settings, today: date, job: int) -> str:
+    """Put a copy of Fritz's own old invoice where the "Rechnung von früher" form finds it,
+    read and ready to check. Returns the token for /invoices?frueher=<token>."""
+    token = secrets.token_urlsafe(16)
+    folder = Path(staging) / token
+    folder.mkdir(parents=True)
+    shutil.copy2(source, folder / source.name)
+    felder = lesen(text, (settings.name, settings.company, settings.address), today)
+    merken(folder, source.name, felder, job)
+    return token

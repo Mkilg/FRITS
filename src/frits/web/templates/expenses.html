@@ -47,6 +47,12 @@
   {% endif %}
   <section class="card" id="neu">
     <h2>{{ "Diesen Beleg eintragen" if chosen else "Neue Ausgabe" }}</h2>
+    {% if chosen and own_invoice %}
+    <div class="flash error eigene-rechnung">
+      <p><strong>Das ist deine eigene Rechnung, keine Ausgabe.</strong> Deine Kontonummer oder Steuernummer steht darauf. Trag sie als Rechnung von früher nach, dann zählt sie als Einnahme.</p>
+      <form method="post" action="/expenses/als-rechnung/{{ chosen.id }}"><input type="hidden" name="token" value="{{ token }}"><button class="primary">Als Rechnung von früher nachtragen</button></form>
+    </div>
+    {% endif %}
     {% set g = guessed or {} %}
     {% if g %}{% set fehlt = [] %}{% if not g.gross %}{% set _ = fehlt.append("den Betrag") %}{% endif %}{% if not g.date %}{% set _ = fehlt.append("das Datum") %}{% endif %}
     <p class="flash{{ ' error' if fehlt }}">Vorausgefüllt aus dem Beleg, hier auf deinem Computer gelesen. {% if fehlt %}Nicht gefunden habe ich {{ fehlt | join(" und ") }}: Bitte abtippen.{% else %}Bitte kurz prüfen.{% endif %}</p>{% endif %}
