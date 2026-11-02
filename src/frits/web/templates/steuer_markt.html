@@ -50,20 +50,17 @@
 </section>
 
 <section class="sq-markt-teil" aria-labelledby="h-zierde">
-  <h2 id="h-zierde">Für deine Insel <small>bleibt auch in den nächsten Jahren stehen</small></h2>
+  {# Eine Sammlung statt drei: Zierden gibt es nicht mehr für Gold, jeder Orden stellt eine auf die Insel #}
+  <h2 id="h-zierde">Für deine Insel <small>Zierden gibt es für Orden, nicht für Gold</small></h2>
   <div class="sq-waren">
   {% for w in markt if w.art == "zierde" %}
-    {% set hat = w.key in besitz %}
+    {% set hat = w.key in besitz %}{% set orden = erfolge | selectattr("key", "equalto", orden_zu_zierde.get(w.key)) | first %}
     <article class="sq-ware zierde{% if hat %} hat{% endif %}" style="--r: {{ [0.9, -1.1, 0.6, -0.7, 1.2, -0.4][loop.index0 % 6] }}deg">
       <span class="sq-ware-bild">{{ zierde_bild(w.key) }}</span>
       <h3>{{ w.name }}</h3>
       <p>{{ w.text }}</p>
       {% if hat %}<span class="sq-ware-stand">Steht auf der Insel ✓</span>
-      {% else %}
-      <form method="post" action="/steuer/{{ jahr }}/markt/kaufen" data-stempel="GEKAUFT"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="ware" value="{{ w.key }}">
-        <button class="sq-preis"{% if ressourcen.gold < w.preis %} disabled{% endif %}><i></i>{{ w.preis }}</button>
-        {% if ressourcen.gold < w.preis %}<small class="sq-noch">noch {{ w.preis - ressourcen.gold }} Gold</small>{% endif %}</form>
-      {% endif %}
+      {% elif orden %}<p class="sq-zier-orden"><b>Belohnung für den Orden „{{ orden.name }}“:</b> {{ orden.beschreibung }}</p>{% endif %}
     </article>
   {% endfor %}
   </div>

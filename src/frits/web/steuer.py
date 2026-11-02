@@ -295,6 +295,15 @@ def register_steuer(
                 z = None
         return {"tagwerk": spiel.tagwerk(alle, date.today()), "tagesziel_info": None}
 
+    def sammlung_stand() -> tuple[int, int] | None:
+        """(gesammelt, Plätze) in Frittes gemeinsamer Sammlung, oder None ohne Sammlung."""
+        try:
+            from frits.spiel import sammlung
+
+            return sammlung.stand(sammlung.faecher(conn(), today(), alltag=settings().haustier))
+        except Exception:  # noqa: BLE001 — ohne Sammlung zeigt die Insel ihre Orden selbst
+            return None
+
     def gewuerze() -> int:
         """Wie viele Gewürze in Frittes Regal stehen (0, wenn Fritte ausgeschaltet ist)."""
         if not settings().haustier:
@@ -359,6 +368,10 @@ def register_steuer(
             ware=spiel.ware,
             hafen_angebot=spiel.hafen_angebot,
             helfer_satz=spiel.im_kampf,
+            zierde_fuer=spiel.zierde_fuer,
+            # Frittes gemeinsame Vitrine (Orden, Sticker, Pokale), sobald es sie gibt
+            sammlung_da=any(getattr(r, "path", None) == "/sammlung" for r in app.routes),
+            sammlung_stand=sammlung_stand,
             **context,
         )
 
@@ -386,6 +399,10 @@ def register_steuer(
         gesamt = spiel.gesamtstand(alle)
         vergleich = quest.vergleich(c, jahr)
         erfolge = spiel.erfolge(alle, staende, vergleich, quest.hat_notiz(c, jahr, "brief"))
+        for e in erfolge:
+            # Jeder Orden stellt seine Zierde auf die Insel (auch Orden von früher)
+            if e.erreicht and (z := spiel.zierde_fuer(e.key)):
+                quest.zierde_freischalten(c, z.key)
         drache = spiel.drache(alle)
         zettel = len(quest.lager_dateien(ws.root))
         zweifel = spiel.zweifel(alle)
@@ -621,7 +638,12 @@ def register_steuer(
             if quest.hat_notiz(c, jahr, "erfolg", e.name):
                 continue  # den Orden gab es schon einmal
             quest.notiere(c, jahr, "erfolg", e.name)
-            flash(f"Neuer Orden: {e.name}. {e.beschreibung}", "orden")
+            z = spiel.zierde_fuer(e.key)
+            flash(
+                f"Neuer Orden: {e.name}. {e.beschreibung}"
+                + (f" Dafür steht jetzt {z.name} auf deiner Insel." if z else ""),
+                "orden",
+            )
         gold = (
             vorher["zweifel"]
             and not nachher["zweifel"]
@@ -1726,6 +1748,7 @@ def register_steuer(
             goldjahr=spiel.gold_jahr(jahr, today()),
             serie_start=spiel.start_serie(gewuerze()),
             zu_salz=salz_tausch() is not None,
+            orden_zu_zierde={z: o for o, z in spiel.ORDEN_ZIERDE.items()},
             **daten,
         )
 

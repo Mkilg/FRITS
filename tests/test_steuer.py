@@ -1223,11 +1223,13 @@ def test_goldbuch_zahlt_jeden_grund_einmal_und_bucht_ehrlich_zurueck(conn):
 
 def test_markt_kaufen_helferplaetze_tauschgebuehr_und_zierde_fuer_alle_jahre(conn):
     with pytest.raises(quest.QuestError, match="fehlen dir noch"):
-        quest.kaufe(conn, 2025, "laternen")
+        quest.kaufe(conn, 2025, "trommel")
     quest.verdiene(conn, 2025, "test", 200, "Testgold")
-    assert "Insel" in quest.kaufe(conn, 2025, "laternen")
-    with pytest.raises(quest.QuestError, match="schon"):
+    # Runde 21: Zierden gibt es nur noch für Orden, und sie gelten für alle Jahre
+    with pytest.raises(quest.QuestError, match="Orden"):
         quest.kaufe(conn, 2025, "laternen")
+    assert quest.zierde_freischalten(conn, "laternen")
+    assert not quest.zierde_freischalten(conn, "laternen")
     assert "laternen" in quest.besitz(conn, 2026)  # Zierde bleibt stehen
     quest.kaufe(conn, 2025, "spuernase")
     quest.kaufe(conn, 2025, "brieftaube")
@@ -1241,7 +1243,7 @@ def test_markt_kaufen_helferplaetze_tauschgebuehr_und_zierde_fuer_alle_jahre(con
     quest.lege_helfer(conn, 2025, "sanduhr", True)
     assert quest.gold(conn, 2025) == vorher - spiel.TAUSCH_PREIS  # Tauschen kostet
     assert quest.helfer(conn, 2025) == {"spuernase", "sanduhr"}
-    preise = sum(spiel.ware(k).preis for k in ("laternen", "spuernase", "brieftaube", "sanduhr"))
+    preise = sum(spiel.ware(k).preis for k in ("spuernase", "brieftaube", "sanduhr"))
     assert quest.goldsummen(conn, 2025) == (200, preise + spiel.TAUSCH_PREIS)
     with pytest.raises(quest.QuestError):
         quest.kaufe(conn, 2025, "gibtsnicht")
@@ -1323,13 +1325,13 @@ def test_gold_im_kampf_mit_serie_und_markt_im_browser(client, ws):
     assert f"„{karte['name']}“ kommt als Frage in die Mail" in seite.text
     assert 'class="sq-rechnung"' in seite.text
 
-    # Der Markt: Zierde kaufen springt zur Insel, Helfer haben einen Haken
+    # Der Markt: Helfer haben einen Haken, Zierden gibt es für Orden (Runde 21)
     quest.verdiene(conn, 2025, "test", 100, "Testgold")
     markt = client.get("/steuer/2025/markt")
     assert markt.status_code == 200 and "Goldbuch" in markt.text and "Haken:" in markt.text
+    assert "Belohnung für den Orden „Sammlerin“" in markt.text
     seite = post(client, "/steuer/2025/markt/kaufen", ware="windmuehle")
-    assert "Windmühle steht jetzt auf deiner Insel" in seite.text
-    assert 'class="sq-zier windmuehle neu"' in seite.text and 'class="sq-hafen"' in seite.text
+    assert "Zierden gibt es nicht mehr für Gold" in seite.text
     post(client, "/steuer/2025/markt/kaufen", ware="spuernase")
     (quest.lager(ws.root) / "kontoauszug-juni.pdf").write_bytes(b"%PDF juni")
     (quest.lager(ws.root) / "quittung-juni.pdf").write_bytes(b"%PDF quittung")
@@ -1388,18 +1390,19 @@ def test_gold_faellt_nie_unter_null_letzter_kauf_geht_in_den_hafen(conn):
     """Bericht 2b, P2-A: Erst bei ×8 verdienen, ausgeben, dann zurücklegen darf nichts bringen."""
     quest.verdiene(conn, 2025, "fund:a:b", 20, "Belege")
     quest.verdiene(conn, 2025, "test", 30, "Testgold")
-    quest.kaufe(conn, 2025, "windmuehle")  # 35
-    quest.kaufe(conn, 2025, "laternen")  # 10
+    quest.kaufe(conn, 2025, "trommel")  # 18
+    quest.kaufe(conn, 2025, "goldwaage")  # 15
+    quest.kaufe(conn, 2025, "spuernase")  # 12
     assert quest.gold(conn, 2025) == 5
     quest.storniere(conn, 2025, "fund:a:b", "Belege")
     assert quest.gold(conn, 2025) == -15
-    assert quest.decke_schulden(conn, 2025) == ["Laternen", "Windmühle"]
-    assert quest.gold(conn, 2025) == 30
-    assert "windmuehle" not in quest.besitz(conn, 2025)
-    assert "laternen" not in quest.besitz(conn, 2026)
-    assert quest.goldsummen(conn, 2025) == (30, 0)
+    assert quest.decke_schulden(conn, 2025) == ["Spürnase", "Goldwaage"]
+    assert quest.gold(conn, 2025) == 12
+    assert "goldwaage" not in quest.besitz(conn, 2025)
+    assert "spuernase" not in quest.besitz(conn, 2025)
+    assert quest.goldsummen(conn, 2025) == (30, 18)
     assert quest.decke_schulden(conn, 2025) == []  # nichts mehr zu tun
-    quest.kaufe(conn, 2025, "laternen")  # zurückgegeben heißt: wieder kaufbar
+    quest.kaufe(conn, 2025, "spuernase")  # zurückgegeben heißt: wieder kaufbar
 
     # Steckt das Gold nur noch in Helfer-Wechseln, wird auf null ausgeglichen
     quest.verdiene(conn, 2024, "fund:a:b", 20, "Belege")
@@ -1421,16 +1424,16 @@ def test_zurueckbuchen_mit_ausgegebenem_gold_im_browser(client, ws):
         files=[("datei", ("beleg.pdf", b"%PDF beleg"))],
     )
     verdient = quest.gold(conn, 2025)
-    assert 0 < verdient < 50
-    quest.verdiene(conn, 2025, "test", 50 - verdient, "Testgold")
-    post(client, "/steuer/2025/markt/kaufen", ware="leuchtturm")
+    assert 0 < verdient < 18
+    quest.verdiene(conn, 2025, "test", 18 - verdient, "Testgold")
+    post(client, "/steuer/2025/markt/kaufen", ware="trommel")
     assert quest.gold(conn, 2025) == 0
     datei = quest.dateien(conn, 2025, karte["id"])[0]
     seite = post(client, f"/steuer/2025/datei/{datei['id']}/entfernen")
-    assert "Leuchtturm zurück im Hafen" in seite.text
-    assert quest.gold(conn, 2025) >= 0 and "leuchtturm" not in quest.besitz(conn, 2025)
+    assert "Kriegstrommel zurück im Hafen" in seite.text
+    assert quest.gold(conn, 2025) >= 0 and "trommel" not in quest.besitz(conn, 2025)
     markt = client.get("/steuer/2025/markt").text
-    assert "Zurück in den Hafen: Leuchtturm" in markt
+    assert "Zurück in den Hafen: Kriegstrommel" in markt
 
 
 # ---------- Runde 10: Übergabe an die Beraterin (Testbericht "Marie") ----------
@@ -2455,3 +2458,41 @@ def test_runde_20_banner_ohne_widerspruch(client, ws):
     _bis_wach(conn)
     seite = client.get("/steuer/2025/drache")
     assert "legt 2 drauf" not in seite.text and "Die Serie steht bei" not in seite.text
+
+
+def test_runde_21_orden_stellen_zierden_auf_die_insel(client, ws):
+    # Eine Sammlung statt drei: Jeder Orden stellt seine Zierde auf die Insel
+    assert set(spiel.ORDEN_ZIERDE) == {e.key for e in spiel.erfolge([], [])}
+    assert len(set(spiel.ORDEN_ZIERDE.values())) == len(spiel.ORDEN_ZIERDE)
+    assert all(spiel.ware(z) and spiel.ware(z).art == "zierde" for z in spiel.ORDEN_ZIERDE.values())
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    s = next(s for s in quest.stuecke(conn, 2025) if s["status"] == "offen")
+    seite = post(client, f"/steuer/2025/stueck/{s['id']}/status", status="fragen")
+    assert "Neuer Orden: Mutig gefragt." in seite.text
+    assert "Dafür steht jetzt Kirschbaum auf deiner Insel." in seite.text
+    assert "kirschbaum" in quest.besitz(conn, 2026)
+    assert 'class="sq-zier kirschbaum' in client.get("/steuer/2025").text
+
+
+def test_runde_21_orden_fuer_frittes_sammlung(conn):
+    leer = quest.orden_fuer_sammlung(conn)
+    assert len(leer) == 8 and not any(o["erreicht"] for o in leer)
+    assert {"jahr", "key", "name", "zeichen", "beschreibung", "erreicht", "zierde"} <= set(leer[0])
+    quest.notiere(conn, 2024, "erfolg", "Erster Fund")
+    quest.notiere(conn, 2025, "erfolg", "Erster Fund")
+    quest.notiere(conn, 2025, "erfolg", "Erster Fund")  # doppelt notiert zählt einmal
+    alle = quest.orden_fuer_sammlung(conn)
+    erreicht = [(o["jahr"], o["key"]) for o in alle if o["erreicht"]]
+    assert erreicht == [(2024, "erster-fund"), (2025, "erster-fund")]
+    assert len(alle) == 9 and next(o for o in alle if o["erreicht"])["zierde"] == "laternen"
+
+
+def test_runde_21_insel_fuehrt_in_die_sammlung(client, ws):
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    insel = client.get("/steuer/2025").text
+    assert 'class="sq-sammlung-karte" href="/sammlung"' in insel and "gesammelt" in insel
+    assert '<ul class="sq-orden">' not in insel  # eine Vitrine statt zwei
+    vitrine = client.get("/sammlung")
+    assert vitrine.status_code == 200
+    assert "Gutes Gedächtnis" in vitrine.text and "Brunnen" in vitrine.text
