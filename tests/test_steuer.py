@@ -2161,9 +2161,9 @@ def test_runde_18_drache_zeigt_den_echten_faktor(client, ws):
     post(client, "/steuer/2025/drache/schlag", stueck_id=str(karte["id"]), aktion="fragen")
     zweite = spiel.drache(quest.stuecke(conn, 2025)).karte
     seite = post(client, "/steuer/2025/drache/schlag", stueck_id=str(zweite["id"]), aktion="fragen")
-    # Serie 2, aber Fragen zahlt ohne Serie: das steht jetzt auch da
-    assert "Gold ×2" in seite.text and "Die Gold-Serie läuft!" in seite.text
-    assert "ohne Serie, die zählt nur für Belege" in seite.text
+    # Runde 19: Fragen treffen, aber die Gold-Serie wartet auf Belege (Banner grau, ×1 + 2)
+    assert "Die Gold-Serie wartet auf den nächsten Beleg" in seite.text
+    assert "sq-combo wartet" in seite.text and "Gold ×2" in seite.text
     assert "1 × 1" not in seite.text
 
 
@@ -2269,3 +2269,68 @@ def test_runde_18_sieg_ohne_fritte_truhen_bricht_nicht(client, ws, monkeypatch):
     seite = post(client, "/steuer/2025/drache/schlag", stueck_id=str(k["id"]), aktion="fragen")
     assert seite.status_code == 200 and "Fritte hat eine Truhe" not in seite.text
     assert spiel.drache(quest.stuecke(conn, 2025)).besiegt
+
+
+def test_runde_19_serie_waechst_nur_mit_belegen():
+    combo, ruf = spiel.treffer(2, kritisch=False, zaehlt=False)
+    assert combo == 2
+    combo, ruf = spiel.treffer(2, kritisch=True)
+    assert combo == 4 and ruf.startswith(spiel.VOLLTREFFER)
+    # "Legendär" erst ganz oben, bei ×8
+    assert len(spiel.RUFE) == spiel.MAX_MULT + 1
+    assert all("Legendär" not in r for r in spiel.RUFE[: spiel.MAX_MULT])
+    assert "Legendär" in spiel.treffer(6, kritisch=True)[1]
+    assert "Legendär" not in spiel.treffer(5, kritisch=True)[1]
+
+
+def test_runde_19_banner_zeigt_den_naechsten_beleg_vorab(client, ws):
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    _bis_wach(conn)
+    from frits.spiel import kassensturz
+
+    seite = client.get("/steuer/2025/drache")
+    start = spiel.start_serie(len(kassensturz.regal(conn)))
+    naechster = spiel.multiplikator(start + 2)
+    assert f"Gold ×{naechster}" in seite.text
+    assert (
+        f"Nächster Beleg: {spiel.GOLD_FUND} × {naechster} = {spiel.GOLD_FUND * naechster} Gold"
+        in seite.text
+    )
+    # Zwei Fragen: Die Vorschau bleibt gleich, die Serie wartet
+    for _ in range(2):
+        karte = spiel.drache(quest.stuecke(conn, 2025)).karte
+        seite = post(
+            client, "/steuer/2025/drache/schlag", stueck_id=str(karte["id"]), aktion="fragen"
+        )
+    assert f"Gold ×{naechster}" in seite.text and "sq-combo wartet" in seite.text
+
+
+def test_runde_19_helfer_sagen_im_kampf_was_sie_tun(client, ws):
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    _bis_wach(conn)
+    quest.verdiene(conn, 2025, "test-hafen", 40, "Testgold")
+    post(client, "/steuer/2025/markt/kaufen", ware="spuernase")
+    seite = client.get("/steuer/2025/drache")
+    assert spiel.im_kampf("spuernase") in seite.text
+    assert f"Nächster Beleg: {spiel.GOLD_FUND - 1} ×" in seite.text
+    assert all(spiel.im_kampf(w.key) for w in spiel.MARKT if w.art == "helfer")
+
+
+def test_runde_19_sanduhr_warnt_vor_dem_gewuerz_deckel(client, ws, monkeypatch):
+    from frits.spiel import kassensturz
+
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    seite = client.get("/steuer/2025/markt")
+    assert "Frittes Gewürze lassen dich" not in seite.text  # ein Gewürz: Start ×2, kein Problem
+    monkeypatch.setattr(kassensturz, "regal", lambda conn: ["a", "b", "c"])
+    seite = client.get("/steuer/2025/markt")
+    assert "Frittes Gewürze lassen dich gerade bei ×4 starten" in seite.text
+
+
+def test_runde_19_toene_laufen_ueber_den_klangrahmen():
+    js = (Path(__file__).parent.parent / "src/frits/web/static/steuer.js").read_text()
+    klang = (Path(__file__).parent.parent / "src/frits/assets/sounds/frits-sound.js").read_text()
+    assert "fs.tone(" in js
+    assert "function tone(" in klang and "tone: tone" in klang and "host.tone(" in klang

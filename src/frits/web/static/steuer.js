@@ -25,6 +25,14 @@
     } catch (e) { return null; }
   }
   function ton(frequenz, dauer, art, lautstaerke, verzoegerung) {
+    if (tisch.getAttribute("data-klang") !== "an") return;
+    // Im Klangrahmen spielt der Rahmen: Dort ist der Ton schon mit dem letzten Klick erlaubt.
+    // Eine eigene Tonquelle auf dieser Seite bliebe stumm, bis man hier noch einmal klickt.
+    var fs = window.FritsSound;
+    if (fs && fs.tone && (!fs.enabled || fs.enabled())) {
+      fs.tone(frequenz, dauer, art, lautstaerke, verzoegerung);
+      return;
+    }
     var c = klang();
     if (!c) return;
     var start = c.currentTime + (verzoegerung || 0);
@@ -40,6 +48,12 @@
     osc.stop(start + dauer + 0.02);
   }
   function stempelTon() {
+    if (tisch.getAttribute("data-klang") !== "an") return;
+    // Der Klang-Rahmen hat Plopp und Rascheln schon zusammen (und darf sie spielen)
+    if (window.FritsSound && window.FritsSound.tone && window.FritsSound.stamp) {
+      window.FritsSound.stamp();
+      return;
+    }
     var c = klang();
     if (!c) return;
     // Derselbe dumpfe Plopp wie im normalen FRITS (frits.js), dazu ein kurzes Papierrascheln

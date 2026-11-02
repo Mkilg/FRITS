@@ -46,15 +46,14 @@
   {% endif %}
   <span class="sq-lp-zahl"><b data-zaehler="lp">{{ drache.lp }}</b> Lebenspunkte</span>
   {% if helfer %}
-  <ul class="sq-helferreihe" aria-label="Deine Helfer">{% for key in helfer | sort %}{% set w = ware(key) %}<li title="{{ w.text }} Haken: {{ w.haken }}"><span class="sq-ware-zeichen {{ key }}" aria-hidden="true"></span>{{ w.name }}</li>{% endfor %}</ul>
+  <ul class="sq-helferreihe" aria-label="Deine Helfer">{% for key in helfer | sort %}{% set w = ware(key) %}<li><span class="sq-ware-zeichen {{ key }}" aria-hidden="true"></span><b>{{ w.name }}</b> <small>{{ helfer_satz(key) }}</small></li>{% endfor %}</ul>
   {% endif %}
   </div>
 
-  {% if combo.combo %}
-  <div class="sq-combo" aria-live="polite"><span class="mult" title="Gold-Serie: So oft zählt das Gold für den nächsten Beleg">Gold ×{{ combo.mult }}</span><span class="ruf">{{ combo.ruf }}</span>
-    <small class="sq-combo-regel">Jeder Treffer nimmt dem Drachen eine Karte. Die Serie vervielfacht das Gold für Belege.</small>
+  {# Vorschau statt Rückblick: Der große Faktor gilt für den nächsten Beleg, nicht für den letzten #}
+  <div class="sq-combo{% if combo.wartet %} wartet{% endif %}" aria-live="polite"><span class="mult" title="Gold-Serie: So oft zählt das Gold für deinen nächsten Beleg">Gold ×{{ combo.naechster }}</span><span class="ruf">{{ combo.ruf }}</span>
+    <small class="sq-combo-regel">Nächster Beleg: {{ combo.basis }} × {{ combo.naechster }} = {{ combo.basis * combo.naechster }} Gold. Die Serie steht bei ×{{ combo.mult }}, jeder Beleg legt 2 drauf. Fragen treffen den Drachen auch, aber die Serie wartet dann.</small>
   </div>
-  {% endif %}
 
   {% if drache.karte %}
   {% set k = drache.karte %}

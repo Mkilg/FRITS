@@ -838,7 +838,7 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
 .sq-parzelle.bonus .sq-schild::after { content: "Bonus"; display: block; font: 600 0.65rem system-ui, sans-serif; letter-spacing: .06em; text-transform: uppercase; color: var(--ocker-dunkel); }
 
 /* Kleinere Fenster: Insel als Kacheln, damit nichts abgeschnitten wird */
-@media (max-width: 900px) {
+@media (max-width: 760px) {
   .sq-insel { height: auto !important; animation: none; }
   .sq-insel-gras { border-radius: 28px; inset: 0; }
   .sq-insel-fels, .sq-insel-schatten { display: none; }
@@ -904,7 +904,7 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
   background: radial-gradient(circle, #fff7d0 0 30%, rgba(255, 210, 90, .8) 40%, transparent 70%);
   animation: sq-funkeln 2.6s ease-in-out infinite; animation-delay: calc(var(--i) * .31s); }
 @keyframes sq-funkeln { 0%, 100% { transform: scale(.2); opacity: 0; } 50% { transform: scale(1.4); opacity: 1; } }
-@media (max-width: 900px) { .sq-wirbel, .sq-funkeln { display: none; } }
+@media (max-width: 760px) { .sq-wirbel, .sq-funkeln { display: none; } }
 
 /* Tagwerk: drei Karten am Tag reichen */
 .sq-tagwerk { display: flex; flex-direction: column; align-items: center; gap: 0.2rem; margin: 0; font: 600 0.72rem system-ui, sans-serif; color: var(--tinte); text-align: center; }
@@ -916,13 +916,13 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
 @media (max-width: 900px) { .sq-tagwerk { grid-column: 1 / -1; flex-direction: row; justify-self: start; } }
 
 /* Runde 5: Drachenhort unten rechts, damit er das Leuchtfeuer nie verdeckt */
-@media (min-width: 901px) {
+@media (min-width: 761px) {
   .sq-meer { padding-bottom: 4.5rem; }
   .sq-hort { top: auto; bottom: 0; right: 0.5rem; }
   .sq-hort .sq-zzz { top: -0.4rem; }
 }
 /* In der Kachelansicht hängt das Leuchtfeuer an seiner Kachel statt darüber zu schweben */
-@media (max-width: 900px) {
+@media (max-width: 760px) {
   .sq-provinzen .sq-leuchtfeuer { position: relative; left: auto; top: auto; transform: none; order: -1; margin-bottom: -0.3rem; animation: sq-huepfen-kachel 1.1s ease-in-out infinite; }
 }
 @keyframes sq-huepfen-kachel { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
@@ -979,10 +979,10 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
 .sq-hort.auftragsziel::before { content: ""; position: absolute; left: 50%; top: 40%; width: 210px; height: 120px; margin: -60px 0 0 -105px; border-radius: 50%; z-index: -1;
   background: radial-gradient(ellipse, rgba(255, 140, 90, .6), rgba(233, 120, 60, .2) 55%, transparent 72%); animation: sq-feuer 1.8s ease-in-out infinite; }
 @keyframes sq-atmen { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.04) rotate(-1deg); } }
-@media (min-width: 901px) {
+@media (min-width: 761px) {
   .sq-hort.wach { top: 0.4rem; bottom: auto; right: 0; }
 }
-@media (max-width: 900px) {
+@media (max-width: 760px) {
   .sq-meer:has(.sq-hort.wach) { display: flex; flex-direction: column; }
   .sq-hort.wach { order: -1; margin: 1.6rem auto 0.8rem; }
 }
@@ -1119,6 +1119,8 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
   .sq-handkarte { flex: none; }
 }
 .sq-hand-faecher.sq-rueckfrage-ort .sq-rueckfrage-blase { bottom: calc(100% - 4px); }
+/* Nach unten aufgeklappt: Sonst gelten oben und unten zugleich, und die Blase schrumpft auf eine Zeile */
+.sq-hand-faecher.sq-rueckfrage-ort .sq-rueckfrage-blase.unten { bottom: auto; }
 .sq-wurf-zurueck { position: relative; z-index: 2; margin: 0 0 0.7rem; display: flex; align-items: center; gap: 0.2rem 0.5rem; flex-wrap: wrap; font-size: 0.84rem; color: var(--tinte); text-align: left;
   background: #e4efd2; border-left: 4px solid var(--moos, #6f9440); padding: 0.4rem 0.7rem; border-radius: 2px; box-shadow: 0 4px 10px rgba(0,0,0,.3); transform: rotate(-0.6deg); animation: sq-treffer-rein .4s ease-out both; }
 .sq-wurf-zurueck b { color: #3f5d22; }
@@ -1155,10 +1157,8 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
   .sq-arena .sq-handkarte:first-child { margin-left: 0; }
 }
 @media (max-width: 600px) { .sq-handkarte { width: 82px; height: 98px; padding: 0.45rem 0.4rem; } .sq-handkarte strong { font-size: 0.68rem; -webkit-line-clamp: 4; } .sq-hand-titel { font-size: 0.82rem; } }
-/* Im Kampf erscheinen kleine Meldungen links unten, damit sie die Hand nicht verdecken */
-.sq-tisch.nacht .sq-zettelchen { right: auto; left: 18px; }
 /* Kachelansicht: kein Sturm-Kasten hinter der Insel, Schilder bleiben in ihrer Kachel */
-@media (max-width: 900px) {
+@media (max-width: 760px) {
   .sq-insel.zeitalter-0::before { display: none; }
   .sq-provinzen .sq-schild, .sq-provinzen .sq-schild small, .sq-provinzen .sq-schild strong { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
   .sq-hort.wach .sq-drache-klein { width: 124px; height: 110px; }
@@ -1246,7 +1246,7 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
 @keyframes sq-wehen { 50% { transform: skewY(-4deg) scaleX(.94); } }
 .sq-provinzen { z-index: 2; }
 /* Kachelansicht: Zierde als eigenes Wiesenstück unter den Provinzen, nicht auf den Wolken */
-@media (max-width: 900px) {
+@media (max-width: 760px) {
   .sq-zierde { position: relative; inset: auto; display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-end; gap: 0.6rem 1rem; margin: 0 0.8rem 1rem; padding: 0.8rem 1rem 0.5rem;
     /* Ein Stück Wiese mit Blumentupfern, Grashalmen und einer Erdkante, damit es nicht flach wirkt */
     background:
@@ -1337,7 +1337,7 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
 .sq-zier.neu { animation: sq-zier-neu 1.4s .3s cubic-bezier(.2, 1.6, .4, 1) both; z-index: 3; }
 .sq-zier.neu::after { content: ""; position: absolute; inset: -30% -40%; border-radius: 50%; background: radial-gradient(circle, rgba(255, 236, 160, .85), transparent 65%); z-index: -1; animation: sq-feuer 1.6s ease-in-out 3; pointer-events: none; }
 @keyframes sq-zier-neu { 0% { opacity: 0; transform: translate(-50%, -160%) scale(.4); } 60% { opacity: 1; transform: translate(-50%, -96%) scale(1.15); } 100% { transform: translate(-50%, -100%) scale(1); } }
-@media (max-width: 900px) { @keyframes sq-zier-neu { 0% { opacity: 0; transform: translateY(-40px) scale(.4); } 60% { opacity: 1; transform: scale(1.15); } } }
+@media (max-width: 760px) { @keyframes sq-zier-neu { 0% { opacity: 0; transform: translateY(-40px) scale(.4); } 60% { opacity: 1; transform: scale(1.15); } } }
 
 /* Hafenmarkt als Ort an der Insel: ohne Scrollen zu sehen */
 .sq-hafen { position: absolute; left: 0; top: 36%; z-index: 60; display: flex; flex-direction: column; align-items: center; gap: 0.2rem; text-decoration: none; }
@@ -1345,7 +1345,7 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
 .sq-hafen-muenze { width: 44px; height: 44px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff1b8, var(--gold) 45%, var(--ocker-dunkel)); border: 2px solid #7a5512;
   box-shadow: 12px 6px 0 -5px #c9a24a, -10px 8px 0 -7px #e9bd4f, 0 8px 12px rgba(0,0,0,.4); transition: transform .2s; }
 .sq-hafen:hover .sq-hafen-muenze { transform: translateY(-3px) rotate(-8deg); }
-@media (max-width: 900px) { .sq-hafen { position: relative; left: auto; top: auto; margin: 0.8rem auto 0; width: max-content; } }
+@media (max-width: 760px) { .sq-hafen { position: relative; left: auto; top: auto; margin: 0.8rem auto 0; width: max-content; } }
 
 /* Helfer haben einen Haken */
 .sq-ware p.sq-haken { flex: none; font-size: 0.8rem; color: var(--terrakotta-dunkel); border-top: 1px dashed #d9c79c; padding-top: 0.3rem; }
@@ -1480,12 +1480,29 @@ a.sq-beleg-vorschau:hover, a.sq-beleg-vorschau:focus-visible { transform: rotate
 @media (prefers-reduced-motion: reduce) { .sq-belohnung.nacheinander .sq-beute li { animation: none; } }
 /* Auf der Insel liegen links der Korb und rechts die Chronik: Meldungen kommen unten in die
    Mitte, auf die Klippen, statt über Text. Deckend sind sie ohnehin. */
-@media (min-width: 1101px) { .sq-inselseite .sq-zettelchen { right: auto; left: 50%; translate: -50% 0; } }
+/* Runde 19: Hinweise sitzen überall an derselben Stelle, unten in der Mitte (auch im Kampf) */
+@media (min-width: 761px) { .sq-zettelchen { right: auto; left: 50%; translate: -50% 0; } }
 
 /* Tablet (901 bis 1100 px): eine Spalte, darin die ganze gemalte Insel statt eines flachen
    Streifens. Korb, Orden und Chronik stehen darunter. Kacheln gibt es erst unter 900 px. */
-@media (min-width: 901px) and (max-width: 1100px) {
+@media (min-width: 761px) and (max-width: 1100px) {
   .sq-insel.mit-bild { width: 100%; margin-left: 0; }
 }
 .sq-uebernommen { display: inline-block; margin-top: 0.2rem; padding: 0.1rem 0.45rem; border-radius: 999px; background: #e6efd6; color: #3e5a1c; font: 600 0.75rem system-ui, sans-serif; }
 .sq-belohnung-knoepfe .sq-hafen-knopf { text-transform: none; letter-spacing: 0; font-size: 0.92rem; text-decoration: none; padding: 0.45rem 0.8rem; color: var(--tinte); }
+
+/* Runde 19 (Lenas Blick auf Runde 18) */
+.sq-combo.wartet .mult { background: #7c6a58; box-shadow: 0 5px 0 #3e3227; }
+.sq-combo.wartet .ruf { color: #e8d9b8; }
+.sq-helferreihe li { max-width: 21rem; align-items: flex-start; text-align: left; flex-wrap: wrap; column-gap: 0.3rem; }
+.sq-helferreihe li small { flex-basis: 100%; font-weight: 500; font-size: 0.74rem; line-height: 1.3; opacity: .85; }
+.sq-haken.warnung { color: #8a2b16; }
+/* Leise Knöpfe auf Papier: die helle Tisch-Farbe wäre auf Papier fast unsichtbar */
+.sq :is(.sq-papier, .sq-wurf-zurueck, .sq-schnell, .sq-karte, .sq-rueckfrage-blase) button.quiet { color: var(--muted-papier, #6b5a48); }
+.sq :is(.sq-papier, .sq-wurf-zurueck, .sq-schnell, .sq-karte, .sq-rueckfrage-blase) button.quiet:hover { color: var(--tinte); }
+/* Schmale Insel (Tablet, halbes Mac-Fenster): Häuser und Schilder etwas kleiner, damit sie sich nicht überdecken */
+@media (min-width: 761px) and (max-width: 900px) {
+  .sq-insel.mit-bild .sq-parzelle { width: 108px; margin-left: -54px; }
+  .sq-insel.mit-bild .sq-diorama img { width: 104px; max-height: 104px; }
+  .sq-insel.mit-bild .sq-geist .sq-schild small { white-space: normal; font-size: 0.62rem; }
+}

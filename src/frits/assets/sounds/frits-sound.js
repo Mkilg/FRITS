@@ -8,6 +8,7 @@
  * The stamp "plopp":               FritsSound.stamp()
  * A finished invoice:              FritsSound.ching()
  * One of Fritte's chests opens:    FritsSound.truhe("gewoehnlich" | "selten" | "legendaer")
+ * One short tone:                  FritsSound.tone(440, 0.2, "triangle", 0.1, delaySeconds)
  * Play a cue from the server:      HX-Trigger: {"frits-cue": "sent"}   (htmx response header)
  * Focus music:                     FritsSound.music.play("morgen") / .stop() / .toggle()
  * Buttons without any JavaScript:  <button data-frits-cue="done">, <button data-frits-music="morgen">
@@ -97,6 +98,7 @@
       stamp: function () { if (enabled()) host.stamp(); },
       ching: function () { if (enabled()) host.ching(); },
       truhe: function (stufe) { if (enabled() && host.truhe) host.truhe(stufe); },
+      tone: function (f, dur, type, vol, delay) { if (enabled() && host.tone) host.tone(f, dur, type, vol, delay); },
       music: {
         play: function (name, from, ms) { if (enabled()) host.music.play(name, from, ms); },
         stop: function (switching) { host.music.stop(switching); },
@@ -228,6 +230,25 @@
       osc.start(at);
       osc.stop(at + 1.2);
     });
+  }
+
+  // One short tone, for games that make their own little tunes (the Steuer-Quest rewards).
+  // It plays here so it keeps sounding inside the Klangrahmen, where a page's own sound
+  // needs a click on that very page first.
+  function tone(f, dur, type, vol, delay) {
+    if (!enabled()) return;
+    var c = context();
+    if (!c) return;
+    if (c.state === "suspended" && c.resume) c.resume();
+    var at = c.currentTime + (delay || 0), osc = c.createOscillator(), g = c.createGain();
+    osc.type = type || "triangle";
+    osc.frequency.setValueAtTime(f, at);
+    g.gain.setValueAtTime(0.0001, at);
+    g.gain.exponentialRampToValueAtTime(vol || 0.12, at + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, at + (dur || 0.2));
+    osc.connect(g).connect(c.destination);
+    osc.start(at);
+    osc.stop(at + (dur || 0.2) + 0.02);
   }
 
   // A chest opens: the wooden lid creaks, then a little tune climbs up. The rarer the find,
@@ -485,6 +506,7 @@
     stamp: stamp,
     ching: ching,
     truhe: truhe,
+    tone: tone,
     music: music,
     setEnabled: setEnabled,
     enabled: enabled,

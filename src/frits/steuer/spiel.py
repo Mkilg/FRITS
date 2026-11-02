@@ -207,14 +207,19 @@ def ressourcen(stuecke: list[dict], provinzstaende: list[Provinzstand]) -> Resso
 
 # Ehrlich bleiben: Jeder Treffer nimmt dem Drachen genau eine Karte. Die Serie vervielfacht
 # nur das Gold für gefundene Belege, darum heißt sie Gold-Serie und nicht "Doppelschlag".
+# Ein Ruf pro Stufe bis ×8: "Legendär" erst ganz oben, sonst ist ×8 nichts mehr wert.
 RUFE = (
     "Er wirft dir eine Karte zu!",
     "Treffer!",
     "Die Gold-Serie läuft!",
     "Die Gold-Serie wächst!",
+    "Heiße Gold-Serie!",
+    "Die Münzen klimpern!",
     "Unaufhaltsam!",
+    "Fast legendär!",
     "Legendäre Gold-Serie!",
 )
+SERIE_WARTET = "Treffer! Die Gold-Serie wartet auf den nächsten Beleg."
 VOLLTREFFER = "Volltreffer mit Beleg! "
 
 
@@ -666,6 +671,17 @@ def start_serie(gewuerze: int) -> int:
     Ein Gewürz heißt also Gold ×2 schon für den ersten Beleg."""
     n = max(0, min(gewuerze, GEWUERZ_START_MAX))
     return n + 1 if n else 0
+
+
+def im_kampf(key: str) -> str:
+    """Was ein Helfer in diesem Drachenkampf wirklich tut, in einem Satz mit echten Zahlen."""
+    return {
+        "spuernase": f"Belege bringen {GOLD_FUND - 1} statt {GOLD_FUND} Gold.",
+        "brieftaube": f"Fragen bringen {GOLD_FRAGE + 1} Gold, „Gibt's nicht“ bringt 0.",
+        "goldwaage": f"Schätze bringen {GOLD_SCHATZ * 2} Gold, Fragen 0.",
+        "trommel": "Die Gold-Serie zählt eins mehr. „Gibt's nicht“ setzt sie auf null.",
+        "sanduhr": "Die Gold-Serie zählt höchstens ×3.",
+    }.get(key, "")
 
 
 def hafen_angebot(gold: int, besitz: dict | set | frozenset) -> list[Ware]:
