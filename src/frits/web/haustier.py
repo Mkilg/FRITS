@@ -102,16 +102,21 @@ def haus_sichtbar(conn) -> bool:
     )
 
 
+MAL = {2: "zweimal", 3: "dreimal", 4: "viermal", 5: "fünfmal", 6: "sechsmal", 7: "siebenmal",
+       8: "achtmal", 9: "neunmal", 10: "zehnmal", 11: "elfmal", 12: "zwölfmal"}  # fmt: skip
+
+
 def truhen_saetze(zu: list, hoechstens: int = 3) -> tuple[list[str], int]:
-    """One sentence per kind of waiting chest, a kind that waits more than once with its
-    number (Lena: not "Glückskarte: Steuer-Unterlage." three times). Also how many chests
+    """One sentence per kind of waiting chest, a kind that waits more than once with how
+    often (Lena: not "Glückskarte: Steuer-Unterlage." three times, and no "(3 Truhen)" right
+    after "3 Truhen warten"). Also how many chests
     are left unnamed, for "Und N mehr."."""
     gruppen: dict[str, int] = {}
     for t in zu:
         gruppen[t.text] = gruppen.get(t.text, 0) + 1
     saetze, genannt = [], 0
     for text, n in list(gruppen.items())[:hoechstens]:
-        satz = f"{text.rstrip('.!?')} ({n} Truhen)" if n > 1 else text
+        satz = f"{text.rstrip('.!?')}, {MAL.get(n, f'{n}-mal')}" if n > 1 else text
         saetze.append(satz if satz[-1:] in (".", "!", "?") else satz + ".")
         genannt += n
     return saetze, len(zu) - genannt
