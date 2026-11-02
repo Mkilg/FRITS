@@ -841,6 +841,12 @@ def test_painted_icons_replace_the_emojis(client):
     assert salz_oder_bild({}) == SALZ
 
 
+def test_fritte_lives_in_a_painted_room_with_painted_things(client):
+    page = client.get("/fritte").text
+    assert "/static/bilder/zimmer-1.webp" in page and "/static/bilder/gewuerz-pfeffer.webp" in page
+    assert "/static/bilder/ding-teetasse.webp" in client.get("/fritte/laden").text
+
+
 def test_check_me_file_can_be_seen_and_becomes_a_receipt(client, ws):
     drop_and_read(client, ws, "20_kaputt.pdf")
     page = client.get("/check-me").text
