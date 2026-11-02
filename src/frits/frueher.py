@@ -363,7 +363,11 @@ def _free_description(lines: list[str], marks: list[str], customer: str | None):
         words = re.sub(r"(?<![\w])\d[\d.,]*(?![\w])", " ", words)
         words = _UNIT_WORDS.sub(" ", words)
         words = " ".join(words.split()).strip(" -–:|,;")
-        if sum(ch.isalpha() for ch in words) >= 5 and len(words.split()) >= 2:
+        # One word is enough when the line also names a day or an amount
+        # ("Jahresrückblick-Moderation, 18.12.2025"); a lone word could be anything.
+        letters = sum(ch.isalpha() for ch in words)
+        alone = len(words.split()) == 1 and letters >= 8 and (days or re.search(r"\d,\d\d\b", line))
+        if letters >= 5 and (len(words.split()) >= 2 or alone):
             return words[:200], days[0] if len(days) == 1 else None
     return None, None
 
@@ -440,6 +444,22 @@ def eigene_rechnung(text: str, settings) -> bool:
         return False
     marks = _own_marks((settings.name, settings.company))
     return any(_is_own(line, marks) for line in lines[:6])
+
+
+def vielleicht_eigene_rechnung(text: str, settings) -> bool:
+    """Might this be Fritz's own old invoice even without his IBAN or tax number on it?
+
+    His name or company opens the page (the letterhead), it is an invoice with a number, and
+    it goes to someone else. Not sure enough to decide, so FRITS only asks.
+    """
+    if not settings.name or not _INVOICE_WORD.search(text) or _NOT_OWN_INVOICE.search(text):
+        return False
+    lines = [" ".join(line.split()) for line in text.splitlines() if line.strip()]
+    marks = _own_marks((settings.name, settings.company))
+    if _number(lines) is None or not any(_is_own(line, marks) for line in lines[:2]):
+        return False
+    customer = lesen(text, (settings.name, settings.company, settings.address)).get("customer")
+    return bool(customer) and not _is_own(customer, marks)
 
 
 # ---------- waiting for Fritz to check ----------

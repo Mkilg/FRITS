@@ -62,6 +62,7 @@ from frits.billing import (
     EARLIER_TAX,
     BillingError,
     Draft,
+    NumberGap,
     add_earlier,
     approve,
     blockers,
@@ -426,6 +427,7 @@ def create_app(
         link: tuple[str, str] | None = None,
         aktion: dict | None = None,
         feld: str | None = None,
+        knopf: tuple[str, str, str, str] | None = None,
     ) -> None:
         """A short note on the next page. `stamp` puts an ink stamp on it, e.g. "Bezahlt".
         `undo` remembers how to take the step back and puts a "Rückgängig" button on the note:
@@ -439,6 +441,8 @@ def create_app(
             note["link"], note["link_text"] = link
         note["aktion"] = aktion
         note["feld"] = feld  # the form field this note is about: marked red and focused
+        # (form id, name, value, label): a button that sends that form again with name=value
+        note["knopf"] = knopf
         app.state.flashes.append(note)
 
     app.state.hinweise = []  # small notes other parts add to any page, e.g. Fritte's cards
@@ -779,7 +783,9 @@ def create_app(
                 flash(
                     f"{path.name}: {outcome.message}", link=("/check-me", "Ansehen und einordnen")
                 )
-            if outcome.status == "skipped" and outcome.sha256:
+            if outcome.status == "skipped" and outcome.link:
+                flash(f"{_upload_name(path)}: {outcome.message}", link=outcome.link)
+            elif outcome.status == "skipped" and outcome.sha256:
                 text, link = where_known(db(), outcome.sha256)
                 flash(f"{_upload_name(path)}: {text}", link=link)
         parts = []
@@ -1149,6 +1155,7 @@ def create_app(
             "bezahlt": bezahlt,
             "paid": paid,
             "von_heute": found.get("job") is not None,
+            "schon": fields.get("number") if already_entered(fields.get("number")) else None,
             "token": token,
             "datei": original.name if original else None,
             "zeigen": "pdf" if suffix == ".pdf" else "bild" if suffix in IMAGE_TYPES else None,
@@ -1159,6 +1166,11 @@ def create_app(
             else "".join(names),
             "fokus": missing[0][0] if missing else None,
         }
+
+    def already_entered(number: str | None) -> bool:
+        return bool(
+            number and db().execute("SELECT 1 FROM invoices WHERE number = ?", (number,)).fetchone()
+        )
 
     def _earlier_paid_guess(fields: dict) -> tuple[str, str]:
         """("ja"/"nein"/"", day) for "Schon bezahlt?": an old invoice past its due day was
@@ -1263,6 +1275,14 @@ def create_app(
             if text
             else {}
         )
+        if already_entered(fields.get("number")):
+            shutil.rmtree(folder, ignore_errors=True)
+            number = fields["number"]
+            flash(
+                f"Rechnung {number} ist schon nachgetragen. Du musst nichts mehr tun.",
+                link=(f"/invoices#r-{number}", "Zur Rechnung"),
+            )
+            return back("/invoices#frueher")
         frueher.merken(folder, original.name if original else None, fields)
         return back(f"/invoices?frueher={token}#frueher")
 
@@ -1307,7 +1327,8 @@ def create_app(
             elif bezahlt == "ja" and not paid:
                 raise BillingError(
                     "Wann kam das Geld? Trag bei „Schon bezahlt?“ den Tag vom Kontoauszug ein, "
-                    "er zählt für das Jahr in der EÜR."
+                    "er zählt für das Jahr in der EÜR.",
+                    feld="paid",
                 )
             upload = form.get("original")
             original = None
@@ -1329,14 +1350,25 @@ def create_app(
                 invoices_dir=ws.invoices,
                 settings=settings(),
                 today=today(),
+                gap_ok=form.get("luecke") == "ok",
             )
+        except NumberGap as exc:
+            # A gap is normal while entering old invoices one by one: Fritz may go on.
+            flash(
+                str(exc),
+                "error",
+                feld="number",
+                knopf=("frueher-form", "luecke", "ok", "Stimmt, trotzdem nachtragen"),
+            )
+            return back(retry)
         except BillingError as exc:
-            flash(str(exc), "error")
+            flash(str(exc), "error", feld=exc.feld)
             return back(retry)
         except ValueError:
             flash(
                 "Bitte die Daten prüfen: Rechnungsdatum und Betrag fehlen oder passen nicht.",
                 "error",
+                feld="issue_date" if not form.get("issue_date") else "net",
             )
             return back(retry)
         if folder:
@@ -1895,7 +1927,7 @@ def create_app(
         conn = db()
         receipts = open_receipts(conn)
         chosen = next((r for r in receipts if r["id"] == receipt), None)
-        guessed, own_invoice = _receipt_guess(chosen["filename"]) if chosen else ({}, False)
+        guessed, own_invoice = _receipt_guess(chosen["filename"]) if chosen else ({}, "")
         items = expenses.list_expenses(ws.db, year=year)
         return page(
             request,
@@ -1912,25 +1944,28 @@ def create_app(
             own_invoice=own_invoice,
         )
 
-    def _receipt_guess(filename: str) -> tuple[dict[str, str], bool]:
+    def _receipt_guess(filename: str) -> tuple[dict[str, str], str]:
         """Amount, date and shop read from the receipt here on this computer (OCR, no AI),
-        and whether it is really Fritz's own invoice from before FRITS."""
+        and whether it is Fritz's own invoice from before FRITS: "sicher" (his IBAN or tax
+        number is on it), "vielleicht" (his letterhead, to someone else) or ""."""
         from frits import beleg
 
         path = ws.done / Path(filename).name
         try:
             text = extract_text(path).text if path.is_file() else ""
         except IngestError:
-            return {}, False
+            return {}, ""
         if not text:
-            return {}, False
+            return {}, ""
         current = settings()
         guessed = beleg.guess(text, today())
         vendor = guessed.get("vendor", "").casefold()
         own = [x.casefold() for x in (current.name, current.company) if len(x or "") >= 5]
         if vendor and any(x in vendor for x in own):
             guessed.pop("vendor")  # Fritz doesn't buy from himself
-        return guessed, frueher.eigene_rechnung(text, current)
+        if frueher.eigene_rechnung(text, current):
+            return guessed, "sicher"
+        return guessed, "vielleicht" if frueher.vielleicht_eigene_rechnung(text, current) else ""
 
     @app.post("/expenses/als-rechnung/{job_id}", dependencies=guarded)
     def receipt_is_own_invoice(job_id: int):

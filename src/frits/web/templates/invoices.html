@@ -28,7 +28,7 @@
     <td class="actions">
       {% if i.status in ("offen", "überfällig") %}
       {% if i.pdf_path %}<form method="post" action="/invoices/{{ i.number }}/email"><input type="hidden" name="token" value="{{ token }}"><button class="tiny">In Mail öffnen</button></form>{% endif %}
-      <form method="post" action="/invoices/{{ i.number }}/paid" class="paid-form"><input type="hidden" name="token" value="{{ token }}"><button class="tiny">Bezahlt am</button> <input type="date" name="paid" value="{{ today_iso }}" max="{{ today_iso }}" aria-label="Zahlungseingang am" title="Der Tag, an dem das Geld auf dem Konto war. Er entscheidet, in welches Jahr die Einnahme gehört."></form>
+      <form method="post" action="/invoices/{{ i.number }}/paid" class="paid-form"><input type="hidden" name="token" value="{{ token }}"><button class="tiny">Bezahlt am</button> {# from an earlier year it was rarely paid today: no day guessed, the year decides the EÜR #}<input type="date" name="paid"{% if i.issue_date[:4] < today_iso[:4] %} required{% else %} value="{{ today_iso }}"{% endif %} max="{{ today_iso }}" aria-label="Zahlungseingang am" title="Der Tag, an dem das Geld auf dem Konto war. Er entscheidet, in welches Jahr die Einnahme gehört."></form>
       {% if i.status == "überfällig" and i.reminded_until and i.reminded_until >= today_iso %}
       <small class="muted">Erinnerung läuft bis {{ i.reminded_until | de_date }}</small>
       {% elif i.status == "überfällig" and i.reminders >= 3 %}
@@ -101,12 +101,14 @@
     </section>
     {% endif %}
     <div>
-      {% if staged %}
+      {% if staged and staged.schon %}
+      <p class="flash flash-hier">Rechnung {{ staged.schon }} ist schon nachgetragen. Du musst nichts mehr tun. <a class="button tiny" href="/invoices#r-{{ staged.schon }}">Zur Rechnung</a></p>
+      {% elif staged %}
       <p class="flash flash-hier{{ ' error' if staged.fehlt }}">Vorausgefüllt aus dem Dokument, hier auf deinem Computer gelesen. {% if staged.fehlt %}Nicht gefunden habe ich {{ staged.fehlt }}: Bitte abtippen.{% else %}Bitte kurz mit dem Original vergleichen.{% endif %}</p>
       {% if staged.ablegen %}<p class="hint">Das PDF lege ich als Original bei den Rechnungen ab.</p>
       {% elif staged.datei %}<p class="hint">{{ staged.datei }} habe ich gelesen. Als Original lege ich nur PDFs ab. Hast du die Rechnung auch als PDF, kannst du sie unten dazulegen.</p>{% endif %}
       {% endif %}
-      <form method="post" action="/invoices/frueher" enctype="multipart/form-data" class="form" data-merken="frueher">
+      <form method="post" action="/invoices/frueher" enctype="multipart/form-data" class="form" id="frueher-form" data-merken="frueher">
         <input type="hidden" name="token" value="{{ token }}">
         {% if staged %}<input type="hidden" name="staged" value="{{ staged.token }}">{% endif %}
         <label class="field">Rechnungsnummer <input name="number" required maxlength="40" placeholder="z. B. 2026-0007" value="{{ f.number or '' }}"{{ gelesen("number", staged) }}></label>

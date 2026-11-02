@@ -496,8 +496,18 @@
       var key = "frits-form-" + form.getAttribute("data-merken");
       var saved = null;
       try { saved = JSON.parse(sessionStorage.getItem(key) || "null"); sessionStorage.removeItem(key); } catch (e) { saved = null; }
+      // Fields are matched by name and their place among fields of that name, so a button
+      // that belongs to the form from elsewhere (the note's "trotzdem nachtragen") moves nothing.
+      function places(each) {
+        var seen = {};
+        Array.prototype.forEach.call(form.elements, function (field) {
+          if (!field.name) return;
+          seen[field.name] = (seen[field.name] || 0) + 1;
+          each(field, field.name + "#" + seen[field.name]);
+        });
+      }
       if (error && saved) {
-        Array.prototype.forEach.call(form.elements, function (field, i) {
+        places(function (field, i) {
           var was = saved[i];
           if (!was || was.n !== field.name) return;
           if (field.type === "radio" || field.type === "checkbox") field.checked = was.c;
@@ -513,12 +523,32 @@
       var bad = parts.length === 2
         ? form.querySelectorAll('[name="' + parts[0] + '"]')[Number(parts[1])]
         : feld && form.elements.namedItem(feld);
+      // The note goes where Fritz is looking, not to the top of a long page (Marie: "Ich
+      // drücke Nachtragen, und nichts passiert"): under the field it is about, or else right
+      // above the button he just pressed.
+      if (error && saved) {
+        var anchor = bad && bad.closest ? bad.closest("fieldset, label") : null;
+        var actions = form.querySelector(".actions");
+        if (anchor && form.contains(anchor)) {
+          error.classList.add("flash-hier");
+          anchor.parentNode.insertBefore(error, anchor.nextSibling);
+        } else if (actions) {
+          error.classList.add("flash-hier");
+          actions.parentNode.insertBefore(error, actions);
+        }
+        if (!bad && form.contains(error)) error.scrollIntoView({ block: "center" });
+      }
       if (bad && bad.focus) {
         bad.classList.add("falsch");
         bad.setAttribute("aria-invalid", "true");
         var open = bad.closest("details");
         if (open) open.open = true;
         cursorIn(bad, true);
+        if (error && form.contains(error)) {
+          window.addEventListener("load", function () {
+            setTimeout(function () { error.scrollIntoView({ block: "nearest" }); }, 120);
+          });
+        }
         bad.addEventListener("input", function () {
           bad.classList.remove("falsch");
           bad.removeAttribute("aria-invalid");
@@ -526,8 +556,8 @@
       }
       form.addEventListener("submit", function () {
         var data = {};
-        Array.prototype.forEach.call(form.elements, function (field, i) {
-          if (!field.name || /^(file|hidden|password|submit|button)$/.test(field.type)) return;
+        places(function (field, i) {
+          if (/^(file|hidden|password|submit|button)$/.test(field.type)) return;
           data[i] = { n: field.name, v: field.value, c: field.checked };
         });
         try { sessionStorage.setItem(key, JSON.stringify(data)); } catch (e) { /* egal */ }
