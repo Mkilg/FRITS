@@ -2474,7 +2474,7 @@ def create_app(
             flash("Die Beispielnotiz liegt im Eingang. Auf „Heute“ kannst du sie lesen lassen.")
             return back(f"/setup/{following}")
         if step == "done":
-            flash("Alles eingerichtet. Schön, dass du da bist.", cue="done")
+            flash("Alles eingerichtet.", cue="done")
             return back("/")
         return back(f"/setup/{following}")
 

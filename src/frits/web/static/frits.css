@@ -326,6 +326,11 @@ fieldset.prices input { width: 100%; }
 /* ---------- Einwurf: drop, paste (⌘V) or pick ---------- */
 .einwurf .dropzone { padding: 1.4rem 1rem; }
 .dz-titel { display: block; font-size: 1.12rem; font-weight: 600; margin-bottom: 0.2rem; }
+/* Phones: symbol and words side by side, no centred "staircase" of short lines (Lena) */
+@media (max-width: 600px) {
+  .dz-titel { display: flex; width: 100%; align-items: center; justify-content: center; gap: 0.5rem; text-align: left; }
+  .dz-titel > .zeichen-bild, .dz-titel > .zeichen-emoji { flex: 0 0 auto; }
+}
 .dropzone small { display: block; line-height: 1.5; }
 body.zieht-datei .dropzone { border-color: var(--fry); }
 .dropzone.over { box-shadow: 0 0 0 4px rgba(217, 164, 65, .25); }
