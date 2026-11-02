@@ -102,6 +102,16 @@ def haus_sichtbar(conn) -> bool:
     )
 
 
+def vorwahl(summen: dict[str, int], ohne: int) -> str:
+    """Which dish is chosen already (Lena): the one that brings the most today, and only one
+    that brings more than no dish (the first on a tie). If none does, Einkochen, which pays
+    next time; without it, none ("")."""
+    bringen = {i: n for i, n in summen.items() if i != "einkochen" and n > ohne}
+    if bringen:
+        return max(bringen, key=lambda i: bringen[i])
+    return "einkochen" if "einkochen" in summen else ""
+
+
 def drachen_serie(gewuerze: int, helfer: frozenset[str] = frozenset()) -> dict:
     """What Fritte's shelf does in the Steuer-Quest's dragon fight, with the quest's own
     numbers: each spice raises the gold streak at the start by one, up to a few spices.
@@ -215,6 +225,7 @@ def register_haustier(
         gericht_summe = {
             g.id: kassensturz.vorschau(conn, today(), sauber, g.id)[1]["summe"] for g in gerichte
         }
+        gericht_vorwahl = vorwahl(gericht_summe, vorschau["summe"])
         geschaetzt = {d.id for d in haustier.SCHAETZE if d.id in f.gekauft}
         jetzt = saison.jetzt(conn, today())
         return page(
@@ -253,6 +264,7 @@ def register_haustier(
             wirkt=kassensturz.wirkungen(conn, today(), sauber, dicts, [*extras, *regal]),
             gerichte=gerichte,
             gericht_summe=gericht_summe,
+            gericht_vorwahl=gericht_vorwahl,
             plaetze=kassensturz.plaetze(conn),
             kassenbuch=stand.kassenbuch(conn),
             arten=stand.ARTEN_TEXT,

@@ -288,3 +288,33 @@ def test_salbei_counts_tax_documents_as_paperwork():
     from frits.spiel import gewuerze as gw
 
     assert {"steuer", "steuerjahr"} <= gw.ECHTE_ARBEIT and gw.PAPIERKRAM < gw.ECHTE_ARBEIT
+
+
+def test_an_old_tax_year_brings_fritte_no_koerner_either(conn):
+    """Lena, Runde 39: 2023 paid no salt in the quest but +3 per card at Fritte."""
+    from datetime import date
+
+    from frits.steuer import quest, spiel
+
+    quest.ensure_schema(conn)
+    neu, alt = date.today().year, date.today().year - spiel.GOLD_JAHRE - 1
+    for i, jahr in enumerate((neu, alt, alt)):
+        conn.execute(
+            "INSERT INTO steuer_stuecke (jahr, gebiet, key, name, status, geaendert)"
+            " VALUES (?, 'gehoeft-1', ?, 'Steuer-ID', 'gesammelt', '2026-01-01 10:00:00')",
+            (jahr, f"k{i}"),
+        )
+    conn.execute(
+        "INSERT INTO steuer_chronik (jahr, zeit, art, text) VALUES (?, '2026-01-01', 'sieg', 'x')",
+        (alt,),
+    )
+    # one old card was already waiting before this fix: it drops out instead of paying
+    conn.execute(
+        "INSERT INTO spiel_karten (schluessel, art, gesehen) VALUES ('steuer:2', 'steuer', ?)",
+        (TODAY.isoformat(),),
+    )
+    stand.abgleichen(conn, TODAY, None)
+    texte = [k.detail for k in kassensturz.offene_karten(conn) if k.art.startswith("steuer")]
+    assert texte == [f"Steuer-ID · {neu}"]
+    assert stand.steuer_zaehlt(neu) and not stand.steuer_zaehlt(alt)
+    assert not stand.steuer_zaehlt("kein Jahr")
