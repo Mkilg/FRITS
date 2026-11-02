@@ -81,7 +81,10 @@ GRUND = {
     "feierabend": 1,  # the shutdown ritual, once a day
     "aufgabe": 1,  # a point ticked off "Deine Liste", three a day
     "steuer": 1,  # a piece collected in the Steuer-Quest
-    "steuerjahr": 25,  # the whole tax year done: the big one, once a year
+    # The whole tax year done. The victory itself pays in the quest (rest gold becomes
+    # Salzkörner, a chest, an Orden); here it is one card among others, so the Würze
+    # does not multiply the same victory a second time (Lena: 342 salt after day one).
+    "steuerjahr": 5,
     "uebung": 1,  # an exercise in that course solved, once each
     "lernen": 2,  # a stage of the course "So funktionieren KI-Agenten" finished, once each
     "start": 3,  # Fritte moves in (only once, in the first Kassensturz)

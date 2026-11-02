@@ -112,9 +112,9 @@ def test_one_showcase_with_stickers_orden_and_their_zierde(client, ws, monkeypat
     conn = store.connect(ws.db)
     client.get("/fritte")
     faecher = sammlung.faecher(conn, TODAY)
-    assert [f["id"] for f in faecher] == ["alltag", "steuer"]
+    assert [f["id"] for f in faecher] == ["alltag", "schaetze", "steuer"]
     assert "Drache besiegt" not in [k["name"] for k in faecher[0]["kacheln"]]  # the Orden says it
-    fund, ernte = faecher[1]["kacheln"]
+    fund, ernte = faecher[2]["kacheln"]
     assert fund["erreicht"] and fund["jahre"] == [2024, 2025]
     assert not ernte["erreicht"] and ernte["zierde"] == "Windmühle"
     page = client.get("/sammlung").text
@@ -134,8 +134,54 @@ def test_the_showcase_without_quest_or_fritte(client, ws, monkeypatch):  # noqa:
 
     monkeypatch.setattr(quest, "orden_fuer_sammlung", kaputt, raising=False)
     conn = store.connect(ws.db)
-    assert [f["id"] for f in sammlung.faecher(conn, TODAY)] == ["alltag"]
+    assert [f["id"] for f in sammlung.faecher(conn, TODAY)] == ["alltag", "schaetze"]
     s = Settings.load(ws.settings_file)
     replace(s, haustier=False).save(ws.settings_file)
     page = client.get("/sammlung")
     assert page.status_code == 200 and "Alltag mit Fritte" not in page.text
+
+
+def test_a_won_tax_year_is_one_card_not_a_fortune(conn):
+    """Lena: two dragon victories × Würze 3 gave 150 salt on day one, the Stube costs 150.
+    The victory pays in the quest (rest gold, chest, Orden); the card is a small one."""
+    assert stand.GRUND["steuerjahr"] <= stand.GRUND["rechnung"] * 2
+
+
+def test_old_chest_loot_is_not_listed_as_found(client, ws):  # noqa: F811
+    import json
+
+    conn = store.connect(ws.db)
+    client.get("/fritte")
+    for n, inhalt in enumerate(
+        [{"art": "gold", "name": "8 Drachengold", "zeichen": "🪙", "seltenheit": "selten"},
+         {"art": "wuerze", "name": "Glas Truhenwürze", "zeichen": "🫙", "seltenheit": "gewöhnlich"},
+         {"art": "koerner", "name": "12 Salzkörner", "zeichen": "🧂", "seltenheit": "gewöhnlich",
+          "wert": 12}]
+    ):  # fmt: skip
+        conn.execute(
+            "INSERT INTO spiel_truhen (grund, text, mindestens, erhalten, geoeffnet, reihe, stufe,"
+            " inhalt) VALUES (?, '', NULL, ?, ?, ?, 0, ?)",
+            (f"alt:{n}", TODAY.isoformat(), TODAY.isoformat(), n + 1, json.dumps(inhalt)),
+        )
+    page = client.get("/fritte").text
+    funde = page[page.index("Zuletzt gefunden") :]
+    funde = funde[: funde.index("</div>")]
+    assert "12 Salzkörner" in funde
+    assert "Drachengold" not in funde and "Truhenwürze" not in funde
+
+
+def test_chest_treasures_live_in_the_showcase(client, ws):  # noqa: F811
+    from frits import haustier
+
+    conn = store.connect(ws.db)
+    client.get("/fritte")
+    stand.nimm(conn, "muschel", "ding", TODAY.isoformat(), 0)
+    faecher = {f["id"]: f for f in sammlung.faecher(conn, TODAY)}
+    kacheln = faecher["schaetze"]["kacheln"]
+    assert [k["name"] for k in kacheln] == [d.name for d in haustier.SCHAETZE]
+    assert [k["name"] for k in kacheln if k["erreicht"]] == ["Muschel"]
+    page = client.get("/fritte").text
+    assert 'href="/sammlung#schaetze"' in page and 'class="schatz' not in page
+    assert "1 von" in page[page.index("schaetze-zeile") :][:300]
+    assert 'id="schaetze"' in client.get("/sammlung").text
+    assert "schaetze" not in [f["id"] for f in sammlung.faecher(conn, TODAY, alltag=False)]

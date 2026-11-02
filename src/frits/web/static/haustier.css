@@ -586,14 +586,10 @@ details[open] > summary::before { content: "▾ "; }
 .truhe-fuellung i { width: .95rem; height: .95rem; border-radius: 3px; border: 2px solid var(--ocker-dunkel); background: var(--creme); }
 .truhe-fuellung i.voll { background: radial-gradient(circle at 35% 30%, #fff6d8, var(--gold)); }
 .truhe-zeile { color: var(--muted); }
-.truhen-funde, .schaetze { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; margin-top: .8rem; }
+.truhen-funde { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; margin-top: .8rem; }
+.schaetze-zeile { margin: .7rem 0 0; }
 .fund-chip { display: inline-flex; gap: .3rem; align-items: center; padding: .15rem .6rem; border-radius: 999px; text-decoration: none; color: var(--ink);
   border: 2px solid var(--etikett, var(--moos)); background: var(--papier); font-size: .88rem; }
-.schatz { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: .1rem; width: 4.6rem; min-height: 4.4rem; padding: .3rem;
-  border: 2px dashed var(--papier-schatten); border-radius: var(--radius); font-size: 1.5rem; color: var(--muted); text-align: center; }
-.schatz img { max-width: 2.4rem; max-height: 2.2rem; }
-.schatz small { font-size: .66rem; line-height: 1.15; }
-.schatz.da { border-style: solid; border-color: var(--ocker); background: var(--papierkarte); color: var(--eiche-tief); }
 .truhen-regeln { margin-top: .9rem; }
 .truhen-regeln summary { cursor: pointer; font-weight: 600; color: var(--eiche-dunkel); }
 

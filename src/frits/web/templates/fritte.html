@@ -125,10 +125,7 @@
     {% for t in truhen_auf %}<a class="fund-chip selten-{{ t.inhalt.seltenheit | replace('ö', 'oe') | replace('ä', 'ae') }}" href="/fritte/truhe/{{ t.id }}" title="{{ seltenheit_name(t.inhalt.seltenheit) }}: {{ t.inhalt.name }}"><span aria-hidden="true">{{ t.inhalt.zeichen }}</span> {{ t.inhalt.name }}</a>{% endfor %}
   </div>
   {% endif %}
-  <div class="schaetze" aria-label="Schätze, die es nur in Truhen gibt">
-    <span class="hint">Schätze, die es nur in Truhen gibt:</span>
-    {% for d, da in schaetze %}<span class="schatz{{ ' da' if da }}" title="{{ d.name if da else 'Noch nicht gefunden' }}">{% if da %}{% if picture('ding-' ~ d.id) %}<img src="{{ picture('ding-' ~ d.id) }}" alt="">{% else %}{{ d.zeichen }}{% endif %}{% else %}❔{% endif %}<small>{{ d.name if da else seltenheit_name(d.truhe) }}</small></span>{% endfor %}
-  </div>
+  <p class="schaetze-zeile hint">Schätze, die es nur in Truhen gibt: <strong>{{ schaetze | selectattr(1) | list | length }} von {{ schaetze | length }}</strong> gefunden. <a href="/sammlung#schaetze">In der Sammlung ansehen</a></p>
   <details class="truhen-regeln">
     <summary>Was in einer Truhe steckt und wie fair das ist</summary>
     <p><strong>So kommt eine Truhe:</strong> Jede Rechnung, Gutschrift, Zahlung, Ausgabe, jedes angenommene Angebot, jede Erinnerung und jede gesammelte Steuer-Unterlage kommt beim Kassensturz in die Truhe. Fünf davon füllen sie. Ungefähr jede achte dieser Karten ist eine goldene <strong>Glückskarte</strong> und bringt gleich eine eigene Truhe mit. Abgehakte Punkte, Gelerntes, Feierabende und Korrekturen zählen hier nicht.</p>

@@ -1,5 +1,6 @@
-"""One collection instead of three (Lena): Fritte's stickers, the Steuer-Quest's Orden and
-the trophies and festivals of the seasons stand together in one showcase.
+"""One collection instead of three (Lena): Fritte's stickers, the treasures from her chests,
+the Steuer-Quest's Orden and the trophies and festivals of the seasons stand together in
+one showcase.
 
 Read only. The Orden come from the Steuer-Quest (frits.steuer.quest.orden_fuer_sammlung);
 while that is missing or fails, the showcase simply shows the other shelves.
@@ -10,7 +11,9 @@ from __future__ import annotations
 
 from datetime import date
 
+from frits import haustier
 from frits.spiel import album, saison
+from frits.spiel import stand as spielstand
 
 
 def _orden(conn) -> list[dict] | None:
@@ -52,6 +55,29 @@ def _orden(conn) -> list[dict] | None:
     return list(kacheln.values())
 
 
+SELTEN_TEXT = {
+    "gewöhnlich": "einer gewöhnlichen",
+    "selten": "einer seltenen",
+    "legendär": "einer legendären",
+}
+
+
+def _schaetze(conn) -> dict:
+    """The treasures that only Fritte's chests hold (haustier.SCHAETZE)."""
+    hat = set(spielstand.besitz(conn, "ding"))
+    return {
+        "id": "schaetze",
+        "titel": "Schätze aus Frittes Truhen",
+        "text": "Es gibt sie nur in Truhen und nie doppelt.",
+        "kacheln": [
+            {"id": f"schatz:{d.id}", "name": d.name, "zeichen": d.zeichen,
+             "text": d.text if d.id in hat else f"Steckt in {SELTEN_TEXT.get(d.truhe, 'einer')} Truhe.",
+             "erreicht": d.id in hat, "seit": "", "jahre": [], "zierde": ""}
+            for d in haustier.SCHAETZE
+        ],
+    }  # fmt: skip
+
+
 def faecher(conn, heute: date, alltag: bool = True) -> list[dict]:
     """The shelves of the showcase, each {id, titel, text, kacheln}. A tile is
     {id, name, zeichen, text, erreicht, seit, jahre, zierde}. `alltag`: with Fritte."""
@@ -81,6 +107,8 @@ def faecher(conn, heute: date, alltag: bool = True) -> list[dict]:
                 ],
             }
         )
+    if alltag:
+        out.append(_schaetze(conn))
     if orden:
         out.append(
             {

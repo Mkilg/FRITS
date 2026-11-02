@@ -570,7 +570,7 @@ def test_the_steuer_quest_brings_cards(conn):
     conn.execute("INSERT INTO steuer_chronik (jahr, art) VALUES (2025, 'sieg'), (2025, 'sieg')")
     stand.abgleichen(conn, TODAY)
     karten = {k.art: k for k in kassensturz.offene_karten(conn)}
-    assert set(karten) == {"steuer", "steuerjahr"} and karten["steuerjahr"].koerner == 25
+    assert set(karten) == {"steuer", "steuerjahr"} and karten["steuerjahr"].koerner == 5
     conn.execute("UPDATE steuer_stuecke SET status = 'offen'")  # taken back: the card goes
     assert [k.art for k in kassensturz.offene_karten(conn)] == ["steuerjahr"]
 
