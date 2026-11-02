@@ -318,3 +318,18 @@ def test_an_old_tax_year_brings_fritte_no_koerner_either(conn):
     assert texte == [f"Steuer-ID · {neu}"]
     assert stand.steuer_zaehlt(neu) and not stand.steuer_zaehlt(alt)
     assert not stand.steuer_zaehlt("kein Jahr")
+
+
+def test_a_tax_card_shows_the_province_it_came_from(conn):
+    """Lena, Runde 42: nine equal compass pictures on the Kassensturz table."""
+    from frits.web.haustier import karten_bild
+
+    quest_stueck(conn, "gesammelt", TODAY)
+    stand.abgleichen(conn, TODAY, None)
+    (k,) = [k for k in kassensturz.offene_karten(conn) if k.art == "steuer"]
+    assert k.fakten == {"provinz": "gehoeft"}
+    assert karten_bild(k.als_dict())[0].startswith("/static/steuer/gehoeft-3.")
+    url, filter_ = karten_bild({"art": "steuer", "provinz": "rathaus"})  # borrows a picture
+    assert "gilde-3" in url and "hue-rotate" in filter_
+    assert "drache-besiegt" in karten_bild({"art": "steuerjahr"})[0]
+    assert karten_bild({"art": "rechnung"}) == ("", "")

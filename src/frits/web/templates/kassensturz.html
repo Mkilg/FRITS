@@ -44,7 +44,8 @@
   {% endif %}
   {% if k.erfolge %}
   <div class="ks-ausbau ks-sticker" data-ks="erfolge">
-    {% for e in k.erfolge %}<span class="sticker-rund" aria-hidden="true">{{ e.zeichen }}</span>{% endfor %}
+    {# the same minted coin as in the Sammlung, not a bare emoji next to painted pictures (Lena) #}
+    {% for e in k.erfolge %}<span class="muenze" aria-hidden="true"><span class="praegung">{{ e.zeichen }}</span></span>{% endfor %}
     <div><strong>Neu in der Sammlung:</strong> {{ k.erfolge | map(attribute="name") | join(", ") }}<br><a href="/sammlung">Zur Sammlung</a></div>
   </div>
   {% endif %}
