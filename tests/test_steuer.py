@@ -2433,3 +2433,25 @@ def test_runde_20_ohne_fritte_bleibt_das_tagwerk(client, ws, monkeypatch):
     fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
     seite = client.get("/steuer/2025")
     assert "Tagwerk heute" in seite.text and "Tagesziel" not in seite.text
+
+
+def test_runde_20_alte_jahre_versprechen_kein_gold(client, ws):
+    # Lena (Runde 19): 2023 zeigte „Nächster Beleg: 3 × 6 = 18 Gold“, gezahlt wurde 0.
+    fragebogen(client, jahr=2023, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    _bis_wach(conn, 2023)
+    seite = client.get("/steuer/2023/drache")
+    assert "Kein Gold in alten Jahren" in seite.text
+    assert "Nächster Beleg" not in seite.text and "Gold ×" not in seite.text
+    karte = spiel.drache(quest.stuecke(conn, 2023)).karte
+    seite = post(client, "/steuer/2023/drache/schlag", stueck_id=str(karte["id"]), aktion="fragen")
+    assert "Gold-Serie" not in seite.text.split("sq-combo")[1].split("</div>")[0]
+
+
+def test_runde_20_banner_ohne_widerspruch(client, ws):
+    # Lena (Runde 19): „jeder Beleg legt 2 drauf“ passte nicht zu ×1 → ×2
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    _bis_wach(conn)
+    seite = client.get("/steuer/2025/drache")
+    assert "legt 2 drauf" not in seite.text and "Die Serie steht bei" not in seite.text

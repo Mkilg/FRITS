@@ -355,8 +355,26 @@
       belohnung.classList.add("nacheinander");
       Array.prototype.forEach.call(beute, function (li, i) {
         var ab = 0.6 + i * 0.7;
-        ton(523 * Math.pow(2, (i * 3) / 12), 0.16, "triangle", 0.08, ab + 0.05);
-        ton(784 * Math.pow(2, (i * 3) / 12), 0.22, "triangle", 0.06, ab + 0.13);
+        // Eine Leiter, die mit jeder Belohnung steigt, und jede Art klingt anders:
+        // Siegel ein Stempel, Zeitalter ein Aufstieg, Orden eine Glocke, Gold ein Klimpern.
+        var grund = 392 * Math.pow(2, (i * 2) / 12);
+        var art = li.className;
+        if (art === "siegel") {
+          setTimeout(stempelTon, ab * 1000);
+          ton(grund * 1.5, 0.25, "triangle", 0.07, ab + 0.12);
+        } else if (art === "zeitalter") {
+          [1, 1.25, 1.5, 2].forEach(function (f, n) { ton(grund * f, 0.14, "triangle", 0.07, ab + n * 0.07); });
+        } else if (art === "orden") {
+          ton(grund * 2, 0.6, "sine", 0.09, ab);
+          ton(grund * 3, 0.5, "sine", 0.04, ab + 0.02);
+        } else if (/Gold|Salzk/.test(li.textContent)) {
+          ton(grund * 2, 0.08, "square", 0.04, ab);
+          ton(grund * 2.5, 0.08, "square", 0.04, ab + 0.08);
+          ton(grund * 3, 0.18, "triangle", 0.06, ab + 0.16);
+        } else {
+          ton(grund, 0.16, "triangle", 0.08, ab + 0.05);
+          ton(grund * 1.5, 0.22, "triangle", 0.06, ab + 0.13);
+        }
         setTimeout(function () {
           var w = mitte(li);
           funken(w[0], w[1], 10);
@@ -505,6 +523,9 @@
 // Sprechblase über dem Knopf (nichts verrutscht), und der empfohlene Weg ist der Hauptknopf:
 // "Dann frag ich lieber". Wer wirklich sicher ist, bestätigt mit dem leisen Knopf daneben.
 (function () {
+  function ruhigScroll() {
+    return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
   function schliessen() {
     document.querySelectorAll(".sq-rueckfrage-blase").forEach(function (b) { b.remove(); });
     document.querySelectorAll(".rueckfrage-offen").forEach(function (k) { k.classList.remove("rueckfrage-offen"); });
@@ -605,6 +626,11 @@
     // Sonst nach oben; ist dort kein Platz, klappt sie nach unten auf.
     var r = blase.getBoundingClientRect();
     if (knopf.classList.contains("sq-handkarte") || knopf.closest(".sq-arena, .sq-schnell") || r.top < 8) blase.classList.add("unten");
+    // Ragt sie unten aus dem Fenster, rollt die Seite so weit, dass alle Knöpfe zu sehen sind
+    var unten = blase.getBoundingClientRect();
+    if (unten.bottom > window.innerHeight - 8 && blase.scrollIntoView) {
+      blase.scrollIntoView({ block: "nearest", behavior: ruhigScroll() ? "auto" : "smooth" });
+    }
     (reihe.querySelector(".sq-siegelknopf") || ja).focus();
   });
   document.addEventListener("keydown", function (e) { if (e.key === "Escape") schliessen(); });
