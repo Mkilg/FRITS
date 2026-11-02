@@ -165,7 +165,7 @@ def naechstes_zeitalter(anteil: float) -> tuple[str, int] | None:
 # Was das nächste Zeitalter bringt: steht im Zeitalter-Zettel oben in der Leiste
 ZEITALTER_BRINGT = {
     "Zeitalter der Ordnung": "Dann wacht der Papierdrache auf, und der Endkampf beginnt.",
-    "Goldenes Zeitalter": "Dann ist alles beisammen, und die Schatztruhe für deine Beraterin ist fertig.",
+    "Goldenes Zeitalter": "Dann ist alles beisammen, und die Fundkiste für deine Beraterin ist fertig.",
 }
 
 
@@ -418,8 +418,8 @@ def auftrag(
         return Auftrag(
             "sieg",
             "Hol dir deine Beute",
-            "Der Drache ist besiegt. Pack die Schatztruhe für deine Beraterin.",
-            "Zur Schatztruhe",
+            "Der Drache ist besiegt. Pack die Fundkiste für deine Beraterin.",
+            "Zur Fundkiste",
             f"{basis}/sieg",
             ("Mail an die Beraterin",),
         )
@@ -431,7 +431,7 @@ def auftrag(
             "Leg mindestens eine Datei ab, zum Beispiel den letzten Steuerbescheid.",
             "Zur Insel",
             basis,
-            ("Sieg", "Schatztruhe"),
+            ("Sieg", "Fundkiste"),
             erledigt=drache_.max_lp - 1,
             gesamt=drache_.max_lp,
         )
@@ -452,7 +452,7 @@ def auftrag(
             ),
             "Zum Drachenhort",
             f"{basis}/drache",
-            ("Sieg", "Schatztruhe"),
+            ("Sieg", "Fundkiste"),
             erledigt=drache_.max_lp - lp,
             gesamt=drache_.max_lp,
         )

@@ -22,6 +22,7 @@
       <input type="hidden" name="token" value="{{ token }}">
       <input type="hidden" name="name" value="{{ f.name }}">
       <input type="hidden" name="back" value="{{ zurueck }}">
+      <input type="hidden" name="gewaehlt" value="1">
       <label>Wohin gehört das?
         <select name="stueck_id" required>
           <option value="">Bitte wählen</option>
@@ -38,7 +39,18 @@
       <button class="quiet" title="Kommt in den Ordner „beiseite gelegt“. Nichts wird gelöscht.">Gehört nirgends hin</button>
     </form>
   </details>
-  {% if spur %}
+  {% set stutz = stutzen.get(f.name) if stutzen is defined else None %}
+  {% if stutz and stutz.jahr == jahr %}
+  {# Fritte hat gestutzt: Die Rückfrage bleibt hier stehen, auch nach dem Neuladen #}
+  <form method="post" action="/steuer/{{ jahr }}/lager/zuordnen" class="sq-ahnung sq-stutzt" data-stempel="GESICHERT">
+    <input type="hidden" name="token" value="{{ token }}">
+    <input type="hidden" name="name" value="{{ f.name }}">
+    <input type="hidden" name="back" value="{{ zurueck }}">
+    <input type="hidden" name="trotzdem" value="1">
+    <small>Fritte stutzt: {{ stutz.text }}</small>
+    <button name="stueck_id" value="{{ stutz.stueck_id }}">Trotzdem zu „{{ stutz.karte }}“</button>
+  </form>
+  {% elif spur %}
   <form method="post" action="/steuer/{{ jahr }}/lager/zuordnen" class="sq-ahnung" data-stempel="GESICHERT">
     <input type="hidden" name="token" value="{{ token }}">
     <input type="hidden" name="name" value="{{ f.name }}">
@@ -56,6 +68,7 @@
     <input type="hidden" name="token" value="{{ token }}">
     <input type="hidden" name="name" value="">
     <input type="hidden" name="back" value="{{ zurueck }}">
+    <input type="hidden" name="gewaehlt" value="1">
     <h2>Wohin gehört <span data-feld="name">der Zettel</span>?</h2>
     <p class="muted" data-feld="ort">Wähle das passende Fach. Ich stempel es dann ab.</p>
     <div class="sq-wahl">

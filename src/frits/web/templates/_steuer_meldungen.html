@@ -16,7 +16,8 @@
 {% if grosse %}
 {% set erste = grosse[0].kind %}
 {% set silber_siegel = erste == "siegel" and grosse[0].text.startswith("Silber") %}
-<dialog class="sq-belohnung art-{{ erste }}{% if silber_siegel or (erste == 'sieg' and zweifel is defined and zweifel) %} silber{% endif %}" data-belohnung{% if finale is defined and finale %} data-spaet="1900"{% endif %}>
+{% set viel = grosse | length > 4 %}
+<dialog class="sq-belohnung art-{{ erste }}{% if viel %} viel{% endif %}{% if silber_siegel or (erste == 'sieg' and zweifel is defined and zweifel) %} silber{% endif %}" data-belohnung{% if finale is defined and finale %} data-spaet="1900"{% endif %}>
   <div class="sq-belohnung-licht" aria-hidden="true"></div>
   {% if erste in ["erwachen", "sieg"] %}
   {% set drachen_bild = bild("truhe" if erste == "sieg" else "drache-getroffen") %}
@@ -27,7 +28,7 @@
   {% endif %}
   <h2>{{ {"gruendung": "Dein Reich steht!", "siegel": ("Silber-Siegel!" if silber_siegel else "Gold-Siegel!"), "zeitalter": "Neues Zeitalter!", "orden": "Neuer Orden!", "sieg": ("Silber-Sieg!" if zweifel is defined and zweifel else "Sieg!"), "erwachen": "Der Drache erwacht!", "gold": "Aus Silber wird Gold!"}[erste] }}</h2>
   <ul class="sq-beute">
-    {% for f in grosse %}<li class="{{ f.kind }}" style="--i: {{ loop.index0 }}">{{ f.text.replace("Gold-Siegel! ", "").replace("Silber-Siegel! ", "").replace("Aus Silber wird Gold! ", "") if loop.first else f.text }}{% if f.link %} <a href="{{ f.link }}">{{ f.link_text }}</a>{% endif %}</li>{% endfor %}
+    {% for f in grosse %}{% set text = f.text.replace("Gold-Siegel! ", "").replace("Silber-Siegel! ", "").replace("Aus Silber wird Gold! ", "") if loop.first else f.text %}<li class="{{ f.kind }}" style="--i: {{ loop.index0 }}">{% if viel and not loop.first and kopf_rest is defined %}{% set kr = kopf_rest(text) %}<b>{{ kr[0] }}</b>{% if kr[1] %} <small>{{ kr[1] }}</small>{% endif %}{% else %}{{ text }}{% endif %}{% if f.link %} <a href="{{ f.link }}">{{ f.link_text }}</a>{% endif %}</li>{% endfor %}
   </ul>
   {% if erste not in ["erwachen", "sieg"] %}
   <div class="sq-naechster">
@@ -45,7 +46,7 @@
     <button class="quiet">Gleich</button>
     {% endif %}
     {% elif erste == "sieg" %}
-    <a class="sq-siegelknopf" href="/steuer/{{ jahr }}/sieg">Zur Schatztruhe →</a>
+    <a class="sq-siegelknopf" href="/steuer/{{ jahr }}/sieg">Zur Fundkiste →</a>
     {% else %}
     <a class="sq-siegelknopf" href="{{ auftrag.ziel if not auftrag.ziel.startswith('#') else '/steuer/' ~ jahr ~ auftrag.ziel }}">{{ auftrag.knopf }} →</a>
     <button class="quiet">Hier bleiben</button>

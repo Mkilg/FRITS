@@ -10,7 +10,7 @@
 <h1 class="sq-sieg-titel{% if drache.besiegt and zweifel %} silber{% endif %}">{% if drache.besiegt and zweifel %}Silber-Sieg!{% elif drache.besiegt %}Goldenes Zeitalter!{% else %}Bereit zum Senden{% endif %}</h1>
 <div class="sq-sieg">
   <aside class="sq-rand">
-    <div class="sq-truhe">{% if truhe_bild %}<img src="{{ truhe_bild }}" alt="Schatztruhe">{% else %}<span class="glanz"></span><span class="kasten"></span><span class="deckel"></span>{% endif %}</div>
+    <div class="sq-truhe">{% if truhe_bild %}<img src="{{ truhe_bild }}" alt="Fundkiste">{% else %}<span class="glanz"></span><span class="kasten"></span><span class="deckel"></span>{% endif %}</div>
     <section class="sq-papier sq-schief" style="--r: -1deg">
       <h2>Deine Ausbeute</h2>
       <dl class="sq-statistik">
@@ -41,13 +41,13 @@
     </section>
     {% endif %}
     <section class="sq-papier">
-      <h2>1. Truhe packen</h2>
+      <h2>1. Fundkiste packen</h2>
       {% if zip_pfad %}
       <p>Gepackt: <strong>{{ zip_pfad.name }}</strong> ({{ "mit Passwort" if mit_passwort else "ohne Passwort" }})</p>
       <form method="post" action="/steuer/{{ jahr }}/truhe/zeigen" class="reihe">
         <input type="hidden" name="token" value="{{ token }}">
         <button class="sq-stempelknopf">Im Finder zeigen</button>
-        <span class="muted">Von dort ziehst du die Truhe in die Mail, falls sie nicht schon dranhängt.</span>
+        <span class="muted">Von dort ziehst du die Fundkiste in die Mail, falls sie nicht schon dranhängt.</span>
       </form>
       {% if passwort %}
       <p class="sq-passwort"><span>Passwort: <b data-passwort>{{ passwort }}</b></span> <button type="button" class="sq-stempelknopf" data-kopieren="{{ passwort }}">Passwort kopieren</button></p>
@@ -57,13 +57,13 @@
       <form method="post" action="/steuer/{{ jahr }}/truhe">
         <input type="hidden" name="token" value="{{ token }}">
         <fieldset class="sq-schloss">
-          <legend>Wie soll die Truhe zu sein?</legend>
+          <legend>Wie soll die Fundkiste zu sein?</legend>
           <label><input type="radio" name="schloss" value="passwort" {% if mit_passwort %}checked{% endif %}>
             <span><strong>Mit Passwort</strong> (empfohlen). Nur wer das Passwort hat, kann die Unterlagen lesen, sogar die Dateinamen bleiben versteckt: Im verschlossenen Zip liegt ein zweites Zip mit den Unterlagen, das sich dann ganz normal öffnet. Der Finder auf dem Mac kann solche Zips nicht öffnen; deine Beraterin braucht 7-Zip (Windows) oder Keka bzw. The Unarchiver (Mac).</span></label>
           <label><input type="radio" name="schloss" value="ohne" {% if not mit_passwort %}checked{% endif %}>
             <span><strong>Ohne Passwort.</strong> Öffnet sich überall mit Doppelklick. Aber jeder, der die Mail sieht, kann alles lesen. Gut, wenn du die Datei über ein sicheres Portal hochlädst oder persönlich übergibst.</span></label>
         </fieldset>
-        <button class="{{ 'quiet' if zip_pfad else 'sq-siegelknopf' }}">{{ "Neu packen" if zip_pfad else "Truhe packen" }}</button>
+        <button class="{{ 'quiet' if zip_pfad else 'sq-siegelknopf' }}">{{ "Neu packen" if zip_pfad else "Fundkiste packen" }}</button>
       </form>
     </section>
 
@@ -75,7 +75,7 @@
       <label>Betreff <input name="betreff" value="{{ betreff }}"></label>
       <label class="sr-only" for="sq-mailtext">Text (alles änderbar)</label>
       <textarea id="sq-mailtext" name="text" rows="16">{{ mailtext }}</textarea>
-      <p><button class="sq-siegelknopf" {% if not zip_pfad %}disabled title="Erst die Truhe packen"{% endif %}>In Mail öffnen</button></p>
+      <p><button class="sq-siegelknopf" {% if not zip_pfad %}disabled title="Erst die Fundkiste packen"{% endif %}>In Mail öffnen</button></p>
       <p class="muted">Gesendet wird erst, wenn du in deinem Mail-Programm auf Senden drückst.</p>
     </form>
   </div>

@@ -986,7 +986,7 @@ def test_drache_faellt_auch_aus_der_ferne_und_der_sieg_kommt_immer(client, ws):
         seite = post(client, f"/steuer/2025/stueck/{s['id']}/status", status="fragen")
     assert str(seite.url).endswith("/steuer/2025/drache")
     assert "sq-arena-sieg finale" in seite.text and "Sieg!" in seite.text
-    assert "Zur Schatztruhe" in seite.text
+    assert "Zur Fundkiste" in seite.text
     assert quest.hat_notiz(conn, 2025, "sieg")
 
 
@@ -2263,7 +2263,11 @@ def test_runde_18_drachensieg_gibt_fritte_eine_truhe(client, ws, monkeypatch):
     k = spiel.drache(quest.stuecke(conn, 2025)).karte
     seite = post(client, "/steuer/2025/drache/schlag", stueck_id=str(k["id"]), aktion="fragen")
     assert gegeben == [("drachensieg:2025", "selten", "Der Drache 2025 ist besiegt!")]
-    assert "Fritte hat eine Truhe für dich bekommen. Sie wartet bei Fritte." in seite.text
+    # Im vollen Siegesdialog steht die Belohnung als Kachel: fette Zeile, kleiner Rest
+    assert (
+        "<b>Fritte hat eine Truhe für dich bekommen.</b> <small>Sie wartet bei Fritte.</small>"
+        in seite.text
+    )
     assert 'href="/fritte#truhen"' in seite.text
 
 
@@ -2653,3 +2657,69 @@ def test_runde_24_hafen_auf_der_insel_ohne_zierde_fuer_gold(client, ws):
     assert 'title="Hafenmarkt: Gold für Helfer im Kampf"' in insel
     js = (Path(__file__).parents[1] / "src/frits/web/static/steuer.js").read_text(encoding="utf-8")
     assert "sq-zier-zettel" in js and "(hover: none)" in js  # Herkunft auf Touch per Antippen
+
+
+def test_runde_26_fritte_stutzt_nicht_bei_der_quelle_der_karte(tmp_path):
+    # Marie (Durchlauf 7): Die Steuer-ID sagt selbst "steht auf der Lohnsteuerbescheinigung",
+    # trotzdem stutzte Fritte genau bei dieser Datei.
+    from frits.steuer.katalog import quellen_text
+
+    steuer_id = {"id": 1, "gebiet": "rathaus", "key": "steuer-id", "name": "Steuer-ID"}
+    lstb = {"id": 2, "gebiet": "arbeit", "key": "lohnsteuerbescheinigung"}
+    lstb["name"] = "Lohnsteuerbescheinigung"
+    steuer_id["status"] = lstb["status"] = "offen"
+    pdf = tmp_path / "x.pdf"
+    pdf.write_bytes(b"%PDF-1.4")
+    alle = [steuer_id, lstb]
+    name = "Lohnsteuerbescheinigung 2025.pdf"
+    z = pruefung.pruefe(pdf, name, steuer_id, alle)
+    assert z is not None and z.grund == "andere_karte"  # ohne Wissen um die Quelle: stutzt
+    quellen = quellen_text("rathaus", "steuer-id")
+    assert "Lohnsteuerbescheinigung" in quellen
+    assert pruefung.pruefe(pdf, name, steuer_id, alle, quellen=quellen) is None
+    # Ausdrücklich gewählt (Menü im Eingangskorb): kein Raten nach dem Dateinamen
+    assert pruefung.pruefe(pdf, "LStB.pdf", steuer_id, alle, ausdruecklich=True) is None
+    # Ein Urlaubsfoto bleibt aber verdächtig, auch ausdrücklich gewählt
+    z = pruefung.pruefe(pdf, "Urlaub.pdf", steuer_id, alle, ausdruecklich=True)
+    assert z is not None and z.grund == "privat"
+
+
+def test_runde_26_rueckfrage_bleibt_am_zettel(client, ws):
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    lager = quest.lager(ws.root)
+    lager.mkdir(parents=True, exist_ok=True)
+    (lager / "Strandurlaub.pdf").write_bytes(b"%PDF-1.4 strand")
+    s = next(s for s in quest.stuecke(conn, 2025) if s["key"] == "steuer-id")
+    seite = post(
+        client, "/steuer/2025/lager/zuordnen", name="Strandurlaub.pdf", stueck_id=s["id"]
+    ).text
+    assert "Fritte stutzt" in seite
+    # Neu laden: Die Frage steht weiter am Zettel, mit dem Weg "Trotzdem"
+    karte = client.get("/steuer/2025").text
+    assert 'class="sq-ahnung sq-stutzt"' in karte and "Trotzdem zu „Steuer-ID“" in karte
+    seite = post(
+        client,
+        "/steuer/2025/lager/zuordnen",
+        name="Strandurlaub.pdf",
+        stueck_id=s["id"],
+        trotzdem="1",
+    ).text
+    assert "sq-stutzt" not in client.get("/steuer/2025").text
+
+
+def test_runde_26_sieg_ohne_textwand():
+    from frits.web.steuer import kopf_rest
+
+    assert kopf_rest("Neuer Orden: Drachenbändigerin. Der Drache hat keine Karten mehr.") == (
+        "Neuer Orden: Drachenbändigerin.",
+        "Der Drache hat keine Karten mehr.",
+    )
+    assert kopf_rest("Gold-Siegel! Werkstatt ist komplett.") == (
+        "Gold-Siegel!",
+        "Werkstatt ist komplett.",
+    )
+    assert kopf_rest("Letzter Treffer: 3 × 4 = +12 Gold.") == (
+        "Letzter Treffer: 3 × 4 = +12 Gold.",
+        "",
+    )

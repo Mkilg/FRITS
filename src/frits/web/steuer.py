@@ -37,6 +37,7 @@ from frits.steuer.katalog import (
     reich,
     warum,
 )
+from frits.steuer.katalog import quellen_text as katalog_quellen
 
 AKTIONEN = {"gibts_nicht", "fragen", "offen"}
 MAX_LAGER = 30 * 1024 * 1024  # wie beim Eingang von FRITS
@@ -142,6 +143,13 @@ MONATE = (
 )
 
 
+def kopf_rest(text: str) -> tuple[str, str]:
+    """Teilt eine Belohnung in Überschrift und Rest: "Neuer Orden: Drachenbändigerin." und den
+    Satz dahinter. Im vollen Siegesdialog steht der Rest klein darunter (Marie: Textwand)."""
+    teile = re.split(r"(?<=[.!])\s+", text.strip(), maxsplit=1)
+    return (teile[0], teile[1] if len(teile) > 1 else "")
+
+
 def schoenes_datum(iso: str) -> str:
     """ "2026-12-15" wird zu "15. Dezember 2026"; alles andere bleibt, wie es ist."""
     try:
@@ -169,7 +177,7 @@ def textname(text: str) -> str:
 def fritte_tipp(daten: dict, lager: list) -> tuple[str, str]:
     """Was Fritte, die Kartografin, gerade sagt: (Stimmung, Satz)."""
     if daten["drache"].besiegt and daten["stuecke"]:
-        return "done", "Der Drache ist besiegt! Die Schatztruhe wartet auf dich."
+        return "done", "Der Drache ist besiegt! Die Fundkiste wartet auf dich."
     if daten["auftrag"].art == "drache":
         lp = daten["drache"].lp
         return (
@@ -335,6 +343,8 @@ def register_steuer(
     app.state.steuer_wurf = {}
     # Der letzte Schlag ohne Datei (Fragen, "Gibt's nicht") darf zurück: Karte und Serie wie vorher
     app.state.steuer_zurueck = {}
+    # Fritte stutzt: Die Rückfrage bleibt am Zettel im Eingangskorb, auch nach dem Neuladen
+    app.state.steuer_stutzen = {}
 
     def conn():
         return quest.ensure_schema(store.connect(ws.db))
@@ -374,6 +384,8 @@ def register_steuer(
             # Frittes gemeinsame Vitrine (Orden, Sticker, Pokale), sobald es sie gibt
             sammlung_da=any(getattr(r, "path", None) == "/sammlung" for r in app.routes),
             sammlung_stand=sammlung_stand,
+            stutzen=app.state.steuer_stutzen,
+            kopf_rest=kopf_rest,
             **context,
         )
 
@@ -668,13 +680,13 @@ def register_steuer(
             app.state.steuer_finale.add(jahr)
             if nachher["zweifel"]:
                 flash(
-                    "Der Drache faltet sich zur Schatztruhe. Ein paar wichtige Unterlagen"
+                    "Der Drache faltet sich zur Fundkiste. Ein paar wichtige Unterlagen"
                     " soll deine Beraterin noch prüfen, darum Silber.",
                     "sieg",
                     "sent",
                 )
             else:
-                flash("Der Drache faltet sich zu einer Schatztruhe zusammen.", "sieg", "sent")
+                flash("Der Drache faltet sich zu einer Fundkiste zusammen.", "sieg", "sent")
             if plus and not ferne and basis * faktor:
                 # Der größte Treffer des Kampfes soll man sehen, auch wenn der Sieg ihn verdrängt
                 # (ein Treffer ohne Gold dämpft die Feier nur, der bleibt weg)
@@ -754,18 +766,34 @@ def register_steuer(
         # Im Herbst 2026 sammelt man meistens für 2025.
         return today().year - 1
 
-    def zweifel_an(jahr: int, s: dict, pfad: Path, original: str) -> pruefung.Zweifel | None:
+    def zweifel_an(
+        jahr: int, s: dict, pfad: Path, original: str, ausdruecklich: bool = False
+    ) -> pruefung.Zweifel | None:
         """Fritte stutzt, wenn eine Datei offensichtlich nicht zur Karte passt (siehe pruefung).
         Kennt FRITS die Datei schon, kümmert sich doppelt_melden darum."""
         c = conn()
         if quest.datei_mit_hash(c, jahr, quest.datei_hash(pfad)):
             return None
-        return pruefung.pruefe(pfad, original, s, quest.stuecke(c, jahr))
+        return pruefung.pruefe(
+            pfad,
+            original,
+            s,
+            quest.stuecke(c, jahr),
+            quellen=katalog_quellen(s["gebiet"], s["key"]),
+            ausdruecklich=ausdruecklich,
+        )
 
     def nachfragen(
         jahr: int, s: dict, name: str, z: pruefung.Zweifel, zurueck: str, aus_korb: bool = False
     ) -> None:
-        """Die Rückfrage als Zettel mit zwei Wegen. Bis dahin gibt es kein Gold."""
+        """Die Rückfrage als Zettel mit zwei Wegen. Bis dahin gibt es kein Gold.
+        Sie bleibt auch am Zettel im Eingangskorb stehen, damit ein Neuladen sie nicht verliert."""
+        app.state.steuer_stutzen[name] = {
+            "jahr": jahr,
+            "stueck_id": s["id"],
+            "karte": s["name"],
+            "text": z.text,
+        }
         wo = (
             "Es bleibt erst mal im Eingangskorb."
             if aus_korb
@@ -1119,7 +1147,7 @@ def register_steuer(
             flash(f"Geändert: {s['name']} ist neu notiert.", "beute", "done")
         elif fund.neu:
             quest.notiere(c, jahr, "fund", f"{s['name']}: eingetippt")
-            flash(f"+1 Angabe! {s['name']} ist notiert und kommt so in die Truhe.", "beute", "done")
+            flash(f"+1 Angabe! {s['name']} ist notiert und kommt so in die Fundkiste.", "beute", "done")
         else:
             flash("Genau diese Angabe liegt schon bei der Karte.")
         if belohnen(jahr, vorher):
@@ -1169,13 +1197,14 @@ def register_steuer(
         s = stueck_im_jahr(jahr, stueck_id)
         zurueck = str(form.get("back") or f"/steuer/{jahr}")
         if form.get("trotzdem") != "1":
-            z = zweifel_an(jahr, s, quelle, name)
+            z = zweifel_an(jahr, s, quelle, name, ausdruecklich=form.get("gewaehlt") == "1")
             if z is not None:
                 nachfragen(jahr, s, name, z, zurueck, aus_korb=True)
                 return back(zurueck)
         vorher = lage(jahr)
         c = conn()
         fund = quest.sammeln(c, ws.root, stueck_id, quelle, verschieben=True)
+        app.state.steuer_stutzen.pop(name, None)
         if fund.neu:
             quest.notiere(c, jahr, "fund", f"{s['name']}: {name}")
             wie = ""
@@ -1547,6 +1576,7 @@ def register_steuer(
         form = await request.form()
         name = Path(str(form.get("name") or "")).name
         ziel = quest.lege_beiseite(ws.root, name)
+        app.state.steuer_stutzen.pop(name, None)
         if ziel is None:
             flash("Den Zettel finde ich nicht mehr im Eingangskorb.")
         else:
@@ -1875,7 +1905,7 @@ def register_steuer(
         flash("Kein Problem. Was fehlt, steht in der Mail. Der Drache wartet geduldig.")
         return back(f"/steuer/{jahr}/sieg")
 
-    # ----- Sieg, Schatztruhe und Mail -----
+    # ----- Sieg, Fundkiste und Mail -----
 
     def truhe_pfad(jahr: int, p: Profil) -> Path:
         name = f"-{quest._slug(p.name)}" if p.name else ""
@@ -1922,10 +1952,10 @@ def register_steuer(
         )
         if kennwort:
             app.state.steuer_passwort[jahr] = kennwort
-            flash("Die Schatztruhe ist gepackt und mit Passwort verschlossen.", "erfolg", "done")
+            flash("Die Fundkiste ist gepackt und mit Passwort verschlossen.", "erfolg", "done")
         else:
             app.state.steuer_passwort.pop(jahr, None)
-            flash("Die Schatztruhe ist gepackt, ohne Passwort.", "erfolg", "done")
+            flash("Die Fundkiste ist gepackt, ohne Passwort.", "erfolg", "done")
         quest.notiere(conn(), jahr, "truhe", ziel.name)
         return back(f"/steuer/{jahr}/sieg")
 
@@ -1948,9 +1978,9 @@ def register_steuer(
         p = profil_oder_404(jahr)
         zip_pfad = truhe_pfad(jahr, p)
         if not zip_pfad.exists():
-            flash("Pack zuerst die Schatztruhe.")
+            flash("Pack zuerst die Fundkiste.")
         elif not system.reveal_path(zip_pfad):
-            flash(f"Deine Truhe liegt hier: {zip_pfad}")
+            flash(f"Deine Fundkiste liegt hier: {zip_pfad}")
         return back(f"/steuer/{jahr}/sieg")
 
     @app.post("/steuer/{jahr}/mail", dependencies=guarded)
@@ -1959,7 +1989,7 @@ def register_steuer(
         p = profil_oder_404(jahr)
         zip_pfad = truhe_pfad(jahr, p)
         if not zip_pfad.exists():
-            flash("Pack zuerst die Schatztruhe, dann hänge ich sie an.")
+            flash("Pack zuerst die Fundkiste, dann hänge ich sie an.")
             return back(f"/steuer/{jahr}/sieg")
         an = str(form.get("an") or "").strip()
         if an and an != p.beraterin_email:
@@ -1972,5 +2002,5 @@ def register_steuer(
             flash("Die Mail ist in deinem Mail-Programm. Du drückst dort auf Senden.", cue="sent")
             return back(f"/steuer/{jahr}/sieg")
         app.state.mailto = result.mailto
-        flash(f"Hänge die Truhe bitte selbst an: {zip_pfad}")
+        flash(f"Hänge die Fundkiste bitte selbst an: {zip_pfad}")
         return back("/mailto")

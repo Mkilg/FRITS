@@ -85,11 +85,30 @@ def lesbare_woerter(pfad: Path) -> int | None:
     return sum(1 for w in woerter if re.search(r"[aeiouäöüy]", w.lower()))
 
 
+def nennt_die_karte(original: str, quellen: str) -> bool:
+    """Nennt die Karte diese Unterlage selbst als Quelle? ("Steht auf der Lohnsteuerbescheinigung"
+    und die Datei heißt "Lohnsteuerbescheinigung 2025.pdf")"""
+    text = " ".join(_tokens(quellen))
+    return any(len(t) >= 6 and t in text for t in _tokens(Path(original).stem))
+
+
 def pruefe(
-    pfad: Path, original: str, stueck: dict, alle: list[dict], bild_lesen: bool = True
+    pfad: Path,
+    original: str,
+    stueck: dict,
+    alle: list[dict],
+    bild_lesen: bool = True,
+    quellen: str = "",
+    ausdruecklich: bool = False,
 ) -> Zweifel | None:
-    """Gibt einen Zweifel zurück, wenn die Datei offensichtlich nicht zur Karte passt."""
+    """Gibt einen Zweifel zurück, wenn die Datei offensichtlich nicht zur Karte passt.
+
+    quellen: was die Karte selbst als Quelle nennt; nennt sie diese Unterlage, gibt es keinen
+    Zweifel. ausdruecklich: Die Karte wurde bewusst gewählt (Menü im Eingangskorb); dann rät
+    Fritte nicht mehr nach dem Namen, ob eine andere Karte besser passt."""
     karte = stueck["name"]
+    if quellen and nennt_die_karte(original, quellen):
+        return None
     wort = privat_wort(original)
     if wort:
         return Zweifel(
@@ -97,7 +116,7 @@ def pruefe(
             f"„{original}“ klingt nach einem privaten Foto, nicht nach „{karte}“.",
         )
     # Passt der Name klar zu einer anderen Karte, aber gar nicht zu dieser?
-    if spiel.ahnung(original, [stueck]).stueck is None:
+    if not ausdruecklich and spiel.ahnung(original, [stueck]).stueck is None:
         andere = spiel.ahnung(original, alle).stueck
         if andere is not None and andere["id"] != stueck["id"] and andere["name"] != karte:
             return Zweifel(
