@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Sammlung · FRITS{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/haustier.css">{% endblock %}
+{% block content %}
+<div class="spiel-kopf">
+  <h1>Sammlung</h1>
+  {% if f %}{% include "_spiel_reiter.html" %}{% endif %}
+  <p class="salz kopf-salz">{{ hat }} von {{ platz }} gesammelt</p>
+</div>
+<p class="hint">Alles, was du dir mit echtem Papierkram verdient hast, steht hier in einer Vitrine. Einmal da, bleibt es für immer.</p>
+{% for fach in faecher %}
+<section class="card sammlung-fach" id="{{ fach.id }}">
+  <h2>{{ fach.titel }}{% if fach.id != "saisons" %} <span class="hint">{{ fach.kacheln | selectattr("erreicht") | list | length }} von {{ fach.kacheln | length }}</span>{% endif %}</h2>
+  <p class="hint">{{ fach.text }}</p>
+  <div class="album">
+    {% for k in fach.kacheln %}
+    <div class="sticker{{ ' da' if k.erreicht }}">
+      <span class="sticker-rund" aria-hidden="true">{{ k.zeichen if k.erreicht else "?" }}</span>
+      <strong>{{ k.name }}</strong>
+      <span class="hint">{{ k.text }}</span>
+      {% if k.zierde %}<span class="sticker-zierde">{{ "Auf der Insel:" if k.erreicht else "Bringt auf die Insel:" }} {{ k.zierde }}</span>{% endif %}
+      {% if k.seit %}<span class="sticker-tag">{{ k.seit | de_date }}</span>{% elif k.jahre %}<span class="sticker-tag">{{ k.jahre | join(", ") }}</span>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% else %}
+<section class="card"><p>Noch ist die Vitrine leer. Mit Fritte oder der Steuer-Quest füllt sie sich ganz von allein.</p></section>
+{% endfor %}
+{% endblock %}

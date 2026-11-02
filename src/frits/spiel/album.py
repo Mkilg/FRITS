@@ -89,7 +89,7 @@ ERFOLGE: tuple[Erfolg, ...] = (
            lambda f: f["truhen"] >= 1),
     Erfolg("glueckspilz", "Glückspilz", "🍀", "Etwas Legendäres in einer Truhe gefunden.",
            lambda f: f["truhe_legendaer"]),
-    Erfolg("schatzsucherin", "Schatzsucherin", "🧭", "Alle Schätze aus Frittes Truhen gefunden.",
+    Erfolg("schatzsucherin", "Schatzhüterin", "🧭", "Alle Schätze aus Frittes Truhen gefunden.",
            lambda f: f["schaetze"] >= f["schaetze_alle"]),
 )  # fmt: skip
 AUSBAU_STICKER = ("stube", "werkstatt", "hof", "bude")
