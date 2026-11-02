@@ -2243,7 +2243,7 @@ def create_app(
             else 0,
             sicherung_ziel=settings().backup_dir,
             sicherung_faellig=sicherung.faellig(settings().backup_dir),
-            abspann=abspann.heute(conn, today(), settings().haustier),
+            abspann=abspann.bilanz(conn, today(), settings().haustier),
         )
 
     @app.get("/health")

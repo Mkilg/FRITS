@@ -99,3 +99,86 @@ def heute(conn, tag: date, mit_fritte: bool = True) -> list[str]:
         if stand.einstellung(conn, f"erfolg:{e.id}")[:10] == t:
             zeilen.append(f"Neuer Sticker: {e.name}")
     return zeilen
+
+
+def _anzahl(n: int, eins: str, mehr: str) -> tuple[int, str]:
+    return (n, eins if n == 1 else mehr)
+
+
+def bilanz(conn, tag: date, mit_fritte: bool = True) -> dict:
+    """The closing credits in three parts: one headline (the day's biggest moment), up to
+    three tiles (Arbeit, Steuer, Fritte) with their numbers, and the full list below.
+    {"schlagzeile": str, "zeichen": str (for the stamp), "kacheln": [{"titel", "zahlen": [(n, label)]}], "zeilen": [...]}."""
+    zeilen = heute(conn, tag, mit_fritte)
+    if not zeilen:
+        return {"schlagzeile": "", "zeichen": "", "kacheln": [], "zeilen": []}
+    t = tag.isoformat()
+    karten = dict(
+        stand.rows(
+            conn, "SELECT art, COUNT(*) FROM spiel_karten WHERE gesehen = ? GROUP BY art", (t,)
+        )
+    )
+    abgehakt = _zahl(conn, "SELECT COUNT(*) FROM aufgaben WHERE substr(erledigt, 1, 10) = ?", (t,))
+    funde = _zahl(
+        conn,
+        "SELECT COUNT(*) FROM steuer_stuecke WHERE status = 'gesammelt' AND substr(geaendert, 1, 10) = ?",
+        (t,),
+    )
+    orden = _zahl(
+        conn,
+        "SELECT COUNT(DISTINCT text) FROM steuer_chronik WHERE art = 'erfolg' AND substr(zeit, 1, 10) = ?",
+        (t,),
+    )
+    siege = [
+        r[0]
+        for r in stand.rows(
+            conn,
+            "SELECT DISTINCT jahr FROM steuer_chronik WHERE art = 'sieg' AND substr(zeit, 1, 10) = ?",
+            (t,),
+        )
+    ]
+    salz = (
+        _zahl(conn, "SELECT SUM(summe) FROM spiel_kassenstuerze WHERE tag = ?", (t,))
+        if mit_fritte
+        else 0
+    )
+    truhen = (
+        _zahl(conn, "SELECT COUNT(*) FROM spiel_truhen WHERE geoeffnet = ?", (t,))
+        if mit_fritte
+        else 0
+    )
+    sticker = (
+        sum(1 for e in album.ERFOLGE if stand.einstellung(conn, f"erfolg:{e.id}")[:10] == t)
+        if mit_fritte
+        else 0
+    )
+    arbeit = [
+        _anzahl(int(karten.get("rechnung", 0)), "Rechnung", "Rechnungen"),
+        _anzahl(int(karten.get("ausgabe", 0)), "Beleg", "Belege"),
+        _anzahl(int(karten.get("bezahlt", 0)), "Zahlung", "Zahlungen"),
+        _anzahl(abgehakt, "Punkt abgehakt", "Punkte abgehakt"),
+    ]
+    steuer = [_anzahl(funde, "Unterlage", "Unterlagen"), _anzahl(orden, "Orden", "Orden")]
+    fritte = [
+        _anzahl(salz, "Salzkorn", "Salzkörner"),
+        _anzahl(truhen, "Truhe geöffnet", "Truhen geöffnet"),
+        _anzahl(sticker, "Sticker", "Sticker"),
+    ]
+    kacheln = [
+        {"titel": titel, "zahlen": [z for z in zahlen if z[0]][:3]}
+        for titel, zahlen in (("Arbeit", arbeit), ("Steuer", steuer), ("Fritte", fritte))
+        if any(z[0] for z in zahlen)
+    ]
+    z = tagesziel.zaehlen(conn, tag)
+    if siege:
+        schlagzeile, zeichen = f"Der Papierdrache {siege[0]} ist besiegt!", "🐉"
+    elif orden:
+        schlagzeile = "Ein neuer Orden!" if orden == 1 else f"{orden} neue Orden!"
+        zeichen = "🏅"
+    elif z["geschafft"]:
+        schlagzeile, zeichen = "Tagesziel geschafft!", "✓"
+    elif salz:
+        schlagzeile, zeichen = f"{salz} Salzkörner für Fritte", "🧂"
+    else:
+        schlagzeile, zeichen = "Ein Stück geschafft.", "✓"
+    return {"schlagzeile": schlagzeile, "zeichen": zeichen, "kacheln": kacheln, "zeilen": zeilen}

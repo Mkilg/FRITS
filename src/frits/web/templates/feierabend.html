@@ -11,11 +11,24 @@
     <li data-zaehlen>{{ read }} {{ "Datei" if read == 1 else "Dateien" }} gelesen</li>
     <li data-zaehlen>{{ made }} {{ "Rechnung" if made == 1 else "Rechnungen" }} erstellt</li>
   </ul>
-  {% if abspann %}
-  <h2>Was daraus wurde</h2>
-  <ul class="plain abspann">
-    {% for zeile in abspann %}<li>{{ zeile }}</li>{% endfor %}
-  </ul>
+  {% if abspann.zeilen %}
+  <div class="abspann">
+    <h2 class="abspann-schlagzeile"><span class="abspann-stempel" aria-hidden="true">{% if picture("stempel-rund") %}<img src="{{ picture('stempel-rund') }}" alt="">{% endif %}<span>{{ abspann.zeichen }}</span></span>{{ abspann.schlagzeile }}</h2>
+    {% if abspann.kacheln %}
+    <div class="abspann-kacheln">
+      {% for k in abspann.kacheln %}
+      <div class="abspann-kachel">
+        <h3>{{ k.titel }}</h3>
+        {% for n, was in k.zahlen %}<p><strong>{{ n }}</strong> {{ was }}</p>{% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    <details class="abspann-alles">
+      <summary>Alles von heute</summary>
+      <ul class="plain">{% for zeile in abspann.zeilen %}<li>{{ zeile }}</li>{% endfor %}</ul>
+    </details>
+  </div>
   {% endif %}
   <h2>Wartet bis zum nächsten Mal</h2>
   <ul class="plain">
