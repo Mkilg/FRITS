@@ -604,16 +604,30 @@ def guthaben(conn) -> int:
 
 def kassenbuch(conn, limit: int = 30) -> list[dict]:
     """Every grain in or out, newest first. A Kassensturz row knows its number, so the
-    Kassenbuch is also the chronicle: each one can be replayed from there."""
-    zeilen = []
+    Kassenbuch is also the chronicle: each one can be replayed from there.
+
+    The Steuer-Quest books many small amounts (one per Zettel). Those of one quest year
+    on one day become one row with a sum; the single bookings stay in "teile"."""
+    zeilen: list[dict] = []
     for r in conn.execute(
-        "SELECT tag, betrag, art, text FROM spiel_kasse ORDER BY id DESC LIMIT ?", (limit,)
+        "SELECT tag, betrag, art, text FROM spiel_kasse ORDER BY id DESC LIMIT ?", (limit * 3,)
     ).fetchall():
         z = dict(r)
         m = re.match(r"Kassensturz Nr\. (\d+)", z["text"]) if z["art"] == "kassensturz" else None
         z["nummer"] = int(m.group(1)) if m else None
+        z["teile"] = []
+        q = re.match(r"(Steuer-Quest \d{4})", z["text"]) if z["art"] == "quest" else None
+        z["gruppe"] = q.group(1) if q else None
+        vorige = zeilen[-1] if zeilen else None
+        if z["gruppe"] and vorige and (vorige["gruppe"], vorige["tag"]) == (z["gruppe"], z["tag"]):
+            if not vorige["teile"]:
+                vorige["teile"] = [{"text": vorige["text"], "betrag": vorige["betrag"]}]
+            vorige["teile"].append({"text": z["text"], "betrag": z["betrag"]})
+            vorige["betrag"] += z["betrag"]
+            vorige["text"] = f"{z['gruppe']}: {len(vorige['teile'])} Buchungen"
+            continue
         zeilen.append(z)
-    return zeilen
+    return zeilen[:limit]
 
 
 def bezahlen(conn, tag: str, preis: int, text: str) -> None:

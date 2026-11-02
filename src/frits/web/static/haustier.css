@@ -245,6 +245,9 @@ button.gross { font-size: 1.1rem; padding: .7rem 1.6rem; }
 .kassenbuch .amount { text-align: right; font-variant-numeric: tabular-nums; }
 .kassenbuch .plus { color: var(--moos-dunkel); }
 .kassenbuch .minus { color: var(--terrakotta-dunkel); }
+.kassenbuch details.buchungen summary { cursor: pointer; }
+.kassenbuch details.buchungen ul { margin: .3rem 0 0; padding-left: 1.1rem; font-size: .88rem; }
+.kassenbuch details.buchungen li span { font-variant-numeric: tabular-nums; margin-left: .3rem; }
 details > summary { cursor: pointer; list-style: none; }
 details > summary h2 { display: inline; }
 details > summary::before { content: "▸ "; color: var(--muted); }

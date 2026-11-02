@@ -113,3 +113,24 @@ def test_the_shop_shows_the_quest_shelf_when_the_quest_offers_one(client):
     assert 'id="insel"' in page
     client.app.state.helfer_regal = lambda conn: 1 / 0  # a hiccup in the quest
     assert client.get("/fritte/laden").status_code == 200
+
+
+def test_kassenbuch_groups_quest_bookings_of_one_day(tmp_path):
+    from frits import store
+    from frits.spiel import stand
+
+    conn = store.connect(tmp_path / "frits.db")
+    tag = "2026-11-02"
+    stand.vorbereiten(conn)
+    stand.buche(conn, tag, 5, "start", "Willkommen")
+    for i, betrag in enumerate((3, 4, -2)):
+        stand.buche(conn, tag, betrag, "quest", f"Steuer-Quest 2025: Zettel {i}")
+    stand.buche(conn, tag, 1, "quest", "Steuer-Quest 2024: Zettel x")
+    zeilen = stand.kassenbuch(conn)
+    assert [z["text"] for z in zeilen] == [
+        "Steuer-Quest 2024: Zettel x",
+        "Steuer-Quest 2025: 3 Buchungen",
+        "Willkommen",
+    ]
+    assert zeilen[1]["betrag"] == 5 and len(zeilen[1]["teile"]) == 3
+    assert sum(z["betrag"] for z in zeilen) == stand.guthaben(conn)
