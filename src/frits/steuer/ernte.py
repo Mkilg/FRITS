@@ -197,6 +197,13 @@ def _alte_euer_weg(conn: sqlite3.Connection, stueck_id: int, praefix: str = EUER
             conn.execute("DELETE FROM steuer_dateien WHERE id = ?", (row["id"],))
 
 
+def _sammeln(conn: sqlite3.Connection, ws: Workspace, jahr: int, fach: int, pfad: Path):
+    """Sammelt eine Datei aus FRITS und merkt sich, dass sie nicht von Hand kam."""
+    fund = quest.sammeln(conn, ws.root, fach, pfad, original=pfad.name)
+    quest.merke_aus_frits(conn, jahr, pfad)
+    return fund
+
+
 def einbringen(
     conn: sqlite3.Connection, ws: Workspace, jahr: int, gebiet_id: str, tax_mode: str
 ) -> dict[str, int]:
@@ -208,25 +215,25 @@ def einbringen(
             continue
         fach = _fach(conn, jahr, gebiet_id, rolle)
         for pfad in dateien:
-            if quest.sammeln(conn, ws.root, fach, pfad, original=pfad.name).neu:
+            if _sammeln(conn, ws, jahr, fach, pfad).neu:
                 neu[rolle] += 1
     if ernte.euer is not None and ernte.neu["euer"]:
         fach = _fach(conn, jahr, gebiet_id, "euer")
         _alte_euer_weg(conn, fach)
         for pfad in _euer_dateien(ws, ernte.euer):
-            quest.sammeln(conn, ws.root, fach, pfad, original=pfad.name)
+            _sammeln(conn, ws, jahr, fach, pfad)
         neu["euer"] = 1
     ablage = quest.ordner(ws.root, jahr) / ".frits"
     if ernte.neu["buchungsliste"]:
         fach = _fach(conn, jahr, gebiet_id, "buchungsliste")
         _alte_euer_weg(conn, fach, BUCHUNGSLISTE_PRAEFIX)
         pfad = export.buchungsliste(ws, jahr, ablage)
-        quest.sammeln(conn, ws.root, fach, pfad, original=pfad.name)
+        _sammeln(conn, ws, jahr, fach, pfad)
         neu["buchungsliste"] = 1
     if ernte.neu["verfahrensdoku"]:
         fach = _fach(conn, jahr, gebiet_id, "verfahrensdoku")
         pfad = export.verfahrensdoku(ws, jahr, ablage)
-        quest.sammeln(conn, ws.root, fach, pfad, original=pfad.name)
+        _sammeln(conn, ws, jahr, fach, pfad)
         neu["verfahrensdoku"] = 1
     return neu
 

@@ -1359,7 +1359,7 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
 /* Auf Touch gibt es keine Leertaste */
 @media (pointer: coarse) { .sq-intro-weiter kbd { display: none; } }
 /* Messingleiste auf Touch: Titel und Gold-Link mit voller Fingerbreite */
-@media (pointer: coarse) { .sq-leiste .sq-titel, .sq-marke.gold a, .sq-marke.belege a { display: inline-flex; align-items: center; min-height: 44px; } }
+@media (pointer: coarse) { .sq-leiste .sq-titel, .sq-marke.gold a, .sq-marke.belege a { display: inline-flex; align-items: center; gap: .3em; min-height: 44px; } }
 .sq-markt-alt { margin: 0.6rem 0 0; padding: 0.5rem 0.7rem; border-left: 3px solid var(--terrakotta-dunkel); background: rgba(196, 98, 58, .08); font-size: 0.92rem; }
 
 /* Runde 10: Kärtchen der Beraterin, Passwort kopieren, mitbenutzte Dateien */
@@ -1726,3 +1726,9 @@ details.sq-mehr-marken .kurz { display: none; }
 .sq-umschalter { margin: 0 0 0.8rem; color: #f3e3c0; font-size: 0.9rem; text-shadow: 0 1px 2px rgba(0,0,0,.95); }
 .sq-umschalter a { color: #ffe6a8; }
 .sq-korb .sq-erledigt p { text-shadow: none; color: #6d6150; }
+
+/* Runde 32 (Marie-Runde 8): eine Zählung im Stapel, Freiwilliges getrennt; „Lohnt sich noch“ nach dem Sieg */
+.sq-kicker-frei { font-weight: 400; letter-spacing: 0; text-transform: none; opacity: .75; }
+.sq-zettel-punkte li:has(> a:not(.bonus)) + li:has(> a.bonus) { margin-left: .55rem; }
+.sq-noch-frei ul { margin: .4rem 0 0; padding-left: 1.1rem; }
+.sq-noch-frei li { margin: .2rem 0; }

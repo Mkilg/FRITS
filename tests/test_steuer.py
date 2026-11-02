@@ -1421,23 +1421,24 @@ def test_gold_faellt_nie_unter_null_letzter_kauf_geht_in_den_hafen(conn):
     """Bericht 2b, P2-A: Erst bei ×8 verdienen, ausgeben, dann zurücklegen darf nichts bringen.
     Eine Währung: Der Beutel ist Frittes, er fällt nie unter null."""
     quest.verdiene(conn, 2025, "fund:a:b", 10, "Belege")
-    quest.verdiene(conn, 2025, "test", 10, "Testgold")
-    quest.kaufe(conn, 2025, "trommel")  # 6
-    quest.kaufe(conn, 2025, "goldwaage")  # 5
-    quest.kaufe(conn, 2025, "spuernase")  # 4
-    assert quest.gold(conn) == 5
+    quest.verdiene(conn, 2025, "test", 30, "Testgold")
+    quest.kaufe(conn, 2025, "trommel")  # 15
+    quest.kaufe(conn, 2025, "goldwaage")  # 12
+    quest.kaufe(conn, 2025, "spuernase")  # 10
+    assert quest.gold(conn) == 3
     quest.storniere(conn, 2025, "fund:a:b", "Belege")
-    assert quest.gold(conn) == 0  # nimmt nur, was da ist; 5 fehlen
-    assert quest.decke_schulden(conn, 2025) == ["Spürnase", "Goldwaage"]
-    assert quest.gold(conn) == 4  # die Goldwaage deckte 1, der Rest kam zurück
-    assert "goldwaage" not in quest.besitz(conn, 2025)
+    assert quest.gold(conn) == 0  # nimmt nur, was da ist; 7 fehlen
+    assert quest.decke_schulden(conn, 2025) == ["Spürnase"]
+    assert quest.gold(conn) == 3  # die Spürnase deckte 7, der Rest kam zurück
     assert "spuernase" not in quest.besitz(conn, 2025)
-    assert quest.goldsummen(conn, 2025) == (10, 6)
+    assert "goldwaage" in quest.besitz(conn, 2025)
+    assert quest.goldsummen(conn, 2025) == (30, 27)
     assert quest.decke_schulden(conn, 2025) == []  # nichts mehr zu tun
+    quest.verdiene(conn, 2025, "test2", 10, "Testgold")
     quest.kaufe(conn, 2025, "spuernase")  # zurückgegeben heißt: wieder kaufbar
 
     # Stecken die Körner nur noch in Helfer-Wechseln, bleibt es bei null
-    quest.verdiene(conn, 2024, "fund:a:b", 10, "Belege")
+    quest.verdiene(conn, 2024, "fund:a:b", 20, "Belege")
     quest.kaufe(conn, 2024, "spuernase")
     quest.lege_helfer(conn, 2024, "spuernase", False)
     quest.lege_helfer(conn, 2024, "spuernase", True)
@@ -1456,8 +1457,8 @@ def test_zurueckbuchen_mit_ausgegebenem_gold_im_browser(client, ws):
         files=[("datei", ("beleg.pdf", b"%PDF beleg"))],
     )
     verdient = quest.gold(conn, 2025)
-    assert 0 < verdient < 6
-    quest.verdiene(conn, 2025, "test", 6 - verdient, "Testgold")
+    assert 0 < verdient < 15
+    quest.verdiene(conn, 2025, "test", 15 - verdient, "Testgold")
     post(client, "/steuer/2025/markt/kaufen", ware="trommel")
     assert quest.gold(conn, 2025) == 0
     datei = quest.dateien(conn, 2025, karte["id"])[0]
@@ -2829,3 +2830,58 @@ def test_runde_30_frits_karten_stehen_als_erledigt_da(client, ws):
     fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
     seite = client.get("/steuer/2025/gebiet/werkstatt-1").text
     assert "Hat FRITS schon dabei" in seite and "✓ Ausgangsrechnungen" in seite
+
+
+def test_runde_32_stapel_zaehlt_wie_die_insel(client, ws):
+    # Marie-Runde 8: „3 von 5“ auf der Insel und „Zettel 6 von 12“ in der Provinz
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    alle = quest.stuecke(conn, 2025)
+    gid = next(
+        g
+        for g in {s["gebiet"] for s in alle}
+        if any(s["art"] == "bonus" for s in alle if s["gebiet"] == g)
+        and any(s["art"] != "bonus" for s in alle if s["gebiet"] == g)
+    )
+    eigene = [s for s in alle if s["gebiet"] == gid]
+    pflicht = [s for s in eigene if s["art"] != "bonus"]
+    frei = [s for s in eigene if s["art"] == "bonus"]
+    seite = client.get(f"/steuer/2025/gebiet/{gid}?ansicht=stapel").text
+    assert f"Zettel 1 von {len(pflicht)}" in seite and f"+ {len(frei)} freiwillig" in seite
+    seite = client.get(f"/steuer/2025/gebiet/{gid}?karte={frei[0]['id']}").text
+    assert f"Freiwillig 1 von {len(frei)}" in seite
+
+
+def test_runde_32_nach_dem_sieg_lohnt_sich_noch_etwas(client, ws):
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    for s in spiel.pflicht(quest.stuecke(conn, 2025)):
+        quest.setze_status(conn, s["id"], "fragen")
+    erste = spiel.pflicht(quest.stuecke(conn, 2025))[0]
+    (ws.root / "beleg.pdf").write_bytes(b"%PDF beleg")
+    quest.sammeln(conn, ws.root, erste["id"], ws.root / "beleg.pdf")
+    assert spiel.drache(quest.stuecke(conn, 2025)).besiegt
+    quest.lager(ws.root).mkdir(parents=True, exist_ok=True)
+    (quest.lager(ws.root) / "arbeitszimmer.txt").write_text("Arbeitszimmer 12 qm")
+    sieg = client.get("/steuer/2025/sieg").text
+    assert "Lohnt sich noch" in sieg and "arbeitszimmer.txt" in sieg
+    assert "können Steuern sparen" in sieg or "kann Steuern sparen" in sieg
+    insel = client.get("/steuer/2025").text
+    assert "Im Korb wartet noch ein Zettel." in insel
+
+
+def test_runde_32_frits_karten_nur_aus_der_ernte(client, ws):
+    # Lena (Runde 31): Eine selbst hochgeladene Rechnung stand unter „Hat FRITS schon dabei“
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    karte = next(s for s in quest.stuecke(conn, 2025) if s["key"] == "ausgangsrechnungen")
+    post(
+        client,
+        f"/steuer/2025/stueck/{karte['id']}/datei",
+        files=[("datei", ("rechnung-word.pdf", b"%PDF selbst"))],
+    )
+    (ws.root / "aus-frits.pdf").write_bytes(b"%PDF ernte")
+    quest.merke_aus_frits(conn, 2025, ws.root / "aus-frits.pdf")  # die Ernte lief schon
+    assert karte["id"] not in quest.von_frits(conn, 2025)
+    seite = client.get(f"/steuer/2025/gebiet/{karte['gebiet']}?ansicht=stapel").text
+    assert "Hat FRITS schon dabei" not in seite and "Schon erledigt" in seite
