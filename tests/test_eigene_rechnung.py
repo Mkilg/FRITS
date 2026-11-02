@@ -7,7 +7,8 @@ of the work.
 
 from datetime import date
 
-from test_web import _old_invoice_pdf, _staged, client, mails, post, provider, ws  # noqa: F401
+import test_web
+from test_web import _old_invoice_pdf, _staged, post
 
 from frits import store
 from frits.billing import list_invoices
@@ -15,6 +16,9 @@ from frits.frueher import eigene_rechnung, lesen
 from frits.settings import Settings
 
 TODAY = date(2026, 11, 2)
+
+# the web test fixtures (pytest finds them by name)
+ws, provider, mails, client = test_web.ws, test_web.provider, test_web.mails, test_web.client
 
 FRITZ = Settings(
     name="Fritz Beispiel",

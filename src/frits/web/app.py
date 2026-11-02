@@ -1837,8 +1837,10 @@ def create_app(
             return "Die liegt schon bei „Bitte einmal ansehen“.", ("/check-me", "Ansehen")
         if job["status"] == "frueher":
             return (
-                "Das ist deine eigene Rechnung von früher. Sie wartet unter Rechnungen aufs "
-                "Nachtragen oder ist schon nachgetragen.",
+                (
+                    "Das ist deine eigene Rechnung von früher. Sie wartet unter Rechnungen aufs "
+                    "Nachtragen oder ist schon nachgetragen."
+                ),
                 ("/invoices#frueher", "Zu den Rechnungen"),
             )
         if job["status"] == "steuer":
