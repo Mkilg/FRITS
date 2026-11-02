@@ -986,7 +986,7 @@ def test_drache_faellt_auch_aus_der_ferne_und_der_sieg_kommt_immer(client, ws):
         seite = post(client, f"/steuer/2025/stueck/{s['id']}/status", status="fragen")
     assert str(seite.url).endswith("/steuer/2025/drache")
     assert "sq-arena-sieg finale" in seite.text and "Sieg!" in seite.text
-    assert "Zur Schatztruhe" in seite.text
+    assert "Zur Fundkiste" in seite.text
     assert quest.hat_notiz(conn, 2025, "sieg")
 
 
@@ -2263,7 +2263,11 @@ def test_runde_18_drachensieg_gibt_fritte_eine_truhe(client, ws, monkeypatch):
     k = spiel.drache(quest.stuecke(conn, 2025)).karte
     seite = post(client, "/steuer/2025/drache/schlag", stueck_id=str(k["id"]), aktion="fragen")
     assert gegeben == [("drachensieg:2025", "selten", "Der Drache 2025 ist besiegt!")]
-    assert "Fritte hat eine Truhe für dich bekommen. Sie wartet bei Fritte." in seite.text
+    # Im vollen Siegesdialog steht die Belohnung als Kachel: fette Zeile, kleiner Rest
+    assert (
+        "<b>Fritte hat eine Truhe für dich bekommen.</b> <small>Sie wartet bei Fritte.</small>"
+        in seite.text
+    )
     assert 'href="/fritte#truhen"' in seite.text
 
 

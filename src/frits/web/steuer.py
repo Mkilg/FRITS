@@ -177,7 +177,7 @@ def textname(text: str) -> str:
 def fritte_tipp(daten: dict, lager: list) -> tuple[str, str]:
     """Was Fritte, die Kartografin, gerade sagt: (Stimmung, Satz)."""
     if daten["drache"].besiegt and daten["stuecke"]:
-        return "done", "Der Drache ist besiegt! Die Schatztruhe wartet auf dich."
+        return "done", "Der Drache ist besiegt! Die Fundkiste wartet auf dich."
     if daten["auftrag"].art == "drache":
         lp = daten["drache"].lp
         return (
@@ -680,13 +680,13 @@ def register_steuer(
             app.state.steuer_finale.add(jahr)
             if nachher["zweifel"]:
                 flash(
-                    "Der Drache faltet sich zur Schatztruhe. Ein paar wichtige Unterlagen"
+                    "Der Drache faltet sich zur Fundkiste. Ein paar wichtige Unterlagen"
                     " soll deine Beraterin noch prüfen, darum Silber.",
                     "sieg",
                     "sent",
                 )
             else:
-                flash("Der Drache faltet sich zu einer Schatztruhe zusammen.", "sieg", "sent")
+                flash("Der Drache faltet sich zu einer Fundkiste zusammen.", "sieg", "sent")
             if plus and not ferne and basis * faktor:
                 # Der größte Treffer des Kampfes soll man sehen, auch wenn der Sieg ihn verdrängt
                 # (ein Treffer ohne Gold dämpft die Feier nur, der bleibt weg)
@@ -1147,7 +1147,7 @@ def register_steuer(
             flash(f"Geändert: {s['name']} ist neu notiert.", "beute", "done")
         elif fund.neu:
             quest.notiere(c, jahr, "fund", f"{s['name']}: eingetippt")
-            flash(f"+1 Angabe! {s['name']} ist notiert und kommt so in die Truhe.", "beute", "done")
+            flash(f"+1 Angabe! {s['name']} ist notiert und kommt so in die Fundkiste.", "beute", "done")
         else:
             flash("Genau diese Angabe liegt schon bei der Karte.")
         if belohnen(jahr, vorher):
@@ -1905,7 +1905,7 @@ def register_steuer(
         flash("Kein Problem. Was fehlt, steht in der Mail. Der Drache wartet geduldig.")
         return back(f"/steuer/{jahr}/sieg")
 
-    # ----- Sieg, Schatztruhe und Mail -----
+    # ----- Sieg, Fundkiste und Mail -----
 
     def truhe_pfad(jahr: int, p: Profil) -> Path:
         name = f"-{quest._slug(p.name)}" if p.name else ""
@@ -1952,10 +1952,10 @@ def register_steuer(
         )
         if kennwort:
             app.state.steuer_passwort[jahr] = kennwort
-            flash("Die Schatztruhe ist gepackt und mit Passwort verschlossen.", "erfolg", "done")
+            flash("Die Fundkiste ist gepackt und mit Passwort verschlossen.", "erfolg", "done")
         else:
             app.state.steuer_passwort.pop(jahr, None)
-            flash("Die Schatztruhe ist gepackt, ohne Passwort.", "erfolg", "done")
+            flash("Die Fundkiste ist gepackt, ohne Passwort.", "erfolg", "done")
         quest.notiere(conn(), jahr, "truhe", ziel.name)
         return back(f"/steuer/{jahr}/sieg")
 
@@ -1978,9 +1978,9 @@ def register_steuer(
         p = profil_oder_404(jahr)
         zip_pfad = truhe_pfad(jahr, p)
         if not zip_pfad.exists():
-            flash("Pack zuerst die Schatztruhe.")
+            flash("Pack zuerst die Fundkiste.")
         elif not system.reveal_path(zip_pfad):
-            flash(f"Deine Truhe liegt hier: {zip_pfad}")
+            flash(f"Deine Fundkiste liegt hier: {zip_pfad}")
         return back(f"/steuer/{jahr}/sieg")
 
     @app.post("/steuer/{jahr}/mail", dependencies=guarded)
@@ -1989,7 +1989,7 @@ def register_steuer(
         p = profil_oder_404(jahr)
         zip_pfad = truhe_pfad(jahr, p)
         if not zip_pfad.exists():
-            flash("Pack zuerst die Schatztruhe, dann hänge ich sie an.")
+            flash("Pack zuerst die Fundkiste, dann hänge ich sie an.")
             return back(f"/steuer/{jahr}/sieg")
         an = str(form.get("an") or "").strip()
         if an and an != p.beraterin_email:
@@ -2002,5 +2002,5 @@ def register_steuer(
             flash("Die Mail ist in deinem Mail-Programm. Du drückst dort auf Senden.", cue="sent")
             return back(f"/steuer/{jahr}/sieg")
         app.state.mailto = result.mailto
-        flash(f"Hänge die Truhe bitte selbst an: {zip_pfad}")
+        flash(f"Hänge die Fundkiste bitte selbst an: {zip_pfad}")
         return back("/mailto")

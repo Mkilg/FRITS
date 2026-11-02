@@ -46,7 +46,7 @@
     <button class="quiet">Gleich</button>
     {% endif %}
     {% elif erste == "sieg" %}
-    <a class="sq-siegelknopf" href="/steuer/{{ jahr }}/sieg">Zur Schatztruhe →</a>
+    <a class="sq-siegelknopf" href="/steuer/{{ jahr }}/sieg">Zur Fundkiste →</a>
     {% else %}
     <a class="sq-siegelknopf" href="{{ auftrag.ziel if not auftrag.ziel.startswith('#') else '/steuer/' ~ jahr ~ auftrag.ziel }}">{{ auftrag.knopf }} →</a>
     <button class="quiet">Hier bleiben</button>
