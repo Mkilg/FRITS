@@ -56,7 +56,15 @@
     </section>
     {% endif %}
     <section class="sq-papier" id="kiste">
-      {% if frisch_gepackt and zip_pfad %}
+      {% if frisch_gepackt and zip_pfad and not drache.besiegt %}
+      {# Lena (Runde 45): Über den Notausgang gepackt, vielleicht sogar leer: kein Fest, ein ehrlicher Satz #}
+      {% set drin = dateien | length %}
+      <div class="sq-kiste-halb" role="status">
+        <p class="sq-kiste-finale-titel">Die Fundkiste {{ jahr }} ist gepackt, aber noch {{ "leer" if not drin else "nicht vollständig" }}.</p>
+        <p>{% if drin %}{{ drin }} Beleg{{ "e" if drin != 1 }} {{ "liegen" if drin != 1 else "liegt" }} darin. {% endif %}{{ drache.lp }} Karte{{ "n" if drache.lp != 1 }} {{ "sind" if drache.lp != 1 else "ist" }} noch offen. Die Mail nennt sie als Liste, so weiß deine Beraterin, was noch kommt. Das Siegel gibt es, wenn der Drache besiegt ist.</p>
+        <p><a class="sq-stempelknopf" href="/steuer/{{ jahr }}/drache">Zum Drachen</a></p>
+      </div>
+      {% elif frisch_gepackt and zip_pfad %}
       {# Lena (Runde 41): Das Packen ist das Finale des Jahres, nicht nur ein Formular #}
       <div class="sq-kiste-finale" role="status">
         <div class="sq-kiste-finale-bild" aria-hidden="true">{% if kiste_zu %}<img src="{{ kiste_zu }}" alt="">{% elif truhe_bild %}<img src="{{ truhe_bild }}" alt="">{% else %}<span class="sq-truhe"><span class="kasten"></span><span class="deckel"></span></span>{% endif %}<span class="sq-kiste-siegel">{{ jahr }}</span></div>

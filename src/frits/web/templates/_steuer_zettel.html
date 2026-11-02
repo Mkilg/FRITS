@@ -48,6 +48,7 @@
     <input type="hidden" name="back" value="{{ zurueck }}">
     <input type="hidden" name="trotzdem" value="1">
     <small>Fritte stutzt: {{ stutz.text }}</small>
+    {% if stutz.besser_id %}<button name="stueck_id" value="{{ stutz.besser_id }}" class="sq-besser">Zu „{{ stutz.besser }}“</button>{% endif %}
     <button name="stueck_id" value="{{ stutz.stueck_id }}">Trotzdem zu „{{ stutz.karte }}“</button>
   </form>
   {% elif spur %}

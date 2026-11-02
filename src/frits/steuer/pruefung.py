@@ -50,6 +50,8 @@ MIN_WOERTER = 3  # so viele lesbare Wörter hat selbst ein Parkschein
 class Zweifel:
     grund: str  # "privat", "andere_karte" oder "kein_text"
     text: str  # was Fritte fragt
+    # Die Karte, nach der der Name klingt (nur bei "andere_karte"): Dorthin führt ein Knopf
+    besser: dict | None = None
 
 
 def _tokens(name: str) -> list[str]:
@@ -122,6 +124,7 @@ def pruefe(
             return Zweifel(
                 "andere_karte",
                 f"„{original}“ klingt eher nach „{andere['name']}“ als nach „{karte}“.",
+                besser=andere,
             )
     if bild_lesen and Path(original).suffix.lower() in BILDER:
         n = lesbare_woerter(pfad)
