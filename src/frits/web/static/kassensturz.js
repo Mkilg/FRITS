@@ -36,12 +36,17 @@
     });
     return y;
   }
+  // A few pixels over the edge do not count (Lena: a waiting card, scaled to .97, ended 3 px
+  // below the window at 1440 and the camera moved 105 px for it).
   function versteckt(node) {
     var r = node.getBoundingClientRect();
-    return r.top < 0 || r.bottom > frei() - 6;
+    return r.top < -8 || r.bottom > frei() + 8;
   }
+  // Just as far as needed, with a little air, instead of scrollIntoView and its scroll-margin.
   function insBild(node) {
-    if (versteckt(node)) node.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
+    if (!versteckt(node)) return;
+    var r = node.getBoundingClientRect(), dy = r.top < -8 ? r.top - 12 : Math.min(r.bottom - (frei() - 16), r.top - 12);
+    window.scrollBy({ top: dy, behavior: reduced ? "auto" : "smooth" });
   }
   // A slow drive of the page by dy pixels (Lena: after a long hand the jump to the new chest
   // tore the page away, 1000 px in half a second).
