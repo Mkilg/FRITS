@@ -18,12 +18,12 @@
       {% elif drache is defined and not drache.besiegt %}
       <p>Fast geschafft: Erst wenn der Drache besiegt ist, beginnt das Goldene Zeitalter.</p>
       {% endif %}
-      <p class="muted">Jede beantwortete Karte zählt: eine Datei, eine Angabe, „Gibt's nicht“ oder eine Frage an die Beraterin. Bonus-Schätze zählen nicht mit, sie bringen Gold.</p>
+      <p class="muted">Jede beantwortete Karte zählt: eine Datei, eine Angabe, „Gibt's nicht“ oder eine Frage an die Beraterin. Bonus-Schätze zählen nicht mit, sie bringen Salzkörner.</p>
       <p class="muted">Bisher: {{ gesamt.erledigt }} von {{ gesamt.gesamt }} Karten.</p>
     </div>
   </details>
   <ul class="sq-marken sq-marken-haupt">
-    <li class="sq-marke gold"><a href="/steuer/{{ jahr }}/markt" title="Dein Gold. Auf dem Hafenmarkt holst du dir damit Helfer für den Drachenkampf."><i></i><b data-zaehler="gold">{{ ressourcen.gold }}</b> Gold</a></li>
+    <li class="sq-marke gold"><a href="{{ markt_link(jahr) }}" title="Deine Salzkörner, ein Beutel für ganz FRITS. Damit holst du dir Helfer für den Drachenkampf.">{{ salz }}<b data-zaehler="gold">{{ ressourcen.gold }}</b> <span class="sq-marke-wort">Salzkörner</span></a></li>
   </ul>
   {# Alles Weitere auf einen Klick: weniger Zahlen auf einmal (Marie, 2.11.) #}
   <details class="sq-mehr-marken">

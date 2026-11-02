@@ -38,7 +38,7 @@
   <div class="sq-arena-boss">
   <div class="sq-drache-gross schaden-{{ schaden }}">{% include "_steuer_drache.html" %}{% if schaden %}<span class="sq-risse" aria-hidden="true"></span>{% endif %}</div>
   <h1>{% if drache.lp == 1 %}Nur noch eine Karte!{% elif not frisch %}Der Papierdrache ist wach!{% else %}Der Papierdrache {{ "taumelt" if drache.stimmung == "taumelt" else "wankt" }}!{% endif %}</h1>
-  <p>Er hat nur noch die Karten, die du vorher nicht gefunden hast: {{ drache.lp }} von {{ drache.max_lp }}. Bonus-Schätze zählen nicht, die sind nur Extra-Gold.</p>
+  <p>Er hat nur noch die Karten, die du vorher nicht gefunden hast: {{ drache.lp }} von {{ drache.max_lp }}. Bonus-Schätze zählen nicht, die bringen nur extra Salzkörner.</p>
   {% if drache.max_lp <= 60 %}
   <ul class="sq-lp" aria-label="{{ drache.lp }} Lebenspunkte">{% for i in range(drache.max_lp) %}<li class="{{ '' if i < drache.lp else 'weg' }}"></li>{% endfor %}</ul>
   {% else %}
@@ -52,13 +52,13 @@
 
   {# Vorschau statt Rückblick: Der große Faktor gilt für den nächsten Beleg, nicht für den letzten #}
   {% if goldjahr %}
-  <div class="sq-combo{% if combo.wartet %} wartet{% endif %}" aria-live="polite"><span class="mult" title="Gold-Serie: So oft zählt das Gold für deinen nächsten Beleg">Gold ×{{ combo.naechster }}</span><span class="ruf">{{ combo.ruf }}</span>
-    <small class="sq-combo-regel">Nächster Beleg: {{ combo.basis }} × {{ combo.naechster }} = {{ combo.basis * combo.naechster }} Gold. Jeder Beleg lässt die Serie wachsen, Fragen treffen auch, aber die Serie wartet dann.</small>
+  <div class="sq-combo{% if combo.wartet %} wartet{% endif %}" aria-live="polite"><span class="mult" title="Serie: So oft zählen die Salzkörner für deinen nächsten Beleg">Serie ×{{ combo.naechster }}</span><span class="ruf">{{ combo.ruf }}</span>
+    <small class="sq-combo-regel">Nächster Beleg: {{ combo.basis }} × {{ combo.naechster }} = {{ koerner(combo.basis * combo.naechster) }}. Jeder Beleg lässt die Serie wachsen, Fragen treffen auch, aber die Serie wartet dann.</small>
   </div>
   {% else %}
   {# Alte Jahre zahlen kein Gold: Dann keine Zahl, die etwas verspricht #}
   <div class="sq-combo wartet" aria-live="polite"><span class="ruf">{{ "Volltreffer mit Beleg!" if frisch == "kritisch" else ("Treffer!" if frisch else "Der Drache wartet auf dich.") }}</span>
-    <small class="sq-combo-regel">Kein Gold in alten Jahren: Hier zählt nur der Sieg. Jeder Treffer nimmt dem Drachen eine Karte.</small>
+    <small class="sq-combo-regel">Keine Salzkörner in alten Jahren: Hier zählt nur der Sieg. Jeder Treffer nimmt dem Drachen eine Karte.</small>
   </div>
   {% endif %}
 
@@ -85,9 +85,9 @@
       {% endif %}
       {% if beute %}{% set karte_gold = beute.basis * beute.mult %}
       {% if beute.mult > 1 %}
-      <span class="sq-rechnung" aria-label="{{ beute.plus }} Gold verdient"><span class="chips">{{ beute.basis }}</span><span class="mal">×</span><span class="faktor">{{ beute.mult }}</span><span class="gleich">=</span><b>+{{ karte_gold }} Gold</b>{% if beute.plus > karte_gold %}<small>+{{ beute.plus - karte_gold }} Bonus</small>{% endif %}</span>
+      <span class="sq-rechnung" aria-label="{{ koerner(beute.plus) }} verdient"><span class="chips">{{ beute.basis }}</span><span class="mal">×</span><span class="faktor">{{ beute.mult }}</span><span class="gleich">=</span><b>+{{ karte_gold }} {{ salz }}</b>{% if beute.plus > karte_gold %}<small>+{{ beute.plus - karte_gold }} Bonus</small>{% endif %}</span>
       {% else %}
-      <span class="sq-rechnung" aria-label="{{ beute.plus }} Gold verdient"><b>+{{ karte_gold }} Gold</b>{% if beute.plus > karte_gold %}<small>+{{ beute.plus - karte_gold }} Bonus</small>{% endif %}{% if wurf.wie not in ["datei", "zettel", "verweis"] and combo.mult > 1 %}<small>ohne Serie, die zählt nur für Belege</small>{% endif %}</span>
+      <span class="sq-rechnung" aria-label="{{ koerner(beute.plus) }} verdient"><b>+{{ karte_gold }} {{ salz }}</b>{% if beute.plus > karte_gold %}<small>+{{ beute.plus - karte_gold }} Bonus</small>{% endif %}{% if wurf.wie not in ["datei", "zettel", "verweis"] and combo.mult > 1 %}<small>ohne Serie, die zählt nur für Belege</small>{% endif %}</span>
       {% endif %}
       {% endif %}
     </div>
@@ -106,7 +106,7 @@
         <input type="hidden" name="token" value="{{ token }}">
         <input type="hidden" name="stueck_id" value="{{ k.id }}">
         <div class="sq-ablage">
-          <label class="fach">Datei geben: Volltreffer, die Gold-Serie wächst doppelt!<input type="file" name="datei" multiple></label>
+          <label class="fach">Datei geben: Volltreffer, die Serie wächst doppelt!<input type="file" name="datei" multiple></label>
         </div>
         <div class="reihe">
           <button class="sq-siegelknopf" name="aktion" value="datei" data-datei-waehlen>Datei geben</button>
