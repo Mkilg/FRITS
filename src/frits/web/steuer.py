@@ -341,6 +341,7 @@ def register_steuer(
             ahnung=spiel.ahnung,
             ware=spiel.ware,
             hafen_angebot=spiel.hafen_angebot,
+            helfer_satz=spiel.im_kampf,
             **context,
         )
 
@@ -1533,6 +1534,9 @@ def register_steuer(
         combo = dict(app.state.steuer_combo.get(jahr, {"combo": 0, "ruf": spiel.RUFE[0]}))
         # Das Banner zeigt den echten Faktor (mit Kriegstrommel und Sanduhr), nicht die Zählung
         combo["mult"] = spiel.multiplikator(combo["combo"], daten["helfer"])
+        # Vorschau statt Rückblick: So viel bringt der nächste Beleg (ein Volltreffer zählt +2)
+        combo["basis"] = spiel.gold_fuer({"key": "", "gebiet": ""}, "gesammelt", daten["helfer"])
+        combo["naechster"] = spiel.multiplikator(combo["combo"] + 2, daten["helfer"])
         frisch = app.state.steuer_combo.get(jahr, {}).pop("frisch", False)
         wurf = app.state.steuer_wurf.pop(jahr, None) if frisch else None
         beute = app.state.steuer_combo.get(jahr, {}).pop("beute", None) if frisch else None
@@ -1628,13 +1632,18 @@ def register_steuer(
                 "wie": aktion,
             }
         alt = app.state.steuer_combo.get(jahr) or kampf_anfang()
-        combo, ruf = spiel.treffer(alt["combo"], kritisch, zaehlt=aktion != "gibts_nicht")
+        # Die Gold-Serie wächst nur mit Belegen: Sie vervielfacht nur Beleg-Gold, also soll sie
+        # auch nur mit Belegen wachsen. Fragen und "Gibt's nicht" treffen, die Serie wartet.
+        combo, ruf = spiel.treffer(alt["combo"], kritisch, zaehlt=kritisch)
+        if not kritisch and aktion != "gibts_nicht":
+            ruf = spiel.SERIE_WARTET
         if aktion == "gibts_nicht" and "trommel" in vorher["helfer"]:
             combo, ruf = 0, "Die Kriegstrommel verstummt. Die Serie ist weg."
         app.state.steuer_combo[jahr] = {
             "combo": combo,
             "ruf": ruf,
             "frisch": "kritisch" if kritisch else "treffer",
+            "wartet": not kritisch,
         }
         quest.notiere(conn(), jahr, "treffer", f"{s['name']} ({ruf})")
         mult = spiel.multiplikator(combo, vorher["helfer"])
@@ -1656,6 +1665,7 @@ def register_steuer(
             goldsummen=quest.goldsummen(conn(), jahr),
             regeln=spiel,
             goldjahr=spiel.gold_jahr(jahr, today()),
+            serie_start=spiel.start_serie(gewuerze()),
             **daten,
         )
 

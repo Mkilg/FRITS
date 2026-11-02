@@ -32,6 +32,7 @@
       <h3>{{ w.name }}</h3>
       <p>{{ w.text }}</p>
       {% if w.haken %}<p class="sq-haken"><b>Haken:</b> {{ w.haken }}</p>{% endif %}
+      {% if w.key == "sanduhr" and regeln.multiplikator(serie_start) > 3 %}<p class="sq-haken warnung"><b>Achtung:</b> Frittes Gewürze lassen dich gerade bei ×{{ regeln.multiplikator(serie_start) }} starten. Mit der Sanduhr sind es nur ×3.</p>{% endif %}
       {% if an %}
       <form method="post" action="/steuer/{{ jahr }}/markt/helfer"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="ware" value="{{ w.key }}"><input type="hidden" name="an" value="0">
         <span class="sq-ware-stand">Spielt mit</span> <button class="quiet">Pause machen</button></form>
