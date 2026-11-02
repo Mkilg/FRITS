@@ -133,6 +133,8 @@ def test_kassenbuch_groups_quest_bookings_of_one_day(tmp_path):
         "Willkommen",
     ]
     assert zeilen[1]["betrag"] == 5 and len(zeilen[1]["teile"]) == 3
+    # the head names the quest year, the lines inside don't repeat it (Lena, round 34)
+    assert [t["text"] for t in zeilen[1]["teile"]] == ["Zettel 2", "Zettel 1", "Zettel 0"]
     assert sum(z["betrag"] for z in zeilen) == stand.guthaben(conn)
 
 
