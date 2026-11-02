@@ -10,6 +10,16 @@ _COMPANY = re.compile(
     r"e\.\s?V\.|mbH|Ltd\.?|Inc\.?|PartG)(?=\W|$)",
     re.MULTILINE,
 )
+# An organisation without a legal form in its name: a broadcaster, a theatre, a university.
+# A line with one of these words (or ending in a short name in brackets, like "(rbb)") is
+# the company. Only a suggestion: Fritz sees the field before anything is saved.
+_ORGANISATION = re.compile(
+    r"\b(Rundfunk|Fernsehen|Radio|Sender|Verlag|Stiftung|Verein|Verband|Hochschule|Universität|"
+    r"Akademie|Theater|Oper|Philharmonie|Museum|Galerie|Agentur|Klinikum|Klinik|Krankenhaus|"
+    r"Kanzlei|Gemeinde|Landkreis|Ministerium|Behörde|Institut|Genossenschaft|Sparkasse|"
+    r"Versicherung|Festival|Kirchengemeinde|Bistum|Diakonie|Caritas)\w*\b"
+    r"|\([A-Za-zÄÖÜäöü]{2,8}\)\s*$",
+)
 _HONORIFIC = re.compile(r"^(Herr|Frau|Hr\.|Fr\.|Dr\.|Prof\.)\s+", re.IGNORECASE)
 
 
@@ -72,6 +82,8 @@ def details(text: str, nlp=None) -> dict[str, str]:
         found["name"] = found["name"].splitlines()[0].strip()
     if m := _COMPANY.search(text):
         found["company"] = m.group(0).strip(" ,|")
+    elif company := _organisation(text, found):
+        found["company"] = company
     if "name" not in found:
         for line in text.splitlines():
             line = line.strip(" -,")
@@ -79,3 +91,17 @@ def details(text: str, nlp=None) -> dict[str, str]:
                 found["name"] = line
                 break
     return found
+
+
+def _organisation(text: str, found: dict[str, str]) -> str | None:
+    """The line that names an organisation, unless it is the person, the address or a contact."""
+    taken = " ".join(found.values())
+    for line in text.splitlines():
+        line = line.strip(" -,|")
+        if not 3 <= len(line) <= 80 or line in taken or "@" in line or re.search(r"\d{3}", line):
+            continue
+        if found.get("name") and found["name"] in line:  # "Jana Weber (rbb)" is still Jana
+            continue
+        if _ORGANISATION.search(line):
+            return line
+    return None
