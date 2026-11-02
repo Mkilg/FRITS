@@ -712,3 +712,9 @@ details[open] > summary::before { content: "▾ "; }
    wave of Meersalz stood out). Painted pictures are left as they are. */
 .warm-zeichen, .zeichen-emoji, .glas-zeichen:not(:has(img)), .fund-chip > span, .gericht-zeichen, .za-zeichen,
 .zimmer .werkbank i { filter: sepia(.35) saturate(.7) contrast(.95); }
+
+/* Painted views of the five places: a postcard for the next Bude, small pictures on the map */
+.aussicht-karte { display: block; width: min(100%, 22rem); height: auto; aspect-ratio: 3 / 2; object-fit: cover; margin: .4rem 0 .7rem;
+  border: 6px solid #fffaf0; border-radius: 2px; box-shadow: 0 2px 0 var(--papier-schatten), 0 8px 18px rgba(60, 35, 10, .22); transform: rotate(-1.2deg); }
+.landkarte .aussicht-mini { width: 48px; height: 32px; object-fit: cover; border-radius: 2px; vertical-align: middle; margin-right: .35rem;
+  border: 2px solid #fffaf0; box-shadow: 0 1px 3px rgba(60, 35, 10, .25); }
