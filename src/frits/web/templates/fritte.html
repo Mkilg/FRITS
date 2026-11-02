@@ -22,8 +22,8 @@
       <p><strong>Wie soll Fritte feiern?</strong> Das kannst du jederzeit in den Einstellungen ändern.</p>
       <form method="post" action="/fritte/stil" class="stil-wahl">
         <input type="hidden" name="token" value="{{ token }}">
-        <button name="stil" value="verspielt"><span aria-hidden="true">🎉</span> Verspielt mit Klang<small>Karte für Karte, Gläser wackeln, kleine Töne</small></button>
-        <button name="stil" value="ruhig"><span aria-hidden="true">🌿</span> Ruhig und leise<small>Nur das Ergebnis und ein Stempel</small></button>
+        <button name="stil" value="verspielt">{{ zeichen("verspielt", "🎉") }} Verspielt mit Klang<small>Karte für Karte, Gläser wackeln, kleine Töne</small></button>
+        <button name="stil" value="ruhig">{{ zeichen("ruhig", "🌿") }} Ruhig und leise<small>Nur das Ergebnis und ein Stempel</small></button>
       </form>
     </div>
     {% endif %}
@@ -39,7 +39,7 @@
   <div class="haus-leiste">
     <p class="speech">{{ f.satz }}</p>
     <div class="haus-zahlen">
-      <p class="salz"><span aria-hidden="true">🧂</span> <strong data-zaehlen>{{ f.guthaben }}</strong> Salzkörner{% if f.bereit %} <a class="hint" href="#kassensturz">(+{{ f.bereit }} warten)</a>{% endif %}{% if truhen_zu %} <a class="truhe-wartet" href="#truhen">🎁 {{ "1 Truhe wartet" if truhen_zu | length == 1 else truhen_zu | length ~ " Truhen warten" }}</a>{% endif %}</p>
+      <p class="salz">{{ salz }} <strong data-zaehlen>{{ f.guthaben }}</strong> Salzkörner{% if f.bereit %} <a class="hint" href="#kassensturz">(+{{ f.bereit }} warten)</a>{% endif %}{% if truhen_zu %} <a class="truhe-wartet" href="#truhen">🎁 {{ "1 Truhe wartet" if truhen_zu | length == 1 else truhen_zu | length ~ " Truhen warten" }}</a>{% endif %}</p>
       <div class="wochen" title="In welchen der letzten {{ f.wochen | length }} Wochen du Papierkram gemacht hast">
         <span class="hint">Büro-Wochen</span>
         {% for w in f.wochen %}<span class="punkt{{ ' voll' if w }}" aria-label="{{ 'diese Woche' if loop.last else 'vor ' ~ (loop.length - loop.index) ~ ' Wochen' }}: {{ 'Papierkram gemacht' if w else 'Pause' }}"></span>{% endfor %}
@@ -107,7 +107,7 @@
     {% if drachenglaeser < drachen_max %}
     <form method="post" action="/fritte/drachengold" data-confirm="{{ drachen_preis }} Gold aus der Steuer-Quest {{ drachengold.jahr }} zu Drachenwürze einkochen?">
       <input type="hidden" name="token" value="{{ token }}">
-      <button>🫙 {{ drachen_preis }} Gold einkochen</button>
+      <button>{{ zeichen("einkochen", "🫙") }} {{ drachen_preis }} Gold einkochen</button>
     </form>
     {% endif %}
     {% endif %}
@@ -125,7 +125,7 @@
       <p><strong>{{ "Eine Truhe wartet" if truhen_zu | length == 1 else truhen_zu | length ~ " Truhen warten" }}.</strong> {{ truhen_zu[0].text }}{% if truhen_zu | length > 1 %} und mehr{% endif %}.</p>
       <form method="post" action="/fritte/truhe/oeffnen">
         <input type="hidden" name="token" value="{{ token }}">
-        <button class="primary gross">🎁 Truhe öffnen</button>
+        <button class="primary gross">{{ zeichen("truhe", "🎁") }} Truhe öffnen</button>
       </form>
       {% else %}
       <p>Gerade ist keine Truhe zu. Jede Karte echter Papierkram füllt die nächste ein Stück.</p>
@@ -159,21 +159,21 @@
   <div class="saison-ziel">
     <div class="balken" role="progressbar" aria-valuemin="0" aria-valuemax="{{ saison.ziel }}" aria-valuenow="{{ [saison.erreicht, saison.ziel] | min }}" aria-label="Saisonziel"><span style="width: {{ saison.prozent }}%"></span></div>
     {% if saison.geschafft %}
-    <p><strong>🏆 Saisonziel geschafft!</strong> Der Pokal steht in Frittes Zimmer.</p>
+    <p>{{ zeichen("pokal", "🏆") }} <strong>Saisonziel geschafft!</strong> Der Pokal steht in Frittes Zimmer.</p>
     {% else %}
     <p>Saisonziel: in <strong>{{ saison.ziel }} von {{ saison.wochen }} Wochen</strong> Papierkram machen. Bisher {{ "eine Woche" if saison.erreicht == 1 else saison.erreicht ~ " Wochen" }}{% if not saison.erreicht %} (gezählt wird ab Frittes Einzug){% endif %}. Geschafft gibt es {{ saison.bonus }} Salzkörner extra und einen Pokal. Urlaub und Pausen sind eingeplant, und wenn es nicht klappt, ist das auch gut: Die nächste Saison beginnt einfach neu.</p>
     {% endif %}
   </div>
   {% if not fest_moeglich %}
-  <p class="hint">🎉 {{ fest_name }}: ab der ersten Frittenbude kann Fritte in jeder Saison ein Fest feiern.</p>
+  <p class="hint">{{ zeichen("fest", "🎉") }} {{ fest_name }}: ab der ersten Frittenbude kann Fritte in jeder Saison ein Fest feiern.</p>
   {% else %}
   {% if saison.fest %}
-  <p>🎉 <strong>{{ fest_name }} {{ saison.fest[0] | lower ~ saison.fest[1:] }}:</strong> Die Wimpelkette hängt noch bis zum Ende der Saison. Im <a href="/fritte/album">Album</a> stehen alle Feste.</p>
+  <p>{{ zeichen("fest", "🎉") }} <strong>{{ fest_name }} {{ saison.fest[0] | lower ~ saison.fest[1:] }}:</strong> Die Wimpelkette hängt noch bis zum Ende der Saison. Im <a href="/fritte/album">Album</a> stehen alle Feste.</p>
   {% else %}
   <p><strong>{{ fest_name }}:</strong> Einmal in jeder Saison kann Fritte ein Fest in ihrer Bude feiern. Es kommt ins Album, und eine Wimpelkette hängt bis zum Saisonende. Kein Muss, einfach eine schöne Sache für gesparte Salzkörner.</p>
   <form method="post" action="/fritte/feiern" data-confirm="Das {{ fest_name }} für {{ fest_preis }} Salzkörner feiern?">
     <input type="hidden" name="token" value="{{ token }}">
-    <button {{ "disabled" if f.guthaben < fest_preis }}>Fest feiern für {{ fest_preis }} 🧂</button>
+    <button {{ "disabled" if f.guthaben < fest_preis }}>Fest feiern für {{ fest_preis }} {{ salz }}</button>
     {% if f.guthaben < fest_preis %}<span class="hint">Noch {{ fest_preis - f.guthaben }} Salzkörner.</span>{% endif %}
   </form>
   {% endif %}
@@ -187,18 +187,18 @@
     <li class="{{ 'erreicht' if st.nummer <= f.stufe else '' }}{{ ' im-bau' if f.bau == st.name else '' }}{{ ' jetzt' if st.nummer == f.stufe else '' }}">
       <span class="za-zeichen" aria-hidden="true">{{ st.zeichen }}</span>
       <strong>{{ st.name }}</strong>
-      {% if st.nummer > f.stufe %}<span class="hint">{{ bau_preis(st) }} 🧂</span>{% endif %}
+      {% if st.nummer > f.stufe %}<span class="hint">{{ bau_preis(st) }} {{ salz }}</span>{% endif %}
     </li>
     {% endfor %}
   </ol>
   {% if f.bau %}
-  <p>🚧 <strong>{{ f.bau }}</strong> wird gerade gebaut. Beim nächsten Kassensturz ist der Ausbau fertig.</p>
+  <p>{{ zeichen("baustelle", "🚧") }} <strong>{{ f.bau }}</strong> wird gerade gebaut. Beim nächsten Kassensturz ist der Ausbau fertig.</p>
   {% elif naechste %}
   {% set kosten = bau_preis(naechste) %}
   <p><strong>Nächster Ausbau: {{ naechste.name }}.</strong> {{ stufen_text(naechste) }}</p>
   <form method="post" action="/fritte/ausbauen" data-confirm="{{ naechste.name }} für {{ kosten }} Salzkörner bauen?">
     <input type="hidden" name="token" value="{{ token }}">
-    <button {{ "disabled" if f.guthaben < kosten }}>Ausbauen für {{ kosten }} 🧂</button>
+    <button {{ "disabled" if f.guthaben < kosten }}>Ausbauen für {{ kosten }} {{ salz }}</button>
     {% if f.guthaben < kosten %}<span class="hint">Noch {{ kosten - f.guthaben }} Salzkörner.</span>{% endif %}
   </form>
   {% elif naechster_ort %}
@@ -207,7 +207,7 @@
   <p><strong>Nächstes Ziel: eine neue Bude {{ dort }}.</strong> {{ naechster_ort.text }} Fritte nimmt ihre Sachen, ihr Gewürzregal und ihren guten Ruf mit: Jeder Kassensturz bekommt für immer +0,5 Würze. Das Haus fängt dort wieder als Zimmer an, und Bauen kostet etwas mehr.</p>
   <form method="post" action="/fritte/umziehen" data-confirm="Für {{ umzug_preis }} Salzkörner eine neue Bude {{ dort }} eröffnen?">
     <input type="hidden" name="token" value="{{ token }}">
-    <button {{ "disabled" if f.guthaben < umzug_preis }}>Neue Bude für {{ umzug_preis }} 🧂</button>
+    <button {{ "disabled" if f.guthaben < umzug_preis }}>Neue Bude für {{ umzug_preis }} {{ salz }}</button>
     {% if f.guthaben < umzug_preis %}<span class="hint">Noch {{ umzug_preis - f.guthaben }} Salzkörner.</span>{% endif %}
   </form>
   {% else %}
@@ -227,7 +227,7 @@
   <h2>Chronik</h2>
   <ul class="list chronik">
     {% for c in chronik %}
-    <li><a href="/fritte/kassensturz/{{ c.nummer }}"><span>Kassensturz Nr. {{ c.nummer }}</span><span class="muted">{{ c.tag | de_date }}</span><span class="amount">+{{ c.summe }} 🧂</span></a></li>
+    <li><a href="/fritte/kassensturz/{{ c.nummer }}"><span>Kassensturz Nr. {{ c.nummer }}</span><span class="muted">{{ c.tag | de_date }}</span><span class="amount">+{{ c.summe }} {{ salz }}</span></a></li>
     {% endfor %}
   </ul>
 </section>
