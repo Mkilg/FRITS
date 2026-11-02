@@ -276,7 +276,7 @@ def oeffnen(conn: sqlite3.Connection, heute: date) -> Truhe | None:
         art = fund["art"]
         if art == "ding":
             ding = haustier.DINGE[fund["id"]]
-            stand.nimm(conn, ding.id, "ding", tag, 0)
+            stand.nimm(conn, ding.id, "ding", stand.zeitstempel(heute), 0)
             if ding.art == "hut" and not stand.einstellung(conn, "hut"):
                 stand.setze(conn, "hut", ding.id)
             fund.update(name=ding.name, zeichen=ding.zeichen, text=ding.text, wo=ding.art)

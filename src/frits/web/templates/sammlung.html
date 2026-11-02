@@ -2,7 +2,7 @@
 {% block title %}Sammlung · FRITS{% endblock %}
 {% block head %}<link rel="stylesheet" href="/static/haustier.css">{% endblock %}
 {% macro muenze(k, gross=False) -%}
-<span class="muenze{{ ' gross' if gross }}" aria-hidden="true">{% if k.erreicht %}{% set gemalt = picture(k.bild) if k.bild else "" %}{% if gemalt %}<img src="{{ gemalt }}" alt="">{% else %}<span class="praegung">{{ k.zeichen }}</span>{% endif %}{% else %}?{% endif %}</span>
+<span class="muenze{{ ' gross' if gross }}" aria-hidden="true">{% if k.erreicht %}{% set gemalt = picture(k.bild) if k.bild else "" %}{% if gemalt %}<img src="{{ gemalt }}" alt="">{% else %}<span class="praegung">{{ k.zeichen }}</span>{% endif %}{% endif %}</span>
 {%- endmacro %}
 {% macro stueck(k) -%}
 <li class="stueck{{ ' da' if k.erreicht else ' offen' }}">

@@ -112,7 +112,7 @@ def test_one_showcase_with_stickers_orden_and_their_zierde(client, ws, monkeypat
     conn = store.connect(ws.db)
     client.get("/fritte")
     faecher = sammlung.faecher(conn, TODAY)
-    assert [f["id"] for f in faecher] == ["steuer", "schaetze", "alltag"]
+    assert [f["id"] for f in faecher] == ["steuer", "schaetze", "alltag", "saisons"]
     assert "Drache besiegt" not in [k["name"] for k in faecher[2]["kacheln"]]  # the Orden says it
     fund, ernte = faecher[0]["kacheln"]
     assert fund["erreicht"] and fund["jahre"] == [2024, 2025]
@@ -134,7 +134,7 @@ def test_the_showcase_without_quest_or_fritte(client, ws, monkeypatch):  # noqa:
 
     monkeypatch.setattr(quest, "orden_fuer_sammlung", kaputt, raising=False)
     conn = store.connect(ws.db)
-    assert [f["id"] for f in sammlung.faecher(conn, TODAY)] == ["schaetze", "alltag"]
+    assert [f["id"] for f in sammlung.faecher(conn, TODAY)] == ["schaetze", "alltag", "saisons"]
     s = Settings.load(ws.settings_file)
     replace(s, haustier=False).save(ws.settings_file)
     page = client.get("/sammlung")
@@ -209,3 +209,31 @@ def test_the_showcase_puts_the_newest_on_top_and_few_empty_places(client, ws):  
     assert page.index("Zuletzt verdient") < page.index('id="schaetze"')
     assert "Noch 3 Plätze frei" in page and "Als Nächstes" in page
     assert 'class="praegung"' in page  # one minted coin style for every sign
+
+
+def test_the_showcase_after_lenas_look(client, ws, monkeypatch):  # noqa: F811
+    """Lena on #117: an earned Orden whose sign is "?" looked empty, chest finds later the
+    same day did not come first, and there was no season shelf to find."""
+    from frits.steuer import quest
+
+    orden = [{"jahr": 2025, "key": "mutig-gefragt", "name": "Mutig gefragt", "zeichen": "?",
+              "beschreibung": "Eine Frage gestellt.", "erreicht": True, "zierde": "kirschbaum"}]  # fmt: skip
+    monkeypatch.setattr(quest, "orden_fuer_sammlung", lambda conn: orden, raising=False)
+    conn = store.connect(ws.db)
+    client.get("/fritte")
+    quest.ensure_schema(conn)
+    conn.execute(
+        "INSERT INTO steuer_chronik (jahr, zeit, art, text) VALUES"
+        f" (2025, '{TODAY.isoformat()}T00:00:01', 'erfolg', 'Mutig gefragt')"
+    )
+    stand.nimm(conn, "muschel", "ding", stand.zeitstempel(TODAY), 0)  # a chest find, later
+    faecher = sammlung.faecher(conn, TODAY)
+    oben = sammlung.zuletzt(faecher)
+    assert oben[0]["id"] == "schatz:muschel" and oben[0]["seit"] == TODAY.isoformat()
+    assert any(k["id"] == "orden:mutig-gefragt" for k in oben)
+    page = client.get("/sammlung").text
+    assert '<span class="praegung">?</span>' in page  # earned: its own sign in the coin
+    assert 'class="muenze" aria-hidden="true"></span>' in page  # open places: an empty coin, no "?"
+    saisons = next(f for f in faecher if f["id"] == "saisons")
+    assert saisons["als_naechstes"][0]["name"].startswith("Pokal ")
+    assert 'id="saisons"' in page
