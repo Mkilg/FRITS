@@ -269,6 +269,8 @@ def test_feierabend_shows_what_the_game_made_of_today(client, ws):  # noqa: F811
         ]
     )
     assert 'class="abspann-schlagzeile"' in page
+    # The credits come first: the old "Heute" counts move into "Alles von heute" (tester).
+    assert "<h2>Heute</h2>" not in page and "erstellt</li>" in page.split("Alles von heute")[1]
     assert all("Salzkörner" not in z for z in abspann.heute(conn, TODAY, mit_fritte=False))
 
 
