@@ -818,16 +818,21 @@ def verdiene(conn: sqlite3.Connection, jahr: int, grund: str, betrag: int, text:
 STORNO = "storno:"
 
 
-def stornierte_gruende(conn: sqlite3.Connection, jahr: int) -> set[str]:
-    """Gründe, deren Salzkörner schon einmal zurückgebucht wurden. Eine solche Karte war schon
-    gewertet: Legt man sie wieder ab, zahlt sie den Grundwert, aber keine Serie aus dem Kampf
-    mehr (sonst ließe sich durch Zurücklegen und Neuwerfen Salz farmen)."""
+def stornierte_gruende(conn: sqlite3.Connection, jahr: int) -> dict[str, int]:
+    """Gründe, deren Salzkörner schon einmal zurückgebucht wurden, mit dem kleinsten Betrag,
+    den sie damals gebracht haben. Eine solche Karte war schon gewertet: Legt man sie wieder ab,
+    zahlt sie höchstens den Grundwert und nie mehr als damals, ohne Serie aus dem Kampf (sonst
+    ließe sich durch Zurücklegen und Neuwerfen Salz farmen, auch mit einem neuen Helfer)."""
     ensure_schema(conn)
     rows = conn.execute(
-        "SELECT grund FROM steuer_gold WHERE jahr = ? AND substr(grund, 1, ?) = ?",
+        "SELECT grund, betrag FROM steuer_gold WHERE jahr = ? AND substr(grund, 1, ?) = ?",
         (jahr, len(STORNO), STORNO),
     ).fetchall()
-    return {r[0][len(STORNO) :].rsplit(":", 1)[0] for r in rows}
+    frueher: dict[str, int] = {}
+    for grund, betrag in rows:
+        g = grund[len(STORNO) :].rsplit(":", 1)[0]
+        frueher[g] = min(frueher.get(g, betrag), betrag)
+    return frueher
 
 
 def storniere(conn: sqlite3.Connection, jahr: int, grund: str, text: str) -> int:

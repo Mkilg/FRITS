@@ -18,6 +18,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
+from markupsafe import Markup, escape
 from starlette.concurrency import run_in_threadpool
 
 from frits import store, system
@@ -172,6 +173,13 @@ def textname(text: str) -> str:
     ][:6]
     name = " ".join(woerter)[:48].strip(" .-")
     return f"{name or 'Eingefügter Text'}.txt"
+
+
+def umbruch(name: str) -> Markup:
+    """Ein Dateiname, der nach _ - . umbrechen darf statt mitten im Wort
+    („Steuerbescheid_202 / 4_Finanzamt.pdf“, Lena Runde 39)."""
+    teile = re.split(r"(?<=[_\-.])", name)
+    return Markup("<wbr>").join(escape(t) for t in teile)
 
 
 # Karten, die Briefe aus dem Vorjahr erwarten: Für 2025 ist der Steuerbescheid 2024 richtig
@@ -466,6 +474,7 @@ def register_steuer(
             koerner=spiel.koerner,
             stutzen=offene_stutzen(),
             fremdes_jahr=fremdes_jahr,
+            umbruch=umbruch,
             kopf_rest=kopf_rest,
             **context,
         )
@@ -624,8 +633,8 @@ def register_steuer(
         goldjahr = spiel.gold_jahr(jahr, today())
         basis, faktor, plus, minus, minus_siegel = 0, 1, 0, 0, 0
         wuensche = quest.wunsch_funde(c, jahr)
-        schon = quest.stornierte_gruende(c, jahr)  # zurückgelegt und neu: ohne Serie
-        for v in spiel.verdienste(vorher["stuecke"], nachher["stuecke"], mult, helfer, schon):
+        frueher = quest.stornierte_gruende(c, jahr)  # zurückgelegt und neu: ohne Serie
+        for v in spiel.verdienste(vorher["stuecke"], nachher["stuecke"], mult, helfer, frueher):
             if not goldjahr:
                 break
             if ":wunsch:" in v.grund and v.grund.startswith("fund:"):
@@ -643,10 +652,14 @@ def register_steuer(
             minus += quest.storniere(c, jahr, grund, text)
         if goldjahr:
             alt = {s["id"]: s for s in vorher["stuecke"]}
+            frueher = quest.stornierte_gruende(c, jahr)
             for s in nachher["stuecke"]:
                 war = alt.get(s["id"])
                 if s["status"] == "offen" and war and war["status"] != "offen":
-                    wieder += spiel.gold_fuer(war, war["status"], helfer)
+                    art = "fund" if war["status"] == "gesammelt" else "antwort"
+                    grund = spiel.karten_grund(war, art)
+                    basis = spiel.gold_fuer(war, war["status"], helfer)
+                    wieder += min(basis, frueher.get(grund, basis))
         neu_siegel = {p.gebiet.id for p in nachher["provinzen"] if p.stand.siegel}
         wartend = [
             p.gebiet.titel
@@ -682,7 +695,7 @@ def register_steuer(
             elif zurueck:
                 text += (
                     f" Legst du sie wieder ab, bekommst du etwa {spiel.koerner(zurueck)} zurück."
-                    " Die Serie aus dem Kampf kommt nicht wieder."
+                    " Die Serie aus dem Kampf bekommt diese Karte nicht noch einmal."
                 )
             flash(text, "hinweis")
             for name in quest.decke_schulden(c, jahr):
@@ -1395,9 +1408,15 @@ def register_steuer(
         vorher = lage(jahr)
         d = quest.datei(conn(), jahr, datei_id)
         quest.entferne_datei(conn(), datei_id)
-        # Wer zurücklegt, verliert die Serie: sonst ließe sich die Combo hochtreiben
+        # Lena (Runde 39): Zurücklegen kostete die ganze Serie (×7 → ×2). Seit Runde 39 bringt
+        # eine schon gewertete Karte beim Wiederablegen keine Serie mehr, also lässt sich damit
+        # nichts hochtreiben: Die Serie bleibt stehen, nur die Karte verliert ihre Körner.
         if jahr in app.state.steuer_combo:
-            app.state.steuer_combo[jahr] = {"combo": 0, "ruf": spiel.RUFE[0]}
+            combo = app.state.steuer_combo[jahr]
+            for weg in ("frisch", "beute"):
+                combo.pop(weg, None)
+            combo["ruf"] = "Zurückgelegt. Deine Serie bleibt stehen."
+            combo["wartet"] = True
         if d and quest.ist_angabe(d["original"]):
             flash("Die Angabe ist gelöscht. Du kannst sie jederzeit neu eintippen.")
         else:
@@ -1736,7 +1755,10 @@ def register_steuer(
         ziel = quest.lege_beiseite(ws.root, name)
         app.state.steuer_stutzen.pop(name, None)
         if ziel is None:
-            flash("Den Zettel finde ich nicht mehr im Eingangskorb.")
+            flash(
+                "Den Zettel finde ich nicht mehr im Eingangskorb.",
+                link=(f"/steuer/{jahr}#sq-korb", "Zum Korb"),
+            )
         else:
             flash(
                 f"„{name}“ liegt jetzt im Ordner „{ziel.parent.name}“."
@@ -1878,6 +1900,14 @@ def register_steuer(
         # Vorschau statt Rückblick: So viel bringt der nächste Beleg (ein Volltreffer zählt +2)
         combo["basis"] = spiel.gold_fuer({"key": "", "gebiet": ""}, "gesammelt", daten["helfer"])
         combo["naechster"] = spiel.multiplikator(combo["combo"] + 2, daten["helfer"])
+        # Lena (Runde 39): Für eine schon gewertete Karte versprach die Seite „2 × 2 = 4“
+        karte = daten["drache"].karte
+        if karte:
+            frueher = quest.stornierte_gruende(conn(), jahr)
+            grund = spiel.karten_grund(karte, "fund")
+            if grund in frueher:
+                basis = spiel.gold_fuer(karte, "gesammelt", daten["helfer"])
+                combo["gewertet"] = min(basis, frueher[grund])
         frisch = app.state.steuer_combo.get(jahr, {}).pop("frisch", False)
         wurf = app.state.steuer_wurf.pop(jahr, None) if frisch else None
         beute = app.state.steuer_combo.get(jahr, {}).pop("beute", None) if frisch else None
@@ -1929,7 +1959,10 @@ def register_steuer(
             name = Path(str(form.get("zettel") or "")).name
             quelle = quest.lager(ws.root) / name
             if not name or not quelle.is_file():
-                flash("Den Zettel finde ich nicht mehr im Eingangskorb.")
+                flash(
+                    "Den Zettel finde ich nicht mehr im Eingangskorb.",
+                    link=(f"/steuer/{jahr}#sq-korb", "Zum Korb"),
+                )
                 return back(f"/steuer/{jahr}/drache#karte")
             z = None if form.get("trotzdem") == "1" else zweifel_an(jahr, s, quelle, name)
             if z is not None:
@@ -2002,6 +2035,9 @@ def register_steuer(
         }
         if wieder and jahr in app.state.steuer_wurf:
             app.state.steuer_wurf[jahr]["wieder"] = True
+        if wieder and vorher["drache"].lp <= 1:
+            # Lena (Runde 39): Bei der letzten Karte sah man den Satz der Serie nie
+            flash(spiel.SCHON_GEWERTET, "hinweis")
         quest.notiere(conn(), jahr, "treffer", f"{s['name']} ({ruf})")
         mult = spiel.multiplikator(combo, vorher["helfer"])
         if belohnen(jahr, vorher, ferne=False, mult=mult):
