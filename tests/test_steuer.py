@@ -2496,3 +2496,60 @@ def test_runde_21_insel_fuehrt_in_die_sammlung(client, ws):
     vitrine = client.get("/sammlung")
     assert vitrine.status_code == 200
     assert "Gutes Gedächtnis" in vitrine.text and "Brunnen" in vitrine.text
+
+
+def _fake_tagesziel(monkeypatch, n=3):
+    import sys
+    import types
+
+    attrappe = types.ModuleType("frits.spiel.tagesziel")
+    attrappe.zaehlen = lambda conn, heute: {
+        "erledigt": n,
+        "ziel": 3,
+        "geschafft": n >= 3,
+        "text": "Tagesziel geschafft",
+        "erklaerung": "",
+    }
+    monkeypatch.setitem(sys.modules, "frits.spiel.tagesziel", attrappe)
+
+
+def test_runde_21_tagwerk_gold_einmal_am_tag_ueber_alle_jahre(client, ws, monkeypatch):
+    # Lena (Runde 20): „Tagwerk +5“ wurde pro Reich doppelt gezahlt
+    _fake_tagesziel(monkeypatch)
+    for jahr in (2025, 2024):
+        fragebogen(client, jahr=jahr, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    for jahr in (2025, 2024):
+        s = next(s for s in quest.stuecke(conn, jahr) if s["status"] == "offen")
+        post(client, f"/steuer/{jahr}/stueck/{s['id']}/status", status="fragen")
+    tag = f"tagwerk:{date.today()}"
+    assert quest.hat_gold(conn, 2025, tag) and not quest.hat_gold(conn, 2024, tag)
+
+
+def test_runde_21_restgold_alter_siege_und_frittes_kurs(client, ws, monkeypatch):
+    from frits import haustier
+
+    gebucht = {}
+
+    def salz_aus_quest(conn, jahr, gold, text):
+        if jahr in gebucht:
+            return 0
+        gebucht[jahr] = gold // 2  # Frittes Kasse darf einen eigenen Kurs haben
+        return gebucht[jahr]
+
+    monkeypatch.setattr(haustier, "salz_aus_quest", salz_aus_quest, raising=False)
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    # Ein Jahr, das vor der einen Währung gewonnen wurde, mit Gold im Beutel
+    for s in spiel.pflicht(quest.stuecke(conn, 2025)):
+        quest.setze_status(conn, s["id"], "fragen")
+    erste = spiel.pflicht(quest.stuecke(conn, 2025))[0]
+    (ws.root / "beleg.pdf").write_bytes(b"%PDF beleg")
+    quest.sammeln(conn, ws.root, erste["id"], ws.root / "beleg.pdf")
+    assert spiel.drache(quest.stuecke(conn, 2025)).besiegt
+    quest.verdiene(conn, 2025, "test-alt", 40, "Altes Gold")
+    rest = quest.gold(conn, 2025)
+    seite = client.get("/steuer/2025")
+    assert f"Restgold aus dem gewonnenen Jahr 2025 ist zu {rest // 2} Salzkörnern" in seite.text
+    assert quest.gold(conn, 2025) == 0  # das ganze Restgold ging hinüber
+    assert "Restgold" not in client.get("/steuer/2025").text  # nur einmal
