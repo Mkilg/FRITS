@@ -320,10 +320,11 @@ main:has(.sq-tisch) > .flash { max-width: 760px; margin: 0.8rem auto; position: 
 .sq-siegelknopf:hover { transform: translateY(-2px); color: #fff; }
 .sq-siegelknopf:active { transform: translateY(2px); box-shadow: 0 2px 0 #5e1612; }
 .sq-siegelknopf:disabled { filter: grayscale(.8); opacity: .6; cursor: not-allowed; }
-.sq-stempelknopf { border: 2px solid currentColor !important; background: transparent !important; color: var(--tinte); font: 700 0.8rem var(--schrift); letter-spacing: .06em; text-transform: uppercase; padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer; }
+/* a stamp in sealing-wax red, not blue ink: no blue button anywhere (Lena, round 42) */
+.sq-stempelknopf { border: 2px solid currentColor !important; background: transparent !important; color: var(--wachs); font: 700 0.8rem var(--schrift); letter-spacing: .06em; text-transform: uppercase; padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer; }
 .sq-stempelknopf.gruen { color: var(--moos-dunkel); }
 .sq-stempelknopf.grau { color: #6d6150; }
-.sq-stempelknopf:hover { background: rgba(36, 57, 92, .08) !important; }
+.sq-stempelknopf:hover { background: rgba(179, 48, 42, .08) !important; }
 
 /* ---------- Fragebogen ---------- */
 .sq-fragebogen { max-width: 860px; margin: 0.5rem auto; padding: 1.6rem 2rem 1.4rem; }
@@ -740,7 +741,7 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
 .sq-siegelknopf.gross { font-size: 1.25rem; padding: 0.85rem 1.8rem; animation: sq-pochen 2.2s ease-in-out infinite; }
 .sq-intro-zurueck { color: var(--tinte); background: var(--papierkarte); padding: 0.45rem 0.9rem; border-radius: 2px; text-decoration: none; box-shadow: var(--karten-schatten); }
 .sq-intro-steuer { position: relative; z-index: 1; display: none; gap: 1rem; align-items: center; margin: 1.6rem 0 0; }
-.sq-intro-weiter { font: 700 1rem var(--schrift); padding: 0.55rem 1.2rem; border-radius: 999px; border: 0; cursor: pointer; background: var(--papierkarte); color: var(--tinte); box-shadow: 0 4px 0 #b39c68, 0 8px 16px rgba(0,0,0,.35); }
+.sq-intro-weiter { font: 700 1rem var(--schrift); padding: 0.55rem 1.2rem; border-radius: 999px; border: 0; cursor: pointer; background: var(--papierkarte); color: var(--eiche-tief); box-shadow: 0 4px 0 #b39c68, 0 8px 16px rgba(0,0,0,.35); }
 .sq-intro-weiter kbd { font: 600 0.7rem system-ui, sans-serif; padding: 0.1rem 0.35rem; border: 1px solid #c9b88e; border-radius: 3px; margin-left: 0.4rem; color: #8a7a5c; }
 .sq-intro-skip { color: #ffe3a6; font-size: 0.85rem; text-shadow: 0 1px 3px #000; }
 .sq-intro-hinweis { margin: 0; max-width: 34rem; color: #ffe3a6; font-size: 0.85rem; line-height: 1.4; text-shadow: 0 1px 3px #000; }
@@ -1489,7 +1490,7 @@ a.sq-beleg-vorschau:hover, a.sq-beleg-vorschau:focus-visible { transform: rotate
   .sq-insel.mit-bild { width: 100%; margin-left: 0; }
 }
 .sq-uebernommen { display: inline-block; margin-top: 0.2rem; padding: 0.1rem 0.45rem; border-radius: 999px; background: #e6efd6; color: #3e5a1c; font: 600 0.75rem system-ui, sans-serif; }
-.sq-belohnung-knoepfe .sq-hafen-knopf { text-transform: none; letter-spacing: 0; font-size: 0.92rem; text-decoration: none; padding: 0.45rem 0.8rem; color: var(--tinte); }
+.sq-belohnung-knoepfe .sq-hafen-knopf { text-transform: none; letter-spacing: 0; font-size: 0.92rem; text-decoration: none; padding: 0.45rem 0.8rem; color: var(--wachs); }
 
 /* Runde 19 (Lenas Blick auf Runde 18) */
 .sq-combo.wartet .mult { background: #7c6a58; box-shadow: 0 5px 0 #3e3227; }
