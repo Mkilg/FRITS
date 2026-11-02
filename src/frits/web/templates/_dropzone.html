@@ -11,15 +11,16 @@
   <input type="hidden" name="back" value="{{ dz_back or back_to or '' }}">
   <label class="dropzone" data-dropzone>
     <input type="file" name="files" multiple accept="{{ dz_accept or supported }}" data-autosubmit aria-describedby="einwurf-hilfe-{{ dz_id or 'eingang' }}">
-    <span class="dz-titel">{{ dz_icon or zeichen("ablage", "📥") }} {{ dz_title or "Hierher ziehen oder einfügen" }}</span>
+    {# Fingers can't drag or press ⌘V: on a touch screen the field says "tap" (Lena, round 36) #}
+    <span class="dz-titel">{{ dz_icon or zeichen("ablage", "📥") }} <span class="nur-maus">{{ dz_title or "Hierher ziehen oder einfügen" }}</span><span class="nur-touch">Tippen, um ein Foto oder eine Datei zu wählen</span></span>
     <small class="muted" id="einwurf-hilfe-{{ dz_id or 'eingang' }}">{{ dz_hint or "Notizen, E-Mails, PDFs, Fotos." }}
-      Kopiert? Dann einfach <kbd data-taste-cmd>⌘</kbd><kbd>V</kbd> drücken. Oder <u>Datei auswählen</u>.</small>
+      <span class="nur-maus">Kopiert? Dann einfach <kbd data-taste-cmd>⌘</kbd><kbd>V</kbd> drücken. Oder <u>Datei auswählen</u>.</span></small>
   </label>
   <details class="dz-text">
     <summary>{{ dz_text_label or "Text einfügen, z. B. aus einer E-Mail" }}</summary>
     <textarea name="text" rows="5" placeholder="Text hier hineinkopieren …" aria-label="{{ dz_text_label or 'Text einfügen' }}"></textarea>
     <div class="row"><button class="{{ 'primary' if dz_primary is not defined or dz_primary }}">{{ dz_send or "In den Eingang" }}</button>
-      <span class="muted dz-tipp"><kbd data-taste-cmd>⌘</kbd><kbd>↩</kbd> schickt ab</span></div>
+      <span class="muted dz-tipp nur-maus"><kbd data-taste-cmd>⌘</kbd><kbd>↩</kbd> schickt ab</span></div>
   </details>
   {% if dz_read %}
   <input type="hidden" name="lesen_merken" value="1">
