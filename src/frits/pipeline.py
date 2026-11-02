@@ -33,6 +33,7 @@ class Outcome:
     draft_id: int | None = None
     sha256: str | None = None  # for "skipped": which known file it was
     staged: str | None = None  # for "frueher": the token of the "Rechnung von früher" form
+    link: tuple[str, str] | None = None  # for "skipped": where it already is, and the button
 
 
 def file_hash(path: Path) -> str:
@@ -69,6 +70,13 @@ def process_file(
         # It goes to the "Rechnung von früher" form, read here and without any AI.
         target = _move(path, ws.done)
         job_id = store.add_job(conn, digest, target.name, "frueher")
+        number = frueher.lesen(source.text, (settings.name, settings.company)).get("number")
+        if number and conn.execute("SELECT 1 FROM invoices WHERE number = ?", (number,)).fetchone():
+            return Outcome(
+                "skipped",
+                f"Rechnung {number} ist schon nachgetragen. Du musst nichts mehr tun.",
+                link=(f"/invoices#r-{number}", "Zur Rechnung"),
+            )
         token = frueher.vormerken(
             ws.staging, target, source.text, settings, today or date.today(), job_id
         )

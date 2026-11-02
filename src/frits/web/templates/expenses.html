@@ -48,9 +48,10 @@
   <section class="card" id="neu">
     <h2>{{ "Diesen Beleg eintragen" if chosen else "Neue Ausgabe" }}</h2>
     {% if chosen and own_invoice %}
-    <div class="flash error eigene-rechnung">
-      <p><strong>Das ist deine eigene Rechnung, keine Ausgabe.</strong> Deine Kontonummer oder Steuernummer steht darauf. Trag sie als Rechnung von früher nach, dann zählt sie als Einnahme.</p>
-      <form method="post" action="/expenses/als-rechnung/{{ chosen.id }}"><input type="hidden" name="token" value="{{ token }}"><button class="primary">Als Rechnung von früher nachtragen</button></form>
+    <div class="flash{{ " error" if own_invoice == "sicher" }} eigene-rechnung">
+      {% if own_invoice == "sicher" %}<p><strong>Das ist deine eigene Rechnung, keine Ausgabe.</strong> Deine Kontonummer oder Steuernummer steht darauf. Trag sie als Rechnung von früher nach, dann zählt sie als Einnahme.</p>
+      {% else %}<p><strong>Ist das deine eigene Rechnung?</strong> Oben steht dein Name, und sie geht an jemand anderen. Dann ist sie keine Ausgabe: Trag sie als Rechnung von früher nach, dann zählt sie als Einnahme.</p>{% endif %}
+      <form method="post" action="/expenses/als-rechnung/{{ chosen.id }}"><input type="hidden" name="token" value="{{ token }}"><button{{ ' class="primary"' if own_invoice == "sicher" }}>Als Rechnung von früher nachtragen</button></form>
     </div>
     {% endif %}
     {% set g = guessed or {} %}

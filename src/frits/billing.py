@@ -39,7 +39,26 @@ LIMIT_THIS_YEAR = Decimal(100_000)
 
 
 class BillingError(Exception):
-    """A draft can't be finalized yet. The message tells Fritz what's missing."""
+    """A draft can't be finalized yet. The message tells Fritz what's missing, and `feld`
+    names the form field it is about, if any, so the page can point at it."""
+
+    feld: str | None = None
+
+    def __init__(self, *args, feld: str | None = None):
+        super().__init__(*args)
+        if feld:
+            self.feld = feld
+
+
+class EarlierNumberError(BillingError):
+    """The number of an earlier invoice doesn't fit: the page points at the number field."""
+
+    feld = "number"
+
+
+class NumberGap(EarlierNumberError):
+    """An earlier invoice would leave numbers out. Normal while entering old invoices one by
+    one, so Fritz may say "trotzdem nachtragen"; it also catches a typo."""
 
 
 @dataclass
@@ -529,7 +548,9 @@ EARLIER_TAX = {
 _EARLIER_NUMBER = re.compile(r"[A-Za-z0-9][A-Za-z0-9 ._/-]{0,39}")
 
 
-def _earlier_fits_sequence(conn, number: str, issue_date: date, pattern: str) -> None:
+def _earlier_fits_sequence(
+    conn, number: str, issue_date: date, pattern: str, gap_ok: bool = False
+) -> None:
     """A number in FRITS's own pattern must keep the series in time order.
 
     Fritz may have used the same pattern before FRITS. Such an invoice may be entered, but a
@@ -542,28 +563,56 @@ def _earlier_fits_sequence(conn, number: str, issue_date: date, pattern: str) ->
         return
     counter = int(mine.group(1))
     newest = 0
-    for row in conn.execute("SELECT number, issue_date FROM invoices"):
+    made_by_frits = False  # an invoice of this series FRITS wrote itself, not one entered
+    rows = conn.execute(
+        "SELECT i.number, i.issue_date, json_extract(d.data, '$.earlier') AS earlier"
+        " FROM invoices i LEFT JOIN drafts d ON d.id = i.draft_id"
+    )
+    for row in rows:
         other = regex.fullmatch(row["number"])
         if not other:
             continue
         theirs, day = int(other.group(1)), row["issue_date"]
         newest = max(newest, theirs)
+        made_by_frits = made_by_frits or not row["earlier"]
         if theirs < counter and day > issue_date.isoformat():
-            raise BillingError(
+            raise EarlierNumberError(
                 f"{number} kann nicht vom {issue_date:%d.%m.%Y} sein: Die kleinere Nummer "
                 f"{row['number']} ist erst vom {date.fromisoformat(day):%d.%m.%Y}. "
                 "Rechnungsnummern laufen mit der Zeit mit. Prüf Nummer und Datum."
             )
         if theirs > counter and day < issue_date.isoformat():
-            raise BillingError(
+            raise EarlierNumberError(
                 f"{number} kann nicht vom {issue_date:%d.%m.%Y} sein: Die größere Nummer "
                 f"{row['number']} ist schon vom {date.fromisoformat(day):%d.%m.%Y}. "
                 "Rechnungsnummern laufen mit der Zeit mit. Prüf Nummer und Datum."
             )
-    if newest and counter > newest + 1:
-        raise BillingError(
-            f"{number} würde eine Lücke in deine Nummern reißen: Die letzte ist "
-            f"{_template.format(counter=newest)}. Prüf die Nummer."
+    if newest and counter > newest + 1 and (made_by_frits or not gap_ok):
+        # Named the way Fritz writes them: 2025-008, even if FRITS's pattern says NNNN.
+        width = len(mine.group(1))
+
+        def written(n: int) -> str:
+            return number[: mine.start(1)] + f"{n:0{width}d}" + number[mine.end(1) :]
+
+        missing = [written(n) for n in range(newest + 1, counter)]
+        named = (
+            missing[0]
+            if len(missing) == 1
+            else f"{missing[0]} und {missing[1]}"
+            if len(missing) == 2
+            else f"{missing[0]} bis {missing[-1]}"
+        )
+        if made_by_frits:
+            # FRITS already numbers this series itself: a gap there could never be filled.
+            raise EarlierNumberError(
+                f"{number} würde eine Lücke in deine Nummern reißen: Vor ihr fehlen "
+                f"{named}, und FRITS schreibt in dieser Reihe schon selbst Rechnungen. "
+                "Prüf die Nummer."
+            )
+        raise NumberGap(
+            f"Vor {number} fehlen in FRITS noch {named}. Die letzte ist {written(newest)}. "
+            "Beim Nachtragen ist das normal, die anderen kannst du später nachtragen. "
+            "Stimmt die Nummer, dann trag sie trotzdem nach."
         )
 
 
@@ -582,6 +631,7 @@ def add_earlier(
     original: bytes | None = None,
     invoices_dir: Path | None = None,
     today: date | None = None,
+    gap_ok: bool = False,
 ) -> str:
     """Enter an invoice Fritz wrote before FRITS, so EÜR, UStVA and his list are complete.
 
@@ -595,23 +645,26 @@ def add_earlier(
     if not _EARLIER_NUMBER.fullmatch(number):
         raise BillingError(
             "Bitte die Rechnungsnummer so eingeben, wie sie auf der Rechnung steht "
-            "(Buchstaben, Ziffern, - / . und höchstens 40 Zeichen)."
+            "(Buchstaben, Ziffern, - / . und höchstens 40 Zeichen).",
+            feld="number",
         )
     if not customer:
-        raise BillingError("Bitte den Kunden eingeben.")
+        raise BillingError("Bitte den Kunden eingeben.", feld="customer")
     if tax not in EARLIER_TAX:
-        raise BillingError("Bitte wählen, wie die Rechnung besteuert war.")
+        raise BillingError("Bitte wählen, wie die Rechnung besteuert war.", feld="tax")
     if net is None or net <= 0:
-        raise BillingError("Bitte den Betrag eingeben.")
+        raise BillingError("Bitte den Betrag eingeben.", feld="net")
     if issue_date > today:
-        raise BillingError("Eine Rechnung von früher kann nicht in der Zukunft liegen.")
+        raise BillingError(
+            "Eine Rechnung von früher kann nicht in der Zukunft liegen.", feld="issue_date"
+        )
     if service_date and service_date > today:
-        raise BillingError("Das Leistungsdatum liegt in der Zukunft.")
+        raise BillingError("Das Leistungsdatum liegt in der Zukunft.", feld="service_date")
     if paid_date and (paid_date > today or paid_date < issue_date - timedelta(days=366)):
-        raise BillingError("Bitte das Zahldatum prüfen.")
+        raise BillingError("Bitte das Zahldatum prüfen.", feld="paid")
     if conn.execute("SELECT 1 FROM invoices WHERE number = ?", (number,)).fetchone():
-        raise BillingError(f"Die Rechnungsnummer {number} gibt es in FRITS schon.")
-    _earlier_fits_sequence(conn, number, issue_date, settings.number_pattern)
+        raise EarlierNumberError(f"Die Rechnungsnummer {number} gibt es in FRITS schon.")
+    _earlier_fits_sequence(conn, number, issue_date, settings.number_pattern, gap_ok)
     snapshot = {
         "19": {"mode": "regelbesteuerung", "rate": "19", "customer": ""},
         "7": {"mode": "regelbesteuerung", "rate": "7", "customer": ""},

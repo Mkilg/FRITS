@@ -108,8 +108,12 @@
   {% if v.steuernummer %}<input type="hidden" name="steuernummer" value="{{ v.steuernummer }}">{% endif %}
   {% if v.ust_id %}<input type="hidden" name="ust_id" value="{{ v.ust_id }}">{% endif %}
   <label class="field">Dein Stundensatz in € <input name="hourly_rate" inputmode="decimal" value="{{ settings.hourly_rate | qty if settings.hourly_rate else '' }}"></label>
-  {% include "_prices.html" %}
-  <p class="hint">Keine Sorge: Auch deine eigenen Angaben bekommt die KI nie zu sehen. Dein Name, deine Adresse und deine IBAN werden vor jeder Anfrage auf diesem Computer geschwärzt, genau wie die deiner Kunden.</p>
+  {# Not needed for the first invoice: folded away, open once something is in it #}
+  <details class="mehr-felder" {{ "open" if settings.price_list }}>
+    <summary>Preisliste für alles, was nicht nach Stunden geht (freiwillig, geht auch später)</summary>
+    {% include "_prices.html" %}
+  </details>
+  <p class="hint">Auch deine eigenen Angaben sieht die KI nie: Sie werden vorher auf diesem Computer geschwärzt.</p>
 
   {% elif step == "tax_status" %}
   <label class="choice big"><input type="radio" name="tax_mode" value="kleinunternehmer" {{ "checked" if settings.tax_mode == "kleinunternehmer" }}> <span><strong>Kleinunternehmer</strong> (§&nbsp;19&nbsp;UStG)</span><br><span class="muted">Keine Umsatzsteuer auf der Rechnung. Typisch, wenn du weniger als 25.000 € im Jahr umsetzt.</span></label>
@@ -154,7 +158,7 @@
   </details>
 
   {% elif step == "trick_document" %}
-  <p>Dieses Dokument versucht, FRITS auszutricksen. Wir spielen eine KI, die darauf hereinfällt (es wird keine echte KI gefragt), und schauen, was am Ende in deinem Entwurf steht.</p>
+  <p>Wir spielen eine KI, die darauf hereinfällt (ohne echte KI), und schauen, was in deinem Entwurf landet.</p>
   {% if demo %}
   <div class="compare">
     <div>
@@ -166,7 +170,7 @@
         <li>{{ "%g" | format(item.quantity) }} {{ item.unit }} {{ item.description }}: {{ item.stated_price | int }} €{% if item in demo.dropped %} <span class="tag bad">erfunden</span>{% endif %}</li>
         {% endfor %}
       </ul>
-      {% if demo.dropped %}<p class="muted">{% for item in demo.dropped %}„{{ item.description }}“{% endfor %} steht nirgends im Dokument. Die getäuschte KI hat das frei erfunden, so wie KIs manchmal Dinge dazudichten.</p>{% endif %}
+      {% if demo.dropped %}<p class="muted">Erfunden heißt: steht nirgends im Dokument. KIs dichten manchmal etwas dazu.</p>{% endif %}
     </div>
     <div>
       <h3>3. Der Entwurf, den du bekommst</h3>
@@ -192,13 +196,15 @@
     </div>
   </div>
   <div class="lesson">
-    <strong>Warum klappt der Trick nicht?</strong>
+    <strong>Warum klappt der Trick nicht?</strong> Preise kommen nur aus deinen Einstellungen, und was nicht im Dokument steht, fliegt raus.
+    <details><summary>Die vier Regeln dahinter</summary>
     <ul class="plain">
       <li>Preise kommen immer aus deinen Einstellungen, nie aus dem Dokument oder von der KI. Die 500 € sind wirkungslos.</li>
       <li>Jede Position braucht ein wörtliches Zitat aus dem Dokument. Was die KI erfindet, fliegt raus.</li>
       <li>„Beratung 1000 EUR“ steht zwar im Text, bekommt aber keinen Preis, bis du selbst einen einträgst.</li>
       <li>Die KI hat keine Werkzeuge: Sie kann nichts verschicken, löschen oder bezahlen. Sie kann nur Text zurückgeben.</li>
     </ul>
+    </details>
   </div>
   {% else %}
   <pre class="paper">Erika Meier, 5.11.2026: 2 Std Fenster geputzt.
