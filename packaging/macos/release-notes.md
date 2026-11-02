@@ -15,6 +15,15 @@ Sagt der Mac stattdessen, die App sei „beschädigt“: Terminal öffnen, `xatt
 
 Läuft ohne Internet, auf Macs mit Apple-Chip und Intel, ab macOS 13. Deine Daten liegen in `Dokumente/FRITS`, nicht im App-Ordner.
 
+### Neu in 1.7.0
+- **Einfacher:** Oben stehen nur noch fünf Orte (Heute, Rechnungen, Ausgaben, Kunden, Steuer-Quest). Entwürfe und Angebote sind Reiter unter Rechnungen, EÜR und Umsatzsteuer Reiter unter Ausgaben. Auf Heute sagt „Als Nächstes“, was jetzt dran ist. Die Einstellungen sind in Fächer sortiert.
+- **Ein Chat** statt Notfall-Chat und freiem Chat. Klappt das Schwärzen nicht ganz, wartet die Datei schon im Chat, und nichts geht raus. Die KI-Kosten stehen im Chat und unter Einstellungen › KI, bei lokaler KI mit „0 €“.
+- **Rechnungen von früher** einfach hineinziehen: FRITS liest sie auf deinem Mac ohne KI und fragt „Schon bezahlt?“. Eine eigene alte Rechnung, die auf Heute landet, wird erkannt und nicht mehr zur Ausgabe.
+- **Verwerfen** auf den Prüf-Bildschirmen.
+- **Steuer-Quest aufgeräumt:** eine schlanke Insel mit einem Ablagefeld, die Provinz zeigt einen Zettel nach dem anderen, und deine FRITS-Rechnungen kommen von selbst mit. Der Hafenmarkt ist ein Marktstand.
+- **Spiel:** Fritte und die Steuer-Quest teilen sich einen Beutel mit Salzkörnern. Der Feierabend beginnt mit einem Abspann. Statt Emojis gibt es gemalte Symbole.
+- Rechnungen: „z. Hd.“ steht unter der Firma, und der eigene Name wird nie Kunde.
+
 ### Neu in 1.6.0
 - **Neuer Look:** Jede Seite liegt auf einem Eichenbrett mit hellen Papierkarten. Pro Seite gibt es einen Hauptknopf. Auf dem Handy gibt es unten eine Tab-Leiste.
 - **Fritte wird ein richtiges Spiel:** Echter Papierkram füllt Truhen mit Schätzen, Gewürzen und Körnern. Gewürze zeigen ihre Wirkung, dazu kommen ein Tagesziel, ein Saison-Streifen und eine gemeinsame **Sammlung** (unter /sammlung). Das System ist verdichtet auf eine Börse und ein Kassenbuch. Alte Spielstände werden übernommen.
