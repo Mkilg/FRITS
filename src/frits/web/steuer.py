@@ -466,6 +466,7 @@ def register_steuer(
         zweifel = spiel.zweifel(alle)
         wach = spiel.drache_wach(alle) or jahr in app.state.steuer_notausgang
         besitz = quest.besitz(c, jahr)
+        kiste = quest.kiste_stand(c, jahr)
         return {
             "jahr": jahr,
             "profil": p,
@@ -487,7 +488,8 @@ def register_steuer(
             "weg": spiel.weg_zum_zeitalter(gesamt),
             "drache": drache,
             "drache_wach": wach,
-            "auftrag": spiel.auftrag(jahr, staende, drache, zettel, alle, wach),
+            "auftrag": spiel.auftrag(jahr, staende, drache, zettel, alle, wach, kiste),
+            "kiste": kiste,
             **tagesstand(alle),
             "zweifel": zweifel,
             "burg_fehlt": not any(g.provinz.key == "burg" for g in gebiete),
@@ -502,8 +504,8 @@ def register_steuer(
         Das älteste Steuerjahr, dessen Fundkiste noch nicht gepackt ist, weil es zuerst fällig
         ist. None ohne Quest oder wenn jede Fundkiste gepackt ist."""
         for jahr in quest_jahre():
-            if quest.hat_notiz(c, jahr, "truhe"):
-                continue
+            if quest.kiste_stand(c, jahr) == (0, 0):
+                continue  # gepackt und aktuell; neue Belege danach melden sich (Lena, Runde 33)
             a = lage(jahr)["auftrag"]
             ziel = a.ziel if a.ziel.startswith("/") else f"/steuer/{jahr}{a.ziel}"
             return {"jahr": jahr, "art": a.art, "titel": a.titel, "text": a.text,
@@ -593,6 +595,9 @@ def register_steuer(
                 wuensche += 1
             if quest.verdiene(c, jahr, v.grund, v.betrag, v.text):
                 basis, faktor, plus = basis + v.basis, v.mult, plus + v.betrag
+        if plus and ferne and app.state.flashes and app.state.flashes[-1]["kind"] == "beute":
+            # Lena (Runde 33): Das Banner zum Fund nannte die Körner nicht
+            app.state.flashes[-1]["text"] += f" · +{spiel.koerner(plus)}"
         # Wieder offen: Das Gold dafür geht zurück (sonst lohnt ein Fehlwurf bei ×8)
         for grund, text in spiel.rueckbuchungen(vorher["stuecke"], nachher["stuecke"]):
             minus += quest.storniere(c, jahr, grund, text)
@@ -2024,6 +2029,7 @@ def register_steuer(
             lager=quest.lager_dateien(ws.root),
             noch_frei=noch_frei(daten),
             schatz_salz=schatz_salz(jahr, daten),
+            kiste_aenderung=spiel.kiste_aenderung(*daten["kiste"]) if daten["kiste"] else "",
             **daten,
         )
 
@@ -2061,6 +2067,7 @@ def register_steuer(
             app.state.steuer_passwort.pop(jahr, None)
             flash("Die Fundkiste ist gepackt, ohne Passwort.", "erfolg", "done")
         quest.notiere(conn(), jahr, "truhe", ziel.name)
+        quest.kiste_gepackt(conn(), jahr)
         return back(f"/steuer/{jahr}/sieg")
 
     @app.post("/steuer/{jahr}/beraterin/daten", dependencies=guarded)

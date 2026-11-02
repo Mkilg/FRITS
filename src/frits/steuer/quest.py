@@ -84,6 +84,11 @@ CREATE TABLE IF NOT EXISTS steuer_schuld (
     jahr INTEGER PRIMARY KEY,      -- Salzkörner, die beim Zurückbuchen im Beutel fehlten
     betrag INTEGER NOT NULL        -- (schon ausgegeben): decke_schulden holt sie zurück
 );
+CREATE TABLE IF NOT EXISTS steuer_kiste (
+    jahr INTEGER PRIMARY KEY,      -- Stand beim letzten Packen der Fundkiste: höchste Datei-id
+    bis_datei INTEGER NOT NULL,    -- und Anzahl, damit „neu packen“ auffällt (Lena, Runde 33)
+    anzahl INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS steuer_besitz (
     jahr INTEGER NOT NULL,
     ware TEXT NOT NULL,            -- siehe spiel.MARKT
@@ -691,6 +696,47 @@ def hat_notiz(conn: sqlite3.Connection, jahr: int, art: str, text: str | None = 
         sql += " AND text = ?"
         args.append(text)
     return conn.execute(sql, args).fetchone() is not None
+
+
+def kiste_gepackt(conn: sqlite3.Connection, jahr: int) -> None:
+    """Merkt sich, welche Dateien in der eben gepackten Fundkiste liegen."""
+    ensure_schema(conn)
+    bis, anzahl = conn.execute(
+        "SELECT COALESCE(MAX(id), 0), COUNT(*) FROM steuer_dateien WHERE jahr = ?", (jahr,)
+    ).fetchone()
+    with transaction(conn):
+        conn.execute(
+            "INSERT OR REPLACE INTO steuer_kiste (jahr, bis_datei, anzahl) VALUES (?, ?, ?)",
+            (jahr, bis, anzahl),
+        )
+
+
+def kiste_stand(conn: sqlite3.Connection, jahr: int) -> tuple[int, int] | None:
+    """None, solange die Fundkiste nie gepackt wurde. Sonst (neu, weg): Dateien, die seit dem
+    Packen dazukamen oder herausgenommen wurden. (0, 0) heißt: Die Kiste ist aktuell."""
+    ensure_schema(conn)
+    row = conn.execute(
+        "SELECT bis_datei, anzahl FROM steuer_kiste WHERE jahr = ?", (jahr,)
+    ).fetchone()
+    if row is None:
+        # Vor Runde 34 gepackt: nur die Chronik kennt den Zeitpunkt
+        zeit = conn.execute(
+            "SELECT MAX(zeit) FROM steuer_chronik WHERE jahr = ? AND art = 'truhe'", (jahr,)
+        ).fetchone()[0]
+        if zeit is None:
+            return None
+        neu = conn.execute(
+            "SELECT COUNT(*) FROM steuer_dateien WHERE jahr = ? AND hinzugefuegt > ?",
+            (jahr, zeit),
+        ).fetchone()[0]
+        return neu, 0
+    bis, anzahl = row
+    neu, alt = conn.execute(
+        "SELECT COALESCE(SUM(id > ?), 0), COALESCE(SUM(id <= ?), 0) FROM steuer_dateien"
+        " WHERE jahr = ?",
+        (bis, bis, jahr),
+    ).fetchone()
+    return neu, max(0, anzahl - alt)
 
 
 # ---------- Vergleich mit dem Vorjahr ----------

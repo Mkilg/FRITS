@@ -406,6 +406,7 @@ def auftrag(
     zettel: int,
     stuecke: list[dict],
     drache_wach: bool = False,
+    kiste: tuple[int, int] | None = None,
 ) -> Auftrag:
     """Genau ein klarer nächster Schritt, mit Belohnung.
 
@@ -426,6 +427,24 @@ def auftrag(
             )
         elif frei:
             rest = " Dort steht auch, was sich freiwillig noch lohnt."
+        if kiste is not None:
+            # Lena (Runde 33): Nach dem Packen hieß es weiter „Pack die Fundkiste“
+            aenderung = kiste_aenderung(*kiste)
+            if aenderung:
+                return Auftrag(
+                    "sieg",
+                    "Pack die Fundkiste neu",
+                    f"{aenderung} Pack sie neu, damit deine Beraterin alles bekommt." + rest,
+                    "Zur Fundkiste",
+                    f"{basis}/sieg#kiste",
+                )
+            return Auftrag(
+                "sieg",
+                "Die Fundkiste ist gepackt",
+                f"Schick sie deiner Beraterin, dann ist {jahr} erledigt." + rest,
+                "Zur Fundkiste",
+                f"{basis}/sieg#kiste",
+            )
         return Auftrag(
             "sieg",
             "Hol dir deine Beute",
@@ -568,6 +587,16 @@ GOLD_JAHRE = 2  # Gold gibt es für dieses Jahr und die zwei davor (Abgabe mit B
 def koerner(n: int) -> str:
     """ "1 Salzkorn", "3 Salzkörner": die eine Währung, richtig gebeugt."""
     return f"{n} Salzkorn" if abs(n) == 1 else f"{n} Salzkörner"
+
+
+def kiste_aenderung(neu: int, weg: int) -> str:
+    """„2 neue Belege und 1 Beleg herausgenommen seit dem Packen.“ Leer, wenn nichts anders ist."""
+    teile = []
+    if neu:
+        teile.append("1 neuer Beleg" if neu == 1 else f"{neu} neue Belege")
+    if weg:
+        teile.append(f"{weg} Beleg{'e' if weg > 1 else ''} herausgenommen")
+    return f"{' und '.join(teile)} seit dem Packen." if teile else ""
 
 
 def gold_jahr(jahr: int, heute: date) -> bool:
