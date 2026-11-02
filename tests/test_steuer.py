@@ -3096,3 +3096,21 @@ def test_runde_36_rueckfrage_verschwindet_wenn_die_karte_erledigt_ist(client, ws
     (ws.root / "beleg.pdf").write_bytes(b"%PDF beleg")
     quest.sammeln(conn, ws.root, karte["id"], ws.root / "beleg.pdf")
     assert "Trotzdem zu" not in client.get("/steuer/2025").text
+
+
+def test_runde_37_erster_schatz_ist_die_erste_zeile(client, ws):
+    """Lena (Runde 36): Die Liste begann mit der Burg, der Knopf führte in die Werkstatt."""
+    _besiegt_mit_bonus(client, ws)
+    sieg = client.get("/steuer/2025/sieg").text
+    box = sieg[sieg.index('class="sq-papier sq-noch-frei"') :]
+    erste_zeile = re.search(r'<li><a href="([^"]+)"', box).group(1)
+    knopf = re.search(r'href="([^"]+)">Zum ersten Schatz', box).group(1)
+    assert knopf == erste_zeile
+    assert "und 1 weitere<" not in box and "und 1 weitere " not in box
+
+
+def test_runde_37_belegbuch_klappt_nach_provinz(client, ws):
+    _besiegt = _besiegt_mit_bonus(client, ws)
+    seite = client.get("/steuer/2025/belege").text
+    assert seite.count('<details class="sq-buch-klappe" open>') >= 1
+    assert "1 Datei" in seite and "Zur Provinz" in seite

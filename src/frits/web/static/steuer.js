@@ -968,4 +968,17 @@
     zettel.style.left = links + window.scrollX + "px";
     zettel.style.top = r.top + window.scrollY - zettel.offsetHeight - 8 + "px";
   });
+
+  // ---------- Belegbuch am Handy: nur eine Provinz offen (Lena, Runde 36) ----------
+  // Ohne JavaScript oder am großen Bildschirm bleiben alle offen. Ein Anker (#karte-…) öffnet seine Provinz.
+  (function () {
+    var klappen = document.querySelectorAll("details.sq-buch-klappe");
+    if (!klappen.length || !window.matchMedia || !window.matchMedia("(max-width: 600px)").matches) return;
+    var ziel = location.hash ? document.getElementById(location.hash.slice(1)) : null;
+    var zielKlappe = ziel && ziel.closest ? ziel.closest("details.sq-buch-klappe") : null;
+    klappen.forEach(function (d, i) {
+      d.open = zielKlappe ? d === zielKlappe : i === 0;
+    });
+    if (ziel) ziel.scrollIntoView();
+  })();
 })();
