@@ -122,7 +122,8 @@ def test_fritte_page_shows_dishes_and_what_each_jar_does(client, ws):  # noqa: F
     page = client.get("/fritte").text
     assert "Was kocht Fritte heute dazu?" in page and "Einkochen" in page
     assert 'name="rezept"' in page and "required" in page
-    assert page.count('name="rezept"') > page.count(" checked>") == 1  # the best dish, chosen
+    # Lena: at most one dish is chosen already, and only one that brings more than no dish
+    assert page.count(" checked oninvalid=") <= 1 and "Wähl erst ein Gericht" in page
     assert "Pfeffer:</strong> 1 von 3 Kartenarten" in page
 
 

@@ -298,3 +298,6 @@ def test_a_waiting_chest_ends_its_sentence_once(client, ws):  # noqa: F811
     post(client, "/fritte/kassensturz")
     page = client.get("/fritte").text
     assert "Mach sie auf!" in page and "Mach sie auf!." not in page
+    truhen.truhe_geben(conn, "glueck:test", text="Glückskarte: Test", heute=TODAY)
+    page = client.get("/fritte").text
+    assert "Mach sie auf! Glückskarte: Test." in page and "und mehr" not in page  # both named

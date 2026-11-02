@@ -215,6 +215,12 @@ def register_haustier(
         gericht_summe = {
             g.id: kassensturz.vorschau(conn, today(), sauber, g.id)[1]["summe"] for g in gerichte
         }
+        # Lena: chosen already is the dish that brings the most today, and only one that
+        # really brings something (Einkochen stays a deliberate choice). None: none chosen.
+        bringen = {
+            i: s for i, s in gericht_summe.items() if i != "einkochen" and s > vorschau["summe"]
+        }
+        gericht_vorwahl = max(bringen, key=lambda i: bringen[i]) if bringen else ""
         geschaetzt = {d.id for d in haustier.SCHAETZE if d.id in f.gekauft}
         jetzt = saison.jetzt(conn, today())
         return page(
@@ -253,6 +259,7 @@ def register_haustier(
             wirkt=kassensturz.wirkungen(conn, today(), sauber, dicts, [*extras, *regal]),
             gerichte=gerichte,
             gericht_summe=gericht_summe,
+            gericht_vorwahl=gericht_vorwahl,
             plaetze=kassensturz.plaetze(conn),
             kassenbuch=stand.kassenbuch(conn),
             arten=stand.ARTEN_TEXT,
