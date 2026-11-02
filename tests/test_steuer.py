@@ -674,18 +674,16 @@ def test_frits_ernte_im_browser(client, ws):
     assert "Sag einmal, zu welchem Betrieb" in page.text
     page = post(client, "/steuer/2025/ernte", gebiet="werkstatt-1")
     assert (
-        "FRITS-Ernte eingebracht: 1 Rechnung, die EÜR mit Buchungsliste und Verfahrensdoku → Werkstatt"
+        "Aus FRITS dazugekommen: 1 Rechnung, die EÜR mit Buchungsliste und Verfahrensdoku → Werkstatt"
         in page.text
     )
-    assert "Alles aus FRITS ist schon auf der Insel" in page.text
+    assert "Sag einmal, zu welchem Betrieb" not in page.text  # erledigt: der Zettel verschwindet
     page = post(client, "/steuer/2025/ernte", gebiet="gehoeft-1")
     assert "Wähle aus, zu welchem Betrieb" in page.text
     # Danach kommt Neues von selbst dorthin, ohne Knopf
     rechnung(ws, "RE-2025-0002", "2025-04-01", "2025-04-02")
     page = client.get("/steuer/2025")
-    assert (
-        "FRITS-Ernte eingebracht: 1 Rechnung, die EÜR mit Buchungsliste → Werkstatt!" in page.text
-    )
+    assert "Aus FRITS dazugekommen: 1 Rechnung, die EÜR mit Buchungsliste → Werkstatt!" in page.text
     assert "+1 neu" not in page.text
 
 
@@ -694,9 +692,11 @@ def test_frits_ernte_kommt_von_selbst(client, ws):
     Mit einem Betrieb landen FRITS-Rechnungen beim Öffnen der Insel von selbst dort."""
     rechnung(ws, "RE-2025-0001", "2025-03-01", "2025-03-02")
     fragebogen(client, teil2={"m_freiberuflich_0": "1"})
-    page = client.get("/steuer/2025")
-    assert "FRITS-Ernte eingebracht: 1 Rechnung" in page.text
-    assert "Neue Rechnungen und Belege kommen von selbst" in page.text
+    page = client.get("/steuer/2025")  # der Fragebogen führte schon einmal auf die Insel
+    assert 'action="/steuer/2025/ernte"' not in page.text  # kein Knopf, kein Zettel
+    assert "+1 neu" not in page.text
+    # Die Chronik steht jetzt im Belegbuch
+    assert "Aus FRITS dazugekommen: 1 Rechnung" in client.get("/steuer/2025/belege").text
     assert "Kartentisch" not in page.text
     page = client.get("/steuer/2025")
     assert "Verfahrensdoku → Werkstatt!" not in page.text  # die Meldung kommt nur einmal
@@ -1819,8 +1819,9 @@ def test_runde_14_eintippen_statt_datei_und_steuernummer_aus_den_einstellungen(c
 def test_runde_14_fragen_zeitalter_und_was_gehoert_wohin(client, ws):
     fragebogen(client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1"})
     karte = client.get("/steuer/2025").text
-    assert "Was gehört wohin?" in karte and "Sonstiges für die Beraterin" in karte
-    assert "Alles vom Finanzamt" in karte
+    buch = client.get("/steuer/2025/belege").text  # Runde 29: vom Tisch ins Belegbuch
+    assert "Was gehört wohin?" in buch and "Sonstiges für die Beraterin" in buch
+    assert "Alles vom Finanzamt" in buch
     assert "Nächstes: <strong>Zeitalter der Ordnung</strong>" in karte
     assert "Dann wacht der Papierdrache auf" in karte
     gebiet = client.get("/steuer/2025/gebiet/werkstatt-1").text
@@ -2443,8 +2444,8 @@ def test_runde_20_ein_tagesziel_mit_fritte(client, ws, monkeypatch):
     fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
     stand["erledigt"] = 2
     seite = client.get("/steuer/2025")
-    assert "Tagesziel: 2 von 3 geschafft" in seite.text and "2/3" in seite.text
-    assert "Es zählt, was heute echt erledigt wurde." in seite.text
+    # Runde 29: Mit Fritte steht das gemeinsame Tagesziel auf Heute, nicht noch einmal auf der Insel
+    assert "Tagesziel: 2 von 3 geschafft" not in seite.text and "sq-tagwerk-ring" not in seite.text
     # Das Ziel wurde bei Fritte erreicht: Der nächste Quest-Schritt zahlt das Tagwerk-Gold
     stand["erledigt"] = 3
     conn = quest.ensure_schema(store.connect(ws.db))
@@ -2520,8 +2521,9 @@ def test_runde_21_orden_fuer_frittes_sammlung(conn):
 def test_runde_21_insel_fuehrt_in_die_sammlung(client, ws):
     fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
     insel = client.get("/steuer/2025").text
-    assert 'class="sq-sammlung-karte" href="/sammlung"' in insel and "gesammelt" in insel
+    assert 'href="/sammlung"><span class="sq-werkzeug-orden"' in insel
     assert '<ul class="sq-orden">' not in insel  # eine Vitrine statt zwei
+    assert '<ul class="sq-orden">' not in client.get("/steuer/2025/belege").text
     vitrine = client.get("/sammlung")
     assert vitrine.status_code == 200
     assert "Gutes Gedächtnis" in vitrine.text and "Brunnen" in vitrine.text
@@ -2772,3 +2774,22 @@ def test_runde_28_hafenmarkt_ist_ein_stand_und_klappt_selten_gebrauchtes_ein(cli
     assert "Zierden für deine Insel" in markt and "0 von 8" in markt
     insel = client.get("/steuer/2025").text
     assert 'class="sq-hafen-stand"' in insel and "sq-hafen-muenze" not in insel
+
+
+def test_runde_29_insel_aufgeraeumt(client, ws):
+    """Marie (2.11.): zu viele Menüs und Optionen. Die Insel hat einen Weg hinein, eine schlanke
+    Leiste und eine Fritte-Blase; Seltenes liegt im Belegbuch."""
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    insel = client.get("/steuer/2025").text
+    assert "Insel zu <b" in insel and '<details class="sq-mehr-marken">' in insel
+    assert insel.count("data-einwurf") == 1 and "Alles hier ablegen" in insel
+    assert 'id="sq-korb"' not in insel and "ohne-korb" in insel  # leer: kein Korb
+    assert "Lager-Ordner" not in insel and "Was gehört wohin?" not in insel
+    assert "Keine Sorge: Was fehlt" not in insel and insel.count('class="sq-sprechblase"') == 1
+    buch = client.get("/steuer/2025/belege").text
+    assert "Lager-Ordner" in buch and "/lager/oeffnen" in buch and "Chronik" in buch
+    # Ein Zettel im Lager: Jetzt erscheint der Eingangskorb neben der Insel
+    quest.lager(ws.root).mkdir(parents=True, exist_ok=True)
+    (quest.lager(ws.root) / "Kontoauszug.pdf").write_bytes(b"%PDF-1.4")
+    insel = client.get("/steuer/2025").text
+    assert 'id="sq-korb"' in insel and "ohne-korb" not in insel

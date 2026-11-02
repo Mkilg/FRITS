@@ -1630,7 +1630,7 @@ def register_steuer(
             teile.append(f"die {extra}")
         if not teile:
             return None
-        text = f"FRITS-Ernte eingebracht: {', '.join(teile)} → {titel}"
+        text = f"Aus FRITS dazugekommen: {', '.join(teile)} → {titel}"
         quest.notiere(c, jahr, "fund", text)
         flash(text + "!", "beute", "done")
         return text
