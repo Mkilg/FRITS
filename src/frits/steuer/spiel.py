@@ -598,7 +598,7 @@ MARKT: tuple[Ware, ...] = (
         "Sanduhr",
         8,
         "helfer",
-        "Das Tagwerk bringt 15 Gold statt 5. Wenig am Tag, aber jeden Tag.",
+        "Das Tagesziel bringt 15 Gold statt 5. Wenig am Tag, aber jeden Tag.",
         haken="Im Drachenkampf zählt die Serie höchstens ×3.",
     ),
     Ware(
@@ -606,7 +606,7 @@ MARKT: tuple[Ware, ...] = (
         "Kriegstrommel",
         18,
         "helfer",
-        "Im Drachenkampf zählt die Serie eins mehr: aus ×2 wird ×3.",
+        "Im Drachenkampf wächst die Gold-Serie eine Stufe schneller.",
         haken="„Gibt's nicht“ im Kampf setzt die Serie auf null.",
     ),
     Ware(

@@ -323,7 +323,7 @@ def register_steuer(
             return {"combo": 0, "ruf": spiel.RUFE[0]}
         ruf = (
             f"Frittes {'Gewürz wärmt' if n == 1 else 'Gewürze wärmen'} dich auf:"
-            f" Die Gold-Serie startet bei ×{start}."
+            " Deine Gold-Serie startet schon warm."
         )
         return {"combo": start, "ruf": ruf, "gewuerze": n}
 
@@ -399,10 +399,9 @@ def register_steuer(
         gesamt = spiel.gesamtstand(alle)
         vergleich = quest.vergleich(c, jahr)
         erfolge = spiel.erfolge(alle, staende, vergleich, quest.hat_notiz(c, jahr, "brief"))
-        for e in erfolge:
-            # Jeder Orden stellt seine Zierde auf die Insel (auch Orden von früher)
-            if e.erreicht and (z := spiel.zierde_fuer(e.key)):
-                quest.zierde_freischalten(c, z.key)
+        # Jeder Orden aus der Chronik stellt seine Zierde auf die Insel (auch Orden von früher).
+        # Nur echte, notierte Orden: So zeigen Insel und Sammlung immer dasselbe.
+        quest.zierden_abgleichen(c)
         drache = spiel.drache(alle)
         zettel = len(quest.lager_dateien(ws.root))
         zweifel = spiel.zweifel(alle)
@@ -615,15 +614,15 @@ def register_steuer(
         # Ein Tag, ein Tagesziel: Das Gold gibt es einmal am Tag, nicht einmal pro Steuerjahr
         if erreicht and not sieg and not quest.hat_gold(c, None, tag):
             # Einmal am Tag: Wer zurücklegt und neu zuordnet, bekommt kein zweites Fest
-            quest.notiere(c, jahr, "tagwerk", "Tagwerk geschafft")
+            quest.notiere(c, jahr, "tagwerk", "Tagesziel geschafft")
             lohn = spiel.tagwerk_gold(helfer) if goldjahr else 0
             if lohn:
-                lohn = quest.verdiene(c, jahr, tag, lohn, "Tagesziel" if gemeinsam else "Tagwerk")
+                lohn = quest.verdiene(c, jahr, tag, lohn, "Tagesziel")
             plus += lohn
             if gemeinsam:
                 text = f"Tagesziel geschafft: {ziel} echte Erledigungen heute"
             else:
-                text = f"Tagwerk geschafft: {ziel} Karten heute"
+                text = f"Tagesziel geschafft: {ziel} Karten heute"
             flash(
                 text
                 + (f", +{lohn} Gold." if lohn else ".")
@@ -640,6 +639,8 @@ def register_steuer(
                 continue  # den Orden gab es schon einmal
             quest.notiere(c, jahr, "erfolg", e.name)
             z = spiel.zierde_fuer(e.key)
+            if z:
+                quest.zierde_freischalten(c, z.key)
             flash(
                 f"Neuer Orden: {e.name}. {e.beschreibung}"
                 + (f" Dafür steht jetzt {z.name} auf deiner Insel." if z else ""),
@@ -821,6 +822,26 @@ def register_steuer(
                 quest.notiere(c, jahr, "fund", f"{fund.stueck['name']}: {name}")
         return funde, geparkt
 
+    def orden_nachtragen(jahr: int, erfolge) -> int:
+        """Orden, die erreicht, aber nie notiert sind (aus älteren Spielständen), kommen in die
+        Chronik und stellen ihre Zierde auf. Einmal pro Orden und Jahr, mit einer Meldung."""
+        c = conn()
+        n = 0
+        for e in erfolge:
+            if not e.erreicht or quest.hat_notiz(c, jahr, "erfolg", e.name):
+                continue
+            quest.notiere(c, jahr, "erfolg", e.name)
+            z = spiel.zierde_fuer(e.key)
+            if z:
+                quest.zierde_freischalten(c, z.key)
+            flash(
+                f"Orden nachgetragen: {e.name}. {e.beschreibung}"
+                + (f" Dafür steht jetzt {z.name} auf deiner Insel." if z else ""),
+                "orden",
+            )
+            n += 1
+        return n
+
     # ----- Einstieg und Fragebogen -----
 
     @app.get("/steuer")
@@ -847,6 +868,9 @@ def register_steuer(
                     link=("/fritte", "Zu Fritte"),
                 )
                 daten = lage(jahr)
+        nachtrag = orden_nachtragen(jahr, daten["erfolge"])
+        if nachtrag:
+            daten = lage(jahr)
         lager = quest.lager_dateien(ws.root)
         stimmung, tipp = fritte_tipp(daten, lager)
         return seite(

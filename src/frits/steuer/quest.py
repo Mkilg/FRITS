@@ -790,6 +790,36 @@ def zierde_freischalten(conn: sqlite3.Connection, key: str) -> bool:
     return cur.rowcount > 0
 
 
+def zierden_abgleichen(conn: sqlite3.Connection) -> None:
+    """Stellt die Zierden aller notierten Orden auf und nimmt Orden-Zierden weg, deren Orden
+    nie notiert wurde (ein früherer Fehler stellte sie schon beim bloßen Ansehen auf).
+
+    Gekaufte Zierden von früher bleiben (ihr Kauf steht im Goldbuch)."""
+    from frits.steuer import spiel
+
+    ensure_schema(conn)
+    notiert = {
+        e.key
+        for e in spiel.erfolge([], [])
+        if conn.execute(
+            "SELECT 1 FROM steuer_chronik WHERE art = 'erfolg' AND text = ?", (e.name,)
+        ).fetchone()
+    }
+    da = {
+        r["ware"]
+        for r in conn.execute("SELECT ware FROM steuer_besitz WHERE jahr = ?", (ALLE_JAHRE,))
+    }
+    for orden, zier in spiel.ORDEN_ZIERDE.items():
+        if orden in notiert:
+            if zier not in da:
+                zierde_freischalten(conn, zier)
+        elif zier in da and not hat_gold(conn, None, f"kauf:{zier}"):
+            with transaction(conn):
+                conn.execute(
+                    "DELETE FROM steuer_besitz WHERE jahr = ? AND ware = ?", (ALLE_JAHRE, zier)
+                )
+
+
 def orden_fuer_sammlung(conn: sqlite3.Connection) -> list[dict]:
     """Die Orden der Steuer-Quest für Frittes gemeinsame Sammlung (/sammlung).
 
