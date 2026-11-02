@@ -287,6 +287,16 @@ def angabe(gebiet_id: str, key: str) -> str:
     return next((s.angabe for s in provinz.stuecke if s.key == key), "")
 
 
+def quellen_text(gebiet_id: str, key: str) -> str:
+    """Was die Karte selbst als Quelle nennt (Hinweis, Warum, Beispiel). Nennt die Steuer-ID
+    die Lohnsteuerbescheinigung, soll Fritte bei genau dieser Datei nicht stutzen."""
+    provinz = katalog().get(gebiet_id.split("-")[0])
+    if not provinz:
+        return ""
+    s = next((s for s in provinz.stuecke if s.key == key), None)
+    return f"{s.hinweis} {s.warum} {s.angabe}" if s else ""
+
+
 def macht_beraterin(gebiet_id: str, key: str) -> bool:
     """Darf dieses Stück "Macht meine Beraterin" heißen (z. B. die EÜR)?"""
     provinz = katalog().get(gebiet_id.split("-")[0])

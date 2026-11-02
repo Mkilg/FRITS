@@ -37,6 +37,7 @@ from frits.steuer.katalog import (
     reich,
     warum,
 )
+from frits.steuer.katalog import quellen_text as katalog_quellen
 
 AKTIONEN = {"gibts_nicht", "fragen", "offen"}
 MAX_LAGER = 30 * 1024 * 1024  # wie beim Eingang von FRITS
@@ -140,6 +141,13 @@ MONATE = (
     "November",
     "Dezember",
 )
+
+
+def kopf_rest(text: str) -> tuple[str, str]:
+    """Teilt eine Belohnung in Überschrift und Rest: "Neuer Orden: Drachenbändigerin." und den
+    Satz dahinter. Im vollen Siegesdialog steht der Rest klein darunter (Marie: Textwand)."""
+    teile = re.split(r"(?<=[.!])\s+", text.strip(), maxsplit=1)
+    return (teile[0], teile[1] if len(teile) > 1 else "")
 
 
 def schoenes_datum(iso: str) -> str:
@@ -335,6 +343,8 @@ def register_steuer(
     app.state.steuer_wurf = {}
     # Der letzte Schlag ohne Datei (Fragen, "Gibt's nicht") darf zurück: Karte und Serie wie vorher
     app.state.steuer_zurueck = {}
+    # Fritte stutzt: Die Rückfrage bleibt am Zettel im Eingangskorb, auch nach dem Neuladen
+    app.state.steuer_stutzen = {}
 
     def conn():
         return quest.ensure_schema(store.connect(ws.db))
@@ -374,6 +384,8 @@ def register_steuer(
             # Frittes gemeinsame Vitrine (Orden, Sticker, Pokale), sobald es sie gibt
             sammlung_da=any(getattr(r, "path", None) == "/sammlung" for r in app.routes),
             sammlung_stand=sammlung_stand,
+            stutzen=app.state.steuer_stutzen,
+            kopf_rest=kopf_rest,
             **context,
         )
 
@@ -754,18 +766,34 @@ def register_steuer(
         # Im Herbst 2026 sammelt man meistens für 2025.
         return today().year - 1
 
-    def zweifel_an(jahr: int, s: dict, pfad: Path, original: str) -> pruefung.Zweifel | None:
+    def zweifel_an(
+        jahr: int, s: dict, pfad: Path, original: str, ausdruecklich: bool = False
+    ) -> pruefung.Zweifel | None:
         """Fritte stutzt, wenn eine Datei offensichtlich nicht zur Karte passt (siehe pruefung).
         Kennt FRITS die Datei schon, kümmert sich doppelt_melden darum."""
         c = conn()
         if quest.datei_mit_hash(c, jahr, quest.datei_hash(pfad)):
             return None
-        return pruefung.pruefe(pfad, original, s, quest.stuecke(c, jahr))
+        return pruefung.pruefe(
+            pfad,
+            original,
+            s,
+            quest.stuecke(c, jahr),
+            quellen=katalog_quellen(s["gebiet"], s["key"]),
+            ausdruecklich=ausdruecklich,
+        )
 
     def nachfragen(
         jahr: int, s: dict, name: str, z: pruefung.Zweifel, zurueck: str, aus_korb: bool = False
     ) -> None:
-        """Die Rückfrage als Zettel mit zwei Wegen. Bis dahin gibt es kein Gold."""
+        """Die Rückfrage als Zettel mit zwei Wegen. Bis dahin gibt es kein Gold.
+        Sie bleibt auch am Zettel im Eingangskorb stehen, damit ein Neuladen sie nicht verliert."""
+        app.state.steuer_stutzen[name] = {
+            "jahr": jahr,
+            "stueck_id": s["id"],
+            "karte": s["name"],
+            "text": z.text,
+        }
         wo = (
             "Es bleibt erst mal im Eingangskorb."
             if aus_korb
@@ -1169,13 +1197,14 @@ def register_steuer(
         s = stueck_im_jahr(jahr, stueck_id)
         zurueck = str(form.get("back") or f"/steuer/{jahr}")
         if form.get("trotzdem") != "1":
-            z = zweifel_an(jahr, s, quelle, name)
+            z = zweifel_an(jahr, s, quelle, name, ausdruecklich=form.get("gewaehlt") == "1")
             if z is not None:
                 nachfragen(jahr, s, name, z, zurueck, aus_korb=True)
                 return back(zurueck)
         vorher = lage(jahr)
         c = conn()
         fund = quest.sammeln(c, ws.root, stueck_id, quelle, verschieben=True)
+        app.state.steuer_stutzen.pop(name, None)
         if fund.neu:
             quest.notiere(c, jahr, "fund", f"{s['name']}: {name}")
             wie = ""
@@ -1547,6 +1576,7 @@ def register_steuer(
         form = await request.form()
         name = Path(str(form.get("name") or "")).name
         ziel = quest.lege_beiseite(ws.root, name)
+        app.state.steuer_stutzen.pop(name, None)
         if ziel is None:
             flash("Den Zettel finde ich nicht mehr im Eingangskorb.")
         else:
