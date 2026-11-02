@@ -2334,3 +2334,47 @@ def test_runde_19_toene_laufen_ueber_den_klangrahmen():
     klang = (Path(__file__).parent.parent / "src/frits/assets/sounds/frits-sound.js").read_text()
     assert "fs.tone(" in js
     assert "function tone(" in klang and "tone: tone" in klang and "host.tone(" in klang
+
+
+def test_runde_20_restgold_wird_zu_salz(client, ws, monkeypatch):
+    # Eine Währung: Was beim Sieg an Gold übrig ist, wird zu Salzkörnern bei Fritte.
+    # salz_aus_quest kommt aus dem Fritte-Thread; bis dahin hier ein Stellvertreter.
+    from frits import haustier
+
+    gebucht = {}
+
+    def salz_aus_quest(conn, jahr, gold, text):
+        if jahr in gebucht:
+            return 0
+        gebucht[jahr] = gold
+        return gold
+
+    monkeypatch.setattr(haustier, "salz_aus_quest", salz_aus_quest, raising=False)
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    assert "wird zu Salzkörnern bei Fritte" in client.get("/steuer/2025/markt").text
+    conn = quest.ensure_schema(store.connect(ws.db))
+    _bis_wach(conn)
+    quest.verdiene(conn, 2025, "test-rest", 17, "Testgold")
+    while not spiel.drache(quest.stuecke(conn, 2025)).besiegt:
+        k = spiel.drache(quest.stuecke(conn, 2025)).karte
+        seite = post(client, "/steuer/2025/drache/schlag", stueck_id=str(k["id"]), aktion="fragen")
+    rest = gebucht[2025]
+    assert rest >= 17 and quest.gold(conn, 2025) == 0
+    assert f"Dein übriges Gold ist zu {rest} Salzkörnern bei Fritte geworden." in seite.text
+    # Nach dem Sieg: neues Gold bleibt Gold, Salz gibt es nur einmal pro Jahr
+    quest.verdiene(conn, 2025, "test-spaet", 5, "Spätes Gold")
+    assert quest.gold(conn, 2025) == 5 and gebucht == {2025: rest}
+
+
+def test_runde_20_ohne_frittes_kasse_bleibt_das_gold(client, ws, monkeypatch):
+    from frits import haustier
+
+    monkeypatch.delattr(haustier, "salz_aus_quest", raising=False)
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    assert "wird zu Salzkörnern" not in client.get("/steuer/2025/markt").text
+    conn = quest.ensure_schema(store.connect(ws.db))
+    _bis_wach(conn)
+    while not spiel.drache(quest.stuecke(conn, 2025)).besiegt:
+        k = spiel.drache(quest.stuecke(conn, 2025)).karte
+        seite = post(client, "/steuer/2025/drache/schlag", stueck_id=str(k["id"]), aktion="fragen")
+    assert "Salzkörnern" not in seite.text and quest.gold(conn, 2025) > 0

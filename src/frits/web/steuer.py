@@ -633,7 +633,40 @@ def register_steuer(
                     "sieg",
                     link=("/fritte#truhen", "Zu Fritte"),
                 )
+            koerner = gold_zu_salz(c, jahr) if goldjahr else 0
+            if koerner:
+                flash(
+                    f"Dein übriges Gold ist zu {koerner} Salzkörnern bei Fritte geworden.",
+                    "sieg",
+                    link=("/fritte", "Zu Fritte"),
+                )
         return sieg
+
+    def salz_tausch():
+        """Frittes Kasse für das Restgold nach dem Sieg, oder None (Fritte aus oder noch nicht da)."""
+        if not settings().haustier:
+            return None
+        try:
+            from frits.haustier import salz_aus_quest
+        except ImportError:
+            return None
+        return salz_aus_quest
+
+    def gold_zu_salz(c, jahr: int) -> int:
+        """Eine Währung: Drachengold gilt nur im Kampf. Was beim Sieg übrig ist, wird zu
+        Salzkörnern bei Fritte (1 Gold = 1 Korn, einmal pro Jahr). Gibt die Körner zurück."""
+        tausch = salz_tausch()
+        rest = quest.gold(c, jahr)
+        if tausch is None or rest <= 0:
+            return 0
+        try:
+            koerner = int(tausch(c, jahr, rest, f"Restgold aus der Steuer-Quest {jahr}") or 0)
+        except Exception:  # noqa: BLE001 — der Sieg darf an Frittes Kasse nie scheitern
+            return 0
+        koerner = min(koerner, rest)
+        if koerner > 0:
+            quest.gold_ausgeben(c, jahr, koerner, f"Zu {koerner} Salzkörnern bei Fritte")
+        return koerner
 
     def fritte_truhe(c, jahr: int, silber: bool) -> bool:
         """Der Sieg zahlt in den Alltag zurück: eine Truhe bei Fritte, einmal pro Steuerjahr.
@@ -1666,6 +1699,7 @@ def register_steuer(
             regeln=spiel,
             goldjahr=spiel.gold_jahr(jahr, today()),
             serie_start=spiel.start_serie(gewuerze()),
+            zu_salz=salz_tausch() is not None,
             **daten,
         )
 
