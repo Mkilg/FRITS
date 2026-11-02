@@ -770,11 +770,11 @@ def test_hints_from_tester_round_3(client, ws, nlp):
     page = client.get(f"/drafts/{draft_id}").text
     assert 'data-elsewhere="customer">Für Reverse Charge fehlt' in page
 
-    # Notfall-Chat says up front that no AI is connected.
+    # The chat says up front that no AI is connected.
     replace(Settings.load(ws.settings_file), strict_local=True).save(ws.settings_file)
     app = create_app(ws, nlp_loader=lambda: nlp, today=lambda: TODAY)
     with TestClient(app) as plain:
-        assert "Eine KI ist noch nicht verbunden" in plain.get("/notfall").text
+        assert "Eine KI ist noch nicht verbunden" in plain.get("/chat").text
 
 
 def test_painted_pictures_keep_their_space_while_loading(tmp_path):
@@ -898,9 +898,27 @@ def test_letter_under_check_me_opens_in_the_notfall_chat(client, ws):
         "Sehr geehrter Herr Beispiel, bitte zahlen Sie bis 30.11."
     )
     page = post(client, "/check-me/notfall", name="brief.txt")
-    assert "Notfall-Chat" in page.text and "Das sieht" in page.text
-    assert "/notfall/" in str(page.url)
+    assert "<h1>Chat</h1>" in page.text and "Das sieht" in page.text
+    assert "/chat/" in str(page.url)
     assert (ws.check_me / "brief.txt").exists()  # stays until Fritz puts it away
+
+
+def test_letter_that_cant_be_redacted_goes_to_the_chat_anyway(client, ws, monkeypatch):
+    """No more "drag it there again": the file is in the chat, waiting, nothing sent."""
+    from frits import notfall
+    from frits.redact import LeakError
+
+    def nie(redacted, people=()):
+        raise LeakError("test")
+
+    monkeypatch.setattr(notfall, "assert_no_leaks", nie)
+    (ws.check_me / "brief.txt").write_text("Sehr geehrter Herr Beispiel, bitte zahlen.")
+    page = post(client, "/check-me/notfall", name="brief.txt")
+    assert "/chat/" in str(page.url)
+    assert "Noch nicht sicher geschwärzt" in page.text and "brief.txt" in page.text
+    assert "Zieh die Datei" not in page.text
+    g = next(iter(client.app.state.notfall.values()))
+    assert len(g.wartend) == 1 and not g.docs
 
 
 def test_earlier_invoice_is_entered_from_the_invoices_page(client, ws):

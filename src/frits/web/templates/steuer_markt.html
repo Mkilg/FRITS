@@ -13,17 +13,21 @@
 <header class="sq-papier sq-schief sq-markt-kopf" style="--r: -0.4deg">
   <div>
     <p class="sq-kicker">Hafenmarkt</p>
-    <h1>Was baust du mit deinem Gold?</h1>
-    <p>Gold bekommst du für jede Karte. Hier wird es zu Helfern, die mitspielen. Zierden für die Insel bringen deine Orden. Steuern ändert das nicht, es macht nur mehr Spaß.</p>
+    <h1>Wen holst du dir an den Tisch?</h1>
+    <p>Hier wird dein Gold zu Helfern, die im Drachenkampf mitspielen. Steuern ändert das nicht, es macht nur mehr Spaß.</p>
     {% if not goldjahr %}<p class="sq-markt-alt"><b>{{ jahr }} liegt schon länger zurück.</b> Nachholen lohnt sich trotzdem, Gold gibt es aber nur für die letzten Steuerjahre. Deine Zierde von dort steht auch hier.</p>{% endif %}
   </div>
   <p class="sq-beutel" aria-label="{{ ressourcen.gold }} Gold"><i></i><b data-zaehler="gold-markt">{{ ressourcen.gold }}</b><span>Gold</span></p>
 </header>
 
 {% set angelegt = helfer | list %}
-<section class="sq-markt-teil" id="helfer" aria-labelledby="h-helfer">
+{# Der Markt ist ein Stand am Wasser: Markise, Holzwand, Theke. So sieht er anders aus als
+   alles Papier auf dem Tisch (Marie, 2.11.: schöner, aber sichtbar anders). #}
+<section class="sq-markt-teil sq-stand" id="helfer" aria-labelledby="h-helfer">
+  <div class="sq-markise" aria-hidden="true"></div>
+  <div class="sq-stand-wand">
   <h2 id="h-helfer">Helfer <small>{{ angelegt | length }} von {{ plaetze }} Plätzen am Tisch</small></h2>
-  <p class="sq-markt-hinweis">Nur {{ plaetze }} Helfer passen an deinen Tisch, und jeder hat einen Haken. Pause machen ist gratis, zurück an den Tisch kostet {{ regeln.TAUSCH_PREIS }} Gold. Helfer arbeiten ein Steuerjahr lang, darum sind sie günstig.{% if zu_salz %} Gold gilt nur bis zum Sieg über den Drachen: Was dann übrig ist, wird zu Salzkörnern bei Fritte.{% endif %}</p>
+  <p class="sq-markt-hinweis">Jeder Helfer hat einen Haken. Pause ist gratis, zurück an den Tisch kostet {{ regeln.TAUSCH_PREIS }} Gold. Helfer arbeiten ein Steuerjahr lang.{% if zu_salz %} Gold gilt bis zum Sieg über den Drachen, was übrig ist, wird zu Salzkörnern bei Fritte.{% endif %}</p>
   <div class="sq-waren">
   {% for w in markt if w.art == "helfer" %}
     {% set hat = w.key in besitz %}{% set an = w.key in helfer %}
@@ -47,11 +51,17 @@
     </article>
   {% endfor %}
   </div>
+  </div>
+  <div class="sq-theke" aria-hidden="true"></div>
+  <div class="sq-hafenwasser" aria-hidden="true"><span class="sq-boot"></span></div>
 </section>
 
-<section class="sq-markt-teil" aria-labelledby="h-zierde">
+{# Was man selten braucht, liegt zugeklappt darunter: weniger auf einmal #}
+<section class="sq-markt-teil sq-markt-mehr" aria-label="Mehr zum Gold">
+  {% set zier_alle = markt | selectattr("art", "equalto", "zierde") | list %}
+  <details class="sq-papier sq-klapp" id="zierden">
   {# Eine Sammlung statt drei: Zierden gibt es nicht mehr für Gold, jeder Orden stellt eine auf die Insel #}
-  <h2 id="h-zierde">Für deine Insel <small>Zierden gibt es für Orden, nicht für Gold</small></h2>
+  <summary><span id="h-zierde">Zierden für deine Insel</span> <small>{{ zier_alle | selectattr("key", "in", besitz) | list | length }} von {{ zier_alle | length }} · gibt es für Orden, nicht für Gold</small></summary>
   <div class="sq-waren">
   {% for w in markt if w.art == "zierde" %}
     {% set hat = w.key in besitz %}{% set orden = erfolge | selectattr("key", "equalto", orden_zu_zierde.get(w.key)) | first %}
@@ -64,11 +74,10 @@
     </article>
   {% endfor %}
   </div>
-</section>
-
-<section class="sq-markt-teil sq-goldregeln" aria-labelledby="h-regeln">
-  <div class="sq-papier sq-schief" style="--r: 0.5deg">
-    <h2 id="h-regeln">Woher kommt das Gold?</h2>
+  </details>
+  <div class="sq-goldregeln">
+  <details class="sq-papier sq-klapp">
+    <summary id="h-regeln">Woher kommt das Gold?</summary>
     <ul>
       <li><b>{{ regeln.GOLD_FUND }}</b> für jede Unterlage, die du sicherst. Im Drachenkampf wächst es mit deiner <b>Gold-Serie</b>, den Faktor zeigt das Banner im Kampf.</li>
       <li><b>{{ regeln.GOLD_SCHATZ }}</b> für jeden Bonus-Schatz (der kann Steuern sparen)</li>
@@ -78,13 +87,14 @@
       <li>Gold gibt es für die letzten Steuerjahre. Ältere Jahre kannst du nachholen, sie füllen nur nicht den Beutel.</li>
     </ul>
     <p class="muted">Jede Karte zahlt nur einmal aus. Legst du eine Datei zurück, geht ihr Gold zurück, bis du sie neu verdienst. Ist das Gold schon ausgegeben, geht dein letzter Kauf zurück in den Hafen, so fällt der Beutel nie unter null.</p>
-  </div>
-  <div class="sq-papier sq-schief sq-goldbuch" style="--r: -0.6deg">
-    <h2>Goldbuch</h2>
+  </details>
+  <details class="sq-papier sq-klapp sq-goldbuch">
+    <summary>Goldbuch <small>{{ goldsummen[0] }} verdient · {{ goldsummen[1] }} ausgegeben</small></summary>
     <p class="sq-goldsumme"><span>Verdient <b>{{ goldsummen[0] }}</b></span><span>Ausgegeben <b>{{ goldsummen[1] }}</b></span><span>Im Beutel <b>{{ ressourcen.gold }}</b></span></p>
     {% if goldbuch %}
     <ol>{% for g in goldbuch %}<li><span>{{ g.text }}</span><b class="{{ 'minus' if g.betrag < 0 else 'plus' }}">{{ "%+d" | format(g.betrag) }}</b></li>{% endfor %}</ol>
     {% else %}<p class="muted">Noch leer. Sammel deine erste Karte, dann klingelt es.</p>{% endif %}
+  </details>
   </div>
 </section>
 </div>

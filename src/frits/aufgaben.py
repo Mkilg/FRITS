@@ -16,6 +16,7 @@ edited and deleted freely.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import sqlite3
@@ -69,8 +70,8 @@ ZIELE: tuple[tuple[re.Pattern, str, str], ...] = tuple(
         (r"datensicherung|\bsicherung|backup", "/sicherung", "Zur Datensicherung"),
         (
             r"brief|bescheid|vertrag|kündig|behörde|amt\b|krankenkasse|versicherung|rundfunk",
-            "/notfall",
-            "Im Notfall-Chat besprechen",
+            "/chat",
+            "Im Chat besprechen",
         ),
     )
 )
@@ -122,16 +123,18 @@ def braucht_ki(punkte: list[str]) -> bool:
     return len(punkte) == 1 and len(punkte[0]) > KI_AB
 
 
-def ki_aufteilen(text: str, provider, people: list, nlp) -> list[str]:
+def ki_aufteilen(text: str, provider, people: list, nlp, protokoll=None) -> list[str]:
     """Let the AI split one long note. Redacted here first; raises LeakError if anything
-    known is left, ProviderError if the AI can't be reached, ValueError on a strange answer."""
+    known is left, ProviderError if the AI can't be reached, ValueError on a strange answer.
+    `protokoll(usage, sha256)` writes the audit line (tokens and cost, never the text)."""
     from frits.redact import assert_no_leaks, redact
 
     geschwaerzt = redact(text[:MAX_TEXT], people, nlp)
     assert_no_leaks(geschwaerzt, people)
-    antwort, _usage = provider.chat(
-        SYSTEM, [{"role": "user", "content": f"<notiz>\n{geschwaerzt.text}\n</notiz>"}]
-    )
+    inhalt = f"<notiz>\n{geschwaerzt.text}\n</notiz>"
+    antwort, usage = provider.chat(SYSTEM, [{"role": "user", "content": inhalt}])
+    if protokoll is not None:
+        protokoll(usage, hashlib.sha256((SYSTEM + inhalt).encode()).hexdigest())
     treffer = re.search(r"\{.*\}", antwort or "", re.DOTALL)
     if not treffer:
         raise ValueError("keine Liste in der Antwort")

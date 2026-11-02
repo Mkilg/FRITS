@@ -667,9 +667,11 @@ def test_fragebogen_kennt_die_rechnungen_aus_frits(client, ws):
 
 def test_frits_ernte_im_browser(client, ws):
     rechnung(ws, "RE-2025-0001", "2025-03-01", "2025-03-02")
-    fragebogen(client, teil2={"m_freiberuflich_0": "1"})
+    fragebogen(client, teil2={"m_freiberuflich_0": "1", "m_gesellschaft_0": "1"})
     page = client.get("/steuer/2025")
+    # Zwei Betriebe: einmal fragen, wohin es gehört
     assert "FRITS-Ernte" in page.text and "+1 neu" in page.text
+    assert "Sag einmal, zu welchem Betrieb" in page.text
     page = post(client, "/steuer/2025/ernte", gebiet="werkstatt-1")
     assert (
         "FRITS-Ernte eingebracht: 1 Rechnung, die EÜR mit Buchungsliste und Verfahrensdoku → Werkstatt"
@@ -678,6 +680,26 @@ def test_frits_ernte_im_browser(client, ws):
     assert "Alles aus FRITS ist schon auf der Insel" in page.text
     page = post(client, "/steuer/2025/ernte", gebiet="gehoeft-1")
     assert "Wähle aus, zu welchem Betrieb" in page.text
+    # Danach kommt Neues von selbst dorthin, ohne Knopf
+    rechnung(ws, "RE-2025-0002", "2025-04-01", "2025-04-02")
+    page = client.get("/steuer/2025")
+    assert (
+        "FRITS-Ernte eingebracht: 1 Rechnung, die EÜR mit Buchungsliste → Werkstatt!" in page.text
+    )
+    assert "+1 neu" not in page.text
+
+
+def test_frits_ernte_kommt_von_selbst(client, ws):
+    """Marie (2.11.): „Wo ist der Kartentisch und wie starte ich den Prozess?“ Gar nicht:
+    Mit einem Betrieb landen FRITS-Rechnungen beim Öffnen der Insel von selbst dort."""
+    rechnung(ws, "RE-2025-0001", "2025-03-01", "2025-03-02")
+    fragebogen(client, teil2={"m_freiberuflich_0": "1"})
+    page = client.get("/steuer/2025")
+    assert "FRITS-Ernte eingebracht: 1 Rechnung" in page.text
+    assert "Neue Rechnungen und Belege kommen von selbst" in page.text
+    assert "Kartentisch" not in page.text
+    page = client.get("/steuer/2025")
+    assert "Verfahrensdoku → Werkstatt!" not in page.text  # die Meldung kommt nur einmal
 
 
 def test_notausgang(client):
@@ -1802,7 +1824,7 @@ def test_runde_14_fragen_zeitalter_und_was_gehoert_wohin(client, ws):
     assert "Nächstes: <strong>Zeitalter der Ordnung</strong>" in karte
     assert "Dann wacht der Papierdrache auf" in karte
     gebiet = client.get("/steuer/2025/gebiet/werkstatt-1").text
-    assert "kommt in die Mail an deine Beraterin" in gebiet and 'href="/notfall"' in gebiet
+    assert "kommt in die Mail an deine Beraterin" in gebiet and 'href="/chat"' in gebiet
     stand = spiel.Stand(gesamt=10, gesammelt=1, gibts_nicht=1, fragen=0)
     assert spiel.weg_zum_zeitalter(stand) == (
         "Zeitalter der Ordnung",
@@ -1881,7 +1903,7 @@ def test_runde_15_beleg_mit_ki_oeffnet_den_freien_chat(client, ws):
         follow_redirects=False,
     )
     assert antwort.status_code in (302, 303)
-    assert antwort.headers["location"] == "/notfall/abc#unterlagen"
+    assert antwort.headers["location"] == "/chat/abc#unterlagen"
     assert gesehen and gesehen[0][1] == "rechnung.txt"
 
 
@@ -2738,3 +2760,15 @@ def test_runde_27_brief_vom_arbeitgeber_ist_kein_arbeitszimmer():
     assert a.stueck is None and a.gebiet == "kaserne"  # nur die Provinz, keine falsche Karte
     assert spiel.ahnung("Arbeitszimmer_Grundriss.pdf", alle).stueck["key"] == "arbeitszimmer"
     assert spiel.ahnung("Lohnsteuerbescheinigung_2025.pdf", alle).stueck["id"] == 2
+
+
+def test_runde_28_hafenmarkt_ist_ein_stand_und_klappt_selten_gebrauchtes_ein(client, ws):
+    """Marie (2.11.): Der Hafenmarkt soll schöner sein und sich abheben; weniger auf einmal."""
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    markt = client.get("/steuer/2025/markt").text
+    assert 'class="sq-markise"' in markt and 'class="sq-theke"' in markt
+    # Zierden, Goldregeln und Goldbuch liegen zugeklappt unter dem Stand
+    assert markt.count('<details class="sq-papier sq-klapp') == 3
+    assert "Zierden für deine Insel" in markt and "0 von 8" in markt
+    insel = client.get("/steuer/2025").text
+    assert 'class="sq-hafen-stand"' in insel and "sq-hafen-muenze" not in insel

@@ -75,11 +75,18 @@ def everything_sent(ai) -> str:
 
 
 def test_start_page_and_menu(client):
-    response = client.get("/notfall")
+    response = client.get("/chat")
     assert response.status_code == 200
     assert "So bleibt es geschützt" in response.text
-    assert "ersetzt keine Rechts-, Steuer- oder Finanzberatung" in response.text
-    assert 'href="/notfall"' in client.get("/").text  # in "Mehr" and on Heute
+    assert '<details class="card schutz">' in response.text  # short, and folded away
+    assert "Kein Ersatz für Rechts- oder Steuerberatung" in response.text
+    assert "KI-Kosten diesen Monat" in response.text
+    home = client.get("/").text
+    assert 'href="/chat"' in home and 'href="/notfall"' not in home  # one chat only
+    assert "Notfall-Chat" not in home and "Freier Chat" not in home
+    # Old links and bookmarks still lead to the chat.
+    old = client.get("/notfall", follow_redirects=False)
+    assert old.status_code in (302, 303) and old.headers["location"] == "/chat"
 
 
 def test_pasted_letter_is_redacted_before_anything_goes_out(client, ai):
@@ -236,7 +243,7 @@ def test_answers_are_escaped_but_bold_stays():
 
 def test_freier_chat_sends_a_redacted_question_without_any_document(client, ai):
     start = client.get("/chat")
-    assert start.status_code == 200 and "Freier Chat" in start.text
+    assert start.status_code == 200 and "<h1>Chat</h1>" in start.text
     assert 'href="/chat" aria-current="page"' in start.text
     assert 'href="/chat"' in client.get("/").text  # in "Mehr"
     response = post(
@@ -251,7 +258,7 @@ def test_freier_chat_sends_a_redacted_question_without_any_document(client, ai):
     assert "Albrecht" not in messages[0]["content"] and "DE89" not in messages[0]["content"]
     assert "<dokument" not in messages[0]["content"]
     assert "Schreiben Sie Jonas Albrecht eine" in response.text  # names back in, here
-    assert "Ohne Dokument" in response.text and "Freier Chat" in response.text
+    assert "Ohne Dokument" in response.text and "<h1>Chat</h1>" in response.text
     g = next(iter(client.app_state.notfall.values()))
     assert g.frei and g.title.startswith("Wie schreibe ich")
 
@@ -284,3 +291,72 @@ def test_a_steuer_beleg_opens_a_chat_already_redacted(client, ai, tmp_path):
     leer.write_text("   ", encoding="utf-8")
     key, problems = client.app_state.notfall_mit_datei(leer, "leer.txt")
     assert key is None and problems[0].startswith("leer.txt: ")
+
+
+def test_suggestions_fit_the_chat(client):
+    """General quick questions without a document, questions about it with one."""
+    assert notfall.VORSCHLAEGE_FREI[0] in client.get("/chat").text
+    _key, page = open_chat(client)
+    assert notfall.VORSCHLAEGE[0] in page.text and notfall.VORSCHLAEGE_FREI[0] not in page.text
+
+
+def test_a_name_the_redaction_missed_is_hidden_by_itself(client, ai, monkeypatch):
+    """The last check finds a known customer that the redaction let through: FRITS hides
+    exactly that spot too and shows it, instead of giving up."""
+    from frits.redact import Mapping, RedactedText
+
+    monkeypatch.setattr(notfall, "redact", lambda text, people, nlp: RedactedText(text, Mapping()))
+    key, page = open_chat(client, text="Bitte ruf Jonas Albrecht zurück.")
+    g = client.app_state.notfall[key]
+    assert g.docs and not g.wartend
+    assert "Albrecht" not in g.docs[0].redacted and "[GEHEIM_1]" in g.docs[0].redacted
+    assert "Jonas Albrecht" in g.auto_hidden
+    assert "Vorsichtshalber auch geschwärzt" in page.text
+
+
+def _stur(monkeypatch, wort="Zauberwort"):
+    """A leak check that no automatic pass can satisfy, only Fritz's own word."""
+    from frits.redact import LeakError
+
+    echt = notfall.assert_no_leaks
+
+    def check(redacted, people=()):
+        if wort in redacted.text:
+            raise LeakError("test")
+        echt(redacted, people)
+
+    monkeypatch.setattr(notfall, "assert_no_leaks", check)
+
+
+def test_a_document_that_cant_be_redacted_waits_in_the_chat(client, ai, monkeypatch):
+    _stur(monkeypatch)
+    key, page = open_chat(client, text="Kundennummer Zauberwort, bitte zahlen.")
+    g = client.app_state.notfall[key]
+    assert not g.docs and len(g.wartend) == 1  # not lost, not sent
+    assert "Noch nicht sicher geschwärzt" in page.text and "liegt schon im Chat" in page.text
+    assert 'id="auch-schwaerzen" open' in page.text or 'open id="auch-schwaerzen"' in page.text
+    page = post(client, f"/chat/{key}/schwaerzen", extra="Zauberwort")
+    assert g.docs and not g.wartend
+    assert "Zauberwort" not in g.docs[0].redacted
+    assert "Jetzt ist alles sicher geschwärzt" in page.text
+    post(client, f"/chat/{key}/frage", frage="Was soll ich tun?", action="senden")
+    assert "Zauberwort" not in everything_sent(ai)
+
+
+def test_a_waiting_document_can_be_discarded(client, ai, monkeypatch):
+    _stur(monkeypatch)
+    key, page = open_chat(client, text="Zauberwort")
+    assert "Verwerfen" in page.text
+    page = post(client, f"/chat/{key}/wartend/0/weg")
+    g = client.app_state.notfall[key]
+    assert not g.wartend and "verworfen" in page.text
+    assert not ai.sent
+
+
+def test_costs_of_the_ai_are_shown(client, ai):
+    key, _ = open_chat(client)
+    post(client, f"/chat/{key}/frage", frage="Bis wann?", action="senden")
+    # 1000 tokens in, 200 out with Claude Opus 5.5: 0.004 + 0.004 = 0.008 US-Dollar
+    page = client.get("/chat").text
+    assert "KI-Kosten diesen Monat:" in page and "unter 1 Cent für 1 Anfrage" in page
+    assert "unter 1 Cent für 1 Anfrage" in client.get("/settings").text

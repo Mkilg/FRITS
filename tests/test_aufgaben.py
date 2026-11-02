@@ -63,8 +63,8 @@ def test_paperwork_points_link_to_the_right_place():
     assert aufgaben.ziel("Rechnung für Medialab schreiben")[0] == "/drafts"
     assert aufgaben.ziel("Steuerbescheid ansehen")[0] == "/steuer"
     assert aufgaben.ziel("Zahlungserinnerung an Meier")[0] == "/invoices"
-    assert aufgaben.ziel("Brief vom Vermieter beantworten")[0] == "/notfall"
-    assert aufgaben.ziel("Versicherung kündigen")[0] == "/notfall"  # not the backup
+    assert aufgaben.ziel("Brief vom Vermieter beantworten")[0] == "/chat"
+    assert aufgaben.ziel("Versicherung kündigen")[0] == "/chat"  # not the backup
     assert aufgaben.ziel("Backup auf den USB-Stick")[0] == "/sicherung"
     assert aufgaben.ziel("Mama anrufen") == (None, None)
 

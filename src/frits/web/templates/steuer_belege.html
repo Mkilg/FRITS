@@ -27,7 +27,7 @@
           <div><dt>Ausgaben</dt><dd>{{ zahlen.expense_total | eur }}</dd></div>
           <div><dt>{{ "Gewinn" if zahlen.profit >= 0 else "Verlust" }}</dt><dd>{{ zahlen.profit | abs | eur }}</dd></div>
         </dl>
-        <p class="muted">Aus {{ zahlen.invoice_count }} bezahlten Rechnung{{ "en" if zahlen.invoice_count != 1 }} und {{ zahlen.expense_count }} Ausgabe{{ "n" if zahlen.expense_count != 1 }} in FRITS. Mit der Ernte auf der Insel kommen sie als EÜR in die Fundkiste.</p>
+        <p class="muted">Aus {{ zahlen.invoice_count }} bezahlten Rechnung{{ "en" if zahlen.invoice_count != 1 }} und {{ zahlen.expense_count }} Ausgabe{{ "n" if zahlen.expense_count != 1 }} in FRITS. Sie kommen von selbst als EÜR in die Fundkiste, sobald du die Insel öffnest.</p>
       </div>
       {% endif %}
     </section>
