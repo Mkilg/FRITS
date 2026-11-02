@@ -689,9 +689,15 @@ def chronik(conn: sqlite3.Connection, jahr: int, anzahl: int = 8) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-def hat_notiz(conn: sqlite3.Connection, jahr: int, art: str, text: str | None = None) -> bool:
+def hat_notiz(
+    conn: sqlite3.Connection, jahr: int | None, art: str, text: str | None = None
+) -> bool:
+    """Steht so eine Notiz in der Chronik? jahr=None: in irgendeinem Steuerjahr."""
     ensure_schema(conn)
-    sql, args = "SELECT 1 FROM steuer_chronik WHERE jahr = ? AND art = ?", [jahr, art]
+    sql, args = "SELECT 1 FROM steuer_chronik WHERE art = ?", [art]
+    if jahr is not None:
+        sql += " AND jahr = ?"
+        args.append(jahr)
     if text is not None:
         sql += " AND text = ?"
         args.append(text)

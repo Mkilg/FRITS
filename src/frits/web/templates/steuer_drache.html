@@ -56,7 +56,7 @@
     {% if combo.gewertet is defined %}
     <small class="sq-combo-regel">Die Karte vorn war schon gewertet: +{{ koerner(combo.gewertet) }}{% if combo.siegel_dazu %}, dazu das Siegel +{{ combo.siegel_dazu }}{% endif %}, ohne Serie. Deine Serie wartet auf die nächste neue Karte.</small>
     {% else %}
-    <small class="sq-combo-regel">Nächster Beleg: {{ combo.basis }} × {{ combo.naechster }} = {{ koerner(combo.basis * combo.naechster) }}. Jeder Beleg lässt die Serie wachsen, Fragen treffen auch, aber die Serie wartet dann.</small>
+    <small class="sq-combo-regel">Nächster Beleg: {{ combo.basis }} × {{ combo.naechster }} = {{ koerner(combo.basis * combo.naechster) }}{% if combo.siegel_dazu %}, dazu das Siegel +{{ combo.siegel_dazu }}{% endif %}. Jeder Beleg lässt die Serie wachsen, Fragen treffen auch, aber die Serie wartet dann.</small>
     {% endif %}
   </div>
   {% else %}
@@ -68,6 +68,8 @@
 
   {% if drache.karte %}
   {% set k = drache.karte %}
+  {# Lena (Runde 41): Am Handy lagen Lebenspunkte und Serie unter der Leiste #}
+  <p class="sq-kampf-kurz" aria-hidden="true"><b>{{ drache.lp }}</b> Lebenspunkt{{ "e" if drache.lp != 1 }}{% if goldjahr %} · Serie <b>×{{ combo.naechster }}</b>{% endif %}</p>
   <div class="sq-wurf" id="karte">
     {% if wurf %}
     {# Erst der Treffer (mit der Gold-Rechnung), dann die nächste Karte: so ist klar, was wohin ging #}
@@ -179,7 +181,7 @@ Steuer-ID: {% endif %}</textarea></label>
       <input type="hidden" name="stueck_id" value="{{ k.id }}">
       <input type="hidden" name="aktion" value="zettel">
       {% for f in hand %}{% set endung = f.suffix.lower().lstrip(".") %}{% set spur = vermute(f.name, stuecke) %}{% set passt = spur and spur.id == k.id %}
-      <button class="sq-handkarte{% if passt %} passt{% endif %}" name="zettel" value="{{ f.name }}" data-name="{{ f.name }}" draggable="true" data-rueckfrage="„{{ f.name }}“ als „{{ k.name }}“ abgeben? Er kommt so in die Fundkiste für deine Beraterin." data-rueckfrage-ja="Ja, passt" style="--i: {{ loop.index0 - (hand | length - 1) / 2 }}" title="„{{ f.name }}“ auf „{{ k.name }}“ werfen"><span class="art{% if endung in ['jpg', 'jpeg', 'png', 'heic'] %} bild{% endif %}">{{ (endung or "?")[:4] | upper }}</span><strong>{{ f.name }}</strong>{% if passt %}<em class="sq-spur">passt vielleicht</em>{% endif %}</button>
+      <button class="sq-handkarte{% if passt %} passt{% endif %}" name="zettel" value="{{ f.name }}" data-name="{{ f.name }}" draggable="true" data-rueckfrage="„{{ f.name }}“ als „{{ k.name }}“ abgeben? Er kommt so in die Fundkiste für deine Beraterin." data-rueckfrage-ja="Ja, passt" style="--i: {{ loop.index0 - (hand | length - 1) / 2 }}" title="„{{ f.name }}“ auf „{{ k.name }}“ werfen"><span class="art{% if endung in ['jpg', 'jpeg', 'png', 'heic'] %} bild{% endif %}">{{ (endung or "?")[:4] | upper }}</span><strong lang="de">{{ umbruch(f.name) }}</strong>{% if passt %}<em class="sq-spur">passt vielleicht</em>{% endif %}</button>
       {% endfor %}
     </form>
     {% if lager | length > 8 %}<p class="sq-hand-titel">… und {{ lager | length - 8 }} weitere im Korb.</p>{% endif %}
