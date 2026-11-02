@@ -288,3 +288,13 @@ def test_other_websites_cannot_open_chests(client):  # noqa: F811
 def test_no_drachengold_jar_any_more(client):  # noqa: F811
     r = client.post("/fritte/drachengold", data={"token": client.token})
     assert r.status_code in (404, 405)
+
+
+def test_a_waiting_chest_ends_its_sentence_once(client, ws):  # noqa: F811
+    """Lena: "Mach sie auf!." had two marks."""
+    conn = store.connect(ws.db)
+    add_invoice(conn, "2026-0001", TODAY - timedelta(days=30))
+    client.get("/fritte")
+    post(client, "/fritte/kassensturz")
+    page = client.get("/fritte").text
+    assert "Mach sie auf!" in page and "Mach sie auf!." not in page
