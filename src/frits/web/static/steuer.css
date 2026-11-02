@@ -1687,3 +1687,42 @@ details.sq-mehr-marken .sq-marke { font-size: 0.9rem; }
 @media (min-width: 1101px) { .sq-flaeche.ohne-korb .sq-insel-buehne > .sq-hort-insel { right: -130px; } }
 details.sq-mehr-marken .kurz { display: none; }
 @media (max-width: 720px) { details.sq-mehr-marken .lang { display: none; } details.sq-mehr-marken .kurz { display: inline; } }
+
+/* Runde 30: Provinz Zettel für Zettel. Eine Karte liegt groß vorn, dahinter deutet ein
+   Stapel die übrigen an. Die Liste aller Karten bleibt als Umschalter. */
+.sq-akte-spalte { min-width: 0; }
+.sq-stapel-kopf { width: min(620px, 100%); margin: 0 auto 0.8rem; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.4rem 1rem; }
+.sq-stapel-kopf .sq-kicker { margin: 0; color: #ffe6a8; text-shadow: 0 1px 2px rgba(0,0,0,.9); }
+.sq-zettel-punkte { display: flex; flex-wrap: wrap; gap: 5px; list-style: none; margin: 0; padding: 0; }
+.sq-zettel-punkte a { display: block; width: 13px; height: 13px; border-radius: 50%; background: #d9cba6; box-shadow: 0 1px 2px rgba(0,0,0,.5); }
+.sq-zettel-punkte a.fertig { background: var(--moos, #6f9440); }
+.sq-zettel-punkte a.bonus { background: #f0d98e; }
+.sq-zettel-punkte a.bonus.fertig { background: var(--gold); }
+.sq-zettel-punkte a.vorn { background: var(--gold); outline: 2px solid #fff3c4; outline-offset: 1px; transform: scale(1.15); }
+.sq-zettel-punkte a:hover, .sq-zettel-punkte a:focus-visible { transform: scale(1.25); }
+.sq-akte.stapel { display: block; width: min(620px, 100%); margin: 0 auto; }
+.sq-akte.stapel > .sq-karte:not(.vorn) { display: none; }
+.sq-akte.stapel > .sq-karte.vorn { transform: none; min-height: 300px; padding: 1.4rem 1.6rem 1.2rem; gap: 0.7rem;
+  box-shadow: 0 1px 0 var(--papier-schatten), 7px 7px 0 -1px #f3e7c9, 7px 7px 0 0 rgba(120, 90, 40, .25), 14px 14px 0 -1px #eadcb6, 14px 14px 0 0 rgba(120, 90, 40, .25), 0 18px 30px rgba(25, 12, 3, .4);
+  animation: sq-vorrutschen .35s ease-out; }
+.sq-akte.stapel > .sq-karte.vorn h3 { font-size: 1.6rem; }
+.sq-akte.stapel > .sq-karte.vorn .hinweis { font-size: 1rem; line-height: 1.5; }
+.sq-akte.stapel > .sq-karte.vorn .sq-ablage label.fach { padding: 1.6rem 1rem; font-size: 1.05rem; font-weight: 600; border-width: 2px; }
+.sq-akte.stapel > .sq-karte.vorn .sq-aktionen { gap: 0.6rem 1rem; }
+@keyframes sq-vorrutschen { from { opacity: .3; transform: translate(14px, 14px); } }
+@media (prefers-reduced-motion: reduce) { .sq-akte.stapel > .sq-karte.vorn { animation: none; } }
+.sq-stapel-weiter { margin: 0.2rem 0 0; text-align: right; font-size: 0.95rem; }
+.sq-stapel-weiter a { color: var(--tinte-hell); }
+.sq-tippen > summary { cursor: pointer; font-size: 0.85rem; color: var(--tinte-hell); }
+.sq-tippen[open] > summary { margin-bottom: 0.3rem; }
+.sq-erledigt { padding: 0.8rem 1rem; margin-bottom: 0.8rem; }
+.sq-erledigt h2 { margin: 0 0 0.4rem; font-size: 1.02rem; }
+.sq-erledigt ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.15rem; font-size: 0.9rem; }
+.sq-erledigt li { border-bottom: 1px dashed #d9c79c; padding: 0.15rem 0; }
+.sq-erledigt a { color: var(--tinte); text-decoration: none; }
+.sq-erledigt a::first-letter { color: var(--moos-dunkel, #3f5d22); }
+.sq-erledigt small { color: #6d6150; }
+.sq-erledigt .muted { margin: 0.4rem 0 0; font-size: 0.8rem; }
+.sq-umschalter { margin: 0 0 0.8rem; color: #f3e3c0; font-size: 0.9rem; text-shadow: 0 1px 2px rgba(0,0,0,.95); }
+.sq-umschalter a { color: #ffe6a8; }
+.sq-korb .sq-erledigt p { text-shadow: none; color: #6d6150; }

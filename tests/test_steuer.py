@@ -1792,7 +1792,7 @@ def test_runde_14_eintippen_statt_datei_und_steuernummer_aus_den_einstellungen(c
     )
     conn = quest.ensure_schema(store.connect(ws.db))
     rathaus = client.get("/steuer/2025/gebiet/rathaus").text
-    assert "Oder einfach eintippen" in rathaus and "Steuernummer: 12/345/67890" in rathaus
+    assert "Kein Dokument? Einfach eintippen" in rathaus and "Steuernummer: 12/345/67890" in rathaus
     fahrten = next(x for x in quest.stuecke(conn, 2025, "kaserne-1") if x["key"] == "fahrten")
     kaserne = client.get("/steuer/2025/gebiet/kaserne-1").text
     assert "14 km einfach" in kaserne  # das Beispiel im Feld
@@ -2793,3 +2793,34 @@ def test_runde_29_insel_aufgeraeumt(client, ws):
     (quest.lager(ws.root) / "Kontoauszug.pdf").write_bytes(b"%PDF-1.4")
     insel = client.get("/steuer/2025").text
     assert 'id="sq-korb"' in insel and "ohne-korb" not in insel
+
+
+def test_runde_30_provinz_zettel_fuer_zettel(client, ws):
+    """Marie (2.11.): weniger auf einmal. Eine Karte liegt vorn, „Später ›“ blättert weiter,
+    die Liste bleibt als Umschalter und wird gemerkt."""
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    seite = client.get("/steuer/2025/gebiet/werkstatt-1").text
+    assert '<ul class="sq-akte stapel"' in seite and seite.count(' vorn"') == 1
+    assert "Zettel 1 von" in seite and "Später ›" in seite
+    assert "Alle Zettel als Liste zeigen" in seite
+    assert seite.count("Kein Dokument? Einfach eintippen") <= len(
+        re.findall("sq-karte status-offen", seite)
+    )
+    conn = quest.ensure_schema(store.connect(ws.db))
+    karten = [s for s in quest.stuecke(conn, 2025) if s["gebiet"] == "werkstatt-1"]
+    zweite = karten[1]
+    seite = client.get(f"/steuer/2025/gebiet/werkstatt-1?karte={zweite['id']}").text
+    assert f'data-stueck="{zweite["id"]}"' in seite and "Zettel 2 von" in seite
+    # Liste wählen: gemerkt, bis man zurückschaltet
+    seite = client.get("/steuer/2025/gebiet/werkstatt-1?ansicht=liste").text
+    assert "sq-akte stapel" not in seite and "Ein Zettel nach dem anderen" in seite
+    assert "sq-akte stapel" not in client.get("/steuer/2025/gebiet/werkstatt-1").text
+    client.get("/steuer/2025/gebiet/werkstatt-1?ansicht=stapel")
+    assert "sq-akte stapel" in client.get("/steuer/2025/gebiet/werkstatt-1").text
+
+
+def test_runde_30_frits_karten_stehen_als_erledigt_da(client, ws):
+    rechnung(ws, "RE-2025-0001", "2025-03-01", "2025-03-02")
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    seite = client.get("/steuer/2025/gebiet/werkstatt-1").text
+    assert "Hat FRITS schon dabei" in seite and "✓ Ausgangsrechnungen" in seite
