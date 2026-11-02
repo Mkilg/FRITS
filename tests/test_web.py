@@ -486,6 +486,26 @@ def test_bad_expense_amount_is_a_message(client):
     assert "keine Zahl" in page.text
 
 
+def test_expense_list_marks_cells_for_the_phone_layout(client):
+    """Am Handy wird die Ausgaben-Tabelle zur Liste (frits.css, .table.ausgaben):
+    Betrag und Summe brauchen ihre Klassen, sonst liegen sie rechts außer Sicht."""
+    page = post(
+        client,
+        "/expenses",
+        date="2026-10-14",
+        vendor="Buchhandlung",
+        description="Fachbuch",
+        gross="24,00",
+        vat_rate="0.07",
+        category="sonstiges",
+    )
+    page = client.get("/expenses?year=2026")
+    assert 'class="table ausgaben"' in page.text
+    for cls in ("a-datum", "a-bei", "a-wofuer", "a-kat", "a-summe"):
+        assert f'class="{cls}' in page.text or f"amount {cls}" in page.text
+    assert "24,00" in page.text
+
+
 def test_quit_stops_the_server(ws, provider, nlp):
     stopped = []
     app = create_app(

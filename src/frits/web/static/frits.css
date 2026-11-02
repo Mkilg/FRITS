@@ -662,3 +662,25 @@ fieldset.schon-bezahlt .choice { display: flex; flex-wrap: wrap; align-items: ce
 fieldset.schon-bezahlt input[type=date] { flex: 0 1 12rem; }
 ul.wartet-frueher { list-style: none; padding-left: 0; }
 ul.wartet-frueher li { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+
+/* Ausgaben am Handy: jede Ausgabe eine Zeile wie ein Kassenzettel (Bei + Betrag oben,
+   Wofür darunter, Datum und Kategorie klein), die Summe als eigene Zeile. Keine Tabelle
+   zum seitlich Wischen, Betrag und Summe sind immer zu sehen. */
+@media (max-width: 600px) {
+  .table.ausgaben, .table.ausgaben tbody, .table.ausgaben tfoot { display: block; width: 100%; }
+  .table.ausgaben thead { display: none; }
+  .table.ausgaben tr { display: grid; grid-template-columns: auto 1fr auto;
+    grid-template-areas: "bei bei betrag" "wofuer wofuer wofuer" "datum kat aktion";
+    column-gap: 0.6rem; row-gap: 0.1rem; align-items: baseline; padding: 0.55rem 0.15rem; border-bottom: 1px solid var(--line); }
+  .table.ausgaben td { border: 0; padding: 0; text-align: left; }
+  .table.ausgaben .a-bei { grid-area: bei; font-weight: 600; overflow-wrap: anywhere; }
+  .table.ausgaben td.amount { grid-area: betrag; text-align: right; white-space: nowrap; font-weight: 600; }
+  .table.ausgaben .a-wofuer { grid-area: wofuer; overflow-wrap: anywhere; }
+  .table.ausgaben .a-datum, .table.ausgaben .a-kat { color: var(--muted); font-size: 0.85rem; align-self: center; }
+  .table.ausgaben .a-datum { grid-area: datum; }
+  .table.ausgaben .a-kat { grid-area: kat; overflow-wrap: anywhere; }
+  .table.ausgaben td.actions { grid-area: aktion; align-self: center; }
+  .table.ausgaben tfoot tr { grid-template-columns: 1fr auto; grid-template-areas: "summe betrag"; border-bottom: 0; padding-top: 0.7rem; }
+  .table.ausgaben tfoot .a-summe { grid-area: summe; text-align: left; font-weight: 600; }
+  .table.ausgaben tfoot td:empty { display: none; }
+}
