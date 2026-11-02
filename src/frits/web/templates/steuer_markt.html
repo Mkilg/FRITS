@@ -43,6 +43,8 @@
       {% elif hat %}
       <form method="post" action="/steuer/{{ jahr }}/markt/helfer"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="ware" value="{{ w.key }}"><input type="hidden" name="an" value="1">
         <button class="sq-stempelknopf"{% if angelegt | length >= plaetze or ressourcen.gold < regeln.TAUSCH_PREIS %} disabled title="{{ 'Mach erst mit einem anderen Helfer Pause' if angelegt | length >= plaetze else 'Dafür fehlen dir noch Salzkörner' }}"{% endif %}>An den Tisch · {{ koerner(regeln.TAUSCH_PREIS) }}</button></form>
+      {% elif drache.besiegt and w.key == "trommel" %}
+      <small class="sq-noch">Der Drache schläft bis nächstes Jahr.</small>
       {% else %}
       <form method="post" action="/steuer/{{ jahr }}/markt/kaufen" data-stempel="GEKAUFT"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="ware" value="{{ w.key }}">
         <button class="sq-preis"{% if ressourcen.gold < w.preis %} disabled{% endif %} aria-label="Holen für {{ koerner(w.preis) }}">{{ salz }}{{ w.preis }}</button>

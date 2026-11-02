@@ -2807,7 +2807,7 @@ def test_runde_30_provinz_zettel_fuer_zettel(client, ws):
     fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
     seite = client.get("/steuer/2025/gebiet/werkstatt-1").text
     assert '<ul class="sq-akte stapel"' in seite and seite.count(' vorn"') == 1
-    assert "Zettel 1 von" in seite and "Später ›" in seite
+    assert " erledigt" in seite and "Später ›" in seite
     assert "Alle Zettel als Liste zeigen" in seite
     assert seite.count("Kein Dokument? Einfach eintippen") <= len(
         re.findall("sq-karte status-offen", seite)
@@ -2816,7 +2816,7 @@ def test_runde_30_provinz_zettel_fuer_zettel(client, ws):
     karten = [s for s in quest.stuecke(conn, 2025) if s["gebiet"] == "werkstatt-1"]
     zweite = karten[1]
     seite = client.get(f"/steuer/2025/gebiet/werkstatt-1?karte={zweite['id']}").text
-    assert f'data-stueck="{zweite["id"]}"' in seite and "Zettel 2 von" in seite
+    assert f'data-stueck="{zweite["id"]}"' in seite and 'aria-current="true"' in seite
     # Liste wählen: gemerkt, bis man zurückschaltet
     seite = client.get("/steuer/2025/gebiet/werkstatt-1?ansicht=liste").text
     assert "sq-akte stapel" not in seite and "Ein Zettel nach dem anderen" in seite
@@ -2847,9 +2847,11 @@ def test_runde_32_stapel_zaehlt_wie_die_insel(client, ws):
     pflicht = [s for s in eigene if s["art"] != "bonus"]
     frei = [s for s in eigene if s["art"] == "bonus"]
     seite = client.get(f"/steuer/2025/gebiet/{gid}?ansicht=stapel").text
-    assert f"Zettel 1 von {len(pflicht)}" in seite and f"+ {len(frei)} freiwillig" in seite
+    # Runde 33: Fortschritt statt Position
+    assert f"0 von {len(pflicht)} erledigt" in seite and f"+ {len(frei)} freiwillig" in seite
     seite = client.get(f"/steuer/2025/gebiet/{gid}?karte={frei[0]['id']}").text
-    assert f"Freiwillig 1 von {len(frei)}" in seite
+    assert f"Freiwillig · 0 von {len(frei)} gefunden" in seite
+    assert "Bonus-Schatz · +4" in seite  # der Köder steht auf der Karte
 
 
 def test_runde_32_nach_dem_sieg_lohnt_sich_noch_etwas(client, ws):
@@ -2885,3 +2887,65 @@ def test_runde_32_frits_karten_nur_aus_der_ernte(client, ws):
     assert karte["id"] not in quest.von_frits(conn, 2025)
     seite = client.get(f"/steuer/2025/gebiet/{karte['gebiet']}?ansicht=stapel").text
     assert "Hat FRITS schon dabei" not in seite and "Schon erledigt" in seite
+
+
+def test_runde_33_trotzdem_ablegen_im_kampf_zaehlt_mit_serie(client, ws, monkeypatch):
+    # Lena (Runde 32): Fritte stutzt bei einem Foto, „Trotzdem ablegen“ brachte nur +2
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    _bis_wach(conn)
+    conn.execute("UPDATE steuer_stuecke SET geaendert = '2026-01-01 10:00:00'")
+    conn.commit()
+    karte = spiel.drache(quest.stuecke(conn, 2025)).karte
+    zweifel = pruefung.Zweifel("andere_karte", "Das sieht nach etwas anderem aus.")
+    monkeypatch.setattr(pruefung, "pruefe", lambda *a, **k: zweifel)
+    seite = post(
+        client,
+        "/steuer/2025/drache/schlag",
+        stueck_id=str(karte["id"]),
+        aktion="datei",
+        files=[("datei", ("foto.png", b"\x89PNG foto"))],
+    )
+    assert "Fritte stutzt" in seite.text and "/steuer/2025/drache/schlag" in seite.text
+    # Noch einmal dieselbe Datei: keine zweite Kopie im Korb
+    post(
+        client,
+        "/steuer/2025/drache/schlag",
+        stueck_id=str(karte["id"]),
+        aktion="datei",
+        files=[("datei", ("foto.png", b"\x89PNG foto"))],
+    )
+    assert [p.name for p in quest.lager_dateien(ws.root)] == ["foto.png"]
+    vorher = quest.gold(conn)
+    seite = post(
+        client,
+        "/steuer/2025/drache/schlag",
+        stueck_id=str(karte["id"]),
+        aktion="zettel",
+        zettel="foto.png",
+        trotzdem="1",
+    )
+    assert quest.gold(conn) - vorher > spiel.GOLD_FUND  # mit Serie, nicht nur der Grundwert
+    assert 'class="sq-rechnung"' in seite.text and not quest.lager_dateien(ws.root)
+
+
+def test_runde_33_nach_dem_sieg_keine_trommel_und_kontostand_im_regal(client, ws):
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    for s in spiel.pflicht(quest.stuecke(conn, 2025)):
+        quest.setze_status(conn, s["id"], "fragen")
+    erste = spiel.pflicht(quest.stuecke(conn, 2025))[0]
+    (ws.root / "beleg.pdf").write_bytes(b"%PDF beleg")
+    quest.sammeln(conn, ws.root, erste["id"], ws.root / "beleg.pdf")
+    regal = client.app.state.helfer_regal(conn)
+    assert regal["besiegt"]
+    laden = client.get("/fritte/laden")
+    if laden.status_code == 200:
+        assert "Der Drache schläft bis nächstes Jahr" in laden.text
+        assert "Du hast" in laden.text and "Passt jetzt" in laden.text
+    sieg = client.get("/steuer/2025/sieg").text
+    assert "Jeder Fund bringt +4" in sieg and "Zum ersten Schatz" in sieg
+
+
+def test_runde_33_ohne_ernte_nichts_von_frits(conn):
+    assert quest.von_frits(conn, 2025) == set()

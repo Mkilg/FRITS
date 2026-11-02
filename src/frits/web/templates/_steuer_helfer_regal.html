@@ -2,8 +2,9 @@
    Beutel (Marie, 2.11.: eine Währung, ein Laden). Kaufen und Tauschen bleibt bei der Quest,
    die Formulare kommen mit zurueck=laden wieder hierher. Variable: insel_regal. #}
 {% set r = insel_regal %}
-<h2>Für die Insel <span class="hint">Helfer für den Drachenkampf · Steuer-Quest {{ r.jahr }} · {{ r.am_tisch }} von {{ r.plaetze }} am Tisch</span></h2>
-<p class="hint">Jeder Helfer hat einen Haken. Er arbeitet ein Steuerjahr lang. Pause machen ist gratis, zurück an den Tisch kostet {{ r.tausch }} {{ salz }}.</p>
+<h2>Für die Insel <span class="hint">{{ "Helfer für deine Schätze" if r.besiegt else "Helfer für den Drachenkampf" }} · Steuer-Quest {{ r.jahr }} · {{ r.am_tisch }} von {{ r.plaetze }} am Tisch</span></h2>
+<p class="salz regal-salz">Du hast {{ salz }} <strong>{{ r.guthaben }}</strong> Salzkörner</p>
+<p class="hint">{% if r.besiegt %}Der Drache {{ r.jahr }} ist besiegt und schläft bis nächstes Jahr. Für freiwillige Schätze lohnt sich jetzt vor allem die Goldwaage.{% else %}Jeder Helfer hat einen Haken.{% endif %} Ein Helfer arbeitet ein Steuerjahr lang. Pause machen ist gratis, zurück an den Tisch kostet {{ r.tausch }} {{ salz }}.</p>
 <div class="markt insel-regal">
   {% for x in r.waren %}{% set w = x.ware %}
   <div class="ware helfer-ware{{ ' gekauft' if x.hat }}">
@@ -12,7 +13,13 @@
     <span class="hint">{{ w.text }}</span>
     {% if w.haken %}<span class="hint"><b>Haken:</b> {{ w.haken }}</span>{% endif %}
     {% if w.key == "sanduhr" and r.sanduhr_bremst %}<span class="wirkung null">Frittes Gewürze lassen deine Serie gerade höher starten, als die Sanduhr erlaubt.</span>{% endif %}
-    {% if x.an %}
+    {% if r.besiegt and w.key == "trommel" and not x.hat %}
+    <span class="hint">Der Drache schläft bis nächstes Jahr. Dann hilft sie wieder.</span>
+    {% elif r.besiegt and w.key == "goldwaage" and not x.hat %}
+    <span class="wirkung"><strong>Passt jetzt:</strong> Schätze bringen {{ r.schatz * 2 }} statt {{ r.schatz }}</span>
+    {% endif %}
+    {% if r.besiegt and w.key == "trommel" and not x.hat %}
+    {% elif x.an %}
     <form method="post" action="/steuer/{{ r.jahr }}/markt/helfer">
       <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="ware" value="{{ w.key }}"><input type="hidden" name="an" value="0"><input type="hidden" name="zurueck" value="laden">
       <span class="badge ok">spielt mit</span> <button class="quiet">Pause machen</button>

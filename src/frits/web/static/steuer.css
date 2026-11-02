@@ -1732,3 +1732,6 @@ details.sq-mehr-marken .kurz { display: none; }
 .sq-zettel-punkte li:has(> a:not(.bonus)) + li:has(> a.bonus) { margin-left: .55rem; }
 .sq-noch-frei ul { margin: .4rem 0 0; padding-left: 1.1rem; }
 .sq-noch-frei li { margin: .2rem 0; }
+.sq-noch-frei .sq-stempelknopf { display: inline-block; margin-top: .3rem; text-decoration: none; }
+/* Am Handy: Zahl mit Salzstreuer (das Wort fällt weg, der Streuer darf nicht mit verschwinden) */
+.sq-marke.gold img.salz-bild, .sq-marke.gold .salz-zeichen { width: 18px; height: 18px; min-width: 18px; flex: none; }

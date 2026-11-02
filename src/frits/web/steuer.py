@@ -353,6 +353,8 @@ def register_steuer(
             "guthaben": quest.gold(c),
             "sanduhr_bremst": spiel.multiplikator(spiel.start_serie(gewuerze())) > 3,
             "goldjahr": spiel.gold_jahr(jahr, today()),
+            "besiegt": spiel.drache(quest.stuecke(c, jahr)).besiegt,
+            "schatz": spiel.GOLD_SCHATZ,
         }
 
     app.state.helfer_regal = lambda c: helfer_regal(c)
@@ -812,13 +814,19 @@ def register_steuer(
             if aus_korb
             else "Ich habe es erst mal in den Eingangskorb gelegt."
         )
+        # Im Kampf ist „Trotzdem ablegen“ ein Schlag mit Datei, mit Serie (Lena, Runde 32)
+        im_kampf = zurueck.startswith(f"/steuer/{jahr}/drache")
+        url = f"/steuer/{jahr}/drache/schlag" if im_kampf else f"/steuer/{jahr}/lager/zuordnen"
+        felder = {"name": name, "stueck_id": s["id"], "trotzdem": "1", "back": zurueck}
+        if im_kampf:
+            felder.update(aktion="zettel", zettel=name)
         flash(
             f"Fritte stutzt: {z.text} {wo}",
             "warn",
             aktion={
-                "url": f"/steuer/{jahr}/lager/zuordnen",
+                "url": url,
                 "knopf": "Trotzdem ablegen",
-                "felder": {"name": name, "stueck_id": s["id"], "trotzdem": "1", "back": zurueck},
+                "felder": felder,
                 "zweit": {
                     "url": f"/steuer/{jahr}/lager/beiseite",
                     "knopf": "Beiseite legen",
@@ -828,7 +836,14 @@ def register_steuer(
         )
 
     def in_den_korb(tmp: Path, name: str) -> Path:
+        """Legt die Datei in den Eingangskorb. Liegt genau diese Datei dort schon, bleibt es
+        bei der einen (Lena, Runde 32: fünf gleiche Kopien nach mehreren Versuchen)."""
         ablage = quest.lager(ws.root)
+        sha = quest.datei_hash(tmp)
+        for da in quest.lager_dateien(ws.root):
+            if da.stat().st_size == tmp.stat().st_size and quest.datei_hash(da) == sha:
+                tmp.unlink(missing_ok=True)
+                return da
         ziel, n = ablage / name, 1
         while ziel.exists():
             ziel = ablage / f"{Path(name).stem} ({n}){Path(name).suffix}"
@@ -1116,6 +1131,7 @@ def register_steuer(
             spaeter=spaeter,
             aus_frits=ernte.aus_frits(g.provinz.key),
             von_frits_ids=quest.von_frits(c, jahr),
+            schatz_salz=schatz_salz(jahr, daten),
             **daten,
         )
         if gewaehlt in ("stapel", "liste"):
@@ -1807,10 +1823,11 @@ def register_steuer(
             if not name or not quelle.is_file():
                 flash("Den Zettel finde ich nicht mehr im Eingangskorb.")
                 return back(f"/steuer/{jahr}/drache#karte")
-            z = zweifel_an(jahr, s, quelle, name)
+            z = None if form.get("trotzdem") == "1" else zweifel_an(jahr, s, quelle, name)
             if z is not None:
                 nachfragen(jahr, s, name, z, f"/steuer/{jahr}/drache", aus_korb=True)
                 return back(f"/steuer/{jahr}/drache#karte")
+            app.state.steuer_stutzen.pop(name, None)
             c = conn()
             fund = quest.sammeln(c, ws.root, s["id"], quelle, verschieben=True)
             if not fund.neu:
@@ -1991,20 +2008,20 @@ def register_steuer(
             dateien=quest.dateien(conn(), jahr),
             lager=quest.lager_dateien(ws.root),
             noch_frei=noch_frei(daten),
+            schatz_salz=schatz_salz(jahr, daten),
             **daten,
         )
 
+    def schatz_salz(jahr: int, daten: dict) -> int:
+        """Was ein freiwilliger Schatz gerade bringt: der Köder (Lena, Runde 32)."""
+        if not spiel.gold_jahr(jahr, today()):
+            return 0
+        return spiel.gold_fuer({"art": "bonus"}, "gesammelt", daten["helfer"])
+
     def noch_frei(daten: dict) -> list[dict]:
-        """Offene freiwillige Zettel, die man selbst finden kann (was FRITS selbst bringt,
-        kommt ohnehin von allein): für „Lohnt sich noch“ nach dem Sieg."""
-        provinz = {g.id: g.provinz.key for g in daten["gebiete"]}
-        return [
-            s
-            for s in daten["stuecke"]
-            if s["status"] == "offen"
-            and spiel.ist_bonus(s)
-            and s["key"] not in ernte.aus_frits(provinz.get(s["gebiet"], ""))
-        ]
+        """Offene freiwillige Zettel für „Lohnt sich noch“ nach dem Sieg, gezählt wie in den
+        Provinzen (Lena, Runde 32: Werkstatt 7, Siegseite 5 passte nicht)."""
+        return [s for s in daten["stuecke"] if s["status"] == "offen" and spiel.ist_bonus(s)]
 
     @app.post("/steuer/{jahr}/truhe", dependencies=guarded)
     async def truhe_packen(request: Request, jahr: int):
