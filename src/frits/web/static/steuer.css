@@ -1556,3 +1556,80 @@ a.sq-beleg-vorschau:hover, a.sq-beleg-vorschau:focus-visible { transform: rotate
 .sq-belohnung.viel .sq-beute li:first-child { grid-column: 1 / -1; background: none; border: 0; text-align: center; font-weight: 500; font-size: 1rem; padding: 0 0.4rem 0.2rem; }
 .sq-belohnung.viel .sq-beute li small { display: block; font-weight: 400; font-size: 0.8rem; color: #6b5a3c; margin-top: 0.1rem; }
 @media (max-width: 560px) { .sq-belohnung.viel .sq-beute { grid-template-columns: 1fr; } }
+
+/* Runde 28: Der Hafenmarkt ist ein Marktstand am Wasser (Markise, Holzwand, Theke, Hafenbecken).
+   Kein Papier wie der Rest: Man sieht sofort, dass hier ein Laden ist. */
+.sq-stand { position: relative; padding: 0 12px; }
+.sq-markise { position: relative; z-index: 2; height: 44px; margin: 0 -12px; border-radius: 8px 8px 0 0;
+  background: linear-gradient(rgba(255,255,255,.18), transparent 40%, rgba(0,0,0,.18)),
+    repeating-linear-gradient(90deg, #b5462e 0 46px, #f3e4c4 46px 92px);
+  box-shadow: 0 3px 0 rgba(60, 25, 8, .35); }
+.sq-markise::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 18px;
+  background: radial-gradient(circle at 23px 0, #a63f29 22px, transparent 23px) 0 0 / 92px 18px repeat-x,
+    radial-gradient(circle at 69px 0, #e8d7b3 22px, transparent 23px) 0 0 / 92px 18px repeat-x;
+  filter: drop-shadow(0 5px 3px rgba(30, 12, 3, .35)); }
+.sq-stand-wand { position: relative; padding: 1.9rem 1.2rem 1.3rem;
+  background: linear-gradient(rgba(20, 8, 2, .45), transparent 35%),
+    repeating-linear-gradient(90deg, #6e4220 0 86px, #643b1c 86px 88px, #4f2d14 88px 90px, #73461f 90px 178px, #4f2d14 178px 180px);
+  border-left: 12px solid #4a2a12; border-right: 12px solid #4a2a12; }
+.sq-stand-wand > h2 { margin: 0 0 0.3rem; color: #ffe6a8; text-shadow: 0 2px 4px rgba(0,0,0,.7); }
+.sq-stand-wand > h2 small { font: 600 0.85rem system-ui, sans-serif; color: #f3e3c0; margin-left: 0.5rem; }
+.sq-theke { position: relative; z-index: 1; height: 24px; margin: 0 -12px; border-radius: 3px;
+  background: linear-gradient(#c08a4e, #8f5b2c 55%, #6f431e); box-shadow: 0 10px 14px rgba(20, 8, 2, .45); }
+.sq-hafenwasser { position: relative; height: 54px; margin: -6px -12px 0; overflow: hidden; border-radius: 0 0 22px 22px;
+  background:
+    radial-gradient(ellipse 22px 4px at 22px 12px, rgba(255,255,255,.55) 45%, transparent 55%) 0 0 / 110px 22px,
+    radial-gradient(ellipse 18px 3px at 75px 30px, rgba(255,255,255,.35) 45%, transparent 55%) 0 0 / 110px 44px,
+    linear-gradient(#4d9aa6, #2a6576 60%, #1d4b59); }
+.sq-hafenwasser { animation: sq-wellen 9s linear infinite; }
+@keyframes sq-wellen { to { background-position: 110px 0, -110px 0, 0 0; } }
+.sq-boot { position: absolute; right: 9%; top: 6px; width: 46px; height: 30px; }
+.sq-boot::before { content: ""; position: absolute; left: 0; right: 0; bottom: 6px; height: 12px; background: #7d4a22; border-radius: 0 0 22px 22px; box-shadow: inset 0 3px 0 #a26a36; }
+.sq-boot::after { content: ""; position: absolute; left: 20px; bottom: 18px; border-left: 15px solid #f3e4c4; border-top: 9px solid transparent; border-bottom: 2px solid transparent; filter: drop-shadow(-2px 0 0 #b5462e); }
+.sq-boot { animation: sq-schaukeln 4s ease-in-out infinite; }
+@keyframes sq-schaukeln { 50% { transform: translateY(3px) rotate(-3deg); } }
+@media (prefers-reduced-motion: reduce) { .sq-hafenwasser, .sq-boot { animation: none; } }
+.sq-stand .sq-waren { gap: 1.1rem; grid-template-columns: repeat(auto-fill, minmax(172px, 1fr)); }
+/* Helfer hängen als Preisschilder an der Wand */
+.sq-stand .sq-ware { border-radius: 6px; margin-top: 10px; }
+.sq-stand .sq-ware::before { content: ""; position: absolute; top: -9px; left: 50%; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #f0d9a0, #8a6418); box-shadow: 0 2px 2px rgba(0,0,0,.4); }
+/* Zugeklappt darunter: Zierden, Goldregeln, Goldbuch */
+.sq-markt-mehr { display: flex; flex-direction: column; gap: 0.9rem; }
+.sq-klapp { padding: 0.75rem 1.1rem; }
+.sq-klapp > summary { cursor: pointer; font: 700 1.08rem var(--schrift); color: var(--tinte); list-style-position: inside; }
+.sq-klapp > summary small { font: 600 0.82rem system-ui, sans-serif; color: #6d6150; margin-left: 0.35rem; }
+.sq-klapp[open] > summary { margin-bottom: 0.7rem; }
+.sq-klapp .sq-waren { margin-top: 0.4rem; }
+.sq-klapp .sq-ware { box-shadow: 0 1px 0 var(--papier-schatten), 0 4px 8px rgba(25, 12, 3, .18); }
+.sq-markt-mehr .sq-goldregeln { display: grid; grid-template-columns: 1.2fr 1fr; gap: 0.9rem; align-items: start; }
+@media (max-width: 720px) {
+  .sq-markt-mehr .sq-goldregeln { grid-template-columns: 1fr; }
+  .sq-stand-wand { padding: 1.6rem 0.7rem 1rem; border-width: 0 8px; }
+  .sq-markise { height: 34px; }
+}
+
+/* Der Hafen auf der Insel: ein kleiner Marktstand statt einer Münze, mit Holzschild */
+.sq-hafen-stand { position: relative; display: block; width: 66px; height: 58px; transition: transform .2s; }
+.sq-hafen-stand .dach { position: absolute; left: 0; right: 0; top: 0; height: 16px; border-radius: 4px 4px 0 0;
+  background: repeating-linear-gradient(90deg, #b5462e 0 11px, #f3e4c4 11px 22px); box-shadow: 0 2px 0 rgba(60,25,8,.4); }
+.sq-hafen-stand .dach::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 6px;
+  background: radial-gradient(circle at 5.5px 0, #a63f29 5px, transparent 6px) 0 0 / 22px 6px repeat-x,
+    radial-gradient(circle at 16.5px 0, #e8d7b3 5px, transparent 6px) 0 0 / 22px 6px repeat-x; }
+.sq-hafen-stand .theke { position: absolute; left: 6px; right: 6px; bottom: 0; height: 26px; border-radius: 2px;
+  background: linear-gradient(#a8743f, #6f431e); box-shadow: 0 6px 10px rgba(0,0,0,.45); }
+.sq-hafen-stand .theke::before, .sq-hafen-stand .theke::after { content: ""; position: absolute; bottom: 100%; width: 4px; height: 18px; background: #4a2a12; }
+.sq-hafen-stand .theke::before { left: 2px; } .sq-hafen-stand .theke::after { right: 2px; }
+.sq-hafen-stand .muenze { position: absolute; left: 50%; bottom: 20px; width: 22px; height: 22px; margin-left: -11px; border-radius: 50%; z-index: 1;
+  background: radial-gradient(circle at 35% 30%, #fff1b8, var(--gold) 45%, var(--ocker-dunkel)); border: 1px solid #7a5512;
+  box-shadow: 9px 3px 0 -3px #c9a24a, -8px 4px 0 -4px #e9bd4f; }
+.sq-hafen:hover .sq-hafen-stand { transform: translateY(-3px); }
+.sq-hafen .sq-schild.holz { background: linear-gradient(#7a4c26, #5b3519); color: #ffe6a8; border: 1px solid #3b2010; box-shadow: 0 4px 8px rgba(0,0,0,.4); }
+.sq-hafen .sq-schild.holz strong { color: #ffe6a8; }
+.sq-hafen .sq-schild.holz small { color: #f3e3c0; }
+/* Im Eingangskorb: dasselbe Zeichen, damit man den Markt wiedererkennt */
+.sq-ding-bild.markt { width: 46px; height: 42px; margin: 0 4px; border-radius: 3px 3px 2px 2px; box-shadow: 0 4px 6px rgba(0,0,0,.35);
+  background: radial-gradient(circle at 50% 58%, #fff1b8 0, var(--gold) 6px, var(--ocker-dunkel) 8px, transparent 9px),
+    linear-gradient(transparent 46%, #8f5b2c 46%, #6f431e),
+    linear-gradient(transparent 38%, #4a2a12 38%, #4a2a12 46%, transparent 46%),
+    repeating-linear-gradient(90deg, #b5462e 0 8px, #f3e4c4 8px 16px); }
