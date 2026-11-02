@@ -397,6 +397,7 @@ class Auftrag:
     gebiet_id: str = ""
     erledigt: int = 0
     gesamt: int = 0
+    ruhig: bool = False  # nichts eilt (Fundkiste gepackt): Haken statt Ausrufezeichen
 
 
 def auftrag(
@@ -444,6 +445,7 @@ def auftrag(
                 f"Schick sie deiner Beraterin, dann ist {jahr} erledigt." + rest,
                 "Zur Fundkiste",
                 f"{basis}/sieg#kiste",
+                ruhig=True,
             )
         return Auftrag(
             "sieg",

@@ -1738,3 +1738,7 @@ details.sq-mehr-marken .kurz { display: none; }
 
 /* Runde 34 (Lena): Belege nach dem Packen, die Fundkiste ist veraltet */
 .sq-kiste-alt { background: #fff6d0; border-left: 5px solid var(--gold); padding: .5rem .7rem; border-radius: 3px; margin: .4rem 0 .8rem; }
+.sq-kiste-alt p { margin: 0 0 .5rem; }
+.sq-kiste-alt .sq-siegelknopf { font-size: .95rem; }
+/* Runde 35 (Lena): Wenn nichts eilt, kein wippendes Ausrufezeichen */
+.sq-auftrag.ruhig .sq-auftrag-siegel { animation: none; color: #fff; background: radial-gradient(circle at 40% 30%, var(--moos-hell), var(--moos) 55%, var(--moos-dunkel)); box-shadow: 0 3px 0 var(--moos-dunkel), 0 6px 10px rgba(0,0,0,.2); }

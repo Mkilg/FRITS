@@ -3029,3 +3029,21 @@ def test_runde_34_fund_banner_nennt_die_salzkoerner(client, ws):
     assert quest.gold(conn) > vorher
     salz = spiel.gold_fuer(bonus, "gesammelt", frozenset())
     assert f"Gesichert: {bonus['name']} · +{spiel.koerner(salz)}" in seite
+
+
+def test_runde_35_nach_dem_packen_ist_alles_ruhig(client, ws):
+    """Lena (Runde 34): Fritte, Siegel und Hort sagten nach dem Packen noch „Beute wartet“."""
+    conn, bonus = _besiegt_mit_bonus(client, ws)
+    post(client, "/steuer/2025/truhe", schloss="passwort")
+    insel = client.get("/steuer/2025").text
+    assert "Die Fundkiste wartet auf dich" not in insel and "Besiegt! Zur Beute" not in insel
+    assert "Fundkiste gepackt" in insel and "sq-auftrag art-sieg ruhig" in insel
+    (ws.root / "spende.pdf").write_bytes(b"%PDF spende")
+    quest.sammeln(conn, ws.root, bonus["id"], ws.root / "spende.pdf")
+    insel = client.get("/steuer/2025").text
+    assert "Pack die Fundkiste neu" in insel and "Kiste neu packen" in insel
+    sieg = client.get("/steuer/2025/sieg").text
+    box = sieg[sieg.index('class="sq-kiste-alt"') :]
+    box = box[: box.index("</form>")]
+    assert "Neu packen" in box and "neues Passwort" in box and 'value="passwort"' in box
+    assert "Ich zeige es nur jetzt" not in sieg

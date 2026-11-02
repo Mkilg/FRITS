@@ -177,6 +177,12 @@ def textname(text: str) -> str:
 def fritte_tipp(daten: dict, lager: list) -> tuple[str, str]:
     """Was Fritte, die Kartografin, gerade sagt: (Stimmung, Satz)."""
     if daten["drache"].besiegt and daten["stuecke"]:
+        # Lena (Runde 34): Fritte sagte nach dem Packen weiter „Die Fundkiste wartet“
+        kiste = daten.get("kiste")
+        if kiste == (0, 0):
+            return "done", "Die Fundkiste ist gepackt. Jetzt nur noch ab damit zu deiner Beraterin."
+        if kiste:
+            return "thinking", "Seit dem Packen hat sich etwas getan. Pack die Fundkiste neu."
         return "done", "Der Drache ist besiegt! Die Fundkiste wartet auf dich."
     if daten["auftrag"].art == "drache":
         lp = daten["drache"].lp
