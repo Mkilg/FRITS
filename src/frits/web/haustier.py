@@ -219,7 +219,12 @@ def register_haustier(
             "fritte.html",
             f=f,
             truhen_zu=truhen.geschlossen(conn),
-            truhen_auf=truhen.geoeffnete(conn, 6),
+            # what chests hold today; old saves keep their gold and jars only in the chest
+            truhen_auf=[
+                t
+                for t in truhen.geoeffnete(conn, 24)
+                if (t.inhalt or {}).get("art") in truhen.GEWICHTE
+            ][:6],
             fuellung=truhen.fuellung(conn),
             pro_truhe=truhen.KARTEN_PRO_TRUHE,
             chancen=truhen.chancen(conn),
