@@ -135,7 +135,6 @@ button.gefahr { background: var(--ketchup); border-color: var(--ketchup); color:
 input.falsch, select.falsch, textarea.falsch, input.falsch:focus, select.falsch:focus, textarea.falsch:focus { border-color: var(--ketchup); box-shadow: 0 0 0 3px rgba(178, 70, 40, 0.18); background: #fff6f2; }
 button.gefahr:hover { filter: brightness(1.08); }
 button.tiny, .button.tiny { font-size: 0.8rem; padding: 0.2rem 0.6rem; }
-button.feierabend { background: var(--tinte); color: var(--papier); border-color: var(--tinte); }
 button:disabled { opacity: 0.5; cursor: wait; }
 .row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
 .actions { margin-top: 1rem; }
@@ -326,10 +325,14 @@ fieldset.prices input { width: 100%; }
 /* ---------- Einwurf: drop, paste (⌘V) or pick ---------- */
 .einwurf .dropzone { padding: 1.4rem 1rem; }
 .dz-titel { display: block; font-size: 1.12rem; font-weight: 600; margin-bottom: 0.2rem; }
-/* Phones: symbol and words side by side, no centred "staircase" of short lines (Lena) */
-@media (max-width: 600px) {
-  .dz-titel { display: flex; width: 100%; align-items: center; justify-content: center; gap: 0.5rem; text-align: left; }
-  .dz-titel > .zeichen-bild, .dz-titel > .zeichen-emoji { flex: 0 0 auto; }
+.dz-titel { text-wrap: balance; }
+/* Phones and touch: the tray sits above the sentence, so a two-line title doesn't step
+   down like a staircase next to it (Lena, round 42) */
+@media (max-width: 600px), (pointer: coarse) {
+  .dz-titel > img.zeichen-bild { display: block; width: 2.6rem; height: 2.6rem; margin: 0 auto 0.35rem; }
+  .dz-titel > .zeichen-emoji { display: block; font-size: 1.8rem; margin-bottom: 0.2rem; }
+  /* the empty-inbox picture floats right: the field starts below it, not squeezed beside it */
+  .einwurf .dropzone { clear: both; }
 }
 .dropzone small { display: block; line-height: 1.5; }
 body.zieht-datei .dropzone { border-color: var(--fry); }
@@ -573,13 +576,14 @@ nav.tabs { display: none; }
 
 /* Sound bell: ink, filled ochre when sound is on, struck through when off */
 .glocke { vertical-align: -6px; }
-button.klang { color: var(--tinte); padding-left: 0.6rem; padding-right: 0.6rem; }
+button.klang { color: var(--eiche-dunkel); padding-left: 0.6rem; padding-right: 0.6rem; }
 button.klang .glocke-koerper { fill: transparent; }
 button.klang.an .glocke-koerper { fill: var(--ocker); }
 button.klang:not(.an) { color: var(--muted); }
-/* Feierabend: an inviting way out, but not the loudest thing on every page */
-button.feierabend { background: transparent; color: var(--tinte); border: 1.5px solid var(--tinte); font-weight: 600; }
-button.feierabend:hover { background: var(--tinte); color: var(--papier); border-color: var(--tinte); }
+/* Feierabend: an inviting way out, but not the loudest thing on every page.
+   Dark oak like the board, no blue button anywhere (Lena, round 42). */
+button.feierabend { background: transparent; color: var(--eiche-dunkel); border: 1.5px solid var(--eiche-dunkel); font-weight: 600; }
+button.feierabend:hover { background: var(--eiche-dunkel); color: var(--papier); border-color: var(--eiche-dunkel); }
 /* Drawn salt and painted small symbols sit in the text like letters */
 .salz-zeichen { vertical-align: -2px; color: var(--eiche-tief); }
 img.zeichen-bild { width: 1.3em; height: 1.3em; object-fit: contain; vertical-align: -0.3em; }
@@ -667,3 +671,25 @@ fieldset.schon-bezahlt .choice { display: flex; flex-wrap: wrap; align-items: ce
 fieldset.schon-bezahlt input[type=date] { flex: 0 1 12rem; }
 ul.wartet-frueher { list-style: none; padding-left: 0; }
 ul.wartet-frueher li { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+
+/* Ausgaben am Handy: jede Ausgabe eine Zeile wie ein Kassenzettel (Bei + Betrag oben,
+   Wofür darunter, Datum und Kategorie klein), die Summe als eigene Zeile. Keine Tabelle
+   zum seitlich Wischen, Betrag und Summe sind immer zu sehen. */
+@media (max-width: 600px) {
+  .table.ausgaben, .table.ausgaben tbody, .table.ausgaben tfoot { display: block; width: 100%; }
+  .table.ausgaben thead { display: none; }
+  .table.ausgaben tr { display: grid; grid-template-columns: auto 1fr auto;
+    grid-template-areas: "bei bei betrag" "wofuer wofuer wofuer" "datum kat aktion";
+    column-gap: 0.6rem; row-gap: 0.1rem; align-items: baseline; padding: 0.55rem 0.15rem; border-bottom: 1px solid var(--line); }
+  .table.ausgaben td { border: 0; padding: 0; text-align: left; }
+  .table.ausgaben .a-bei { grid-area: bei; font-weight: 600; overflow-wrap: anywhere; }
+  .table.ausgaben td.amount { grid-area: betrag; text-align: right; white-space: nowrap; font-weight: 600; }
+  .table.ausgaben .a-wofuer { grid-area: wofuer; overflow-wrap: anywhere; }
+  .table.ausgaben .a-datum, .table.ausgaben .a-kat { color: var(--muted); font-size: 0.85rem; align-self: center; }
+  .table.ausgaben .a-datum { grid-area: datum; }
+  .table.ausgaben .a-kat { grid-area: kat; overflow-wrap: anywhere; }
+  .table.ausgaben td.actions { grid-area: aktion; align-self: center; }
+  .table.ausgaben tfoot tr { grid-template-columns: 1fr auto; grid-template-areas: "summe betrag"; border-bottom: 0; padding-top: 0.7rem; }
+  .table.ausgaben tfoot .a-summe { grid-area: summe; text-align: left; font-weight: 600; }
+  .table.ausgaben tfoot td:empty { display: none; }
+}

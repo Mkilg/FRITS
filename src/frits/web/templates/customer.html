@@ -4,7 +4,7 @@
 <h1>{{ customer.display_name if customer else "Neuer Kunde" }}</h1>
 {% set p = prefill or {} %}
 {% if not customer %}
-{% with dz_action="/customers/new/einlesen", dz_class="card form", dz_id="kontakt", dz_icon="📇",
+{% with dz_action="/customers/new/einlesen", dz_class="card form", dz_id="kontakt",
         dz_back=back_to, dz_title="Signatur oder Kontakt hierher ziehen oder einfügen",
         dz_hint="Eine E-Mail-Signatur, eine Visitenkarte oder ein Kontakt aus der Kontakte-App.",
         dz_accept=".vcf,.txt,.eml,.pdf,.jpg,.jpeg,.png,.heic", dz_send="Felder ausfüllen",

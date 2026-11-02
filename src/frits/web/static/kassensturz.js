@@ -23,6 +23,14 @@
   function glas(id) { return root.querySelector('.ks-regal [data-gewuerz="' + id + '"]'); }
   function chip(i) { return karten[i] && karten[i].querySelector(".karte-koerner"); }
   function later(fn, ms) { timers.push(setTimeout(fn, ms)); }
+  // Into view when its lower edge hides below the window or under the sticky buttons and the
+  // tab bar (that room is the node's scroll-margin-bottom).
+  function insBild(node) {
+    var rand = parseFloat(getComputedStyle(node).scrollMarginBottom) || 0;
+    if (node.getBoundingClientRect().bottom > window.innerHeight - rand) {
+      node.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
+    }
+  }
   function stopAll() { timers.forEach(clearTimeout); timers = []; }
 
   // ---------- sound: a short wooden "tock" that climbs with every step ----------
@@ -96,16 +104,15 @@
     ["ausbau", "saison", "erfolge", "truhen"].forEach(function (n) { if (el(n)) el(n).classList.add("da"); });
     el("weiter").hidden = true;
     el("nochmal").hidden = reduced;
-    // A finished stage or season goal below the fold: bring it into view once. After the
+    // A finished stage, season goal, sticker or new chest below the fold: bring it into view once. After the
     // played round only once the stamp has landed and was seen (Lena: on the phone the page
     // jumped away right when the stamp came).
-    var banner = el("ausbau") || el("saison") || el("erfolge") || (el("truhen") && el("truhen").classList.contains("mit-neuer") ? el("truhen") : null);
+    // The lowest of them, so the ones above come along (Lena: the new chest stayed out of sight).
+    var banner = (el("truhen") && el("truhen").classList.contains("mit-neuer") ? el("truhen") : null) || el("erfolge") || el("saison") || el("ausbau");
     if (banner && !gezeigt) {
       gezeigt = true;
       var zeigen = function () {
-        if (banner.getBoundingClientRect().bottom > window.innerHeight) {
-          banner.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
-        }
+        insBild(banner);
       };
       if (gestempelt === true) later(zeigen, 1600); else zeigen();
     }
@@ -115,6 +122,9 @@
     later(function () {
       karten.forEach(function (k) { k.classList.remove("aktiv"); });
       bump(summeEl.parentNode, "gross-werden");
+      // The sum below the fold (a tall shelf on the phone): bring it up before the stamp lands,
+      // so the stamp is seen (Lena R43: it landed under the button bar, the page never moved).
+      insBild(summeEl.parentNode);
       countUp(summeEl, data.summe, playful ? 900 : 600, function () {
         stempel.classList.add("drauf");
         if (window.Frits && window.Frits.stampSound && soundOn()) window.Frits.stampSound();

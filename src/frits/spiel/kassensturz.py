@@ -226,12 +226,14 @@ def _karte(conn, schluessel: str, art: str, gesehen: str, ausgaben=None) -> Kart
     if art == "steuer":
         r = stand.rows(
             conn,
-            "SELECT name, jahr FROM steuer_stuecke WHERE id = ? AND status = 'gesammelt'",
+            "SELECT name, jahr, gebiet FROM steuer_stuecke WHERE id = ? AND status = 'gesammelt'",
             (key,),
         )
         if not r or not stand.steuer_zaehlt(r[0][1]):
             return None
-        return Karte(schluessel, art, "Steuer-Unterlage", f"{r[0][0]} · {r[0][1]}", base, {})
+        # the province it was found in, for the card's picture (Lena: nine equal compasses)
+        provinz = {"provinz": str(r[0][2]).split("-")[0]} if r[0][2] else {}
+        return Karte(schluessel, art, "Steuer-Unterlage", f"{r[0][0]} · {r[0][1]}", base, provinz)
     if art == "steuerjahr":
         r = stand.rows(conn, "SELECT 1 FROM steuer_chronik WHERE jahr = ? AND art = 'sieg'", (key,))
         if not r or not stand.steuer_zaehlt(key):

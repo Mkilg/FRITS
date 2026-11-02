@@ -87,7 +87,8 @@ CREATE TABLE IF NOT EXISTS steuer_schuld (
 CREATE TABLE IF NOT EXISTS steuer_kiste (
     jahr INTEGER PRIMARY KEY,      -- Stand beim letzten Packen der Fundkiste: höchste Datei-id
     bis_datei INTEGER NOT NULL,    -- und Anzahl, damit „neu packen“ auffällt (Lena, Runde 33)
-    anzahl INTEGER NOT NULL
+    anzahl INTEGER NOT NULL,
+    inhalt TEXT                    -- Karte:Prüfsumme je Datei, sortiert (Lena, Runde 44)
 );
 CREATE TABLE IF NOT EXISTS steuer_besitz (
     jahr INTEGER NOT NULL,
@@ -109,7 +110,20 @@ def _now() -> str:
 
 def ensure_schema(conn: sqlite3.Connection) -> sqlite3.Connection:
     conn.executescript(SCHEMA)
+    spalten = {r[1] for r in conn.execute("PRAGMA table_info(steuer_kiste)")}
+    if "inhalt" not in spalten:  # Kisten von vor Runde 44
+        conn.execute("ALTER TABLE steuer_kiste ADD COLUMN inhalt TEXT")
+        conn.commit()
     return conn
+
+
+def _kiste_inhalt(conn: sqlite3.Connection, jahr: int) -> set[str]:
+    """Was in der Fundkiste läge: je Datei ihre Karte und Prüfsumme. Wer eine Datei
+    zurücklegt und genau dieselbe wieder ablegt, ändert daran nichts."""
+    rows = conn.execute(
+        "SELECT d.stueck_id, d.sha256 FROM steuer_dateien d WHERE d.jahr = ?", (jahr,)
+    ).fetchall()
+    return {f"{r[0]}:{r[1]}" for r in rows}
 
 
 def ordner(root: Path, jahr: int) -> Path:
@@ -689,9 +703,15 @@ def chronik(conn: sqlite3.Connection, jahr: int, anzahl: int = 8) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-def hat_notiz(conn: sqlite3.Connection, jahr: int, art: str, text: str | None = None) -> bool:
+def hat_notiz(
+    conn: sqlite3.Connection, jahr: int | None, art: str, text: str | None = None
+) -> bool:
+    """Steht so eine Notiz in der Chronik? jahr=None: in irgendeinem Steuerjahr."""
     ensure_schema(conn)
-    sql, args = "SELECT 1 FROM steuer_chronik WHERE jahr = ? AND art = ?", [jahr, art]
+    sql, args = "SELECT 1 FROM steuer_chronik WHERE art = ?", [art]
+    if jahr is not None:
+        sql += " AND jahr = ?"
+        args.append(jahr)
     if text is not None:
         sql += " AND text = ?"
         args.append(text)
@@ -704,10 +724,12 @@ def kiste_gepackt(conn: sqlite3.Connection, jahr: int) -> None:
     bis, anzahl = conn.execute(
         "SELECT COALESCE(MAX(id), 0), COUNT(*) FROM steuer_dateien WHERE jahr = ?", (jahr,)
     ).fetchone()
+    inhalt = "\n".join(sorted(_kiste_inhalt(conn, jahr)))
     with transaction(conn):
         conn.execute(
-            "INSERT OR REPLACE INTO steuer_kiste (jahr, bis_datei, anzahl) VALUES (?, ?, ?)",
-            (jahr, bis, anzahl),
+            "INSERT OR REPLACE INTO steuer_kiste (jahr, bis_datei, anzahl, inhalt)"
+            " VALUES (?, ?, ?, ?)",
+            (jahr, bis, anzahl, inhalt),
         )
 
 
@@ -716,7 +738,7 @@ def kiste_stand(conn: sqlite3.Connection, jahr: int) -> tuple[int, int] | None:
     Packen dazukamen oder herausgenommen wurden. (0, 0) heißt: Die Kiste ist aktuell."""
     ensure_schema(conn)
     row = conn.execute(
-        "SELECT bis_datei, anzahl FROM steuer_kiste WHERE jahr = ?", (jahr,)
+        "SELECT bis_datei, anzahl, inhalt FROM steuer_kiste WHERE jahr = ?", (jahr,)
     ).fetchone()
     if row is None:
         # Vor Runde 34 gepackt: nur die Chronik kennt den Zeitpunkt
@@ -730,7 +752,13 @@ def kiste_stand(conn: sqlite3.Connection, jahr: int) -> tuple[int, int] | None:
             (jahr, zeit),
         ).fetchone()[0]
         return neu, 0
-    bis, anzahl = row
+    bis, anzahl, inhalt = row
+    if inhalt is not None:
+        # Nach Inhalt vergleichen, nicht nach Zeilen-Nummern (Lena, Runde 44: zurückgelegt
+        # und dieselbe Datei wieder abgelegt hieß „2 neue und 2 herausgenommen“)
+        damals = set(filter(None, inhalt.split("\n")))
+        jetzt = _kiste_inhalt(conn, jahr)
+        return len(jetzt - damals), len(damals - jetzt)
     neu, alt = conn.execute(
         "SELECT COALESCE(SUM(id > ?), 0), COALESCE(SUM(id <= ?), 0) FROM steuer_dateien"
         " WHERE jahr = ?",

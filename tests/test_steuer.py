@@ -984,7 +984,7 @@ def test_steuer_id_gibt_es_immer_und_kernunterlagen_kommen_zum_pruefen(client, w
     werkstatt = client.get("/steuer/2025/gebiet/werkstatt-1").text
     # Echte Rückfrage mit einem Grund pro Unterlage, und "Dann frag ich lieber" als Vorschlag
     assert "Ohne Belege zählen deine Ausgaben nicht" in werkstatt
-    assert "FRITS rechnet sie aus deinen Rechnungen" in werkstatt
+    assert "Ausrechnen musst du sie nicht" in werkstatt
     assert 'data-rueckfrage-frage="Ich finde' in werkstatt
     belege = next(s for s in quest.stuecke(conn, 2025) if s["key"] == "belege")
     quest.setze_status(conn, belege["id"], "gibts_nicht")
@@ -3391,3 +3391,71 @@ def test_runde_41_siegel_zahlt_nach_dem_zuruecklegen_nicht_mehr(client, ws):
     assert conn.execute(sql).fetchone()[0] == spiel.siegel_gold(0)  # kein Nachschlag
     # Das Korn für die Frage von vorhin bleibt weg (der Satz sagte „etwa 2“), nie mehr als vorher
     assert quest.gold(conn, 2025) == vorher - spiel.GOLD_FRAGE
+
+
+def test_runde_42_finale_beim_packen_und_ruhige_meldungen(client, ws):
+    """Lena (Runde 41): Das Packen war nur ein Formular; nach dem Zurücklegen kamen vier
+    Meldungen auf einmal; nach dem Sieg stand „×4, bleibt stehen“."""
+    conn, _bonus = _besiegt_mit_bonus(client, ws)
+    seite = post(client, "/steuer/2025/truhe", schloss="ohne").text
+    assert 'class="sq-kiste-finale"' in seite and "Die Fundkiste 2025 ist zu!" in seite
+    assert 'class="sq-kiste-finale"' not in client.get("/steuer/2025/sieg").text  # nur einmal
+    seite = post(client, "/steuer/2025/truhe", schloss="ohne").text
+    assert 'class="sq-kiste-finale"' not in seite  # Neu packen ist kein zweites Finale
+
+    erste = spiel.pflicht(quest.stuecke(conn, 2025))[0]
+    d = quest.dateien(conn, 2025, erste["id"])[0]
+    seite = post(client, f"/steuer/2025/datei/{d['id']}/entfernen").text
+    assert seite.count('class="sq-meldung hinweis"') == 1
+    assert "Die Datei liegt wieder im Eingangskorb." in seite
+    assert "neue Serie" in client.app.state.steuer_combo[2025]["ruf"]
+
+
+def test_runde_42_vorschau_nennt_das_siegel_und_erster_fund_nur_einmal(client, ws):
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    _bis_wach(conn)
+    karte = spiel.drache(quest.stuecke(conn, 2025)).karte
+    andere = [
+        s
+        for s in spiel.pflicht(quest.stuecke(conn, 2025))
+        if s["gebiet"] == karte["gebiet"] and s["id"] != karte["id"] and s["status"] == "offen"
+    ]
+    for s in andere:
+        quest.setze_status(conn, s["id"], "fragen")
+    drache = client.get("/steuer/2025/drache").text
+    assert "dazu das Siegel +" in drache
+
+
+def test_runde_42_erster_fund_kommt_nur_einmal(client, ws):
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    karte = spiel.pflicht(quest.stuecke(conn, 2025))[0]
+    seite = post(client, f"/steuer/2025/stueck/{karte['id']}/datei",
+                 files=[("datei", ("a.pdf", b"%PDF a"))]).text  # fmt: skip
+    assert "Neuer Orden: Erster Fund" in seite
+    fragebogen(client, jahr=2024, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    karte = spiel.pflicht(quest.stuecke(conn, 2024))[0]
+    seite = post(client, f"/steuer/2024/stueck/{karte['id']}/datei",
+                 files=[("datei", ("b.pdf", b"%PDF b"))]).text  # fmt: skip
+    assert quest.stueck(conn, karte["id"])["status"] == "gesammelt"
+    assert "Neuer Orden: Erster Fund" not in seite
+
+
+def test_runde_43_kiste_vergleicht_nach_inhalt(client, ws):
+    """Lena (Runde 44): Zurücklegen und dieselbe Datei wieder ablegen hieß „2 neue und 2
+    herausgenommen“ und verlangte ein neues Passwort."""
+    conn, _bonus = _besiegt_mit_bonus(client, ws)
+    seite = post(client, "/steuer/2025/truhe", schloss="passwort").text
+    assert "sq-kiste-finale" in seite and "truhe-zu" in seite
+    assert "Die Fundkiste ist gepackt und mit Passwort" not in seite  # das sagt das Finale
+    assert quest.kiste_stand(conn, 2025) == (0, 0)
+    erste = spiel.pflicht(quest.stuecke(conn, 2025))[0]
+    d = quest.dateien(conn, 2025, erste["id"])[0]
+    post(client, f"/steuer/2025/datei/{d['id']}/entfernen")
+    assert quest.kiste_stand(conn, 2025) == (0, 1)
+    name = quest.lager_dateien(ws.root)[0].name
+    post(client, "/steuer/2025/lager/zuordnen", name=name, stueck_id=str(erste["id"]),
+         trotzdem="1")  # fmt: skip
+    assert quest.kiste_stand(conn, 2025) == (0, 0)  # gleicher Inhalt: nichts neu zu packen
+    assert "Pack die Fundkiste neu" not in client.get("/steuer/2025/sieg").text

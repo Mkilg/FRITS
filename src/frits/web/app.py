@@ -102,7 +102,7 @@ from frits.render import eur, qty
 from frits.settings import Settings, Workspace
 from frits.spiel import abspann, tagesziel
 from frits.spiel import stand as spiel_stand
-from frits.web.haustier import fritte_datei, register_haustier
+from frits.web.haustier import fritte_datei, karten_bild, register_haustier
 
 UNITS = ("Std", "km", "Stk", "pauschal")
 PROVIDERS = {
@@ -491,6 +491,7 @@ def create_app(
         salz=salz_oder_bild(pictures),
         zeichen=zeichen_oder_bild(pictures),
         picture_css=picture_css(pictures),
+        karten_bild=karten_bild,
     )
 
     @app.middleware("http")

@@ -73,7 +73,7 @@
         {% for g in gerichte %}
         <label class="gericht">
           <input type="radio" name="rezept" value="{{ g.id }}" required{{ " checked" if g.id == gericht_vorwahl }} oninvalid="this.setCustomValidity('Wähl erst ein Gericht, dann kocht Fritte.')" onchange="this.form.querySelectorAll('[name=rezept]').forEach(function (r) { r.setCustomValidity(''); })">
-          <span class="gericht-zeichen" aria-hidden="true">{{ g.zeichen }}</span>
+          <span class="gericht-zeichen" aria-hidden="true">{# the preserving jar only for Einkochen: three equal jars said nothing #}{% if g.id == "einkochen" or picture('gewuerz-' ~ g.id) %}{{ spiel.bild_zeichen('gewuerz', g.id, g.zeichen) }}{% else %}{{ g.zeichen }}{% endif %}</span>
           <strong>{{ "Einkochen" if g.id == "einkochen" else g.name }}</strong>
           <span class="gericht-text">{{ g.text }}</span>
           <span class="gericht-summe">{% if g.id == "einkochen" %}Heute <strong>{{ gericht_summe[g.id] }}</strong>, nächstes Mal mehr{% else %}Ergibt <strong>{{ gericht_summe[g.id] }}</strong> {{ "Salzkorn" if gericht_summe[g.id] == 1 else "Salzkörner" }}{% endif %}</span>
@@ -123,7 +123,7 @@
   {% if truhen_auf %}
   <div class="truhen-funde">
     <span class="hint">Zuletzt gefunden:</span>
-    {% for t in truhen_auf %}<a class="fund-chip selten-{{ t.inhalt.seltenheit | replace('ö', 'oe') | replace('ä', 'ae') }}" href="/fritte/truhe/{{ t.id }}" title="{{ seltenheit_name(t.inhalt.seltenheit) }}: {{ t.inhalt.name }}"><span aria-hidden="true">{{ t.inhalt.zeichen }}</span> {{ t.inhalt.name }}</a>{% endfor %}
+    {% for t in truhen_auf %}<a class="fund-chip selten-{{ t.inhalt.seltenheit | replace('ö', 'oe') | replace('ä', 'ae') }}" href="/fritte/truhe/{{ t.id }}" title="{{ seltenheit_name(t.inhalt.seltenheit) }}: {{ t.inhalt.name }}"><span aria-hidden="true">{{ spiel.bild_zeichen(t.inhalt.art, t.inhalt.id, t.inhalt.zeichen) }}</span> {{ t.inhalt.name }}</a>{% endfor %}
   </div>
   {% endif %}
   <p class="schaetze-zeile hint">Schätze, die es nur in Truhen gibt: <strong>{{ schaetze | selectattr(1) | list | length }} von {{ schaetze | length }}</strong> gefunden. <a href="/sammlung#schaetze">In der Sammlung ansehen</a></p>
@@ -164,7 +164,7 @@
 
 {% if haus_sichtbar %}
 <section class="card frittes-haus" id="haus">
-  <h2>Frittes Haus <span class="hint"><span class="warm-zeichen" aria-hidden="true">{{ ort.zeichen }}</span> {{ ort.name }}{% if ruf %} · Ruf {{ ruf }} (+{{ spiel.zahl(ruf * 0.5) }} Würze){% endif %}</span></h2>
+  <h2>Frittes Haus <span class="hint">{% set ort_blick = picture("aussicht-" ~ AUSSICHT.get(ort.nummer, "")) %}{% if ort_blick %}<img class="aussicht-mini" src="{{ ort_blick }}" alt="" width="36" height="24">{% else %}<span class="warm-zeichen" aria-hidden="true">{{ ort.zeichen }}</span>{% endif %} {{ ort.name }}{% if ruf %} · Ruf {{ ruf }} (+{{ spiel.zahl(ruf * 0.5) }} Würze){% endif %}</span></h2>
   <ol class="zeitalter">
     {% for st in stufen if st.nummer <= f.stufe + 1 %}
     <li class="{{ 'erreicht' if st.nummer <= f.stufe else '' }}{{ ' im-bau' if f.bau == st.name else '' }}{{ ' jetzt' if st.nummer == f.stufe else '' }}">

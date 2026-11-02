@@ -9,7 +9,8 @@
 <div class="spielkarte art-{{ k.art }}{{ ' klein' if klein }}{{ ' glueck' if k.glueck }}" data-karte="{{ index }}">
   {% set art_name = "Gutschrift" if k.art == "rechnung" and (k.titel or "").startswith("Gutschrift ") else KARTEN_NAME.get(k.art, k.art) %}
   <span class="karte-art{{ ' lang' if art_name|length > 9 }}">{{ art_name }}</span>
-  <span class="karte-bild" aria-hidden="true">{% if picture(KARTEN_BILD.get(k.art, "")) %}<img src="{{ picture(KARTEN_BILD[k.art]) }}" alt="">{% else %}{{ KARTEN_ZEICHEN.get(k.art, "📄") }}{% endif %}</span>
+  {% set eigen, eigen_filter = karten_bild(k) %}
+  <span class="karte-bild" aria-hidden="true">{% if eigen %}<img class="karte-gemalt" src="{{ eigen }}" alt=""{% if eigen_filter %} style="filter: {{ eigen_filter }}"{% endif %}>{% elif picture(KARTEN_BILD.get(k.art, "")) %}<img src="{{ picture(KARTEN_BILD[k.art]) }}" alt="">{% else %}{{ KARTEN_ZEICHEN.get(k.art, "📄") }}{% endif %}</span>
   {% if not klein %}
   <strong class="karte-titel">{{ k.titel }}</strong>
   <span class="karte-detail">{{ k.detail }}</span>
@@ -25,11 +26,18 @@
 </div>
 {% endmacro %}
 
+{# A painted picture for a thing or a spice, the preserving jar for a dish without its own
+   picture (Lena R43: emoji next to painted pepper), else the emoji. #}
+{% macro bild_zeichen(art, id, emoji) -%}
+{%- set url = picture('ding-' ~ id) if art == 'ding' else ((picture('gewuerz-' ~ id) or picture('symbol-einkochen')) if art == 'gewuerz' else '') -%}
+{%- if url %}<img class="zeichen-bild" src="{{ url }}" alt="">{% else %}{{ emoji }}{% endif -%}
+{%- endmacro %}
+
 {% macro glas(g, klein=False) %}
 <div class="gewuerzglas selten-{{ g.seltenheit | replace('ö', 'oe') | replace('ä', 'ae') }}{{ ' klein' if klein }}" data-gewuerz="{{ g.id }}" title="{{ g.name }}: {{ g.text }}">
   <span class="glas-deckel" aria-hidden="true"></span>
   <span class="glas-koerper">
-    <span class="glas-zeichen" aria-hidden="true">{% if picture('gewuerz-' ~ g.id) %}<img src="{{ picture('gewuerz-' ~ g.id) }}" alt="">{% else %}{{ g.zeichen }}{% endif %}</span>
+    <span class="glas-zeichen" aria-hidden="true">{{ bild_zeichen('gewuerz', g.id, g.zeichen) }}</span>
     <span class="glas-etikett">{{ g.name }}</span>
   </span>
 </div>

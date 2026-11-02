@@ -327,6 +327,16 @@
     konfetti();
     if (!leiterKommt) fanfare();
   }
+  // Lena (Runde 44): Das Finale der Fundkiste klang vor dem Siegel. Jetzt landet der Ton
+  // mit dem Siegel (CSS: .sq-kiste-siegel, 0,35 s Verzögerung + 0,7 s), dazu Schnipsel.
+  if (document.querySelector(".sq-kiste-finale")) {
+    setTimeout(function () {
+      stempelTon();
+      ton(1318.5, 0.45, "sine", 0.08, 0.12);
+      ton(1760, 0.6, "sine", 0.06, 0.22);
+      if (!ruhig) konfetti();
+    }, ruhig ? 0 : 1000);
+  }
   // Der große Moment: Siegel, neues Zeitalter, Orden. Ein Dialog mit Licht, Konfetti und Fanfare,
   // und gleich darunter der nächste Auftrag (so weiß man immer, wie es weitergeht).
   var belohnung = document.querySelector("dialog[data-belohnung]");
