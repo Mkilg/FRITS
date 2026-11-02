@@ -2103,6 +2103,7 @@ def test_runde_18_auch_im_drachenkampf_und_aus_dem_korb(client, ws):
         zettel="Strand-Selfie.jpg",
     )
     assert "Fritte stutzt" in seite.text and quest.stueck(conn, karte["id"])["status"] == "offen"
+    assert "Es bleibt erst mal im Eingangskorb" in seite.text  # lag ja schon dort
     seite = post(client, "/steuer/2025/lager/beiseite", name="Strand-Selfie.jpg", back="/")
     assert (quest.beiseite(ws.root) / "Strand-Selfie.jpg").exists()
 

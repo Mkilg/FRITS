@@ -622,8 +622,9 @@ def register_steuer(
                 )
             else:
                 flash("Der Drache faltet sich zu einer Schatztruhe zusammen.", "sieg", "sent")
-            if plus and not ferne:
+            if plus and not ferne and basis * faktor:
                 # Der größte Treffer des Kampfes soll man sehen, auch wenn der Sieg ihn verdrängt
+                # (ein Treffer ohne Gold dämpft die Feier nur, der bleibt weg)
                 flash(f"Letzter Treffer: {basis} × {faktor} = +{basis * faktor} Gold.", "sieg")
             if goldjahr and fritte_truhe(c, jahr, silber=bool(nachher["zweifel"])):
                 flash(
@@ -675,10 +676,17 @@ def register_steuer(
             return None
         return pruefung.pruefe(pfad, original, s, quest.stuecke(c, jahr))
 
-    def nachfragen(jahr: int, s: dict, name: str, z: pruefung.Zweifel, zurueck: str) -> None:
+    def nachfragen(
+        jahr: int, s: dict, name: str, z: pruefung.Zweifel, zurueck: str, aus_korb: bool = False
+    ) -> None:
         """Die Rückfrage als Zettel mit zwei Wegen. Bis dahin gibt es kein Gold."""
+        wo = (
+            "Es bleibt erst mal im Eingangskorb."
+            if aus_korb
+            else "Ich habe es erst mal in den Eingangskorb gelegt."
+        )
         flash(
-            f"Fritte stutzt: {z.text} Ich habe es erst mal in den Eingangskorb gelegt.",
+            f"Fritte stutzt: {z.text} {wo}",
             "warn",
             aktion={
                 "url": f"/steuer/{jahr}/lager/zuordnen",
@@ -1030,7 +1038,7 @@ def register_steuer(
         if form.get("trotzdem") != "1":
             z = zweifel_an(jahr, s, quelle, name)
             if z is not None:
-                nachfragen(jahr, s, name, z, zurueck)
+                nachfragen(jahr, s, name, z, zurueck, aus_korb=True)
                 return back(zurueck)
         vorher = lage(jahr)
         c = conn()
@@ -1506,8 +1514,8 @@ def register_steuer(
         # Eine Zahl für Meldung und Seite: "für beide Wohnungen" sind zwei Aufträge
         anzahl = len(ergebnis)
         flash(
-            f"Botschaft entschlüsselt: {anzahl} Aufträge. {markiert} davon kennst du"
-            " schon, die Karten sind jetzt markiert."
+            f"Botschaft entschlüsselt: {anzahl} Aufträge. Für {markiert} davon gibt es schon"
+            " eine Karte auf deiner Insel, die ist jetzt markiert."
             if markiert
             else f"Botschaft entschlüsselt: {anzahl} Aufträge auf deiner Karte.",
             "erfolg",
@@ -1579,7 +1587,7 @@ def register_steuer(
                 return back(f"/steuer/{jahr}/drache#karte")
             z = zweifel_an(jahr, s, quelle, name)
             if z is not None:
-                nachfragen(jahr, s, name, z, f"/steuer/{jahr}/drache")
+                nachfragen(jahr, s, name, z, f"/steuer/{jahr}/drache", aus_korb=True)
                 return back(f"/steuer/{jahr}/drache#karte")
             c = conn()
             fund = quest.sammeln(c, ws.root, s["id"], quelle, verschieben=True)
