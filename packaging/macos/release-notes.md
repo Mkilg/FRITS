@@ -13,6 +13,13 @@ Sagt der Mac stattdessen, die App sei „beschädigt“: Terminal öffnen, `xatt
 
 Läuft ohne Internet, auf Macs mit Apple-Chip und Intel, ab macOS 13. Deine Daten liegen in `Dokumente/FRITS`, nicht im App-Ordner.
 
+### Neu in 1.6.0
+- **Neuer Look:** Jede Seite liegt auf einem Eichenbrett mit hellen Papierkarten. Pro Seite gibt es einen Hauptknopf. Auf dem Handy gibt es unten eine Tab-Leiste.
+- **Fritte wird ein richtiges Spiel:** Echter Papierkram füllt Truhen mit Schätzen, Gewürzen und Körnern. Gewürze zeigen ihre Wirkung, dazu kommen ein Tagesziel, ein Saison-Streifen und eine gemeinsame **Sammlung** (unter /sammlung). Das System ist verdichtet auf eine Börse und ein Kassenbuch. Alte Spielstände werden übernommen.
+- **Steuer-Quest:** Die Gold-Serie zählt nur mit echten Belegen. Fritte stutzt bei Urlaubsfotos, ein Drachensieg legt eine Truhe ab, und Quest-Töne laufen im Klangrahmen.
+- **Ausgaben:** Bücher, Zeitschriften und Fahrkarten ohne aufgedruckten Steuersatz bekommen 7 % vorgeschlagen. Findet FRITS kein Datum, bleibt das Feld leer und der Cursor steht darin.
+- **Weniger Sackgassen:** Eine falsche Zahl (zum Beispiel „neunzig“ oder „zwei“) markiert genau das Feld rot, und deine Eingaben bleiben. Rückfragen erscheinen als FRITS-Karte, beim Stornieren mit rotem Knopf. „Ohne KI weitermachen“ ist ein Knopf.
+
 ### Neu in 1.5.1
 - **Mehr Schutz beim Schwärzen:** Steuer-ID, Sozialversicherungsnummer und eTIN (von der Lohnsteuerbescheinigung) gehen nie an die KI.
 - „Kenne ich schon“ führt direkt zum Beleg, Entwurf oder zur Rechnung. Keine doppelten „(1)“-Dateien mehr.
