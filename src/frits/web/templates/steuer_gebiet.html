@@ -31,15 +31,25 @@
       {% set fehlt = vorjahr | rejectattr("jetzt", "in", ["gesammelt", "gibts_nicht", "fragen"]) | list %}
       {% set stimmung = "done" if provinzstand.stand.siegel else ("thinking" if fehlt else "welcome") %}
       {% include "_steuer_fritte.html" %}
-      <p class="sq-sprechblase">{% if provinzstand.stand.siegel %}Komplett! Diese Provinz trägt ihr Siegel.{% elif fehlt %}Letztes Jahr lagen hier {{ vorjahr | length }} Schriftstücke. Bis zum Vorjahr fehl{{ "t" if fehlt | length == 1 else "en" }} noch {{ fehlt | length }}.{% elif vorjahr %}Alles vom letzten Jahr ist wieder da. Stark!{% else %}Zieh Dateien direkt auf eine Karte. Was es nicht gibt, stempelst du einfach ab.{% endif %}</p>
+      <p class="sq-sprechblase">{% if provinzstand.stand.siegel %}Komplett! Diese Provinz trägt ihr Siegel.{% elif fehlt %}Letztes Jahr lagen hier {{ vorjahr | length }} Schriftstücke. Bis zum Vorjahr fehl{{ "t" if fehlt | length == 1 else "en" }} noch {{ fehlt | length }}.{% elif vorjahr %}Alles vom letzten Jahr ist wieder da. Stark!{% elif stapel %}Ein Zettel nach dem anderen. Was du nicht hast, stempelst du einfach ab.{% else %}Zieh Dateien direkt auf eine Karte. Was es nicht gibt, stempelst du einfach ab.{% endif %}</p>
     </div>
   </aside>
 
-  {# Mitte: die Akte, eine Papierkarte pro Sammelstück #}
+  {# Mitte: die Akte, eine Papierkarte pro Sammelstück. Im Stapel liegt nur eine vorn. #}
   {% set erste_offen = eigene | selectattr("status", "equalto", "offen") | rejectattr("art", "equalto", "bonus") | first %}
-  <ul class="sq-akte" aria-label="Sammelstücke">
+  <div class="sq-akte-spalte">
+  {% if stapel %}
+  {% set nr = (eigene | map(attribute="id") | list).index(vorn.id) + 1 %}
+  <div class="sq-stapel-kopf">
+    <p class="sq-kicker">Zettel {{ nr }} von {{ eigene | length }}</p>
+    <ol class="sq-zettel-punkte" aria-label="Alle Zettel dieser Provinz">
+      {% for s in eigene %}<li><a href="?karte={{ s.id }}" class="{{ 'vorn' if s.id == vorn.id else ('fertig' if s.status != 'offen' else 'offen') }}{% if s.art == 'bonus' %} bonus{% endif %}" title="{{ s.name }}{% if s.status != 'offen' %} ✓{% endif %}" aria-label="{{ s.name }}{% if s.status != 'offen' %}, erledigt{% endif %}"{% if s.id == vorn.id %} aria-current="true"{% endif %}></a></li>{% endfor %}
+    </ol>
+  </div>
+  {% endif %}
+  <ul class="sq-akte{% if stapel %} stapel{% endif %}" aria-label="Sammelstücke">
     {% for s in eigene %}
-    <li class="sq-karte status-{{ s.status }}{% if s.art == 'bonus' %} bonus{% endif %}{% if erste_offen and s.id == erste_offen.id %} als-naechstes{% endif %}" style="--r: {{ [-1.2, 0.8, -0.4, 1.1, -0.9][loop.index0 % 5] }}deg" data-stueck="{{ s.id }}">
+    <li class="sq-karte status-{{ s.status }}{% if s.art == 'bonus' %} bonus{% endif %}{% if erste_offen and s.id == erste_offen.id %} als-naechstes{% endif %}{% if stapel and s.id == vorn.id %} vorn{% endif %}" style="--r: {{ [-1.2, 0.8, -0.4, 1.1, -0.9][loop.index0 % 5] }}deg" data-stueck="{{ s.id }}">
       <div class="sq-etiketten">
         {% if erste_offen and s.id == erste_offen.id %}<span class="sq-etikett start">Fang hier an</span>{% endif %}
         {% if s.art == "bonus" %}<span class="sq-etikett schatz" title="Freiwillig. Kann Steuern sparen, blockiert nie deinen Sieg.">Bonus-Schatz</span>{% endif %}
@@ -97,13 +107,15 @@
       </form>
       {% set beispiel = angabe(s.gebiet, s.key) %}
       {% if beispiel and s.status != "gesammelt" %}
+      <details class="sq-tippen"><summary>Kein Dokument? Einfach eintippen</summary>
       <form method="post" action="/steuer/{{ jahr }}/stueck/{{ s.id }}/angabe" class="sq-angabe" data-stempel="NOTIERT">
         <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back" value="{{ zurueck }}">
-        <label>Oder einfach eintippen, ohne Dokument
+        <label>Was du eintippst, kommt so in die Mail
           <textarea name="text" rows="2" maxlength="2000" placeholder="{{ beispiel }}">{% if s.key == "steuer-id" and steuernummer %}Steuernummer: {{ steuernummer }}
 Steuer-ID: {% endif %}</textarea></label>
         <button class="sq-stempelknopf gruen">Notieren</button>
       </form>
+      </details>
       {% endif %}
       {% if s.status != "gesammelt" %}
       <div class="sq-aktionen">
@@ -145,20 +157,42 @@ Steuer-ID: {% endif %}</textarea></label>
         {% endif %}
       </div>
       {% endif %}
+      {% if stapel and s.id == vorn.id %}
+      <p class="sq-stapel-weiter">{% if spaeter %}<a href="?karte={{ spaeter.id }}">Später ›</a>{% elif s.status != "offen" %}<a href="{{ zurueck }}">Zum nächsten offenen Zettel ›</a>{% endif %}</p>
+      {% endif %}
     </li>
     {% endfor %}
   </ul>
+  </div>
 
-  {# Rechts: Eingangskorb, Zettel auf Karten ziehen #}
-  <aside class="sq-rand sq-korb" aria-label="Eingangskorb">
-    <h2 class="sq-rand-titel">Eingangskorb</h2>
+  {# Rechts: was schon erledigt ist (FRITS-Karten zuerst), der Umschalter und der Korb, wenn Zettel darin liegen #}
+  <aside class="sq-rand sq-korb" aria-label="Erledigt und Eingangskorb">
+    {% if stapel %}
+    {% set fertig = eigene | rejectattr("status", "equalto", "offen") | list %}
+    {% set von_frits = fertig | selectattr("status", "equalto", "gesammelt") | selectattr("key", "in", aus_frits) | list %}
+    {% set selbst = fertig | reject("in", von_frits) | list %}
+    {% if von_frits %}
+    <section class="sq-papier sq-erledigt">
+      <h2>Hat FRITS schon dabei</h2>
+      <ul>{% for s in von_frits %}<li><a href="?karte={{ s.id }}">✓ {{ s.name }}</a></li>{% endfor %}</ul>
+      <p class="muted">Das kommt aus deinen Rechnungen und Ausgaben in FRITS. Du musst dafür nichts tun.</p>
+    </section>
+    {% endif %}
+    {% if selbst %}
+    <section class="sq-papier sq-erledigt">
+      <h2>Schon erledigt</h2>
+      <ul>{% for s in selbst %}<li><a href="?karte={{ s.id }}">✓ {{ s.name }}{% if s.status == "gibts_nicht" %} <small>gibt's nicht</small>{% elif s.status == "fragen" %} <small>Frage</small>{% endif %}</a></li>{% endfor %}</ul>
+    </section>
+    {% endif %}
+    <p class="sq-umschalter">Lieber alles auf einmal? <a href="?ansicht=liste">Alle Zettel als Liste zeigen</a></p>
+    {% elif ansicht == "liste" %}
+    <p class="sq-umschalter">Zu viel auf einmal? <a href="?ansicht=stapel">Ein Zettel nach dem anderen</a></p>
+    {% endif %}
     {% if lager %}
+    <h2 class="sq-rand-titel">Eingangskorb</h2>
     <p>Zieh einen Zettel auf die passende Karte.</p>
     {% include "_steuer_zettel.html" %}
-    {% else %}
-    <p class="sq-leer">Leer. Du kannst Dateien auch direkt vom Schreibtisch auf eine Karte ziehen.</p>
     {% endif %}
-    <a class="sq-ding" href="/steuer/{{ jahr }}/beraterin"><span class="sq-ding-bild brief"></span><span><strong>Post von der Beraterin?</strong>Mail einfügen</span></a>
   </aside>
 </div>
 </div>

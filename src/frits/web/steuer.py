@@ -1086,7 +1086,25 @@ def register_steuer(
             ]
         vorjahr = [v for v in daten["vergleich"] if v["gebiet"] == g.id]
         stand = next(p for p in daten["provinzen"] if p.gebiet.id == g.id)
-        return seite(
+        # Zettel für Zettel (Marie, 2.11.: zu viel auf einmal): Eine Karte liegt vorn, die
+        # anderen warten im Stapel. Die Liste aller Karten bleibt als Umschalter, gemerkt im Cookie.
+        gewaehlt = request.query_params.get("ansicht", "")
+        ansicht = gewaehlt or request.cookies.get("sq_ansicht", "")
+        ansicht = ansicht if ansicht in ("stapel", "liste") else "stapel"
+        offen = [s for s in eigene if s["status"] == "offen"]
+        offen = [s for s in offen if s["art"] != "bonus"] + [
+            s for s in offen if s["art"] == "bonus"
+        ]
+        wahl = request.query_params.get("karte", "")
+        vorn = next((s for s in eigene if str(s["id"]) == wahl), None) or (
+            offen[0] if offen else None
+        )
+        spaeter = None
+        if vorn is not None:
+            rest = [s for s in offen if s["id"] != vorn["id"]]
+            nach = [s for s in rest if eigene.index(s) > eigene.index(vorn)]
+            spaeter = (nach or rest or [None])[0]
+        antwort = seite(
             request,
             "steuer_gebiet.html",
             g=g,
@@ -1094,8 +1112,16 @@ def register_steuer(
             vorjahr=vorjahr,
             provinzstand=stand,
             lager=quest.lager_dateien(ws.root),
+            stapel=ansicht == "stapel" and vorn is not None,
+            ansicht=ansicht,
+            vorn=vorn,
+            spaeter=spaeter,
+            aus_frits=ernte.aus_frits(g.provinz.key),
             **daten,
         )
+        if gewaehlt in ("stapel", "liste"):
+            antwort.set_cookie("sq_ansicht", gewaehlt, max_age=3600 * 24 * 365, samesite="lax")
+        return antwort
 
     @app.post("/steuer/{jahr}/stueck/{stueck_id}/status", dependencies=guarded)
     async def status(request: Request, jahr: int, stueck_id: int):

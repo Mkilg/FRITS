@@ -231,6 +231,13 @@ def einbringen(
     return neu
 
 
+def aus_frits(provinz_key: str) -> frozenset[str]:
+    """Welche Karten dieser Provinz FRITS selbst füllt (Rechnungen, EÜR und Co.)."""
+    if provinz_key not in ZIELE:
+        return frozenset()
+    return frozenset(k for r, keys in ROLLEN.items() if r != "belege" for k in keys)
+
+
 def fruehere_wahl(conn: sqlite3.Connection, jahr: int) -> str | None:
     """Wohin die Ernte zuletzt kam (gemerkt an der EÜR), damit sie danach von selbst kommt."""
     quest.ensure_schema(conn)
