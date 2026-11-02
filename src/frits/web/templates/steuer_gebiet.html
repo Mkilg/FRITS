@@ -19,7 +19,7 @@
     </div>
     <h1>{{ g.titel }}</h1>
     <p class="bereich">{{ g.bereich }}{% if g.provinz.anlage %} · {{ g.provinz.anlage }}{% endif %}</p>
-    <p class="bereich">{{ provinzstand.stand.erledigt }} von {{ provinzstand.stand.gesamt }} · {{ provinzstand.stufe_name }}</p>
+    <p class="bereich">{% if provinzstand.nur_bonus %}{% set gef = eigene | selectattr("status", "equalto", "gesammelt") | list | length %}Nur freiwillige Schätze · {{ gef }} von {{ eigene | length }} gefunden{% else %}{{ provinzstand.stand.erledigt }} von {{ provinzstand.stand.gesamt }} · {{ provinzstand.stufe_name }}{% endif %}</p>
     {% if g.zeige_nummer or g.name %}
     <form method="post" action="/steuer/{{ jahr }}/gebiet/{{ g.id }}/name" class="sq-gebietname" data-leise>
       <input type="hidden" name="token" value="{{ token }}">
@@ -45,7 +45,9 @@
   {% set reihe = pflicht_z + frei_z %}
   {% set nr = (reihe | map(attribute="id") | list).index(vorn.id) + 1 %}
   <div class="sq-stapel-kopf">
-    <p class="sq-kicker">{% if vorn.art == "bonus" %}Freiwillig {{ nr - pflicht_z | length }} von {{ frei_z | length }}{% else %}Zettel {{ nr }} von {{ pflicht_z | length }}{% if frei_z %} <span class="sq-kicker-frei">+ {{ frei_z | length }} freiwillig</span>{% endif %}{% endif %}</p>
+    {# Fortschritt statt Position (Lena, Runde 32): die Punkte zeigen, wo du bist #}
+    {% set p_fertig = pflicht_z | rejectattr("status", "equalto", "offen") | list | length %}{% set f_fertig = frei_z | rejectattr("status", "equalto", "offen") | list | length %}
+    <p class="sq-kicker">{% if vorn.art == "bonus" %}Freiwillig · {{ f_fertig }} von {{ frei_z | length }} gefunden{% else %}{{ p_fertig }} von {{ pflicht_z | length }} erledigt{% if frei_z %} <span class="sq-kicker-frei">+ {{ frei_z | length }} freiwillig</span>{% endif %}{% endif %}</p>
     <ol class="sq-zettel-punkte" aria-label="Alle Zettel dieser Provinz">
       {% for s in reihe %}<li><a href="?karte={{ s.id }}" class="{{ 'vorn' if s.id == vorn.id else ('fertig' if s.status != 'offen' else 'offen') }}{% if s.art == 'bonus' %} bonus{% endif %}" title="{{ s.name }}{% if s.status != 'offen' %} ✓{% endif %}" aria-label="{{ s.name }}{% if s.status != 'offen' %}, erledigt{% endif %}"{% if s.id == vorn.id %} aria-current="true"{% endif %}></a></li>{% endfor %}
     </ol>
@@ -56,7 +58,7 @@
     <li class="sq-karte status-{{ s.status }}{% if s.art == 'bonus' %} bonus{% endif %}{% if erste_offen and s.id == erste_offen.id %} als-naechstes{% endif %}{% if stapel and s.id == vorn.id %} vorn{% endif %}" style="--r: {{ [-1.2, 0.8, -0.4, 1.1, -0.9][loop.index0 % 5] }}deg" data-stueck="{{ s.id }}">
       <div class="sq-etiketten">
         {% if erste_offen and s.id == erste_offen.id %}<span class="sq-etikett start">Fang hier an</span>{% endif %}
-        {% if s.art == "bonus" %}<span class="sq-etikett schatz" title="Freiwillig. Kann Steuern sparen, blockiert nie deinen Sieg.">Bonus-Schatz</span>{% endif %}
+        {% if s.art == "bonus" %}<span class="sq-etikett schatz" title="Freiwillig. Kann Steuern sparen, blockiert nie deinen Sieg.">Bonus-Schatz{% if s.status == "offen" and schatz_salz %} · +{{ schatz_salz }} {{ salz }}{% endif %}</span>{% endif %}
         {% if s.wunsch %}<span class="sq-etikett wunsch">Wunsch der Beraterin</span>{% endif %}
         {% if s.herkunft == "vorjahr" %}<span class="sq-etikett vorjahr">wie letztes Jahr</span>{% endif %}
       </div>
@@ -175,7 +177,7 @@ Steuer-ID: {% endif %}</textarea></label>
     {% set fertig = eigene | rejectattr("status", "equalto", "offen") | list %}
     {% set von_frits = fertig | selectattr("status", "equalto", "gesammelt") | selectattr("key", "in", aus_frits) | list %}
     {# Nur was wirklich aus der Ernte kam: Selbst Hochgeladenes ist „Schon erledigt“ (Lena, Runde 31) #}
-    {% if von_frits_ids is not none %}{% set von_frits = von_frits | selectattr("id", "in", von_frits_ids) | list %}{% endif %}
+    {% set von_frits = von_frits | selectattr("id", "in", von_frits_ids) | list %}
     {% set selbst = fertig | reject("in", von_frits) | list %}
     {% if von_frits %}
     <section class="sq-papier sq-erledigt">

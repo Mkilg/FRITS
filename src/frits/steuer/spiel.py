@@ -419,7 +419,11 @@ def auftrag(
         frei = sum(1 for s in stuecke if s["status"] == "offen" and ist_bonus(s))
         rest = ""
         if zettel:
-            rest = " Im Korb wartet noch " + ("ein Zettel." if zettel == 1 else f"{zettel} Zettel.")
+            rest = (
+                " Im Korb wartet noch ein Zettel."
+                if zettel == 1
+                else f" Im Korb warten noch {zettel} Zettel."
+            )
         elif frei:
             rest = " Dort steht auch, was sich freiwillig noch lohnt."
         return Auftrag(
@@ -834,7 +838,9 @@ def verdienste(
         art = "fund" if status == "gesammelt" else "antwort"
         # Fragen und Wünsche füttern keine Gold-Serie (Wünsche kann man selbst erfinden)
         faktor = mult if status == "gesammelt" and not ist_wunsch(s) else 1
-        neu.append(Verdienst(karten_grund(s, art), basis, faktor, s["name"]))
+        # „(×4)“ im Text: Frittes Kassenbuch nennt damit die Serie des Kampfes
+        text = s["name"] + (f" (×{faktor})" if faktor > 1 else "")
+        neu.append(Verdienst(karten_grund(s, art), basis, faktor, text))
     return neu
 
 

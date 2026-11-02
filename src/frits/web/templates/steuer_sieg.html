@@ -47,8 +47,9 @@
       <h2>Lohnt sich noch</h2>
       {% if lager %}<p>Im Eingangskorb {{ "liegt noch ein Zettel" if lager | length == 1 else "liegen noch " ~ (lager | length) ~ " Zettel" }}: <b>{{ lager[0].name }}</b>{% if lager | length > 1 %} und {{ lager | length - 1 }} weitere{% endif %}. <a href="/steuer/{{ jahr }}#sq-korb">Zum Korb</a></p>{% endif %}
       {% if frei %}
-      <p>Freiwillig, aber oft bares Geld: {{ frei | length }} Zettel{{ " kann" if frei | length == 1 else " können" }} Steuern sparen. Was du jetzt noch findest, packst du einfach neu in die Fundkiste.</p>
+      <p>Freiwillig, aber oft bares Geld: {{ frei | length }} Zettel{{ " kann" if frei | length == 1 else " können" }} Steuern sparen. {% if schatz_salz %}<b>Jeder Fund bringt +{{ schatz_salz }} {{ salz }}</b>{% if "goldwaage" in helfer %} (mit der Goldwaage){% endif %}.{% endif %} Was du jetzt noch findest, packst du einfach neu in die Fundkiste.</p>
       <ul>{% for gid, karten in frei | groupby("gebiet") %}<li><a href="/steuer/{{ jahr }}/gebiet/{{ gid }}?karte={{ karten[0].id }}">{{ (provinzen | selectattr("gebiet.id", "equalto", gid) | first).gebiet.titel }}</a>: {{ karten[:2] | map(attribute="name") | join(", ") }}{% if karten | length > 2 %} und {{ karten | length - 2 }} weitere{% endif %}</li>{% endfor %}</ul>
+      <p><a class="sq-stempelknopf" href="/steuer/{{ jahr }}/gebiet/{{ frei[0].gebiet }}?karte={{ frei[0].id }}">Zum ersten Schatz →</a></p>
       {% endif %}
     </section>
     {% endif %}

@@ -550,12 +550,10 @@ def merke_aus_frits(conn: sqlite3.Connection, jahr: int, pfad: Path) -> None:
         )
 
 
-def von_frits(conn: sqlite3.Connection, jahr: int) -> set[int] | None:
-    """Karten, deren Dateien alle aus der FRITS-Ernte kommen. None, solange die Ernte in
-    diesem Jahr noch nichts gemerkt hat (ältere Spielstände: dann zählt die Rolle)."""
+def von_frits(conn: sqlite3.Connection, jahr: int) -> set[int]:
+    """Karten, deren Dateien alle aus der FRITS-Ernte kommen. Ohne gemerkte Ernte: keine
+    (Lena, Runde 32: Raten nach der Rolle zeigte eigene Uploads als „von FRITS“)."""
     ensure_schema(conn)
-    if not conn.execute("SELECT 1 FROM steuer_aus_frits WHERE jahr = ?", (jahr,)).fetchone():
-        return None
     rows = conn.execute(
         "SELECT d.stueck_id, MIN(a.sha256 IS NOT NULL) AS alle FROM steuer_dateien d"
         " LEFT JOIN steuer_aus_frits a ON a.jahr = d.jahr AND a.sha256 = d.sha256"
