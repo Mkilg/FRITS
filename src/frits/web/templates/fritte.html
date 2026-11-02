@@ -27,7 +27,7 @@
       </form>
     </div>
     {% else %}
-    <p class="hint">Fritte feiert {{ "verspielt" if settings.effects == "verspielt" else "ruhig" }} {{ "mit Klang" if settings.sound else "und leise" }}. Ändern kannst du das in den <a href="/settings">Einstellungen</a>.</p>
+    <p class="hint">{% set bunt = settings.effects == "verspielt" %}Fritte feiert {{ ("verspielt mit Klang" if settings.sound else "verspielt, aber ohne Klang") if bunt else ("ruhig, aber mit Klang" if settings.sound else "ruhig und leise") }}. Ändern kannst du das in den <a href="/settings">Einstellungen</a>.</p>
     {% endif %}
     <p class="hint">Unten wartet dein erster <a href="#kassensturz">Kassensturz</a>.</p>
   </div>
