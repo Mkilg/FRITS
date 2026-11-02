@@ -209,7 +209,7 @@ button.gross { font-size: 1.1rem; padding: .7rem 1.6rem; }
     rgba(214, 228, 222, .55);
   border: 1.5px solid rgba(110, 98, 83, .35); box-shadow: 0 4px 8px rgba(60, 35, 10, .15);
 }
-.glas-zeichen { font-size: 1.8rem; line-height: 1; filter: saturate(.85); }
+.glas-zeichen { font-size: 1.8rem; line-height: 1; }
 .glas-zeichen img { height: 2.2rem; width: auto; display: block; }
 .glas-etikett {
   width: 100%; text-align: center; padding: .1rem .15rem; border-radius: 2px;
@@ -700,3 +700,8 @@ details[open] > summary::before { content: "▾ "; }
 @media (prefers-reduced-motion: reduce) {
   .truhe-show.selten-legendaer .fund::before, .truhe-show.selten-legendaer .fund::after { animation: none !important; }
 }
+
+/* One warm look for the signs that are still emoji, until Marie paints them (Lena: the blue
+   wave of Meersalz stood out). Painted pictures are left as they are. */
+.warm-zeichen, .zeichen-emoji, .glas-zeichen:not(:has(img)), .fund-chip > span, .gericht-zeichen, .za-zeichen,
+.zimmer .werkbank i { filter: sepia(.35) saturate(.7) contrast(.95); }

@@ -194,7 +194,7 @@ def zeichen_oder_bild(pictures: dict[str, str]):
             return Markup(
                 '<img class="zeichen-bild" src="{}" alt="" width="22" height="22">'
             ).format(url)
-        return Markup('<span aria-hidden="true">{}</span>').format(emoji)
+        return Markup('<span class="zeichen-emoji" aria-hidden="true">{}</span>').format(emoji)
 
     return zeichen
 

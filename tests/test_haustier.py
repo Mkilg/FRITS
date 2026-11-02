@@ -433,9 +433,9 @@ def test_building_out_the_house(conn):
 
     started(conn)
     assert ausbau.stufe(conn).name == "Zimmer" and kassensturz.plaetze(conn) == 3
-    with pytest.raises(stand.SpielFehler, match="fehlen noch 150"):
+    with pytest.raises(stand.SpielFehler, match="fehlen noch 250"):
         ausbau.ausbauen(conn, TODAY)
-    give(conn, 170)
+    give(conn, 270)
     assert ausbau.ausbauen(conn, TODAY).name == "Stube"
     with pytest.raises(stand.SpielFehler, match="schon gebaut"):
         ausbau.ausbauen(conn, TODAY)
@@ -593,7 +593,7 @@ def test_a_new_place_after_the_frittenbude(conn):
     assert ausbau.grundwuerze(conn) == 2.7  # each stage in the new place adds +0.1
     stand.setze(conn, "ausbau", "1")
     assert "legendär" in ausbau.seltenheiten(conn)
-    assert ausbau.preis(conn, ausbau.naechste(conn)) == 225  # 150 × 1.5 with Ruf 1
+    assert ausbau.preis(conn, ausbau.naechste(conn)) == 375  # 250 × 1.5 with Ruf 1
     assert ausbau.umzug_preis(conn) == 2400
     assert {e.id for e in album.neue(conn, TODAY)} >= {"umzug", "bude"}
 

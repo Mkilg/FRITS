@@ -272,7 +272,7 @@ def test_the_shop_shows_the_bridge_to_the_dragon(client, ws):  # noqa: F811
     page = client.get("/fritte/laden").text
     assert len(kassensturz.regal(conn)) == 1  # the first spice
     assert "drachen-bruecke" in page and "startet sie bei <strong>×2</strong>" in page
-    assert "🐉 Drachenkampf: Start ×3 statt ×2" in page  # on the spices one could add
+    assert "🐉</span> Drachenkampf: Start ×3 statt ×2" in page  # on the spices one could add
     assert "Sanduhr" not in page.split("drachen-bruecke")[1].split("</p>")[0]  # ×2 is under its cap
     for g in gw.GEWUERZE:
         if len(kassensturz.regal(conn)) >= kassensturz.plaetze(conn):

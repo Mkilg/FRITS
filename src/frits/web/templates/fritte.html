@@ -137,7 +137,7 @@
 </section>
 
 <section class="card saison" id="saison">
-  <h2>{{ saison.zeichen }} {{ saison.name }} <span class="hint">bis {{ saison.ende.strftime("%d.%m.%Y") }}</span></h2>
+  <h2><span class="warm-zeichen" aria-hidden="true">{{ saison.zeichen }}</span> {{ saison.name }} <span class="hint">bis {{ saison.ende.strftime("%d.%m.%Y") }}</span></h2>
   {% set punkt_name = {"voll": "Papierkram gemacht", "leer": "Pause", "jetzt": "diese Woche, noch offen", "kommt": "kommt noch"} %}
   <div class="saison-streifen" role="img" aria-label="Saisonziel: {{ saison.erreicht }} von {{ saison.ziel }} Wochen mit Papierkram">
     {% for p in streifen %}<span class="woche {{ p }}" title="Woche {{ loop.index }}: {{ punkt_name[p] }}"></span>{% endfor %}
@@ -163,7 +163,7 @@
 
 {% if haus_sichtbar %}
 <section class="card frittes-haus" id="haus">
-  <h2>Frittes Haus <span class="hint">{{ ort.zeichen }} {{ ort.name }}{% if ruf %} · Ruf {{ ruf }} (+{{ spiel.zahl(ruf * 0.5) }} Würze){% endif %}</span></h2>
+  <h2>Frittes Haus <span class="hint"><span class="warm-zeichen" aria-hidden="true">{{ ort.zeichen }}</span> {{ ort.name }}{% if ruf %} · Ruf {{ ruf }} (+{{ spiel.zahl(ruf * 0.5) }} Würze){% endif %}</span></h2>
   <ol class="zeitalter">
     {% for st in stufen if st.nummer <= f.stufe + 1 %}
     <li class="{{ 'erreicht' if st.nummer <= f.stufe else '' }}{{ ' im-bau' if f.bau == st.name else '' }}{{ ' jetzt' if st.nummer == f.stufe else '' }}">
