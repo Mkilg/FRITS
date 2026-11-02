@@ -64,7 +64,8 @@
 .zimmer .ding {
   position: absolute; transform: translateX(-50%); line-height: 1;
   font-size: calc(var(--g, 2.4) * 3.1cqw);  /* bought things are meant to be seen */
-  filter: saturate(.8) drop-shadow(0 .3cqw .2cqw rgba(58, 36, 18, .25));
+  /* Until Marie paints them (bild-prompts.md: ding-<id>): warm, muted, like the gouache room */
+  filter: sepia(.35) saturate(.7) contrast(.95) drop-shadow(0 .3cqw .2cqw rgba(58, 36, 18, .25));
 }
 .zimmer .ding img { height: 1.2em; width: auto; display: block; }
 
@@ -143,8 +144,7 @@
 .laden { display: grid; grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr)); gap: .8rem; }
 .ware { display: flex; flex-direction: column; align-items: flex-start; gap: .3rem; padding: .8rem;
   background: var(--papier); border: 1px solid var(--line); border-radius: var(--radius); }
-.ware .ware-bild { font-size: 2.2rem; line-height: 1.1; filter: saturate(.8); }
-.ware .ware-bild img { height: 2.6rem; width: auto; display: block; }
+.ware .ware-muenze { width: 3.2rem; height: 3.2rem; font-size: 1.5rem; }
 .ware .hint { font-size: .85rem; flex: 1; }
 .ware form { margin-top: auto; }
 .ware.gekauft { background: rgba(163, 196, 102, .14); }
@@ -380,6 +380,7 @@ details[open] > summary::before { content: "▾ "; }
 .zeitalter li.im-bau { opacity: 1; border-style: dashed; border-color: var(--ocker-dunkel); background: rgba(233, 189, 79, .18); }
 .zeitalter li + li::before { content: "›"; position: absolute; left: -.42rem; top: 40%; color: var(--muted); }
 .za-zeichen { font-size: 1.7rem; line-height: 1.1; }
+.za-muenze { width: 2.8rem; height: 2.8rem; font-size: 1.3rem; }
 .zeitalter strong { font-family: var(--schrift); font-size: .9rem; line-height: 1.2; }
 @media (max-width: 700px) { .zeitalter { grid-template-columns: repeat(3, 1fr); } }
 
