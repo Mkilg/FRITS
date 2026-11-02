@@ -12,7 +12,7 @@
 <section class="card" id="regal">
   <h2>Gewürzregal <span class="hint">{{ regal | length }} von {{ plaetze }} Plätzen</span></h2>
   <p class="hint">Die Würze wirkt von links nach rechts. Ein „×“-Gewürz ganz rechts multipliziert alles davor.</p>
-  <p class="drachen-bruecke"><span aria-hidden="true">🐉</span> Im Drachenkampf der Steuer-Quest hebt jedes Gewürz im Regal die Gold-Serie zum Start um eins (höchstens {{ drachen_serie.max }}). Mit deinem Regal startet sie bei <strong>×{{ drachen_serie.jetzt }}</strong>{% if drachen_serie.sanduhr != drachen_serie.jetzt %}, mit der Sanduhr nur bei ×{{ drachen_serie.sanduhr }}{% endif %}.</p>
+  <p class="drachen-bruecke"><span aria-hidden="true">🐉</span> Im Drachenkampf der Steuer-Quest hebt jedes Gewürz im Regal die Gold-Serie zum Start um eins (höchstens {{ drachen_serie.max }}). Mit deinem Regal startet sie bei <strong>×{{ drachen_serie.jetzt }}</strong>.</p>
   <div class="regalbrett">
     {% for g in regal %}
     <div class="regal-platz">

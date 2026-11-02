@@ -112,9 +112,9 @@ def test_one_showcase_with_stickers_orden_and_their_zierde(client, ws, monkeypat
     conn = store.connect(ws.db)
     client.get("/fritte")
     faecher = sammlung.faecher(conn, TODAY)
-    assert [f["id"] for f in faecher] == ["alltag", "schaetze", "steuer"]
-    assert "Drache besiegt" not in [k["name"] for k in faecher[0]["kacheln"]]  # the Orden says it
-    fund, ernte = faecher[2]["kacheln"]
+    assert [f["id"] for f in faecher] == ["steuer", "schaetze", "alltag"]
+    assert "Drache besiegt" not in [k["name"] for k in faecher[2]["kacheln"]]  # the Orden says it
+    fund, ernte = faecher[0]["kacheln"]
     assert fund["erreicht"] and fund["jahre"] == [2024, 2025]
     assert not ernte["erreicht"] and ernte["zierde"] == "Windmühle"
     page = client.get("/sammlung").text
@@ -134,7 +134,7 @@ def test_the_showcase_without_quest_or_fritte(client, ws, monkeypatch):  # noqa:
 
     monkeypatch.setattr(quest, "orden_fuer_sammlung", kaputt, raising=False)
     conn = store.connect(ws.db)
-    assert [f["id"] for f in sammlung.faecher(conn, TODAY)] == ["alltag", "schaetze"]
+    assert [f["id"] for f in sammlung.faecher(conn, TODAY)] == ["schaetze", "alltag"]
     s = Settings.load(ws.settings_file)
     replace(s, haustier=False).save(ws.settings_file)
     page = client.get("/sammlung")
@@ -185,3 +185,27 @@ def test_chest_treasures_live_in_the_showcase(client, ws):  # noqa: F811
     assert "1 von" in page[page.index("schaetze-zeile") :][:300]
     assert 'id="schaetze"' in client.get("/sammlung").text
     assert "schaetze" not in [f["id"] for f in sammlung.faecher(conn, TODAY, alltag=False)]
+
+
+def test_the_showcase_puts_the_newest_on_top_and_few_empty_places(client, ws):  # noqa: F811
+    """Lena: not a form of 34 equal boxes. Newest first, Orden first, few empty places."""
+    from frits.spiel import album
+
+    conn = store.connect(ws.db)
+    client.get("/fritte")
+    stand.nimm(conn, "muschel", "ding", "2026-03-01", 0)
+    stand.nimm(conn, "kleeblatt", "ding", "2026-04-02", 0)
+    stand.setze(conn, f"erfolg:{album.ERFOLGE[0].id}", "2026-03-15")
+    faecher = sammlung.faecher(conn, TODAY)
+    assert [k["name"] for k in sammlung.zuletzt(faecher)][:3] == [
+        "Glücksklee",
+        album.ERFOLGE[0].name,
+        "Muschel",
+    ]
+    schaetze = next(f for f in faecher if f["id"] == "schaetze")
+    assert len(schaetze["da"]) == 2 and len(schaetze["als_naechstes"]) == 3
+    assert len(schaetze["verborgen"]) == len(schaetze["kacheln"]) - 5
+    page = client.get("/sammlung").text
+    assert page.index("Zuletzt verdient") < page.index('id="schaetze"')
+    assert "Noch 3 Plätze frei" in page and "Als Nächstes" in page
+    assert 'class="praegung"' in page  # one minted coin style for every sign

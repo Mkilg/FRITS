@@ -281,7 +281,9 @@ def test_the_shop_shows_the_bridge_to_the_dragon(client, ws):  # noqa: F811
             stand.nimm(conn, g.id, "gewuerz", TODAY.isoformat(), 0)
     assert len(kassensturz.regal(conn)) == 3
     page = client.get("/fritte/laden").text
-    assert "startet sie bei <strong>×4</strong>, mit der Sanduhr nur bei ×3" in page
+    assert (
+        "startet sie bei <strong>×4</strong>." in page and "Sanduhr" not in page
+    )  # the fight shows it
     assert "drachen-plus" not in page  # a full bridge: no more promises
 
 

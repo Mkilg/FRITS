@@ -414,7 +414,7 @@ def register_haustier(
 
     @app.get("/sammlung", response_class=HTMLResponse)
     def sammlung_page(request: Request):
-        """One showcase for Fritte's stickers, the Steuer-Quest's Orden and the seasons."""
+        """One showcase for the Steuer-Quest's Orden, Fritte's treasures and stickers, the seasons."""
         conn = db()
         mit_fritte = settings().haustier
         faecher = sammlung.faecher(conn, today(), alltag=mit_fritte)
@@ -424,6 +424,7 @@ def register_haustier(
             "sammlung.html",
             f=fritte(conn) if mit_fritte else None,
             faecher=faecher,
+            zuletzt=sammlung.zuletzt(faecher),
             hat=hat,
             platz=platz,
         )
