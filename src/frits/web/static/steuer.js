@@ -936,3 +936,36 @@
     } catch (err) { /* egal */ }
   }, true);
 })();
+
+// Woher eine Zierde kommt, steht im Tooltip. Auf Touch gibt es keinen Tooltip: Dort zeigt das
+// erste Antippen einen kleinen Zettel, das zweite führt in die Sammlung.
+(function () {
+  var beruehren = window.matchMedia && window.matchMedia("(hover: none)").matches;
+  if (!beruehren) return;
+  function weg() {
+    document.querySelectorAll(".sq-zier-zettel").forEach(function (z) { z.remove(); });
+    document.querySelectorAll(".sq-zier.zettel-offen").forEach(function (z) { z.classList.remove("zettel-offen"); });
+  }
+  document.addEventListener("click", function (e) {
+    var zier = e.target.closest(".sq-zier");
+    if (!zier) { weg(); return; }
+    if (zier.classList.contains("zettel-offen")) return; // zweites Antippen: weiter in die Sammlung
+    e.preventDefault();
+    weg();
+    document.querySelectorAll(".sq-zier.zettel-offen").forEach(function (z) { z.classList.remove("zettel-offen"); });
+    zier.classList.add("zettel-offen");
+    var zettel = document.createElement("span");
+    zettel.className = "sq-zier-zettel";
+    zettel.setAttribute("role", "status");
+    zettel.textContent = zier.getAttribute("title") || "";
+    var mehr = document.createElement("small");
+    mehr.textContent = "Nochmal tippen: zur Sammlung";
+    zettel.appendChild(mehr);
+    // Am <body>, damit kein Provinzschild darüber liegt
+    document.body.appendChild(zettel);
+    var r = zier.getBoundingClientRect();
+    var links = Math.max(8, Math.min(r.left + r.width / 2 - zettel.offsetWidth / 2, window.innerWidth - zettel.offsetWidth - 8));
+    zettel.style.left = links + window.scrollX + "px";
+    zettel.style.top = r.top + window.scrollY - zettel.offsetHeight - 8 + "px";
+  });
+})();

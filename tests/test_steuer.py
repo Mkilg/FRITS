@@ -2644,3 +2644,12 @@ def test_runde_23_fehlklick_im_kampf_zuruecknehmen(client, ws):
     # Ein zweites Mal geht nicht: nichts mehr zurückzunehmen
     seite = post(client, "/steuer/2025/drache/zuruecknehmen", stueck_id=sid).text
     assert "nicht mehr zurücknehmen" in seite
+
+
+def test_runde_24_hafen_auf_der_insel_ohne_zierde_fuer_gold(client, ws):
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    insel = client.get("/steuer/2025").text
+    assert "Gold für Zierde" not in insel
+    assert 'title="Hafenmarkt: Gold für Helfer im Kampf"' in insel
+    js = (Path(__file__).parents[1] / "src/frits/web/static/steuer.js").read_text(encoding="utf-8")
+    assert "sq-zier-zettel" in js and "(hover: none)" in js  # Herkunft auf Touch per Antippen
