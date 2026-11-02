@@ -29,7 +29,7 @@
 {# A painted picture for a thing or a spice, the preserving jar for a dish without its own
    picture (Lena R43: emoji next to painted pepper), else the emoji. #}
 {% macro bild_zeichen(art, id, emoji) -%}
-{%- set url = picture('ding-' ~ id) if art == 'ding' else ((picture('gewuerz-' ~ id) or picture('symbol-einkochen')) if art == 'gewuerz' else '') -%}
+{%- set url = picture('ding-' ~ id) if art == 'ding' else ((picture('gewuerz-' ~ id) or picture('symbol-einkochen')) if art == 'gewuerz' else (picture('symbol-salz') if art == 'koerner' else '')) -%}
 {%- if url %}<img class="zeichen-bild" src="{{ url }}" alt="">{% else %}{{ emoji }}{% endif -%}
 {%- endmacro %}
 

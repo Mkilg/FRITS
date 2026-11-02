@@ -25,11 +25,13 @@
   function later(fn, ms) { timers.push(setTimeout(fn, ms)); }
   // Into view when its lower edge hides below the window or under the sticky buttons and the
   // tab bar (that room is the node's scroll-margin-bottom).
-  function insBild(node) {
+  function versteckt(node) {
     var rand = parseFloat(getComputedStyle(node).scrollMarginBottom) || 0;
-    if (node.getBoundingClientRect().bottom > window.innerHeight - rand) {
-      node.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
-    }
+    var r = node.getBoundingClientRect();
+    return r.top < 0 || r.bottom > window.innerHeight - rand;
+  }
+  function insBild(node) {
+    if (versteckt(node)) node.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
   }
   function stopAll() { timers.forEach(clearTimeout); timers = []; }
 
@@ -122,9 +124,10 @@
     later(function () {
       karten.forEach(function (k) { k.classList.remove("aktiv"); });
       bump(summeEl.parentNode, "gross-werden");
-      // The sum below the fold (a tall shelf on the phone): bring it up before the stamp lands,
-      // so the stamp is seen (Lena R43: it landed under the button bar, the page never moved).
-      insBild(summeEl.parentNode);
+      // The sum out of sight (below a tall shelf, or above after a long hand of cards): bring
+      // Körner × Würze = Salzkörner into view before the stamp lands, so the stamp is seen
+      // (Lena R43: it landed under the button bar, the page never moved).
+      insBild(summeEl.closest(".ks-rechnung") || summeEl.parentNode);
       countUp(summeEl, data.summe, playful ? 900 : 600, function () {
         stempel.classList.add("drauf");
         if (window.Frits && window.Frits.stampSound && soundOn()) window.Frits.stampSound();
@@ -148,13 +151,17 @@
     reset();
     var running = data.pro_karte.map(function () { return 0; });
     var t = 300;
+    // The cards are the show: on the phone they lay below the fold under a tall shelf (Lena:
+    // nobody saw them flip). Bring the table up a moment after the start, the shelf stays
+    // in sight above it as far as it fits.
+    if (versteckt(tisch)) { later(function () { insBild(tisch); }, 250); t += 450; }
     data.schritte.forEach(function (s, n) {
       var wait = Math.max(150, 480 - n * 25); // speeds up, like a good streak
       later(function () {
         karten.forEach(function (k) { k.classList.remove("aktiv"); });
         if (s.typ === "karte" || s.typ === "gewuerz") {
           var card = karten[s.karte];
-          if (card) { card.classList.remove("verdeckt"); card.classList.add("aktiv"); }
+          if (card) { card.classList.remove("verdeckt"); card.classList.add("aktiv"); insBild(card); } // the camera follows a long hand down
           running[s.karte] += s.plus;
           if (chip(s.karte)) chip(s.karte).textContent = "+" + running[s.karte];
           popup(card, "+" + s.plus, s.typ === "gewuerz" ? "gewuerz" : "");
