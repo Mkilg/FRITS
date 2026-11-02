@@ -119,14 +119,19 @@ QUELLEN = {
     "angebot": "SELECT q.number FROM quotes q JOIN invoices i ON i.draft_id = q.draft_id"
     " WHERE i.cancels IS NULL AND i.number NOT IN"
     " (SELECT cancels FROM invoices WHERE cancels IS NOT NULL)",
-    "steuer": "SELECT id FROM steuer_stuecke WHERE status = 'gesammelt'",
-    "steuerjahr": "SELECT DISTINCT jahr FROM steuer_chronik WHERE art = 'sieg'",
     # frits.lernen.GESCHAFFT_PREFIX is "lernen:geschafft:" (17 letters), the stage comes after it
     "lernen": "SELECT substr(schluessel, 18) FROM spiel_einstellung"
     " WHERE schluessel LIKE 'lernen:geschafft:%'",
     # frits.lernen.UEBUNG_PREFIX is "lernen:uebung:" (14 letters), then "<etappe>/<happen>"
     "uebung": "SELECT substr(schluessel, 15) FROM spiel_einstellung"
     " WHERE schluessel LIKE 'lernen:uebung:%'",
+}
+# Tax cards, each with its tax year. They count only for the years the Steuer-Quest still
+# pays salt for (steuer.spiel.gold_jahr): an invented old year fills Fritte's jar no more
+# than the quest's own.
+STEUER_QUELLEN = {
+    "steuer": "SELECT id, jahr FROM steuer_stuecke WHERE status = 'gesammelt'",
+    "steuerjahr": "SELECT DISTINCT jahr, jahr FROM steuer_chronik WHERE art = 'sieg'",
 }
 WILLKOMMEN_KARTEN = 12  # up to this many old cards are played as the first Kassensturz
 WILLKOMMEN_GESCHENK = 60  # at most this many Salzkörner for the rest: the journey is the fun
@@ -182,6 +187,8 @@ def _gefunden(conn) -> list[tuple[str, str]]:
     found = []
     for art, sql in QUELLEN.items():
         found += [(f"{art}:{value}", art) for (value,) in rows(conn, sql)]
+    for art, sql in STEUER_QUELLEN.items():
+        found += [(f"{art}:{v}", art) for v, jahr in rows(conn, sql) if steuer_zaehlt(jahr)]
     found += [(key, "ausgabe") for key in ausgaben(conn)]
     found += [(f"erinnerung:{rid}", "erinnerung") for rid in erinnerungen(conn)]
     for key, credit in gutschriften(conn).items():
@@ -189,6 +196,16 @@ def _gefunden(conn) -> list[tuple[str, str]]:
         if credit.paid_date:
             found.append((f"bezahlt:{key}", "bezahlt"))
     return found
+
+
+def steuer_zaehlt(jahr, heute: date | None = None) -> bool:
+    """Does a tax card of this year bring Körner? The same years as in the Steuer-Quest."""
+    from frits.steuer.spiel import gold_jahr
+
+    try:
+        return gold_jahr(int(jahr), heute or date.today())
+    except (TypeError, ValueError):
+        return False
 
 
 GS = "gs:"  # invoice numbers never start like this

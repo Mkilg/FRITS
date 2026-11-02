@@ -229,12 +229,12 @@ def _karte(conn, schluessel: str, art: str, gesehen: str, ausgaben=None) -> Kart
             "SELECT name, jahr FROM steuer_stuecke WHERE id = ? AND status = 'gesammelt'",
             (key,),
         )
-        if not r:
+        if not r or not stand.steuer_zaehlt(r[0][1]):
             return None
         return Karte(schluessel, art, "Steuer-Unterlage", f"{r[0][0]} · {r[0][1]}", base, {})
     if art == "steuerjahr":
         r = stand.rows(conn, "SELECT 1 FROM steuer_chronik WHERE jahr = ? AND art = 'sieg'", (key,))
-        if not r:
+        if not r or not stand.steuer_zaehlt(key):
             return None
         return Karte(schluessel, art, f"Steuerjahr {key}", "Der Drache ist besiegt!", base, {})
     if art == "lernen":
