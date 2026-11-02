@@ -644,3 +644,8 @@ details[open] > summary::before { content: "▾ "; }
   .truhe-gross { font-size: 30px; }
   .truhe-strahlen { width: 16rem; height: 16rem; margin-left: -8rem; margin-top: -4.5rem; }
 }
+
+/* Drachengold from the Steuer-Quest */
+.drachengold { display: flex; gap: 1rem; align-items: flex-start; }
+.drachengold h2 { margin-top: 0; }
+.drachen-zeichen { font-size: 2.6rem; line-height: 1; }
