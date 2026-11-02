@@ -38,10 +38,10 @@
       <p class="sq-erzaehler">Du hast schon angefangen. Ich habe mir alles gemerkt.</p>
       {% elif kurz %}
       <h1 class="sq-intro-titel">Neue Insel für {{ jahr }}?</h1>
-      <p class="sq-erzaehler">Für {{ jahr }} gibt es noch keine Quest. Drei kurze Fragen, dann steht deine Insel.</p>
+      <p class="sq-erzaehler">Für {{ jahr }} gibt es noch keine Quest. Drei kurze Teile, dann steht deine Insel.</p>
       {% else %}
       <h1 class="sq-intro-titel">Steuer-Quest {{ jahr }}</h1>
-      <p class="sq-erzaehler">Drei kurze Fragen, dann steht deine Insel. Dauert etwa zwei Minuten.</p>
+      <p class="sq-erzaehler">Drei kurze Teile, dann steht deine Insel. Dauert etwa zwei Minuten.</p>
       {% endif %}
       <p class="sq-intro-knoepfe">
         <a class="sq-siegelknopf gross" href="/steuer/{{ jahr }}/fragebogen">{{ "Weiter, wo ich war" if angefangen else "Mein Reich gründen" }} →</a>

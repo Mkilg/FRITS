@@ -1742,3 +1742,10 @@ details.sq-mehr-marken .kurz { display: none; }
 .sq-kiste-alt .sq-siegelknopf { font-size: .95rem; }
 /* Runde 35 (Lena): Wenn nichts eilt, kein wippendes Ausrufezeichen */
 .sq-auftrag.ruhig .sq-auftrag-siegel { animation: none; color: #fff; background: radial-gradient(circle at 40% 30%, var(--moos-hell), var(--moos) 55%, var(--moos-dunkel)); box-shadow: 0 3px 0 var(--moos-dunkel), 0 6px 10px rgba(0,0,0,.2); }
+/* Runde 36 (Lena, Runde 35) */
+.sq-belohnung-knoepfe button.quiet { color: var(--tinte); background: transparent; text-decoration: underline; text-underline-offset: 3px; font-weight: 600; }
+.sq-schloss-zu { margin: .4rem 0 .6rem; }
+.sq-schloss-zu > summary { cursor: pointer; font-weight: 600; color: var(--tinte); min-height: 44px; display: flex; align-items: center; }
+.sq-weiter-brief { display: inline-block; text-decoration: none; }
+.sq .nur-touch { display: none; }
+@media (pointer: coarse) { .sq .nur-maus { display: none; } .sq .nur-touch { display: inline; } }

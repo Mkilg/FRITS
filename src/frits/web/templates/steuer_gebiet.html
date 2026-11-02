@@ -108,7 +108,7 @@
       {% endif %}
       <form method="post" action="/steuer/{{ jahr }}/stueck/{{ s.id }}/datei" enctype="multipart/form-data" class="sq-ablage" data-stempel="GESICHERT" data-auto>
         <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back" value="{{ zurueck }}">
-        <label class="fach">{{ "Noch eine Datei dazulegen" if s.status == "gesammelt" else "Datei hierher ziehen oder auswählen" }}<input type="file" name="datei" multiple></label>
+        <label class="fach">{% if s.status == "gesammelt" %}Noch eine Datei dazulegen{% else %}<span class="nur-maus">Datei hierher ziehen oder auswählen</span><span class="nur-touch">Tippen: Foto oder Datei wählen</span>{% endif %}<input type="file" name="datei" multiple></label>
         <button class="sq-stempelknopf gruen sq-ohne-js">Sichern</button>
       </form>
       {% set beispiel = angabe(s.gebiet, s.key) %}

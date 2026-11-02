@@ -2282,7 +2282,7 @@ def test_runde_18_drachensieg_gibt_fritte_eine_truhe(client, ws, monkeypatch):
         post(client, "/steuer/2025/drache/schlag", stueck_id=str(k["id"]), aktion="fragen")
     k = spiel.drache(quest.stuecke(conn, 2025)).karte
     seite = post(client, "/steuer/2025/drache/schlag", stueck_id=str(k["id"]), aktion="fragen")
-    assert gegeben == [("drachensieg:2025", "selten", "Der Drache 2025 ist besiegt!")]
+    assert gegeben == [("drachensieg:2025", "selten", "Der Drache 2025 ist besiegt")]
     # Im vollen Siegesdialog steht die Belohnung als Kachel: fette Zeile, kleiner Rest
     assert (
         "<b>Fritte hat eine Truhe für dich bekommen.</b> <small>Sie wartet bei Fritte.</small>"
@@ -3047,3 +3047,52 @@ def test_runde_35_nach_dem_packen_ist_alles_ruhig(client, ws):
     box = box[: box.index("</form>")]
     assert "Neu packen" in box and "neues Passwort" in box and 'value="passwort"' in box
     assert "Ich zeige es nur jetzt" not in sieg
+
+
+def test_runde_36_handyticket_ist_eine_reise(client, ws):
+    """Lena (Runde 35): „handy“ in „Handyticket“ schickte das Bahnticket zu den Anschaffungen."""
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    alle = quest.stuecke(conn, 2025)
+    assert spiel.ahnung("DB_Handyticket_Scan.pdf", alle).stueck["key"] == "reisen"
+    assert spiel.ahnung("Hotel Leipzig.pdf", alle).stueck["key"] == "reisen"
+    assert spiel.ahnung("Rechnung neues Handy.pdf", alle).stueck["key"] == "anschaffungen"
+
+
+def test_runde_36_neu_packen_nennt_das_neue_passwort(client, ws):
+    _conn, _bonus = _besiegt_mit_bonus(client, ws)
+    r = client.post("/steuer/2025/truhe", data={"token": client.token, "schloss": "passwort"},
+                    follow_redirects=False)  # fmt: skip
+    assert r.headers["location"].endswith("/sieg#kiste")
+    seite = client.get("/steuer/2025/sieg").text
+    assert "Neu gepackt" not in seite and "data-konfetti" not in seite
+    assert "Weiter zu 2. Brief" in seite and 'id="brief"' in seite
+    seite = post(client, "/steuer/2025/truhe", schloss="passwort").text
+    assert "Neu gepackt, mit neuem Passwort" in seite
+
+
+def test_runde_36_nur_was_spart_ist_ein_koeder(client, ws):
+    conn, _bonus = _besiegt_mit_bonus(client, ws)
+    alle = quest.stuecke(conn, 2025)
+    frei = [s for s in alle if s["status"] == "offen" and spiel.ist_bonus(s)]
+    sparen = [s for s in frei if spiel.spart_steuern(s)]
+    assert len(sparen) < len(frei)  # Buchungsliste und GoBD sparen keine Steuern
+    sieg = client.get("/steuer/2025/sieg").text
+    assert f"{len(sparen)} Zettel können Steuern sparen" in sieg
+    erster = sieg[sieg.index("Zum ersten Schatz") - 200 : sieg.index("Zum ersten Schatz")]
+    assert f"karte={sparen[0]['id']}" in erster
+
+
+def test_runde_36_rueckfrage_verschwindet_wenn_die_karte_erledigt_ist(client, ws):
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    karte = spiel.pflicht(quest.stuecke(conn, 2025))[0]
+    client.app.state.steuer_stutzen["brief.png"] = {
+        "jahr": 2025, "stueck_id": karte["id"], "karte": karte["name"], "text": "Hm."
+    }  # fmt: skip
+    quest.lager(ws.root).mkdir(parents=True, exist_ok=True)
+    (quest.lager(ws.root) / "brief.png").write_bytes(b"\x89PNG")
+    assert "Trotzdem zu" in client.get("/steuer/2025").text
+    (ws.root / "beleg.pdf").write_bytes(b"%PDF beleg")
+    quest.sammeln(conn, ws.root, karte["id"], ws.root / "beleg.pdf")
+    assert "Trotzdem zu" not in client.get("/steuer/2025").text

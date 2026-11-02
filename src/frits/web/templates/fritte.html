@@ -38,7 +38,7 @@
   <div class="haus-leiste">
     <p class="speech">{{ f.satz }}</p>
     <div class="haus-zahlen">
-      <p class="salz">{{ salz }} <strong data-zaehlen>{{ f.guthaben }}</strong> Salzkörner{% if f.bereit %} <a class="hint" href="#kassensturz">(+{{ f.bereit }} warten)</a>{% endif %}{% if truhen_zu %} <a class="truhe-wartet" href="#truhen">{{ zeichen("truhe", "🎁") }} {{ "1 Truhe wartet" if truhen_zu | length == 1 else truhen_zu | length ~ " Truhen warten" }}</a>{% endif %}</p>
+      <p class="salz">{{ salz }} <strong data-zaehlen>{{ f.guthaben }}</strong> {{ "Salzkorn" if f.guthaben == 1 else "Salzkörner" }}{% if f.bereit %} <a class="hint" href="#kassensturz">(+{{ f.bereit }} warten)</a>{% endif %}{% if truhen_zu %} <a class="truhe-wartet" href="#truhen">{{ zeichen("truhe", "🎁") }} {{ "1 Truhe wartet" if truhen_zu | length == 1 else truhen_zu | length ~ " Truhen warten" }}</a>{% endif %}</p>
     </div>
   </div>
 </section>
@@ -113,7 +113,7 @@
         {% endif %}
       </div>
       {% else %}
-      <p>Gerade ist keine Truhe zu. Jede Karte echter Papierkram füllt die nächste ein Stück.</p>
+      <p>{% if willkommen %}Beim ersten Kassensturz schenkt dir Fritte eine Truhe. Danach füllt jede neue Karte echter Papierkram die nächste ein Stück.{% else %}Gerade ist keine Truhe zu. Jede neue Karte echter Papierkram füllt die nächste ein Stück.{% endif %}</p>
       {% endif %}
       <p class="truhe-zeile"><span class="truhe-fuellung" role="img" aria-label="Nächste Truhe: {{ fuellung }} von {{ pro_truhe }} Karten">{% for i in range(pro_truhe) %}<i class="{{ 'voll' if i < fuellung }}"></i>{% endfor %}</span> Nächste Truhe: <strong>{{ fuellung }} von {{ pro_truhe }}</strong> Karten echter Papierkram</p>
     </div>
@@ -154,7 +154,7 @@
   <form method="post" action="/fritte/feiern" class="row" data-confirm="Das {{ fest_name }} für {{ fest_preis }} Salzkörner feiern?">
     <input type="hidden" name="token" value="{{ token }}">
     <button {{ "disabled" if f.guthaben < fest_preis }}>{{ zeichen("fest", "🎉") }} {{ fest_name }} feiern für {{ fest_preis }} {{ salz }}</button>
-    <span class="hint">Einmal pro Saison, kommt in die Sammlung.{% if f.guthaben < fest_preis %} Noch {{ fest_preis - f.guthaben }} Salzkörner.{% endif %}</span>
+    <span class="hint">Einmal pro Saison, kommt in die Sammlung.{% if f.guthaben < fest_preis %} Noch {{ fest_preis - f.guthaben }} {{ "Salzkorn" if fest_preis - f.guthaben == 1 else "Salzkörner" }}.{% endif %}</span>
   </form>
   {% endif %}
   {% endif %}
@@ -180,7 +180,7 @@
   <form method="post" action="/fritte/ausbauen" data-confirm="{{ naechste.name }} für {{ kosten }} Salzkörner bauen?">
     <input type="hidden" name="token" value="{{ token }}">
     <button {{ "disabled" if f.guthaben < kosten }}>Ausbauen für {{ kosten }} {{ salz }}</button>
-    {% if f.guthaben < kosten %}<span class="hint">Noch {{ kosten - f.guthaben }} Salzkörner.</span>{% endif %}
+    {% if f.guthaben < kosten %}<span class="hint">Noch {{ kosten - f.guthaben }} {{ "Salzkorn" if kosten - f.guthaben == 1 else "Salzkörner" }}.</span>{% endif %}
   </form>
   {% elif naechster_ort %}
   {% set hier = ort.name[0] | lower ~ ort.name[1:] %}{% set dort = naechster_ort.name[0] | lower ~ naechster_ort.name[1:] %}
