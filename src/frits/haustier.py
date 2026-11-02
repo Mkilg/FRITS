@@ -203,7 +203,7 @@ def salz_aus_quest(conn: sqlite3.Connection, jahr: int, gold: int, text: str,
                    heute: date | None = None) -> int:  # fmt: skip
     """One purse (Lena): Drachengold only counts inside its Steuer-Quest year. What is left
     when the dragon is beaten becomes Salzkörner for Fritte: 2 gold = 1 Korn, at most 60
-    (a victory should help with the house, not buy it: the Stube costs 150).
+    (a victory should help with the house, not buy it: the Stube costs 250).
 
     Returns the Körner booked. Once per quest year: a second call, or too little gold,
     books nothing and returns 0. When it returns more than 0, the whole rest of that
