@@ -70,6 +70,15 @@ def ist_bonus(s: dict) -> bool:
     return s.get("art", "pflicht") == "bonus"
 
 
+# Freiwillige Karten, die Ordnung schaffen, aber keine Steuern sparen (Lena, Runde 35)
+NUR_ORDNUNG = frozenset({"sonstiges", "buchungsliste", "verfahrensdoku"})
+
+
+def spart_steuern(s: dict) -> bool:
+    """Ein Bonus-Schatz, der wirklich Steuern sparen kann (nicht Buchungsliste, GoBD, Sonstiges)."""
+    return ist_bonus(s) and s.get("key") not in NUR_ORDNUNG
+
+
 def pflicht(stuecke: list[dict]) -> list[dict]:
     """Nur die Pflicht-Stücke. Bonus-Schätze zählen nie gegen dich."""
     return [s for s in stuecke if not ist_bonus(s)]

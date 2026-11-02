@@ -406,6 +406,21 @@ def register_steuer(
             raise HTTPException(303, headers={"Location": f"/steuer/{jahr}/intro"})
         return p
 
+    def offene_stutzen() -> dict:
+        """Rückfragen am Korb nur, solange die Karte noch offen ist (Lena, Runde 35): Sonst
+        legte „Trotzdem zu …“ eine zweite Datei auf eine erledigte Karte."""
+        if not app.state.steuer_stutzen:
+            return {}
+        c = conn()
+        offen = {}
+        for name, st in app.state.steuer_stutzen.items():
+            row = c.execute(
+                "SELECT status FROM steuer_stuecke WHERE id = ?", (st["stueck_id"],)
+            ).fetchone()
+            if row and row[0] == "offen":
+                offen[name] = st
+        return offen
+
     def seite(request: Request, name: str, **context):
         """Wie page(), plus was alle Quest-Seiten brauchen (Bilder, Klang)."""
         return page(
@@ -433,7 +448,7 @@ def register_steuer(
             sammlung_stand=sammlung_stand,
             markt_link=markt_link,
             koerner=spiel.koerner,
-            stutzen=app.state.steuer_stutzen,
+            stutzen=offene_stutzen(),
             kopf_rest=kopf_rest,
             **context,
         )
@@ -788,7 +803,7 @@ def register_steuer(
                     c,
                     f"drachensieg:{jahr}",
                     seltenheit="gewöhnlich" if silber else "selten",
-                    text=f"Der Drache {jahr} ist besiegt!",
+                    text=f"Der Drache {jahr} ist besiegt",
                 )
             )
         except Exception:  # noqa: BLE001 — der Sieg darf an Frittes Truhe nie scheitern
@@ -1346,7 +1361,7 @@ def register_steuer(
         if d and quest.ist_angabe(d["original"]):
             flash("Die Angabe ist gelöscht. Du kannst sie jederzeit neu eintippen.")
         else:
-            flash("Die Datei liegt wieder im Eingangskorb. Nichts ist verloren.")
+            flash("Die Datei liegt wieder im Eingangskorb.")  # die Körner nennt belohnen
         lp = lage(jahr)["drache"].lp
         if vorher["drache_wach"] and lp > vorher["drache"].lp:
             flash(f"Der Drache hat wieder {lp} Karte{'n' if lp != 1 else ''}.", "treffer")
@@ -2034,6 +2049,7 @@ def register_steuer(
             dateien=quest.dateien(conn(), jahr),
             lager=quest.lager_dateien(ws.root),
             noch_frei=noch_frei(daten),
+            noch_sparen=[s for s in noch_frei(daten) if spiel.spart_steuern(s)],
             schatz_salz=schatz_salz(jahr, daten),
             kiste_aenderung=spiel.kiste_aenderung(*daten["kiste"]) if daten["kiste"] else "",
             **daten,
@@ -2048,7 +2064,9 @@ def register_steuer(
     def noch_frei(daten: dict) -> list[dict]:
         """Offene freiwillige Zettel für „Lohnt sich noch“ nach dem Sieg, gezählt wie in den
         Provinzen (Lena, Runde 32: Werkstatt 7, Siegseite 5 passte nicht)."""
-        return [s for s in daten["stuecke"] if s["status"] == "offen" and spiel.ist_bonus(s)]
+        frei = [s for s in daten["stuecke"] if s["status"] == "offen" and spiel.ist_bonus(s)]
+        # Lena (Runde 35): Was Steuern spart, zuerst; Ordnungskram (Buchungsliste, GoBD) danach
+        return sorted(frei, key=lambda s: not spiel.spart_steuern(s))
 
     @app.post("/steuer/{jahr}/truhe", dependencies=guarded)
     async def truhe_packen(request: Request, jahr: int):
@@ -2057,6 +2075,7 @@ def register_steuer(
             return back(f"/steuer/{jahr}/drache")
         form = await request.form()
         kennwort = None if form.get("schloss") == "ohne" else truhe.passwort()
+        schon = quest.kiste_stand(conn(), jahr) is not None
         ziel = truhe.packen(
             truhe_pfad(jahr, daten["profil"]),
             daten["profil"],
@@ -2066,7 +2085,16 @@ def register_steuer(
             kennwort,
             quest.verweise(conn(), jahr),
         )
-        if kennwort:
+        if kennwort and schon:
+            # Lena (Runde 35): Das neue Passwort stand zwei Bildschirme tiefer, ungenannt
+            app.state.steuer_passwort[jahr] = kennwort
+            flash(
+                "Neu gepackt, mit neuem Passwort. Schick es deiner Beraterin noch einmal,"
+                " das alte passt nicht mehr.",
+                "erfolg",
+                "done",
+            )
+        elif kennwort:
             app.state.steuer_passwort[jahr] = kennwort
             flash("Die Fundkiste ist gepackt und mit Passwort verschlossen.", "erfolg", "done")
         else:
@@ -2074,7 +2102,7 @@ def register_steuer(
             flash("Die Fundkiste ist gepackt, ohne Passwort.", "erfolg", "done")
         quest.notiere(conn(), jahr, "truhe", ziel.name)
         quest.kiste_gepackt(conn(), jahr)
-        return back(f"/steuer/{jahr}/sieg")
+        return back(f"/steuer/{jahr}/sieg#kiste")
 
     @app.post("/steuer/{jahr}/beraterin/daten", dependencies=guarded)
     async def beraterin_daten(request: Request, jahr: int):

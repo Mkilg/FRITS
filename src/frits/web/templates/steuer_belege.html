@@ -18,7 +18,7 @@
         <li><b>{{ summen.fragen }}</b> Frage{{ "n" if summen.fragen != 1 }} für die Mail</li>
         <li><b>{{ summen.leer }}</b> Karte{{ "n" if summen.leer != 1 }} noch leer</li>
       </ul>
-      <p class="muted">Zusammen {{ summen.groesse }}.{% if korb %} Im Eingangskorb warten noch <a href="/steuer/{{ jahr }}#sq-korb">{{ korb | length }} Zettel</a>, die gehören noch zu keiner Karte.{% endif %}</p>
+      <p class="muted">Zusammen {{ summen.groesse }}.{% if korb %} {% if korb | length == 1 %}Im Eingangskorb wartet noch <a href="/steuer/{{ jahr }}#sq-korb">ein Zettel</a>, der zu noch keiner Karte gehört.{% else %}Im Eingangskorb warten noch <a href="/steuer/{{ jahr }}#sq-korb">{{ korb | length }} Zettel</a>, die zu noch keiner Karte gehören.{% endif %}{% endif %}</p>
       {% if zahlen %}
       <div class="sq-buch-zahlen">
         <h2>Deine Zahlen {{ jahr }} laut FRITS</h2>

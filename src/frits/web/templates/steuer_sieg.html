@@ -4,7 +4,7 @@
 {% block flashes %}{% endblock %}
 {% block content %}
 {% set truhe_bild = bild("truhe") %}
-<div class="sq sq-tisch" data-klang="{{ 'an' if klang else 'aus' }}" {% if drache.besiegt %}data-konfetti{% endif %}{% include "_steuer_stil.html" %}>
+<div class="sq sq-tisch" data-klang="{{ 'an' if klang else 'aus' }}" {% if drache.besiegt and kiste is none %}data-konfetti{% endif %}{% include "_steuer_stil.html" %}>
 {% include "_steuer_meldungen.html" %}
 {% include "_steuer_kopf.html" %}
 <h1 class="sq-sieg-titel{% if drache.besiegt and zweifel %} silber{% endif %}">{% if drache.besiegt and zweifel %}Silber-Sieg!{% elif drache.besiegt %}Goldenes Zeitalter!{% else %}Bereit zum Senden{% endif %}</h1>
@@ -47,7 +47,8 @@
       <h2>Lohnt sich noch</h2>
       {% if lager %}<p>Im Eingangskorb {{ "liegt noch ein Zettel" if lager | length == 1 else "liegen noch " ~ (lager | length) ~ " Zettel" }}: <b>{{ lager[0].name }}</b>{% if lager | length > 1 %} und {{ lager | length - 1 }} weitere{% endif %}. <a href="/steuer/{{ jahr }}#sq-korb">Zum Korb</a></p>{% endif %}
       {% if frei %}
-      <p>Freiwillig, aber oft bares Geld: {{ frei | length }} Zettel{{ " kann" if frei | length == 1 else " können" }} Steuern sparen. {% if schatz_salz %}<b>Jeder Fund bringt +{{ schatz_salz }} {{ salz }}</b>{% if "goldwaage" in helfer %} (mit der Goldwaage){% endif %}.{% endif %} Was du jetzt noch findest, packst du einfach neu in die Fundkiste.</p>
+      {% set sparen = noch_sparen %}
+      <p>{% if sparen %}Freiwillig, aber oft bares Geld: {{ sparen | length }} Zettel{{ " kann" if sparen | length == 1 else " können" }} Steuern sparen{% if frei | length > sparen | length %}, dazu {{ frei | length - sparen | length }} für die Ordnung{% endif %}.{% else %}Freiwillig: {{ frei | length }} Zettel für die Ordnung.{% endif %} {% if schatz_salz %}<b>Jeder Fund bringt +{{ schatz_salz }} {{ salz }}</b>{% if "goldwaage" in helfer %} (mit der Goldwaage){% endif %}.{% endif %} Was du jetzt noch findest, packst du einfach neu in die Fundkiste.</p>
       <ul>{% for gid, karten in frei | groupby("gebiet") %}<li><a href="/steuer/{{ jahr }}/gebiet/{{ gid }}?karte={{ karten[0].id }}">{{ (provinzen | selectattr("gebiet.id", "equalto", gid) | first).gebiet.titel }}</a>: {{ karten[:2] | map(attribute="name") | join(", ") }}{% if karten | length > 2 %} und {{ karten | length - 2 }} weitere{% endif %}</li>{% endfor %}</ul>
       <p><a class="sq-stempelknopf" href="/steuer/{{ jahr }}/gebiet/{{ frei[0].gebiet }}?karte={{ frei[0].id }}">Zum ersten Schatz →</a></p>
       {% endif %}
@@ -69,6 +70,7 @@
         <button class="sq-stempelknopf">Im Finder zeigen</button>
         <span class="muted">Von dort ziehst du die Fundkiste in die Mail, falls sie nicht schon dranhängt.</span>
       </form>
+      {% if not kiste_aenderung %}<p><a class="sq-stempelknopf sq-weiter-brief" href="#brief">Weiter zu 2. Brief ↓</a></p>{% endif %}
       {% if passwort %}
       <p class="sq-passwort"><span>Passwort: <b data-passwort>{{ passwort }}</b></span> <button type="button" class="sq-stempelknopf" data-kopieren="{{ passwort }}">Passwort kopieren</button></p>
       <p class="muted">Schick es deiner Beraterin getrennt, zum Beispiel per SMS, nicht in dieselbe Mail. Ich speichere es nirgends: Nach einem Neustart von FRITS ist es weg, dann hilft Neu packen (mit neuem Passwort).</p>
@@ -76,6 +78,7 @@
       {% endif %}
       <form method="post" action="/steuer/{{ jahr }}/truhe">
         <input type="hidden" name="token" value="{{ token }}">
+        {% if zip_pfad %}<details class="sq-schloss-zu"><summary>Schloss: {{ "mit Passwort" if mit_passwort else "ohne Passwort" }} · ändern</summary>{% endif %}
         <fieldset class="sq-schloss">
           <legend>Wie soll die Fundkiste zu sein?</legend>
           <label><input type="radio" name="schloss" value="passwort" {% if mit_passwort %}checked{% endif %}>
@@ -83,11 +86,12 @@
           <label><input type="radio" name="schloss" value="ohne" {% if not mit_passwort %}checked{% endif %}>
             <span><strong>Ohne Passwort.</strong> Öffnet sich überall mit Doppelklick. Aber jeder, der die Mail sieht, kann alles lesen. Gut, wenn du die Datei über ein sicheres Portal hochlädst oder persönlich übergibst.</span></label>
         </fieldset>
+        {% if zip_pfad %}</details>{% endif %}
         <button class="{{ 'quiet' if zip_pfad else 'sq-siegelknopf' }}">{{ "Neu packen" if zip_pfad else "Fundkiste packen" }}</button>
       </form>
     </section>
 
-    <form method="post" action="/steuer/{{ jahr }}/mail" class="sq-papier sq-brief">
+    <form method="post" action="/steuer/{{ jahr }}/mail" class="sq-papier sq-brief" id="brief">
       <input type="hidden" name="token" value="{{ token }}">
       <h2>2. Brief an deine Beraterin</h2>
       <p class="sq-anrede-hinweis muted">{{ "Per Sie" if profil.anrede == "sie" else "Per du" }}{% if profil.beraterin_name %} an {{ profil.beraterin_name }}{% endif %}. <a href="/steuer/{{ jahr }}/beraterin">Ändern</a></p>
