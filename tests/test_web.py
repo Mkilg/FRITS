@@ -205,7 +205,22 @@ def test_bad_number_shows_a_message_not_an_error(client, ws):
         price=["40"],
     )
     assert page.status_code == 200
-    assert "keine Zahl" in page.text
+    assert "Bei der Menge von „Arbeit“ bitte nur eine Zahl eingeben" in page.text
+    # Tester (Lena): the typed row vanished and no field was marked. The page now points at
+    # the first row's quantity, and the form puts back what was typed.
+    assert 'data-feld="quantity:0"' in page.text
+    assert f'data-merken="entwurf-{draft_id}"' in page.text
+    page = post(
+        client,
+        f"/drafts/{draft_id}",
+        action="save",
+        description=["Arbeit", "Kurs"],
+        date=["", ""],
+        quantity=["1", "1"],
+        unit=["Std", "Std"],
+        price=["40", "vierzig"],
+    )
+    assert "Beim Preis von „Kurs“" in page.text and 'data-feld="price:1"' in page.text
 
 
 def test_injection_warning_is_shown(client, ws):
@@ -932,7 +947,9 @@ def test_earlier_invoice_is_entered_from_the_invoices_page(client, ws):
 
 def test_phones_get_a_tab_bar_but_not_during_the_first_setup(client, ws):
     page = client.get("/").text
-    tabs = page[page.index('<nav class="tabs"') : page.index("</nav>", page.index('<nav class="tabs"'))]
+    tabs = page[
+        page.index('<nav class="tabs"') : page.index("</nav>", page.index('<nav class="tabs"'))
+    ]
     for label in ("Heute", "Ausgaben", "Quest", "Mehr"):
         assert label in tabs
     assert 'href="/invoices"' in tabs  # the rest sits behind "Mehr"
