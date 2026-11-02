@@ -1115,6 +1115,7 @@ def register_steuer(
             vorn=vorn,
             spaeter=spaeter,
             aus_frits=ernte.aus_frits(g.provinz.key),
+            von_frits_ids=quest.von_frits(c, jahr),
             **daten,
         )
         if gewaehlt in ("stapel", "liste"):

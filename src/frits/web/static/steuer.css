@@ -1359,7 +1359,7 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
 /* Auf Touch gibt es keine Leertaste */
 @media (pointer: coarse) { .sq-intro-weiter kbd { display: none; } }
 /* Messingleiste auf Touch: Titel und Gold-Link mit voller Fingerbreite */
-@media (pointer: coarse) { .sq-leiste .sq-titel, .sq-marke.gold a, .sq-marke.belege a { display: inline-flex; align-items: center; min-height: 44px; } }
+@media (pointer: coarse) { .sq-leiste .sq-titel, .sq-marke.gold a, .sq-marke.belege a { display: inline-flex; align-items: center; gap: .3em; min-height: 44px; } }
 .sq-markt-alt { margin: 0.6rem 0 0; padding: 0.5rem 0.7rem; border-left: 3px solid var(--terrakotta-dunkel); background: rgba(196, 98, 58, .08); font-size: 0.92rem; }
 
 /* Runde 10: Kärtchen der Beraterin, Passwort kopieren, mitbenutzte Dateien */

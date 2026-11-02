@@ -555,7 +555,7 @@ GOLD_SIEGEL = 4  # höchstens, für eine Provinz voller Funde (siehe siegel_gold
 GOLD_TAGWERK = 2  # das Tagwerk geschafft
 MAX_MULT = 8
 HELFER_PLAETZE = 2
-TAUSCH_PREIS = 2  # einen Helfer an den Tisch holen, der gerade Pause macht
+TAUSCH_PREIS = 3  # einen Helfer an den Tisch holen, der gerade Pause macht
 WUNSCH_DECKEL = 5  # so viele erfüllte Wünsche der Beraterin zahlen Salzkörner, pro Jahr
 SALZ_DECKEL = 120  # mehr Salzkörner bringt ein Steuerjahr nicht in Frittes Beutel
 GOLD_JAHRE = 2  # Gold gibt es für dieses Jahr und die zwei davor (Abgabe mit Beraterin)
@@ -589,7 +589,7 @@ MARKT: tuple[Ware, ...] = (
     Ware(
         "spuernase",
         "Spürnase",
-        4,
+        10,
         "helfer",
         "Stempelt alle Vorschläge im Korb auf einmal ab, statt Zettel für Zettel.",
         haken=f"Sie frisst mit: Funde bringen {GOLD_FUND - 1} Salzkorn statt {GOLD_FUND}.",
@@ -597,7 +597,7 @@ MARKT: tuple[Ware, ...] = (
     Ware(
         "brieftaube",
         "Brieftaube",
-        3,
+        6,
         "helfer",
         f"Fragen an die Beraterin bringen {GOLD_FRAGE + 1} Salzkörner statt {GOLD_FRAGE}.",
         haken="„Gibt's nicht“ bringt nichts mehr.",
@@ -605,7 +605,7 @@ MARKT: tuple[Ware, ...] = (
     Ware(
         "goldwaage",
         "Goldwaage",
-        5,
+        12,
         "helfer",
         f"Bonus-Schätze wiegen doppelt: {GOLD_SCHATZ * 2} Salzkörner statt {GOLD_SCHATZ}.",
         haken="Fragen bringen nichts mehr.",
@@ -613,7 +613,7 @@ MARKT: tuple[Ware, ...] = (
     Ware(
         "sanduhr",
         "Sanduhr",
-        3,
+        8,
         "helfer",
         f"Das Tagesziel bringt {GOLD_TAGWERK * 3} Salzkörner statt {GOLD_TAGWERK}. Wenig am Tag, aber jeden Tag.",
         haken="Im Drachenkampf zählt die Serie höchstens ×3.",
@@ -621,7 +621,7 @@ MARKT: tuple[Ware, ...] = (
     Ware(
         "trommel",
         "Kriegstrommel",
-        6,
+        15,
         "helfer",
         "Im Drachenkampf wächst die Serie eine Stufe schneller.",
         haken="„Gibt's nicht“ im Kampf setzt die Serie auf null.",

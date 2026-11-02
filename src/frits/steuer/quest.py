@@ -75,6 +75,11 @@ CREATE TABLE IF NOT EXISTS steuer_verweise (
     datei_id INTEGER NOT NULL REFERENCES steuer_dateien(id),
     UNIQUE (stueck_id, datei_id)
 );
+CREATE TABLE IF NOT EXISTS steuer_aus_frits (
+    jahr INTEGER NOT NULL,         -- Dateien, die die FRITS-Ernte gebracht hat (nicht selbst
+    sha256 TEXT NOT NULL,          -- hochgeladen): für „Hat FRITS schon dabei“
+    PRIMARY KEY (jahr, sha256)
+);
 CREATE TABLE IF NOT EXISTS steuer_schuld (
     jahr INTEGER PRIMARY KEY,      -- Salzkörner, die beim Zurückbuchen im Beutel fehlten
     betrag INTEGER NOT NULL        -- (schon ausgegeben): decke_schulden holt sie zurück
@@ -533,6 +538,31 @@ def mitzaehlen(conn: sqlite3.Connection, stueck_id: int, datei_id: int) -> bool:
 
 def datei_hash(pfad: Path) -> str:
     return _hash(pfad)
+
+
+def merke_aus_frits(conn: sqlite3.Connection, jahr: int, pfad: Path) -> None:
+    """Diese Datei kam aus der FRITS-Ernte, nicht von dir."""
+    ensure_schema(conn)
+    with transaction(conn):
+        conn.execute(
+            "INSERT OR IGNORE INTO steuer_aus_frits (jahr, sha256) VALUES (?, ?)",
+            (jahr, datei_hash(pfad)),
+        )
+
+
+def von_frits(conn: sqlite3.Connection, jahr: int) -> set[int] | None:
+    """Karten, deren Dateien alle aus der FRITS-Ernte kommen. None, solange die Ernte in
+    diesem Jahr noch nichts gemerkt hat (ältere Spielstände: dann zählt die Rolle)."""
+    ensure_schema(conn)
+    if not conn.execute("SELECT 1 FROM steuer_aus_frits WHERE jahr = ?", (jahr,)).fetchone():
+        return None
+    rows = conn.execute(
+        "SELECT d.stueck_id, MIN(a.sha256 IS NOT NULL) AS alle FROM steuer_dateien d"
+        " LEFT JOIN steuer_aus_frits a ON a.jahr = d.jahr AND a.sha256 = d.sha256"
+        " WHERE d.jahr = ? GROUP BY d.stueck_id",
+        (jahr,),
+    )
+    return {r["stueck_id"] for r in rows if r["alle"]}
 
 
 def datei_mit_hash(conn: sqlite3.Connection, jahr: int, sha: str) -> dict | None:
