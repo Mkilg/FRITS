@@ -237,3 +237,30 @@ def test_the_showcase_after_lenas_look(client, ws, monkeypatch):  # noqa: F811
     saisons = next(f for f in faecher if f["id"] == "saisons")
     assert saisons["als_naechstes"][0]["name"].startswith("Pokal ")
     assert 'id="saisons"' in page
+
+
+def test_feierabend_shows_what_the_game_made_of_today(client, ws):  # noqa: F811
+    """A tester (as Marie): the Feierabend as closing credits is what she'd show Fritz."""
+    from frits.spiel import abspann
+
+    conn = store.connect(ws.db)
+    add_invoice(conn, "2026-0001", TODAY, came=TODAY)
+    client.get("/fritte")
+    post(client, "/fritte/kassensturz")
+    quest_stueck(conn, "gesammelt", TODAY)
+    aufgaben.hinzufuegen(conn, ["Mama anrufen"], TODAY)
+    aufgaben.abhaken(conn, conn.execute("SELECT id FROM aufgaben").fetchone()[0], TODAY, spiel=True)
+    zeilen = abspann.heute(conn, TODAY)
+    assert "1 Punkt auf deiner Liste abgehakt" in zeilen
+    assert any(z.startswith("Kassensturz: ") and "Salzkörner" in z for z in zeilen)
+    assert "1 Unterlage für die Steuer gesammelt" in zeilen
+    assert any(z.startswith("Tagesziel") for z in zeilen)
+    page = client.get("/feierabend").text
+    assert "Was daraus wurde" in page and "Unterlage für die Steuer" in page
+    assert all("Salzkörner" not in z for z in abspann.heute(conn, TODAY, mit_fritte=False))
+
+
+def test_salbei_counts_tax_documents_as_paperwork():
+    from frits.spiel import gewuerze as gw
+
+    assert {"steuer", "steuerjahr"} <= gw.ECHTE_ARBEIT and gw.PAPIERKRAM < gw.ECHTE_ARBEIT

@@ -78,11 +78,14 @@ def _aufgeraeumt(karten: list[dict], umfeld: dict) -> float:
 
 
 PAPIERKRAM = frozenset({"rechnung", "bezahlt", "ausgabe", "angebot", "erinnerung"})
+# Real work for Salbei and the chests: paperwork and the Steuer-Quest's finds (a tester
+# had 7 tax documents on the table and Salbei said "0 von 3").
+ECHTE_ARBEIT = PAPIERKRAM | {"steuer", "steuerjahr"}
 SALBEI_AB = 3  # real paperwork cards it takes for Salbei
 
 
 def _papierkram(karten: list[dict]) -> int:
-    return sum(1 for k in karten if k["art"] in PAPIERKRAM)
+    return sum(1 for k in karten if k["art"] in ECHTE_ARBEIT)
 
 
 def _salbei(karten: list[dict], umfeld: dict) -> float:
@@ -109,7 +112,8 @@ GEWUERZE: tuple[Gewuerz, ...] = (
             " fertig war.", pro_karte=_art("rechnung", 4, "frisch")),
     Gewuerz("salbei", "Salbei", "🍃", "gewöhnlich", 9,
             "Würze ×1,5, wenn mindestens drei Karten echter Papierkram sind (Rechnung,"
-            " Zahlung, Ausgabe, Angebot oder Erinnerung).", mal_wuerze=_salbei),
+            " Zahlung, Ausgabe, Angebot, Erinnerung oder Steuer-Unterlage).",
+            mal_wuerze=_salbei),
     Gewuerz("pfeffer", "Pfeffer", "⚫", "gewöhnlich", 8,
             "+1 Würze, wenn mindestens drei verschiedene Kartenarten dabei sind.",
             plus_wuerze=_kartenarten),

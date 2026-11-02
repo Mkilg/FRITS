@@ -11,6 +11,12 @@
     <li data-zaehlen>{{ read }} {{ "Datei" if read == 1 else "Dateien" }} gelesen</li>
     <li data-zaehlen>{{ made }} {{ "Rechnung" if made == 1 else "Rechnungen" }} erstellt</li>
   </ul>
+  {% if abspann %}
+  <h2>Was daraus wurde</h2>
+  <ul class="plain abspann">
+    {% for zeile in abspann %}<li>{{ zeile }}</li>{% endfor %}
+  </ul>
+  {% endif %}
   <h2>Wartet bis zum nächsten Mal</h2>
   <ul class="plain">
     <li>{{ drafts }} {{ "Entwurf" if drafts == 1 else "Entwürfe" }}</li>
