@@ -75,9 +75,9 @@
       {% endif %}
     </div>
     <div class="sq-insel-schatten"></div>
-    <a class="sq-hafen" href="/steuer/{{ jahr }}/markt" title="Hafenmarkt: Gold für Helfer im Kampf">
+    <a class="sq-hafen" href="{{ markt_link(jahr) }}" title="Hafenmarkt: Salzkörner für Helfer im Kampf">
       <span class="sq-hafen-stand" aria-hidden="true"><i class="dach"></i><i class="theke"></i><i class="muenze"></i></span>
-      <span class="sq-schild holz"><strong>Hafenmarkt</strong><small>{{ ressourcen.gold }} Gold{% if helfer %} · {{ helfer | length }} Helfer{% endif %}</small></span>
+      <span class="sq-schild holz"><strong>Hafenmarkt</strong><small>{{ koerner(ressourcen.gold) }}{% if helfer %} · {{ helfer | length }} Helfer{% endif %}</small></span>
     </a>
     {% set hort_wach = drache_wach and not drache.besiegt %}
     <a class="sq-hort sq-hort-insel{% if not drache_wach %} schlaeft{% elif hort_wach %} wach{% endif %}{% if auftrag.art == 'drache' %} auftragsziel{% endif %}" href="/steuer/{{ jahr }}/drache">

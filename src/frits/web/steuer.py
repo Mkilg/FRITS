@@ -323,6 +323,45 @@ def register_steuer(
         except Exception:  # noqa: BLE001 — ohne Fritte-Tabellen gibt es eben keine Gewürze
             return 0
 
+    def helfer_regal(c, jahr: int | None = None) -> dict | None:
+        """Das Regal „Für die Insel“: die Helfer eines Steuerjahres, zum Kaufen mit
+        Salzkörnern aus dem einen Beutel. Ohne Jahr: das neueste Quest-Jahr (None ohne Quest).
+        Frittes Laden zeigt es (app.state.helfer_regal), gekauft wird hier bei der Quest."""
+        if jahr is None:
+            jahre = quest_jahre()
+            if not jahre:
+                return None
+            jahr = jahre[-1]
+        besitz = quest.besitz(c, jahr)
+        an = quest.helfer(c, jahr)
+        waren = [
+            {
+                "ware": w,
+                "hat": w.key in besitz,
+                "an": w.key in an,
+                "im_kampf": spiel.im_kampf(w.key),
+            }
+            for w in spiel.MARKT
+            if w.art == "helfer"
+        ]
+        return {
+            "jahr": jahr,
+            "waren": waren,
+            "plaetze": spiel.HELFER_PLAETZE,
+            "am_tisch": len(an),
+            "tausch": spiel.TAUSCH_PREIS,
+            "guthaben": quest.gold(c),
+            "sanduhr_bremst": spiel.multiplikator(spiel.start_serie(gewuerze())) > 3,
+            "goldjahr": spiel.gold_jahr(jahr, today()),
+        }
+
+    app.state.helfer_regal = lambda c: helfer_regal(c)
+
+    def markt_link(jahr: int) -> str:
+        """Wohin der Inselstand führt: in Frittes Laden (ein Laden für alles), ohne Fritte
+        zum Hafenmarkt der Quest."""
+        return "/fritte/laden#insel" if settings().haustier else f"/steuer/{jahr}/markt"
+
     def kampf_anfang() -> dict:
         """Die Serie zu Kampfbeginn: Frittes Gewürze wärmen auf (siehe spiel.start_serie)."""
         n = gewuerze()
@@ -331,7 +370,7 @@ def register_steuer(
             return {"combo": 0, "ruf": spiel.RUFE[0]}
         ruf = (
             f"Frittes {'Gewürz wärmt' if n == 1 else 'Gewürze wärmen'} dich auf:"
-            " Deine Gold-Serie startet schon warm."
+            " Deine Serie startet schon warm."
         )
         return {"combo": start, "ruf": ruf, "gewuerze": n}
 
@@ -384,6 +423,8 @@ def register_steuer(
             # Frittes gemeinsame Vitrine (Orden, Sticker, Pokale), sobald es sie gibt
             sammlung_da=any(getattr(r, "path", None) == "/sammlung" for r in app.routes),
             sammlung_stand=sammlung_stand,
+            markt_link=markt_link,
+            koerner=spiel.koerner,
             stutzen=app.state.steuer_stutzen,
             kopf_rest=kopf_rest,
             **context,
@@ -416,6 +457,8 @@ def register_steuer(
         # Jeder Orden aus der Chronik stellt seine Zierde auf die Insel (auch Orden von früher).
         # Nur echte, notierte Orden: So zeigen Insel und Sammlung immer dasselbe.
         quest.zierden_abgleichen(c)
+        # Eine Währung: Gold von früher zieht einmal in Frittes Beutel um
+        quest.umziehen(c)
         drache = spiel.drache(alle)
         zettel = len(quest.lager_dateien(ws.root))
         zweifel = spiel.zweifel(alle)
@@ -428,7 +471,7 @@ def register_steuer(
             "stuecke": alle,
             "provinzen": staende,
             "gesamt": gesamt,
-            "ressourcen": replace(spiel.ressourcen(alle, staende), gold=quest.gold(c, jahr)),
+            "ressourcen": replace(spiel.ressourcen(alle, staende), gold=quest.gold(c)),
             "besitz": besitz,
             "helfer": frozenset(k for k, an in besitz.items() if an),
             "zierde": [w for w in spiel.MARKT if w.art == "zierde" and w.key in besitz],
@@ -545,7 +588,7 @@ def register_steuer(
         if auftraege and wartend:
             flash(
                 f"Neue Aufträge für {', '.join(wartend)}. Dein Siegel wartet, bis du sie erledigt"
-                " hast. Das Gold dafür behältst du.",
+                " hast. Die Salzkörner dafür behältst du.",
                 "hinweis",
             )
         for p in vorher["provinzen"] if not auftraege else []:
@@ -559,15 +602,15 @@ def register_steuer(
                 teile.append(f"{minus} für die Karte")
             if minus_siegel:
                 teile.append(f"{minus_siegel} für das Siegel")
-            text = f"−{minus + minus_siegel} Gold zurückgebucht"
+            text = f"−{spiel.koerner(minus + minus_siegel)} zurückgebucht"
             text += f" ({' und '.join(teile)})." if minus and minus_siegel else "."
             if minus_siegel and not minus:
-                text = f"−{minus_siegel} Gold zurückgebucht: Das Siegel ist wieder offen."
+                text = f"−{spiel.koerner(minus_siegel)} zurückgebucht: Das Siegel ist wieder offen."
             flash(text + " Wer es neu verdient, bekommt es wieder.", "hinweis")
             for name in quest.decke_schulden(c, jahr):
                 flash(
-                    f"Das Gold war schon ausgegeben, darum ist {name} zurück im Hafen."
-                    " Du kannst es wieder kaufen, sobald du das Gold neu verdient hast.",
+                    f"Die Salzkörner waren schon ausgegeben, darum ist {name} zurück im Hafen."
+                    " Du kannst es wieder holen, sobald du sie neu verdient hast.",
                     "hinweis",
                 )
         alt_siegel = {p.gebiet.id for p in vorher["provinzen"] if p.stand.siegel}
@@ -640,7 +683,7 @@ def register_steuer(
                 text = f"Tagesziel geschafft: {ziel} Karten heute"
             flash(
                 text
-                + (f", +{lohn} Gold." if lohn else ".")
+                + (f", +{spiel.koerner(lohn)}." if lohn else ".")
                 + " Mehr muss nicht sein, aber du darfst.",
                 "tagwerk",
             )
@@ -690,47 +733,17 @@ def register_steuer(
             if plus and not ferne and basis * faktor:
                 # Der größte Treffer des Kampfes soll man sehen, auch wenn der Sieg ihn verdrängt
                 # (ein Treffer ohne Gold dämpft die Feier nur, der bleibt weg)
-                flash(f"Letzter Treffer: {basis} × {faktor} = +{basis * faktor} Gold.", "sieg")
+                flash(
+                    f"Letzter Treffer: {basis} × {faktor} = +{spiel.koerner(basis * faktor)}.",
+                    "sieg",
+                )
             if goldjahr and fritte_truhe(c, jahr, silber=bool(nachher["zweifel"])):
                 flash(
                     "Fritte hat eine Truhe für dich bekommen. Sie wartet bei Fritte.",
                     "sieg",
                     link=("/fritte#truhen", "Zu Fritte"),
                 )
-            koerner = gold_zu_salz(c, jahr) if goldjahr else 0
-            if koerner:
-                flash(
-                    f"Dein übriges Gold ist zu {koerner} Salzkörnern bei Fritte geworden.",
-                    "sieg",
-                    link=("/fritte", "Zu Fritte"),
-                )
         return sieg
-
-    def salz_tausch():
-        """Frittes Kasse für das Restgold nach dem Sieg, oder None (Fritte aus oder noch nicht da)."""
-        if not settings().haustier:
-            return None
-        try:
-            from frits.haustier import salz_aus_quest
-        except ImportError:
-            return None
-        return salz_aus_quest
-
-    def gold_zu_salz(c, jahr: int) -> int:
-        """Eine Währung: Drachengold gilt nur im Kampf. Was beim Sieg übrig ist, wird zu
-        Salzkörnern bei Fritte (1 Gold = 1 Korn, einmal pro Jahr). Gibt die Körner zurück."""
-        tausch = salz_tausch()
-        rest = quest.gold(c, jahr)
-        if tausch is None or rest <= 0:
-            return 0
-        try:
-            koerner = int(tausch(c, jahr, rest, f"Restgold aus der Steuer-Quest {jahr}") or 0)
-        except Exception:  # noqa: BLE001 — der Sieg darf an Frittes Kasse nie scheitern
-            return 0
-        if koerner > 0:
-            # Das ganze Restgold geht hinüber; den Kurs bestimmt Frittes Kasse
-            quest.gold_ausgeben(c, jahr, rest, f"Zu {koerner} Salzkörnern bei Fritte")
-        return koerner
 
     def fritte_truhe(c, jahr: int, silber: bool) -> bool:
         """Der Sieg zahlt in den Alltag zurück: eine Truhe bei Fritte, einmal pro Steuerjahr.
@@ -893,21 +906,6 @@ def register_steuer(
         if profil(jahr) is None:
             return back(f"/steuer/{jahr}/intro")
         daten = lage(jahr)
-        if (
-            daten["drache"].besiegt
-            and daten["ressourcen"].gold > 0
-            and spiel.gold_jahr(jahr, today())
-        ):
-            # Jahre, die vor der einen Währung gewonnen wurden: Ihr Restgold lag tot im Beutel
-            koerner = gold_zu_salz(conn(), jahr)
-            if koerner:
-                flash(
-                    f"Dein Restgold aus dem gewonnenen Jahr {jahr} ist zu {koerner} Salzkörnern"
-                    " bei Fritte geworden.",
-                    "beute",
-                    link=("/fritte", "Zu Fritte"),
-                )
-                daten = lage(jahr)
         nachtrag = orden_nachtragen(jahr, daten["erfolge"])
         if nachtrag:
             daten = lage(jahr)
@@ -1905,7 +1903,7 @@ def register_steuer(
         belohnen(jahr, vorher)
         return back(f"/steuer/{jahr}/drache#karte")
 
-    # ----- Hafenmarkt: Gold ausgeben -----
+    # ----- Hafenmarkt: Salzkörner ausgeben -----
 
     @app.get("/steuer/{jahr}/markt", response_class=HTMLResponse)
     def markt(request: Request, jahr: int):
@@ -1920,26 +1918,29 @@ def register_steuer(
             regeln=spiel,
             goldjahr=spiel.gold_jahr(jahr, today()),
             serie_start=spiel.start_serie(gewuerze()),
-            zu_salz=salz_tausch() is not None,
             orden_zu_zierde={z: o for o, z in spiel.ORDEN_ZIERDE.items()},
             **daten,
         )
+
+    def regal_ziel(form, jahr: int) -> str:
+        """Zurück dorthin, wo gekauft wurde: Frittes Laden oder der Hafenmarkt."""
+        if form.get("zurueck") == "laden":
+            return "/fritte/laden#insel"
+        return f"/steuer/{jahr}/markt#helfer"
 
     @app.post("/steuer/{jahr}/markt/kaufen", dependencies=guarded)
     async def markt_kaufen(request: Request, jahr: int):
         form = await request.form()
         profil_oder_404(jahr)
         key = str(form.get("ware") or "")
+        ziel = regal_ziel(form, jahr)
         try:
             text = quest.kaufe(conn(), jahr, key)
         except quest.QuestError as exc:
             flash(str(exc))
-            return back(f"/steuer/{jahr}/markt")
+            return back(ziel)
         flash(text, "beute", "done")
-        w = spiel.ware(key)
-        if w and w.art == "zierde":
-            return back(f"/steuer/{jahr}?neu={key}#insel")  # der Moment: da steht sie jetzt
-        return back(f"/steuer/{jahr}/markt#helfer")
+        return back(ziel)
 
     @app.post("/steuer/{jahr}/markt/helfer", dependencies=guarded)
     async def markt_helfer(request: Request, jahr: int):
@@ -1953,7 +1954,7 @@ def register_steuer(
             flash(str(exc))
         else:
             flash(text)
-        return back(f"/steuer/{jahr}/markt#helfer")
+        return back(regal_ziel(form, jahr))
 
     @app.post("/steuer/{jahr}/drache/notausgang", dependencies=guarded)
     def notausgang(jahr: int):

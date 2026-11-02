@@ -14,10 +14,10 @@
   <div>
     <p class="sq-kicker">Hafenmarkt</p>
     <h1>Wen holst du dir an den Tisch?</h1>
-    <p>Hier wird dein Gold zu Helfern, die im Drachenkampf mitspielen. Steuern ändert das nicht, es macht nur mehr Spaß.</p>
-    {% if not goldjahr %}<p class="sq-markt-alt"><b>{{ jahr }} liegt schon länger zurück.</b> Nachholen lohnt sich trotzdem, Gold gibt es aber nur für die letzten Steuerjahre. Deine Zierde von dort steht auch hier.</p>{% endif %}
+    <p>Hier werden deine Salzkörner zu Helfern, die im Drachenkampf mitspielen. Steuern ändert das nicht, es macht nur mehr Spaß. Es ist derselbe Beutel wie bei Fritte.</p>
+    {% if not goldjahr %}<p class="sq-markt-alt"><b>{{ jahr }} liegt schon länger zurück.</b> Nachholen lohnt sich trotzdem, Salzkörner gibt es aber nur für die letzten Steuerjahre. Deine Zierde von dort steht auch hier.</p>{% endif %}
   </div>
-  <p class="sq-beutel" aria-label="{{ ressourcen.gold }} Gold"><i></i><b data-zaehler="gold-markt">{{ ressourcen.gold }}</b><span>Gold</span></p>
+  <p class="sq-beutel" aria-label="{{ koerner(ressourcen.gold) }}">{{ salz }}<b data-zaehler="gold-markt">{{ ressourcen.gold }}</b><span>Salzkörner</span></p>
 </header>
 
 {% set angelegt = helfer | list %}
@@ -27,7 +27,7 @@
   <div class="sq-markise" aria-hidden="true"></div>
   <div class="sq-stand-wand">
   <h2 id="h-helfer">Helfer <small>{{ angelegt | length }} von {{ plaetze }} Plätzen am Tisch</small></h2>
-  <p class="sq-markt-hinweis">Jeder Helfer hat einen Haken. Pause ist gratis, zurück an den Tisch kostet {{ regeln.TAUSCH_PREIS }} Gold. Helfer arbeiten ein Steuerjahr lang.{% if zu_salz %} Gold gilt bis zum Sieg über den Drachen, was übrig ist, wird zu Salzkörnern bei Fritte.{% endif %}</p>
+  <p class="sq-markt-hinweis">Jeder Helfer hat einen Haken. Pause ist gratis, zurück an den Tisch kostet {{ koerner(regeln.TAUSCH_PREIS) }}. Helfer arbeiten ein Steuerjahr lang.</p>
   <div class="sq-waren">
   {% for w in markt if w.art == "helfer" %}
     {% set hat = w.key in besitz %}{% set an = w.key in helfer %}
@@ -36,17 +36,17 @@
       <h3>{{ w.name }}</h3>
       <p>{{ w.text }}</p>
       {% if w.haken %}<p class="sq-haken"><b>Haken:</b> {{ w.haken }}</p>{% endif %}
-      {% if w.key == "sanduhr" and regeln.multiplikator(serie_start) > 3 %}<p class="sq-haken warnung"><b>Achtung:</b> Frittes Gewürze lassen deine Gold-Serie gerade höher starten, als die Sanduhr erlaubt. Mit der Sanduhr verschenkst du das.</p>{% endif %}
+      {% if w.key == "sanduhr" and regeln.multiplikator(serie_start) > 3 %}<p class="sq-haken warnung"><b>Achtung:</b> Frittes Gewürze lassen deine Serie gerade höher starten, als die Sanduhr erlaubt. Mit der Sanduhr verschenkst du das.</p>{% endif %}
       {% if an %}
       <form method="post" action="/steuer/{{ jahr }}/markt/helfer"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="ware" value="{{ w.key }}"><input type="hidden" name="an" value="0">
         <span class="sq-ware-stand">Spielt mit</span> <button class="quiet">Pause machen</button></form>
       {% elif hat %}
       <form method="post" action="/steuer/{{ jahr }}/markt/helfer"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="ware" value="{{ w.key }}"><input type="hidden" name="an" value="1">
-        <button class="sq-stempelknopf"{% if angelegt | length >= plaetze or ressourcen.gold < regeln.TAUSCH_PREIS %} disabled title="{{ 'Mach erst mit einem anderen Helfer Pause' if angelegt | length >= plaetze else 'Dafür fehlt dir noch Gold' }}"{% endif %}>An den Tisch · {{ regeln.TAUSCH_PREIS }} Gold</button></form>
+        <button class="sq-stempelknopf"{% if angelegt | length >= plaetze or ressourcen.gold < regeln.TAUSCH_PREIS %} disabled title="{{ 'Mach erst mit einem anderen Helfer Pause' if angelegt | length >= plaetze else 'Dafür fehlen dir noch Salzkörner' }}"{% endif %}>An den Tisch · {{ koerner(regeln.TAUSCH_PREIS) }}</button></form>
       {% else %}
       <form method="post" action="/steuer/{{ jahr }}/markt/kaufen" data-stempel="GEKAUFT"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="ware" value="{{ w.key }}">
-        <button class="sq-preis"{% if ressourcen.gold < w.preis %} disabled{% endif %}><i></i>{{ w.preis }}</button>
-        {% if ressourcen.gold < w.preis %}<small class="sq-noch">noch {{ w.preis - ressourcen.gold }} Gold</small>{% endif %}</form>
+        <button class="sq-preis"{% if ressourcen.gold < w.preis %} disabled{% endif %} aria-label="Holen für {{ koerner(w.preis) }}">{{ salz }}{{ w.preis }}</button>
+        {% if ressourcen.gold < w.preis %}<small class="sq-noch">noch {{ koerner(w.preis - ressourcen.gold) }}</small>{% endif %}</form>
       {% endif %}
     </article>
   {% endfor %}
@@ -57,11 +57,11 @@
 </section>
 
 {# Was man selten braucht, liegt zugeklappt darunter: weniger auf einmal #}
-<section class="sq-markt-teil sq-markt-mehr" aria-label="Mehr zum Gold">
+<section class="sq-markt-teil sq-markt-mehr" aria-label="Mehr zu den Salzkörnern">
   {% set zier_alle = markt | selectattr("art", "equalto", "zierde") | list %}
   <details class="sq-papier sq-klapp" id="zierden">
   {# Eine Sammlung statt drei: Zierden gibt es nicht mehr für Gold, jeder Orden stellt eine auf die Insel #}
-  <summary><span id="h-zierde">Zierden für deine Insel</span> <small>{{ zier_alle | selectattr("key", "in", besitz) | list | length }} von {{ zier_alle | length }} · gibt es für Orden, nicht für Gold</small></summary>
+  <summary><span id="h-zierde">Zierden für deine Insel</span> <small>{{ zier_alle | selectattr("key", "in", besitz) | list | length }} von {{ zier_alle | length }} · gibt es für Orden, nicht zu kaufen</small></summary>
   <div class="sq-waren">
   {% for w in markt if w.art == "zierde" %}
     {% set hat = w.key in besitz %}{% set orden = erfolge | selectattr("key", "equalto", orden_zu_zierde.get(w.key)) | first %}
@@ -77,20 +77,21 @@
   </details>
   <div class="sq-goldregeln">
   <details class="sq-papier sq-klapp">
-    <summary id="h-regeln">Woher kommt das Gold?</summary>
+    <summary id="h-regeln">Woher kommen die Salzkörner?</summary>
     <ul>
-      <li><b>{{ regeln.GOLD_FUND }}</b> für jede Unterlage, die du sicherst. Im Drachenkampf wächst es mit deiner <b>Gold-Serie</b>, den Faktor zeigt das Banner im Kampf.</li>
+      <li><b>{{ regeln.GOLD_FUND }}</b> für jede Unterlage, die du sicherst. Im Drachenkampf wächst das mit deiner <b>Serie</b>, den Faktor zeigt das Banner im Kampf.</li>
       <li><b>{{ regeln.GOLD_SCHATZ }}</b> für jeden Bonus-Schatz (der kann Steuern sparen)</li>
       <li><b>{{ regeln.GOLD_FRAGE }}</b> für jede Frage an die Beraterin, <b>{{ regeln.GOLD_GIBTS_NICHT }}</b> für „Gibt's nicht“ (bei wichtigen Unterlagen 0). Ohne Serie.</li>
-      <li>Ein <b>Siegel</b> bringt 2 und 2 je Fund darin, bis {{ regeln.GOLD_SIEGEL }}. Das <b>Tagesziel</b> bringt {{ regeln.GOLD_TAGWERK }}.</li>
+      <li>Ein <b>Siegel</b> bringt 1 und 1 je Fund darin, bis {{ regeln.GOLD_SIEGEL }}. Das <b>Tagesziel</b> bringt {{ regeln.GOLD_TAGWERK }}.</li>
       <li>Wünsche der Beraterin zahlen {{ regeln.GOLD_FUND }}, sobald eine Datei dranhängt, ohne Serie und für höchstens {{ regeln.WUNSCH_DECKEL }} Wünsche im Jahr.</li>
-      <li>Gold gibt es für die letzten Steuerjahre. Ältere Jahre kannst du nachholen, sie füllen nur nicht den Beutel.</li>
+      <li>Salzkörner gibt es für die letzten Steuerjahre, höchstens {{ regeln.SALZ_DECKEL }} pro Steuerjahr. Ältere Jahre kannst du nachholen, sie füllen nur nicht den Beutel.</li>
+      <li>Es ist ein Beutel für ganz FRITS: Was du hier verdienst, kannst du auch bei Fritte ausgeben, und umgekehrt.</li>
     </ul>
-    <p class="muted">Jede Karte zahlt nur einmal aus. Legst du eine Datei zurück, geht ihr Gold zurück, bis du sie neu verdienst. Ist das Gold schon ausgegeben, geht dein letzter Kauf zurück in den Hafen, so fällt der Beutel nie unter null.</p>
+    <p class="muted">Jede Karte zahlt nur einmal aus. Legst du eine Datei zurück, gehen ihre Salzkörner zurück, bis du sie neu verdienst. Sind sie schon ausgegeben, geht dein letzter Helfer zurück in den Hafen, so fällt der Beutel nie unter null.</p>
   </details>
   <details class="sq-papier sq-klapp sq-goldbuch">
-    <summary>Goldbuch <small>{{ goldsummen[0] }} verdient · {{ goldsummen[1] }} ausgegeben</small></summary>
-    <p class="sq-goldsumme"><span>Verdient <b>{{ goldsummen[0] }}</b></span><span>Ausgegeben <b>{{ goldsummen[1] }}</b></span><span>Im Beutel <b>{{ ressourcen.gold }}</b></span></p>
+    <summary>Kassenbuch der Insel {{ jahr }} <small>{{ goldsummen[0] }} verdient · {{ goldsummen[1] }} ausgegeben</small></summary>
+    <p class="sq-goldsumme"><span>Verdient <b>{{ goldsummen[0] }}</b></span><span>Ausgegeben <b>{{ goldsummen[1] }}</b></span><span>Im Beutel (ganz FRITS) <b>{{ ressourcen.gold }}</b></span></p>
     {% if goldbuch %}
     <ol>{% for g in goldbuch %}<li><span>{{ g.text }}</span><b class="{{ 'minus' if g.betrag < 0 else 'plus' }}">{{ "%+d" | format(g.betrag) }}</b></li>{% endfor %}</ol>
     {% else %}<p class="muted">Noch leer. Sammel deine erste Karte, dann klingelt es.</p>{% endif %}

@@ -278,7 +278,7 @@ stuecke = [
 
 [[provinz]]
 key = "burg"
-wofuer = "Privates, das Steuern spart: Versicherungen, Spenden, Handwerker im Haushalt, Kinderbetreuung. Alles freiwillig, jeder Fund bringt Gold."
+wofuer = "Privates, das Steuern spart: Versicherungen, Spenden, Handwerker im Haushalt, Kinderbetreuung. Alles freiwillig, jeder Fund bringt Salzkörner."
 name = "Burg"
 bereich = "Privates, das Steuern spart"
 frage = "immer"

@@ -41,7 +41,7 @@
     {% set angebot = hafen_angebot(ressourcen.gold, besitz) if ressourcen is defined and besitz is defined else [] %}
     <a class="sq-siegelknopf" href="/steuer/{{ jahr }}/drache">Stell dich dem Drachen →</a>
     {% if angebot %}
-    <a class="sq-stempelknopf sq-hafen-knopf" href="/steuer/{{ jahr }}/markt#helfer" title="Ab {{ angebot[0].preis }} Gold, z. B. {{ angebot[0].name }}: {{ angebot[0].text }}">Erst zum Hafenmarkt: Helfer anheuern ({{ ressourcen.gold }} Gold)</a>
+    <a class="sq-stempelknopf sq-hafen-knopf" href="{{ markt_link(jahr) }}" title="Ab {{ koerner(angebot[0].preis) }}, z. B. {{ angebot[0].name }}: {{ angebot[0].text }}">Erst Helfer anheuern ({{ koerner(ressourcen.gold) }})</a>
     {% else %}
     <button class="quiet">Gleich</button>
     {% endif %}
