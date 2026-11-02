@@ -272,6 +272,16 @@ def test_feierabend_shows_what_the_game_made_of_today(client, ws):  # noqa: F811
     # The credits come first: the old "Heute" counts move into "Alles von heute" (tester).
     assert "<h2>Heute</h2>" not in page and "erstellt</li>" in page.split("Alles von heute")[1]
     assert all("Salzkörner" not in z for z in abspann.heute(conn, TODAY, mit_fritte=False))
+    # Salt the Steuer-Quest paid into Fritte's purse today counts too (one purse).
+    vorher = dict(next(k["zahlen"] for k in bilanz["kacheln"] if k["titel"] == "Fritte"))
+    stand.buche(conn, TODAY.isoformat(), 12, "quest", "Steuer-Quest")
+    assert "Aus der Steuer-Quest: 12 Salzkörner" in abspann.heute(conn, TODAY)
+    nachher = dict(
+        next(k["zahlen"] for k in abspann.bilanz(conn, TODAY)["kacheln"] if k["titel"] == "Fritte")
+    )
+    assert {v: k for k, v in nachher.items()}["Salzkörner"] == {v: k for k, v in vorher.items()}[
+        "Salzkörner"
+    ] + 12
 
 
 def test_salbei_counts_tax_documents_as_paperwork():
