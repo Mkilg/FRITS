@@ -12,6 +12,7 @@
 <section class="card" id="regal">
   <h2>Gewürzregal <span class="hint">{{ regal | length }} von {{ plaetze }} Plätzen</span></h2>
   <p class="hint">Die Würze wirkt von links nach rechts. Ein „×“-Gewürz ganz rechts multipliziert alles davor.</p>
+  <p class="drachen-bruecke"><span aria-hidden="true">🐉</span> Im Drachenkampf der Steuer-Quest hebt jedes Gewürz im Regal die Gold-Serie zum Start um eins (höchstens {{ drachen_serie[1] }}). Mit deinem Regal startet sie bei <strong>×{{ drachen_serie[0] }}</strong>.</p>
   <div class="regalbrett">
     {% for g in regal %}
     <div class="regal-platz">
@@ -46,6 +47,7 @@
       {{ spiel.glas(g) }}
       <span class="seltenheit">{{ g.seltenheit }}</span>
       <span class="hint">{{ g.text }}</span>
+      {% if g.id not in im_regal and regal | length < drachen_serie[1] %}<span class="drachen-plus">🐉 Im Drachenkampf: Gold-Serie +1</span>{% endif %}
       {% if g.id not in im_regal and w[1] %}
       <span class="wirkung{{ ' null' if not w[0] }}">{% if w[2] == "warten" %}Mit deinen {{ w[1] }} wartenden {{ "Karte" if w[1] == 1 else "Karten" }}{% else %}Beim letzten Kassensturz{% endif %}: {% if w[0] %}<strong>+{{ w[0] }}</strong> Salzkörner{% else %}kein Unterschied{% endif %}</span>
       {% endif %}

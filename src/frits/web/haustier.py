@@ -118,6 +118,14 @@ def drachengold(conn, heute: date) -> dict | None:
     return None
 
 
+def drachen_serie(gewuerze: int) -> tuple[int, int]:
+    """(start of the gold streak in the dragon fight with this many spices, the most
+    spices that count). Spices on Fritte's shelf warm up the Steuer-Quest's dragon."""
+    from frits.steuer import spiel
+
+    return max(1, spiel.start_serie(gewuerze)), spiel.GEWUERZ_START_MAX
+
+
 def gold_gutschreiben():
     from frits.steuer import quest
 
@@ -385,8 +393,29 @@ def register_haustier(
         album_pruefen(conn)
         return back(f"/fritte/truhe/{t.id}?neu=1")
 
+    @app.post("/fritte/truhe/alle", dependencies=guarded)
+    def truhen_alle():
+        """Many chests at once (after a big catch-up Kassensturz): open them all, then
+        show the best find big and the others next to it, instead of a conveyor belt."""
+        conn = db()
+        offen = []
+        jahr = gold_jahr(ws.root, today())
+        for _ in range(truhen.ALLE_HOECHSTENS):
+            t = truhen.oeffnen(conn, today(), jahr)
+            if t is None:
+                break
+            truhen.gold_buchen(conn, t, gold_gutschreiben())
+            offen.append(t)
+        if not offen:
+            flash("Gerade wartet keine Truhe. Echter Papierkram füllt die nächste.")
+            return back("/fritte#truhen")
+        album_pruefen(conn)
+        best = truhen.bester(offen)
+        mit = ",".join(str(t.id) for t in offen if t.id != best.id)
+        return back(f"/fritte/truhe/{best.id}?neu=1" + (f"&mit={mit}" if mit else ""))
+
     @app.get("/fritte/truhe/{tid}", response_class=HTMLResponse)
-    def truhe_show(request: Request, tid: int, neu: str = ""):
+    def truhe_show(request: Request, tid: int, neu: str = "", mit: str = ""):
         conn = db()
         t = truhen.laden(conn, tid)
         if t is None or t.inhalt is None:
@@ -408,6 +437,12 @@ def register_haustier(
             f=fritte(conn),
             weitere=len(truhen.geschlossen(conn)),
             chancen=truhen.chancen(conn),
+            mit=[
+                x
+                for i in mit.split(",")[: truhen.ALLE_HOECHSTENS]
+                if i.isdigit()
+                if (x := truhen.laden(conn, int(i))) and x.inhalt
+            ],
         )
 
     @app.get("/fritte/album", response_class=HTMLResponse)
@@ -451,6 +486,7 @@ def register_haustier(
             verkauf=lambda g: verkaufs_preis(bezahlt.get(g.id, g.preis)),
             laden=haustier.LADEN,
             schaetze=haustier.SCHAETZE,
+            drachen_serie=drachen_serie(len(shelf)),
             kassenbuch=stand.kassenbuch(conn),
             stufe=ausbau.stufe(conn),
             ruf=ausbau.ruf(conn),

@@ -630,7 +630,7 @@ details[open] > summary::before { content: "▾ "; }
 .truhe-show.zu .fund { opacity: 0; transform: translateY(-3rem) scale(.4); transition: none; }
 .truhe-show.zu .truhe-strahlen { opacity: 0; transition: none; }
 /* nothing may give the find away before the lid is up */
-.truhe-show.zu .truhe-aktionen > :not([data-truhe-skip]), .truhe-show.zu .truhe-fair, .truhe-verdeckt .flash { visibility: hidden; }
+.truhe-show.zu .truhe-aktionen > :not([data-truhe-skip]), .truhe-show.zu .truhe-fair, .truhe-show.zu .truhe-mehr, .truhe-verdeckt .flash { visibility: hidden; }
 .truhe-show.wackelt .truhe-gross { animation: truhe-wackeln .3s ease-in-out 3; }
 .truhe-show.funkelt .truhe-strahlen { animation: strahlen-drehen 6s linear infinite; }
 @keyframes truhe-wackeln { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-5deg); } 75% { transform: rotate(5deg); } }
@@ -649,3 +649,30 @@ details[open] > summary::before { content: "▾ "; }
 .drachengold { display: flex; gap: 1rem; align-items: flex-start; }
 .drachengold h2 { margin-top: 0; }
 .drachen-zeichen { font-size: 2.6rem; line-height: 1; }
+
+/* Runde 9: legendary must look like nothing else (Lena), rare gets its own blue light */
+.truhe-show.selten-selten .fund { box-shadow: 0 0 0 4px rgba(127, 166, 220, .35), 0 8px 24px rgba(74, 104, 150, .35); }
+.truhe-show.selten-legendaer .fund {
+  border: 4px double var(--ocker-dunkel); padding: 1.3rem 1.8rem;
+  background: radial-gradient(circle at 50% 0%, #fff8dc, #f6dc8f 70%, #e9bd4f);
+  box-shadow: 0 0 0 5px rgba(233, 189, 79, .45), 0 0 38px 8px rgba(233, 189, 79, .65), var(--karten-schatten); }
+.truhe-show.selten-legendaer .fund-name { font-size: 1.8rem; }
+.truhe-show.selten-legendaer .fund-bild { font-size: 4.2rem; }
+.truhe-show.selten-legendaer .fund-seltenheit { font-size: .9rem; padding: .15rem .9rem; background: var(--eiche-tief); color: var(--gold); }
+.truhe-show.selten-legendaer .truhe-strahlen { width: 30rem; height: 30rem; margin-left: -15rem; margin-top: -9rem; opacity: .6; }
+.truhe-show.selten-legendaer .truhe-gross { filter: drop-shadow(0 0 14px rgba(233, 189, 79, .9)); }
+.truhe-show.selten-legendaer .fund::before, .truhe-show.selten-legendaer .fund::after {
+  content: "✦"; position: absolute; font-size: 1.6rem; color: var(--gold); text-shadow: 0 0 8px #fff3c4; }
+.truhe-show.selten-legendaer .fund { position: relative; }
+.truhe-show.selten-legendaer .fund::before { left: -1.1rem; top: -1rem; }
+.truhe-show.selten-legendaer .fund::after { right: -1.1rem; bottom: -1rem; }
+[data-effekte="verspielt"] .truhe-show.selten-legendaer:not(.zu) .fund::before,
+[data-effekte="verspielt"] .truhe-show.selten-legendaer:not(.zu) .fund::after { animation: funkeln 1.6s ease-in-out infinite alternate; }
+@keyframes funkeln { from { transform: scale(.7) rotate(0); opacity: .5; } to { transform: scale(1.2) rotate(30deg); opacity: 1; } }
+.truhe-mehr { display: flex; flex-wrap: wrap; justify-content: center; gap: .4rem; align-items: center; margin-top: .4rem; }
+.truhe-knoepfe { gap: .6rem; align-items: center; }
+.drachen-bruecke { margin: .2rem 0 .8rem; padding: .4rem .7rem; border-left: 3px solid var(--terrakotta); background: rgba(196, 98, 58, .08); }
+.drachen-plus { font-size: .8rem; color: var(--terrakotta-dunkel); }
+@media (prefers-reduced-motion: reduce) {
+  .truhe-show.selten-legendaer .fund::before, .truhe-show.selten-legendaer .fund::after { animation: none !important; }
+}

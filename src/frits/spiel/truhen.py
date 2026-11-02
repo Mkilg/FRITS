@@ -234,9 +234,10 @@ def _fund(conn, rng: random.Random, seltenheit: str, gold: bool, sachen: bool = 
 
     pool: list[tuple[int, dict]] = []
     sache = 2 if seltenheit == "legendär" else 1  # a legendary chest leans to things to keep
+    # Only the treasures that exist nowhere else: the shop stays worth a visit.
     dinge = sorted(
-        d.id for d in haustier.DINGE.values()
-        if ding_seltenheit(d) == seltenheit and not stand.besitzt(conn, d.id)
+        d.id for d in haustier.SCHAETZE
+        if d.truhe == seltenheit and not stand.besitzt(conn, d.id)
     )  # fmt: skip
     if dinge:
         pool.append((GEWICHTE["ding"] * sache, {"art": "ding", "id": rng.choice(dinge)}))
@@ -329,6 +330,19 @@ def oeffnen(conn: sqlite3.Connection, heute: date, gold_jahr: int | None = None)
             (tag, reihe, STUFE[seltenheit], json.dumps(fund, ensure_ascii=False), t.id),
         )
     return laden(conn, t.id)
+
+
+def bester(truhen: list[Truhe]) -> Truhe:
+    """The find to show big when several chests open at once: the rarest, and among
+    those something to keep before grains."""
+    rang = {"ding": 3, "gewuerz": 3, "gold": 2, "wuerze": 1, "joker": 1, "koerner": 0}
+    return max(
+        truhen,
+        key=lambda t: (STUFE[t.inhalt["seltenheit"]], rang.get(t.inhalt["art"], 0), -t.id),
+    )
+
+
+ALLE_HOECHSTENS = 12  # "Alle öffnen" opens at most this many at once
 
 
 def gold_buchen(conn, t: Truhe, gutschreiben: Callable[..., int] | None) -> None:

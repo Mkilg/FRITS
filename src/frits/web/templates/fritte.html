@@ -123,10 +123,18 @@
     <div class="truhen-text">
       {% if truhen_zu %}
       <p><strong>{{ "Eine Truhe wartet" if truhen_zu | length == 1 else truhen_zu | length ~ " Truhen warten" }}.</strong> {{ truhen_zu[0].text }}{% if truhen_zu | length > 1 %} und mehr{% endif %}.</p>
-      <form method="post" action="/fritte/truhe/oeffnen">
-        <input type="hidden" name="token" value="{{ token }}">
-        <button class="primary gross">{{ zeichen("truhe", "🎁") }} Truhe öffnen</button>
-      </form>
+      <div class="row truhe-knoepfe">
+        <form method="post" action="/fritte/truhe/oeffnen">
+          <input type="hidden" name="token" value="{{ token }}">
+          <button class="primary gross">{{ zeichen("truhe", "🎁") }} Truhe öffnen</button>
+        </form>
+        {% if truhen_zu | length > 1 %}
+        <form method="post" action="/fritte/truhe/alle">
+          <input type="hidden" name="token" value="{{ token }}">
+          <button>Alle {{ truhen_zu | length if truhen_zu | length <= 12 else 12 }} auf einmal öffnen</button>
+        </form>
+        {% endif %}
+      </div>
       {% else %}
       <p>Gerade ist keine Truhe zu. Jede Karte echter Papierkram füllt die nächste ein Stück.</p>
       {% endif %}
@@ -148,7 +156,7 @@
     <p><strong>So kommt eine Truhe:</strong> Jede Rechnung, Gutschrift, Zahlung, Ausgabe, jedes angenommene Angebot, jede Erinnerung und jede gesammelte Steuer-Unterlage kommt beim Kassensturz in die Truhe. Fünf davon füllen sie. Ungefähr jede achte dieser Karten ist eine goldene <strong>Glückskarte</strong> und bringt gleich eine eigene Truhe mit. Abgehakte Punkte, Gelerntes, Feierabende und Korrekturen zählen hier nicht.</p>
     <p><strong>Die Chancen</strong> für das, was drin ist: {% for name, p in chancen.prozent %}{{ p }} % {{ name }}{{ ", " if not loop.last }}{% endfor %}. Spätestens jede 4. Truhe ist mindestens selten, spätestens jede 12. legendär.
       {% if chancen.geoeffnet %}Bei dir: die nächste seltene spätestens in {{ chancen.selten_in }} {{ "Truhe" if chancen.selten_in == 1 else "Truhen" }}, die nächste legendäre spätestens in {{ chancen.legendaer_in }}.{% endif %}</p>
-    <p><strong>Was drin sein kann:</strong> Salzkörner, eine Jokerkarte für den nächsten Kassensturz, ein Glas Truhenwürze, ein Gewürz fürs Regal (wenn Platz ist), etwas fürs Zimmer oder einen Hut, und ab „selten“ Drachengold für die Steuer-Quest, wenn du sie nutzt. Manche Schätze gibt es nur hier.</p>
+    <p><strong>Was drin sein kann:</strong> Salzkörner, eine Jokerkarte für den nächsten Kassensturz, ein Glas Truhenwürze, ein Gewürz fürs Regal (wenn Platz ist), etwas fürs Zimmer oder einen Hut, und ab „selten“ Drachengold für die Steuer-Quest, wenn du sie nutzt. Dinge und Hüte aus Truhen sind Schätze, die es im Laden nicht gibt.</p>
     <p class="hint">Was in einer Truhe steckt, wird beim Öffnen einmal ausgelost und gespeichert. Neu laden ändert nichts. Truhen laufen nie ab, und nichts davon kostet echtes Geld.</p>
   </details>
 </section>

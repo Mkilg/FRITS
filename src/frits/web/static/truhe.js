@@ -8,7 +8,11 @@
   var root = document.querySelector("[data-truhe]");
   if (!root || !root.hasAttribute("data-neu")) return;
   // A reload or the back button shows the find right away, without the show.
-  try { history.replaceState(history.state, "", location.pathname); } catch (e) { /* egal */ }
+  // The other finds of "Alle öffnen" (mit=...) stay in the address, only the show goes.
+  try {
+    var mit = new URLSearchParams(location.search).get("mit");
+    history.replaceState(history.state, "", location.pathname + (mit ? "?mit=" + encodeURIComponent(mit) : ""));
+  } catch (e) { /* egal */ }
   var reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   var stufe = root.getAttribute("data-seltenheit");
   var skip = root.querySelector("[data-truhe-skip]");

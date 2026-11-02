@@ -161,7 +161,30 @@ def test_the_draw_only_offers_what_fits(conn):
     assert "gold" not in gewoehnlich
     funde = [truhen._fund(conn, random.Random(n), "legendär", False) for n in range(300)]
     dinge = {f["id"] for f in funde if f["art"] == "ding"}
-    assert dinge <= {"zylinder", "katze", "doktorhut", "krone", "waage", "sternenhut"}
+    assert dinge and dinge <= {"waage", "sternenhut"}  # only chest treasures, never shop wares
+
+
+def test_chest_things_come_only_from_the_treasures_and_never_twice(conn):
+    import random
+
+    gewoehnlich = [truhen._fund(conn, random.Random(n), "gewöhnlich", False) for n in range(300)]
+    dinge = {f["id"] for f in gewoehnlich if f["art"] == "ding"}
+    assert dinge == {"muschel", "postkarte", "schleife"}
+    assert not {d.id for d in haustier.LADEN} & dinge
+    for d in haustier.SCHAETZE:
+        if d.truhe == "gewöhnlich":
+            stand.nimm(conn, d.id, d.art, TODAY.isoformat(), 0)
+    nochmal = [truhen._fund(conn, random.Random(n), "gewöhnlich", False) for n in range(300)]
+    assert "ding" not in {f["art"] for f in nochmal}  # all found: something else instead
+
+
+def test_the_best_find_is_the_rarest_and_something_to_keep():
+    def t(i, seltenheit, art):
+        return truhen.Truhe(i, f"g{i}", "", None, "", None, {"seltenheit": seltenheit, "art": art})
+
+    assert truhen.bester([t(1, "gewöhnlich", "ding"), t(2, "selten", "koerner")]).id == 2
+    assert truhen.bester([t(1, "selten", "koerner"), t(2, "selten", "gewuerz")]).id == 2
+    assert truhen.bester([t(1, "selten", "joker"), t(2, "selten", "joker")]).id == 1
 
 
 def test_the_first_chest_holds_something_to_keep(conn):
@@ -225,8 +248,41 @@ def test_fritte_page_and_opening_in_the_browser(client, ws):  # noqa: F811
     assert "Gerade wartet keine Truhe" in post(client, "/fritte/truhe/oeffnen").text
 
 
+def test_open_all_shows_the_best_find_big_and_the_rest_beside_it(client, ws):  # noqa: F811
+    conn = store.connect(ws.db)
+    client.get("/fritte")
+    for i in range(4):
+        truhen.truhe_geben(conn, f"probe:{i}")
+    page = client.get("/fritte").text
+    assert "Alle 4 auf einmal öffnen" in page
+    r = client.post("/fritte/truhe/alle", data={"token": client.token}, follow_redirects=False)
+    assert r.status_code == 303 and "?neu=1&mit=" in r.headers["location"]
+    offen = truhen.geoeffnete(conn, 10)
+    assert len(offen) == 4 and not truhen.geschlossen(conn)
+    best = truhen.bester(offen)
+    assert r.headers["location"].startswith(f"/fritte/truhe/{best.id}?")
+    page = client.get(r.headers["location"]).text
+    assert "Außerdem in den anderen 3 Truhen" in page
+    for t in offen:
+        assert t.inhalt["name"] in page
+    assert "Gerade wartet keine Truhe" in post(client, "/fritte/truhe/alle").text
+
+
+def test_the_shop_shows_the_bridge_to_the_dragon(client, ws):  # noqa: F811
+    conn = store.connect(ws.db)
+    add_invoice(conn, "2026-0001", TODAY - timedelta(days=30))
+    client.get("/fritte")
+    post(client, "/fritte/kassensturz")
+    page = client.get("/fritte/laden").text
+    assert len(kassensturz.regal(conn)) == 1  # the first spice
+    assert "drachen-bruecke" in page and "startet sie bei <strong>×2</strong>" in page
+    assert "🐉 Im Drachenkampf: Gold-Serie +1" in page  # on the spices one could add
+
+
 def test_other_websites_cannot_open_chests(client):  # noqa: F811
     r = client.post("/fritte/truhe/oeffnen", follow_redirects=False)
+    assert r.status_code == 403
+    r = client.post("/fritte/truhe/alle", follow_redirects=False)
     assert r.status_code == 403
 
 
