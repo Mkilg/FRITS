@@ -25,10 +25,20 @@
   function later(fn, ms) { timers.push(setTimeout(fn, ms)); }
   // Into view when its lower edge hides below the window or under the sticky buttons and the
   // tab bar (that room is the node's scroll-margin-bottom).
+  // The lowest y that nothing covers: above the tab bar and the sticky buttons, where they
+  // are (Lena: at 1440 a card fully in sight still made the camera move and cut the jars).
+  function frei() {
+    var y = window.innerHeight;
+    [root.querySelector(".ks-aktionen")].concat([].slice.call(document.querySelectorAll("nav"))).forEach(function (n) {
+      if (!n) return;
+      var pos = getComputedStyle(n).position, r = n.getBoundingClientRect();
+      if ((pos === "fixed" || pos === "sticky") && r.height && r.top > window.innerHeight / 2 && r.bottom >= window.innerHeight - 80) y = Math.min(y, r.top);
+    });
+    return y;
+  }
   function versteckt(node) {
-    var rand = parseFloat(getComputedStyle(node).scrollMarginBottom) || 0;
     var r = node.getBoundingClientRect();
-    return r.top < 0 || r.bottom > window.innerHeight - rand;
+    return r.top < 0 || r.bottom > frei() - 6;
   }
   function insBild(node) {
     if (versteckt(node)) node.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
@@ -49,8 +59,7 @@
   }
   // How far down until the node's lower edge sits above the buttons (its top stays in sight).
   function weg(node) {
-    var rand = parseFloat(getComputedStyle(node).scrollMarginBottom) || 0;
-    var r = node.getBoundingClientRect(), dy = r.bottom - (window.innerHeight - rand);
+    var r = node.getBoundingClientRect(), dy = r.bottom - (frei() - 16);
     return Math.max(0, Math.min(dy, r.top - 12));
   }
   // The Würze moment as a small note on top when its jar or the Würze box is out of sight
@@ -163,6 +172,7 @@
   function ending(delay) {
     later(function () {
       karten.forEach(function (k) { k.classList.remove("aktiv"); });
+      if (zettelEl) zettelEl.classList.remove("zeigen"); // not over the boxes on the way back (Lena)
       bump(summeEl.parentNode, "gross-werden");
       // The sum out of sight (below a tall shelf, or above after a long hand of cards): bring
       // Körner × Würze = Salzkörner into view before the stamp lands, so the stamp is seen
