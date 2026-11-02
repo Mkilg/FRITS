@@ -26,6 +26,8 @@
         <button name="stil" value="ruhig">{{ zeichen("ruhig", "🌿") }} Ruhig und leise<small>Nur das Ergebnis und ein Stempel</small></button>
       </form>
     </div>
+    {% else %}
+    <p class="hint">Fritte feiert {{ "verspielt" if settings.effects == "verspielt" else "ruhig" }} {{ "mit Klang" if settings.sound else "und leise" }}. Ändern kannst du das in den <a href="/settings">Einstellungen</a>.</p>
     {% endif %}
     <p class="hint">Unten wartet dein erster <a href="#kassensturz">Kassensturz</a>.</p>
   </div>
