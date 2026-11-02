@@ -49,7 +49,7 @@
           <select name="customer" {{ "disabled" if not editable }}>
             <option value="">{{ draft.customer_name ~ " (noch nicht in der Kundenliste)" if draft.customer_name and not draft.customer_id else "Bitte wählen" }}</option>
             {% for c in customers %}
-            <option value="{{ c.id }}" data-name="{{ c.display_name }}" data-empfaenger="{{ c.display_name }}{% if c.address %}&#10;{{ c.address | replace(', ', '\n') }}{% endif %}"{% if c.firmen_domain %} data-firma="{{ c.firmen_domain }}"{% endif %}{% if c.address %} data-address{% endif %} {{ "selected" if c.id == draft.customer_id }}>{{ c.display_name }}{{ " (" ~ c.name ~ ")" if c.company }}</option>
+            <option value="{{ c.id }}" data-name="{{ c.display_name }}" data-empfaenger="{{ c.display_name }}{% if c.company and c.name and c.name != c.company %}&#10;z. Hd. {{ c.name }}{% endif %}{% if c.address %}&#10;{{ c.address | replace(', ', '\n') }}{% endif %}"{% if c.firmen_domain %} data-firma="{{ c.firmen_domain }}"{% endif %}{% if c.address %} data-address{% endif %} {{ "selected" if c.id == draft.customer_id }}>{{ c.display_name }}{{ " (" ~ c.name ~ ")" if c.company }}</option>
             {% endfor %}
           </select>
           <a class="button quiet" href="/customers/new?back=/drafts/{{ row.id }}">Neuer Kunde</a>
@@ -144,7 +144,7 @@
         <button class="primary" name="action" value="quote">Angebot erstellen</button>
         {% else %}
         {% set gewaehlt = customers | selectattr("id", "equalto", draft.customer_id) | first %}
-        {% set empfaenger = (draft.customer_name or "den Kunden") ~ ("\n" ~ draft.customer_address | replace(", ", "\n") if draft.customer_address else "") %}
+        {% set empfaenger = (draft.customer_name or "den Kunden") ~ ("\nz. Hd. " ~ draft.customer_contact if draft.customer_contact else "") ~ ("\n" ~ draft.customer_address | replace(", ", "\n") if draft.customer_address else "") %}
         {% set firma_hinweis = ("\n\nAchtung: Hier steht keine Firma, die Rechnung geht an die Person selbst. Die E-Mail-Adresse gehört zu " ~ gewaehlt.firmen_domain ~ ". Soll die Rechnung an die Firma gehen, trag sie vorher beim Kunden ein.") if gewaehlt and gewaehlt.firmen_domain else "" %}
         <button class="primary" name="action" value="approve" data-customer="{{ empfaenger }}" data-confirm="Rechnung über {{ sums.gross | eur }} jetzt erstellen? Sie geht an:&#10;{{ empfaenger }}&#10;&#10;Sie bekommt eine feste Nummer. Später ändern geht nur noch per Storno.{{ firma_hinweis }}" data-confirm-live="Rechnung über {gross} jetzt erstellen? Sie geht an:&#10;{customer}&#10;&#10;Sie bekommt eine feste Nummer. Später ändern geht nur noch per Storno.{firma}" data-confirm-ja="Rechnung erstellen">Rechnung erstellen</button>
         <button class="quiet" name="action" value="quote">Lieber als Angebot</button>

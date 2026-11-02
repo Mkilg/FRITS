@@ -201,7 +201,12 @@ def _footer_lines(settings: Settings) -> list[str]:
     ]
 
 
-def _start(settings: Settings, customer_name: str | None, customer_address: str | None) -> FPDF:
+def _start(
+    settings: Settings,
+    customer_name: str | None,
+    customer_address: str | None,
+    contact: str | None = None,
+) -> FPDF:
     pdf = _Paper(_footer_lines(settings))
     pdf.set_margins(20, 20, 20)
     pdf.set_auto_page_break(True, margin=42)
@@ -213,7 +218,8 @@ def _start(settings: Settings, customer_name: str | None, customer_address: str 
     pdf.cell(0, 5, f"{sender} · {settings.address}", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(2)
     pdf.set_font("DejaVu", size=11)
-    for line in [customer_name or "", *(customer_address or "").split(", ")]:
+    head = [customer_name or "", *([f"z. Hd. {contact}"] if contact else [])]
+    for line in [*head, *(customer_address or "").split(", ")]:
         pdf.cell(0, 6, line, new_x="LMARGIN", new_y="NEXT")
     pdf.ln(12)
     return pdf
@@ -235,7 +241,7 @@ def _document(
     settings: Settings,
     closing: list[str],
 ) -> Path:
-    pdf = _start(settings, draft.customer_name, _customer_lines(draft))
+    pdf = _start(settings, draft.customer_name, _customer_lines(draft), draft.customer_contact)
     width = pdf.epw
     if draft.customer_ust_id and draft.customer_tax == "eu":
         facts = [*facts, ("USt-IdNr. Kunde", draft.customer_ust_id)]

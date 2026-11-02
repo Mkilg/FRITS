@@ -1147,7 +1147,11 @@ def register_steuer(
             flash(f"Geändert: {s['name']} ist neu notiert.", "beute", "done")
         elif fund.neu:
             quest.notiere(c, jahr, "fund", f"{s['name']}: eingetippt")
-            flash(f"+1 Angabe! {s['name']} ist notiert und kommt so in die Fundkiste.", "beute", "done")
+            flash(
+                f"+1 Angabe! {s['name']} ist notiert und kommt so in die Fundkiste.",
+                "beute",
+                "done",
+            )
         else:
             flash("Genau diese Angabe liegt schon bei der Karte.")
         if belohnen(jahr, vorher):

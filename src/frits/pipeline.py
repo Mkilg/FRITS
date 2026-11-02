@@ -176,6 +176,7 @@ def answer_questions(
             draft.customer_country,
         )
         fresh.customer_reference = draft.customer_reference
+        fresh.customer_contact = draft.customer_contact
         fresh.questions = [q for q in fresh.questions if "Kundenliste" not in q]
     save_draft(conn, draft_id, fresh)
     return fresh

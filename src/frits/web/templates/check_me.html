@@ -20,7 +20,7 @@
   <p class="hint">Davon ging nichts an die KI.</p>
   {% endif %}
   {% if "weder ein Auftrag noch ein Beleg" in f.reason %}
-  <p class="hint">Ein Brief vom Finanzamt oder ein Steuerbescheid gehört in die <a href="/steuer">Steuer-Quest</a>: Öffne dort das passende Feld und zieh die Datei aus dem Ordner „Zum Prüfen“ hinein. Willst du erst verstehen, was drinsteht, frag im Notfall-Chat.</p>
+  <p class="hint">Steuer-Unterlagen wie Briefe vom Finanzamt, Bescheide, Bescheinigungen oder deine Notizen dazu gehören in die <a href="/steuer">Steuer-Quest</a>: Öffne dort das passende Feld und zieh die Datei hinein. Willst du erst verstehen, was drinsteht, frag im Notfall-Chat (unten der Knopf „Ein Brief“).</p>
   {% elif "Schwärzen" in f.reason %}
   <p class="hint">Beim Schwärzen blieb etwas übrig, das wie ein Name oder eine Nummer aussah. Deshalb habe ich die Datei lieber gar nicht an die KI geschickt. Ist es ein Ticket oder eine Quittung, trägst du es einfach als Ausgabe ein: Das geht ganz ohne KI.</p>
   {% elif "Text" in f.reason or "lesen" in f.reason %}
