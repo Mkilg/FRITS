@@ -382,7 +382,7 @@ def test_pages_and_a_whole_round(client, ws):  # noqa: F811
     assert stand.guthaben(conn) == 12 + 6 + 1
 
     laden = client.get("/fritte/laden").text
-    assert "Gewürzregal" in laden and "Markttag" in laden and "Frittes Kassenbuch" in laden
+    assert "Gewürzregal" in laden and "Markttag" in laden
     assert "Beim letzten Kassensturz" in laden  # what a spice would have brought
     g = min(markt(conn, TODAY), key=lambda g: g.preis)
     assert g.id != "pfeffer"  # what is on the shelf is not offered again
@@ -397,7 +397,8 @@ def test_pages_and_a_whole_round(client, ws):  # noqa: F811
     page = post(client, "/fritte/kaufen", ding="teetasse")
     assert "Die Teetasse hat jetzt einen schönen Platz" in page.text
     assert client.get("/fritte/kassensturz/99").status_code == 404
-    assert "Chronik" in client.get("/fritte").text
+    seite = client.get("/fritte").text  # the Kassenbuch is the chronicle too
+    assert "Frittes Kassenbuch" in seite and 'href="/fritte/kassensturz/1"' in seite
 
 
 def test_the_shelf_has_limited_places(client, ws):  # noqa: F811
@@ -970,7 +971,7 @@ def test_festival_and_album_pages(client, ws):  # noqa: F811
     assert "/fritte/feiern" not in client.get("/fritte").text  # not before the first Bude
     stand.setze(conn, "ausbau", "5")
     give(conn, saison.fest_preis(conn))
-    assert "Fest feiern für 400" in client.get("/fritte").text
+    assert "Herbstfest feiern für 400" in client.get("/fritte").text
     page = post(client, "/fritte/feiern")
     assert "Fritte feiert das Herbstfest am Markt" in page.text
     assert 'class="wimpel"' in client.get("/fritte").text

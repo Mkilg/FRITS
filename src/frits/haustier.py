@@ -195,3 +195,26 @@ def aufsetzen(conn: sqlite3.Connection, ding_id: str) -> None:
         stand.setze(conn, "hut", ding.id)
     else:
         stand.setze(conn, "hut", "")
+
+
+def salz_aus_quest(conn: sqlite3.Connection, jahr: int, gold: int, text: str,
+                   heute: date | None = None) -> int:  # fmt: skip
+    """One purse (Lena): Drachengold only counts inside its Steuer-Quest year. What is left
+    when the dragon is beaten becomes Salzkörner for Fritte, 1 gold = 1 Korn.
+
+    Once per quest year: a second call, or no gold, books nothing and returns 0, so the
+    quest only takes off the gold that really arrived here. Opens its own transaction
+    (call it outside the quest's). Works even before Fritte was ever opened."""
+    gold = int(gold)
+    if gold <= 0:
+        return 0
+    tag = (heute or date.today()).isoformat()
+    stand.vorbereiten(conn)
+    with store.transaction(conn):
+        if stand.einstellung(conn, f"drachensieg_salz:{jahr}"):
+            return 0
+        stand.setze(conn, f"drachensieg_salz:{jahr}", tag)
+        stand.buche(
+            conn, tag, gold, "drachensieg", text or f"Drachengold aus der Steuer-Quest {jahr}"
+        )
+    return gold

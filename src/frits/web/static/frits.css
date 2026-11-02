@@ -432,6 +432,10 @@ body:has(.sq-tisch) .bottom a { color: var(--gold); }
 /* ---------- Deine Liste (Heute) ---------- */
 .liste-kopf { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.2rem 1rem; }
 .liste-karten { font-size: 0.85rem; color: var(--muted); }
+.liste-karten.geschafft { color: var(--ok); font-weight: 600; }
+.tagesziel-punkte { display: inline-flex; gap: 3px; vertical-align: middle; }
+.tagesziel-punkte i { width: .6rem; height: .6rem; border-radius: 50%; border: 1.5px solid currentColor; opacity: .7; }
+.tagesziel-punkte i.voll { background: currentColor; opacity: 1; }
 ul.aufgaben { list-style: none; margin: 0.3rem 0 0.8rem; padding: 0; }
 .punkt { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 0.2rem 0.6rem;
   padding: 0.35rem 0; border-bottom: 1px dashed var(--line); }

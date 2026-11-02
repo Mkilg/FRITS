@@ -2,8 +2,8 @@
 {% macro zahl(w) %}{{ ("%g" % w) | replace(".", ",") }}{% endmacro %}
 
 {% set KARTEN_BILD = {"rechnung": "symbol-rechnungen", "bezahlt": "symbol-euer", "angebot": "symbol-angebote", "ausgabe": "symbol-ausgaben", "erinnerung": "symbol-eingang", "feierabend": "fritte-feierabend", "aufgabe": "symbol-liste", "steuer": "symbol-steuer", "steuerjahr": "symbol-steuer", "lernen": "fritte-fertig", "uebung": "fritte-nachdenken", "start": "fritte-willkommen"} %}
-{% set KARTEN_ZEICHEN = {"rechnung": "📄", "bezahlt": "💶", "angebot": "📝", "ausgabe": "🧾", "erinnerung": "✉️", "feierabend": "🌙", "aufgabe": "✅", "steuer": "🗂️", "steuerjahr": "🐉", "lernen": "🎓", "uebung": "✏️", "start": "🎁", "joker": "🃏"} %}
-{% set KARTEN_NAME = {"rechnung": "Rechnung", "bezahlt": "Zahlung", "angebot": "Angebot", "ausgabe": "Ausgabe", "erinnerung": "Erinnerung", "feierabend": "Feierabend", "aufgabe": "Abgehakt", "steuer": "Steuer", "steuerjahr": "Steuerjahr", "lernen": "Gelernt", "uebung": "Übung", "start": "Einzug", "korrektur": "Korrektur", "joker": "Joker"} %}
+{% set KARTEN_ZEICHEN = {"rechnung": "📄", "bezahlt": "💶", "angebot": "📝", "ausgabe": "🧾", "erinnerung": "✉️", "feierabend": "🌙", "aufgabe": "✅", "steuer": "🗂️", "steuerjahr": "🐉", "lernen": "🎓", "uebung": "✏️", "start": "🎁"} %}
+{% set KARTEN_NAME = {"rechnung": "Rechnung", "bezahlt": "Zahlung", "angebot": "Angebot", "ausgabe": "Ausgabe", "erinnerung": "Erinnerung", "feierabend": "Feierabend", "aufgabe": "Abgehakt", "steuer": "Steuer", "steuerjahr": "Steuerjahr", "lernen": "Gelernt", "uebung": "Übung", "start": "Einzug", "korrektur": "Korrektur"} %}
 
 {% macro karte(k, index=0, summe=None, klein=False) %}
 <div class="spielkarte art-{{ k.art }}{{ ' klein' if klein }}{{ ' glueck' if k.glueck }}" data-karte="{{ index }}">

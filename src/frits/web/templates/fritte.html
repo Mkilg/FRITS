@@ -40,10 +40,6 @@
     <p class="speech">{{ f.satz }}</p>
     <div class="haus-zahlen">
       <p class="salz">{{ salz }} <strong data-zaehlen>{{ f.guthaben }}</strong> Salzkörner{% if f.bereit %} <a class="hint" href="#kassensturz">(+{{ f.bereit }} warten)</a>{% endif %}{% if truhen_zu %} <a class="truhe-wartet" href="#truhen">🎁 {{ "1 Truhe wartet" if truhen_zu | length == 1 else truhen_zu | length ~ " Truhen warten" }}</a>{% endif %}</p>
-      <div class="wochen" title="In welchen der letzten {{ f.wochen | length }} Wochen du Papierkram gemacht hast">
-        <span class="hint">Büro-Wochen</span>
-        {% for w in f.wochen %}<span class="punkt{{ ' voll' if w }}" aria-label="{{ 'diese Woche' if loop.last else 'vor ' ~ (loop.length - loop.index) ~ ' Wochen' }}: {{ 'Papierkram gemacht' if w else 'Pause' }}"></span>{% endfor %}
-      </div>
     </div>
   </div>
 </section>
@@ -96,24 +92,6 @@
 </section>
 
 {% macro seltenheit_name(s) %}{{ {"gewöhnlich": "Gewöhnlich", "selten": "Selten", "legendär": "Legendär"}[s] }}{% endmacro %}
-{% if drachengold or drachenglaeser %}
-<section class="card drachengold" id="drachengold">
-  <span class="drachen-zeichen" aria-hidden="true">🐉</span>
-  <div>
-    <h2>Drachengold</h2>
-    {% if drachenglaeser %}<p><strong>{{ "Ein Glas" if drachenglaeser == 1 else drachenglaeser ~ " Gläser" }} Drachenwürze {{ "wartet" if drachenglaeser == 1 else "warten" }}</strong> auf den nächsten Kassensturz: +{{ drachenglaeser }} Würze.</p>{% endif %}
-    {% if drachengold %}
-    <p>Du hast den Drachen {{ drachengold.jahr }} besiegt und noch <strong>{{ drachengold.gold }} Gold</strong> in der Steuer-Quest. Fritte kocht {{ drachen_preis }} Gold zu einem Glas Drachenwürze ein: +1 Würze beim nächsten Kassensturz, höchstens {{ drachen_max }} Gläser auf einmal.</p>
-    {% if drachenglaeser < drachen_max %}
-    <form method="post" action="/fritte/drachengold" data-confirm="{{ drachen_preis }} Gold aus der Steuer-Quest {{ drachengold.jahr }} zu Drachenwürze einkochen?">
-      <input type="hidden" name="token" value="{{ token }}">
-      <button>{{ zeichen("einkochen", "🫙") }} {{ drachen_preis }} Gold einkochen</button>
-    </form>
-    {% endif %}
-    {% endif %}
-  </div>
-</section>
-{% endif %}
 <section class="card truhen" id="truhen">
   <h2>Frittes Truhen</h2>
   <div class="truhen-kopf">
@@ -156,42 +134,41 @@
     <p><strong>So kommt eine Truhe:</strong> Jede Rechnung, Gutschrift, Zahlung, Ausgabe, jedes angenommene Angebot, jede Erinnerung und jede gesammelte Steuer-Unterlage kommt beim Kassensturz in die Truhe. Fünf davon füllen sie. Ungefähr jede achte dieser Karten ist eine goldene <strong>Glückskarte</strong> und bringt gleich eine eigene Truhe mit. Abgehakte Punkte, Gelerntes, Feierabende und Korrekturen zählen hier nicht.</p>
     <p><strong>Die Chancen</strong> für das, was drin ist: {% for name, p in chancen.prozent %}{{ p }} % {{ name }}{{ ", " if not loop.last }}{% endfor %}. Spätestens jede 4. Truhe ist mindestens selten, spätestens jede 12. legendär.
       {% if chancen.geoeffnet %}Bei dir: die nächste seltene spätestens in {{ chancen.selten_in }} {{ "Truhe" if chancen.selten_in == 1 else "Truhen" }}, die nächste legendäre spätestens in {{ chancen.legendaer_in }}.{% endif %}</p>
-    <p><strong>Was drin sein kann:</strong> Salzkörner, eine Jokerkarte für den nächsten Kassensturz, ein Glas Truhenwürze, ein Gewürz fürs Regal (wenn Platz ist), etwas fürs Zimmer oder einen Hut, und ab „selten“ Drachengold für die Steuer-Quest, wenn du sie nutzt. Dinge und Hüte aus Truhen sind Schätze, die es im Laden nicht gibt.</p>
+    <p><strong>Was drin sein kann:</strong> ein Schatz fürs Zimmer oder ein Hut, ein Gewürz fürs Regal (wenn Platz ist) oder Salzkörner. Die Schätze gibt es nur in Truhen und nie doppelt.</p>
     <p class="hint">Was in einer Truhe steckt, wird beim Öffnen einmal ausgelost und gespeichert. Neu laden ändert nichts. Truhen laufen nie ab, und nichts davon kostet echtes Geld.</p>
   </details>
 </section>
 
 <section class="card saison" id="saison">
-  <h2>{{ saison.name }} <span class="hint">bis {{ saison.ende.strftime("%d.%m.%Y") }}</span></h2>
-  <p class="saison-thema"><span aria-hidden="true">{{ saison.zeichen }}</span> {{ saison.thema_text }}</p>
-  <div class="saison-ziel">
-    <div class="balken" role="progressbar" aria-valuemin="0" aria-valuemax="{{ saison.ziel }}" aria-valuenow="{{ [saison.erreicht, saison.ziel] | min }}" aria-label="Saisonziel"><span style="width: {{ saison.prozent }}%"></span></div>
-    {% if saison.geschafft %}
-    <p>{{ zeichen("pokal", "🏆") }} <strong>Saisonziel geschafft!</strong> Der Pokal steht in Frittes Zimmer.</p>
-    {% else %}
-    <p>Saisonziel: in <strong>{{ saison.ziel }} von {{ saison.wochen }} Wochen</strong> Papierkram machen. Bisher {{ "eine Woche" if saison.erreicht == 1 else saison.erreicht ~ " Wochen" }}{% if not saison.erreicht %} (gezählt wird ab Frittes Einzug){% endif %}. Geschafft gibt es {{ saison.bonus }} Salzkörner extra und einen Pokal. Urlaub und Pausen sind eingeplant, und wenn es nicht klappt, ist das auch gut: Die nächste Saison beginnt einfach neu.</p>
-    {% endif %}
+  <h2>{{ saison.zeichen }} {{ saison.name }} <span class="hint">bis {{ saison.ende.strftime("%d.%m.%Y") }}</span></h2>
+  {% set punkt_name = {"voll": "Papierkram gemacht", "leer": "Pause", "jetzt": "diese Woche, noch offen", "kommt": "kommt noch"} %}
+  <div class="saison-streifen" role="img" aria-label="Saisonziel: {{ saison.erreicht }} von {{ saison.ziel }} Wochen mit Papierkram">
+    {% for p in streifen %}<span class="woche {{ p }}" title="Woche {{ loop.index }}: {{ punkt_name[p] }}"></span>{% endfor %}
   </div>
-  {% if not fest_moeglich %}
-  <p class="hint">{{ zeichen("fest", "🎉") }} {{ fest_name }}: ab der ersten Frittenbude kann Fritte in jeder Saison ein Fest feiern.</p>
+  {% if saison.geschafft %}
+  <p>{{ zeichen("pokal", "🏆") }} <strong>Saisonziel geschafft!</strong> Der Pokal steht in Frittes Zimmer.</p>
   {% else %}
+  <p><strong>{{ saison.erreicht }} von {{ saison.ziel }} Wochen</strong> mit Papierkram. Geschafft gibt es einen Pokal und {{ saison.bonus }} Salzkörner. Pausen sind eingeplant: Es braucht nur {{ saison.ziel }} der {{ saison.wochen }} Wochen.</p>
+  {% endif %}
+  <p class="saison-thema">{{ saison.thema_text }}</p>
+  {% if fest_moeglich %}
   {% if saison.fest %}
-  <p>{{ zeichen("fest", "🎉") }} <strong>{{ fest_name }} {{ saison.fest[0] | lower ~ saison.fest[1:] }}:</strong> Die Wimpelkette hängt noch bis zum Ende der Saison. Im <a href="/fritte/album">Album</a> stehen alle Feste.</p>
+  <p>{{ zeichen("fest", "🎉") }} <strong>{{ fest_name }} {{ saison.fest[0] | lower ~ saison.fest[1:] }}:</strong> Die Wimpelkette hängt noch bis zum Ende der Saison.</p>
   {% else %}
-  <p><strong>{{ fest_name }}:</strong> Einmal in jeder Saison kann Fritte ein Fest in ihrer Bude feiern. Es kommt ins Album, und eine Wimpelkette hängt bis zum Saisonende. Kein Muss, einfach eine schöne Sache für gesparte Salzkörner.</p>
-  <form method="post" action="/fritte/feiern" data-confirm="Das {{ fest_name }} für {{ fest_preis }} Salzkörner feiern?">
+  <form method="post" action="/fritte/feiern" class="row" data-confirm="Das {{ fest_name }} für {{ fest_preis }} Salzkörner feiern?">
     <input type="hidden" name="token" value="{{ token }}">
-    <button {{ "disabled" if f.guthaben < fest_preis }}>Fest feiern für {{ fest_preis }} {{ salz }}</button>
-    {% if f.guthaben < fest_preis %}<span class="hint">Noch {{ fest_preis - f.guthaben }} Salzkörner.</span>{% endif %}
+    <button {{ "disabled" if f.guthaben < fest_preis }}>{{ zeichen("fest", "🎉") }} {{ fest_name }} feiern für {{ fest_preis }} {{ salz }}</button>
+    <span class="hint">Einmal pro Saison, kommt ins Album.{% if f.guthaben < fest_preis %} Noch {{ fest_preis - f.guthaben }} Salzkörner.{% endif %}</span>
   </form>
   {% endif %}
   {% endif %}
 </section>
 
+{% if haus_sichtbar %}
 <section class="card frittes-haus" id="haus">
   <h2>Frittes Haus <span class="hint">{{ ort.zeichen }} {{ ort.name }}{% if ruf %} · Ruf {{ ruf }} (+{{ spiel.zahl(ruf * 0.5) }} Würze){% endif %}</span></h2>
   <ol class="zeitalter">
-    {% for st in stufen %}
+    {% for st in stufen if st.nummer <= f.stufe + 1 %}
     <li class="{{ 'erreicht' if st.nummer <= f.stufe else '' }}{{ ' im-bau' if f.bau == st.name else '' }}{{ ' jetzt' if st.nummer == f.stufe else '' }}">
       <span class="za-zeichen" aria-hidden="true">{{ st.zeichen }}</span>
       <strong>{{ st.name }}</strong>
@@ -229,15 +206,23 @@
   </ol>
   {% endif %}
 </section>
+{% endif %}
 
-{% if chronik %}
-<section class="card">
-  <h2>Chronik</h2>
-  <ul class="list chronik">
-    {% for c in chronik %}
-    <li><a href="/fritte/kassensturz/{{ c.nummer }}"><span>Kassensturz Nr. {{ c.nummer }}</span><span class="muted">{{ c.tag | de_date }}</span><span class="amount">+{{ c.summe }} {{ salz }}</span></a></li>
-    {% endfor %}
-  </ul>
+{% if kassenbuch %}
+<section class="card" id="kassenbuch">
+  <details>
+    <summary><h2>Frittes Kassenbuch</h2></summary>
+    <p class="hint">Jedes Salzkorn, das reinkommt oder rausgeht, steht hier in einer Zeile. Jeden Kassensturz kannst du noch einmal ansehen.</p>
+    <table class="kassenbuch">
+      <thead><tr><th>Tag</th><th>Was</th><th class="amount">Salzkörner</th></tr></thead>
+      <tbody>
+        {% for z in kassenbuch %}
+        <tr><td>{{ z.tag | de_date }}</td><td>{% if z.nummer %}<a href="/fritte/kassensturz/{{ z.nummer }}">{{ z.text }}</a>{% else %}{{ z.text }}{% endif %}</td><td class="amount {{ 'plus' if z.betrag > 0 else 'minus' }}">{{ "%+d" % z.betrag }}</td></tr>
+        {% endfor %}
+      </tbody>
+      <tfoot><tr><th colspan="2">Bestand</th><th class="amount">{{ f.guthaben }}</th></tr></tfoot>
+    </table>
+  </details>
 </section>
 {% endif %}
 
@@ -252,7 +237,7 @@
     <h3>Kassensturz</h3>
     <p><strong>Körner × Würze = Salzkörner.</strong> Die Würze beginnt bei 1 (mit einem größeren Haus und gutem Ruf auch höher). Gewürze geben Extra-Körner auf passende Karten oder erhöhen die Würze. Die Würze wirkt im Regal von links nach rechts, also lohnt es sich, ein „×“-Gewürz ganz nach rechts zu stellen.</p>
     <h3>Saisons</h3>
-    <p>Jedes Vierteljahr hat ein Thema: Eine Kartenart bringt dann doppelt so viele Körner. Das Saisonziel ist der Wochenrhythmus selbst: in sieben von zehn Wochen Papierkram. Gezählt wird, wann FRITS neue Arbeit bemerkt hat, nicht wie viele Salzkörner es waren. Wer das Ziel erreicht, bekommt Salzkörner extra und einen Pokal. Wer es nicht erreicht, verliert nichts. Ab der ersten Frittenbude kann Fritte in jeder Saison ein Fest feiern.</p>
+    <p>Jedes Vierteljahr hat ein Thema: Eine Kartenart bringt dann doppelt so viele Körner. Der Saison-Streifen zeigt den Wochenrhythmus: Das Ziel ist Papierkram in sieben von zehn Wochen. Gezählt wird, wann FRITS neue Arbeit bemerkt hat, nicht wie viele Salzkörner es waren. Wer das Ziel erreicht, bekommt Salzkörner extra und einen Pokal. Wer es nicht erreicht, verliert nichts.</p>
     <p class="hint">Gelöschte oder stornierte Vorgänge fallen heraus. Wird eine schon gezählte Rechnung, Gutschrift oder Ausgabe storniert oder gestrichen, ist die nächste passende Karte eine Korrektur ohne Körner, egal in welcher Reihenfolge. Belohnt wird nur, was gute Buchhaltung ausmacht: Belege bald nach dem Eingang eintragen, Rechnungen bald nach der Notiz schreiben, freundlich nachhaken, regelmäßig dranbleiben. Fritte schaut dabei nur auf Daten, die FRITS selbst festhält. Das Datum auf einem Beleg oder einer Rechnung muss einfach stimmen, ein anderes Datum bringt nie mehr.</p>
   </details>
 </section>

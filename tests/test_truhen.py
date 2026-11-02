@@ -29,7 +29,7 @@ def kassensturz_machen(conn):
 
 def nur(monkeypatch, fund):
     """Make the next chests hold exactly this (the draw itself is tested on its own)."""
-    monkeypatch.setattr(truhen, "_fund", lambda conn, rng, s, gold, sachen=False: dict(fund))
+    monkeypatch.setattr(truhen, "_fund", lambda conn, rng, s, sachen=False: dict(fund))
 
 
 def test_five_paperwork_cards_fill_a_chest_ticks_do_not(conn, monkeypatch):
@@ -121,20 +121,6 @@ def test_what_a_chest_can_hold(conn, monkeypatch):
     truhen.oeffnen(conn, TODAY)
     assert stand.guthaben(conn) == vorher + 8
 
-    nur(monkeypatch, {"art": "joker", "wert": 8})
-    truhen.truhe_geben(conn, "b")
-    truhen.oeffnen(conn, TODAY)
-    nur(monkeypatch, {"art": "wuerze", "wert": 1.0})
-    truhen.truhe_geben(conn, "c")
-    truhen.oeffnen(conn, TODAY)
-    k = kassensturz_machen(conn)
-    joker = [c for c in k["karten"] if c["art"] == "joker"]
-    assert joker and joker[0]["koerner"] == 8
-    assert k["gewuerze"][0]["id"] == "truhenwuerze" and k["wuerze"] == 2.0
-    assert k["truhen"]["dazu"] == 0  # a Jokerkarte is no paperwork
-    assert truhen.truhenwuerze(conn) == 0  # used up
-    assert not [c for c in kassensturz.offene_karten(conn) if c.art == "joker"]
-
     nur(monkeypatch, {"art": "ding", "id": "kleeblatt"})
     truhen.truhe_geben(conn, "d")
     truhen.oeffnen(conn, TODAY)
@@ -150,16 +136,11 @@ def test_the_draw_only_offers_what_fits(conn):
 
     for g in gw.GEWUERZE[: kassensturz.plaetze(conn)]:
         stand.nimm(conn, g.id, "gewuerz", TODAY.isoformat(), 0)
-    arten = {truhen._fund(conn, random.Random(n), "selten", False)["art"] for n in range(200)}
+    arten = {truhen._fund(conn, random.Random(n), "selten")["art"] for n in range(200)}
     assert "gewuerz" not in arten  # the shelf is full
-    assert "gold" not in arten  # no Steuer-Quest in use
-    mit_gold = {truhen._fund(conn, random.Random(n), "selten", True)["art"] for n in range(200)}
-    assert "gold" in mit_gold
-    gewoehnlich = {
-        truhen._fund(conn, random.Random(n), "gewöhnlich", True)["art"] for n in range(200)
-    }
-    assert "gold" not in gewoehnlich
-    funde = [truhen._fund(conn, random.Random(n), "legendär", False) for n in range(300)]
+    # Only what FRITS already knows (Lena): no Joker, no extra jars, no quest gold.
+    assert arten <= {"ding", "koerner"}
+    funde = [truhen._fund(conn, random.Random(n), "legendär") for n in range(300)]
     dinge = {f["id"] for f in funde if f["art"] == "ding"}
     assert dinge and dinge <= {"waage", "sternenhut"}  # only chest treasures, never shop wares
 
@@ -167,14 +148,14 @@ def test_the_draw_only_offers_what_fits(conn):
 def test_chest_things_come_only_from_the_treasures_and_never_twice(conn):
     import random
 
-    gewoehnlich = [truhen._fund(conn, random.Random(n), "gewöhnlich", False) for n in range(300)]
+    gewoehnlich = [truhen._fund(conn, random.Random(n), "gewöhnlich") for n in range(300)]
     dinge = {f["id"] for f in gewoehnlich if f["art"] == "ding"}
     assert dinge == {"muschel", "postkarte", "schleife"}
     assert not {d.id for d in haustier.LADEN} & dinge
     for d in haustier.SCHAETZE:
         if d.truhe == "gewöhnlich":
             stand.nimm(conn, d.id, d.art, TODAY.isoformat(), 0)
-    nochmal = [truhen._fund(conn, random.Random(n), "gewöhnlich", False) for n in range(300)]
+    nochmal = [truhen._fund(conn, random.Random(n), "gewöhnlich") for n in range(300)]
     assert "ding" not in {f["art"] for f in nochmal}  # all found: something else instead
 
 
@@ -184,7 +165,7 @@ def test_the_best_find_is_the_rarest_and_something_to_keep():
 
     assert truhen.bester([t(1, "gewöhnlich", "ding"), t(2, "selten", "koerner")]).id == 2
     assert truhen.bester([t(1, "selten", "koerner"), t(2, "selten", "gewuerz")]).id == 2
-    assert truhen.bester([t(1, "selten", "joker"), t(2, "selten", "joker")]).id == 1
+    assert truhen.bester([t(1, "selten", "koerner"), t(2, "selten", "koerner")]).id == 1
 
 
 def test_the_first_chest_holds_something_to_keep(conn):
@@ -198,32 +179,23 @@ def test_chest_treasures_are_not_for_sale(conn):
         haustier.kaufen(conn, TODAY, "waage")
 
 
-def test_gold_is_credited_once_after_the_chest_is_saved(conn, monkeypatch):
-    nur(monkeypatch, {"art": "gold", "wert": 8})
-    truhen.truhe_geben(conn, "g")
-    t = truhen.oeffnen(conn, TODAY, gold_jahr=2025)
-    gebucht = []
-
-    def gutschreiben(c, jahr, betrag, text, grund):
-        gebucht.append((jahr, betrag, grund))
-        return betrag
-
-    truhen.gold_buchen(conn, t, gutschreiben)
-    truhen.gold_buchen(conn, truhen.laden(conn, t.id), gutschreiben)
-    assert gebucht == [(2025, 8, f"fritte-truhe:{t.id}")]
-    assert truhen.laden(conn, t.id).inhalt["gutgeschrieben"]
+def test_leftover_dragon_gold_becomes_salzkoerner_once_a_year(conn):
+    vorher = stand.guthaben(conn)
+    assert (
+        haustier.salz_aus_quest(conn, 2025, 37, "Restgold aus der Steuer-Quest 2025", TODAY) == 37
+    )
+    assert stand.guthaben(conn) == vorher + 37
+    assert stand.kassenbuch(conn)[0]["text"] == "Restgold aus der Steuer-Quest 2025"
+    assert haustier.salz_aus_quest(conn, 2025, 37, "nochmal", TODAY) == 0  # once per year
+    assert haustier.salz_aus_quest(conn, 2024, 0, "nichts", TODAY) == 0
+    assert stand.guthaben(conn) == vorher + 37
+    assert haustier.salz_aus_quest(conn, 2024, 5, "", TODAY) == 5
 
 
-def test_gold_reaches_the_real_quest(conn, monkeypatch):
-    from frits.steuer import quest
-
-    nur(monkeypatch, {"art": "gold", "wert": 15})
-    truhen.truhe_geben(conn, "g")
-    t = truhen.oeffnen(conn, TODAY, gold_jahr=2025)
-    vorher = quest.gold(conn, 2025)
-    truhen.gold_buchen(conn, t, quest.gold_gutschreiben)
-    truhen.gold_buchen(conn, t, quest.gold_gutschreiben)
-    assert quest.gold(conn, 2025) == vorher + 15
+def test_salz_from_the_quest_works_before_fritte_was_ever_opened(tmp_path):
+    conn = store.connect(tmp_path / "frits.db")
+    assert haustier.salz_aus_quest(conn, 2025, 12, "Restgold", TODAY) == 12
+    assert stand.guthaben(conn) == 12
 
 
 def test_fritte_page_and_opening_in_the_browser(client, ws):  # noqa: F811
@@ -296,30 +268,6 @@ def test_other_websites_cannot_open_chests(client):  # noqa: F811
     assert r.status_code == 403
 
 
-def test_drachengold_becomes_wuerze_only_after_the_dragon(client, ws):  # noqa: F811
-    from frits.steuer import quest
-
-    conn = store.connect(ws.db)
-    add_invoice(conn, "2026-0001", TODAY - timedelta(days=30))
-    client.get("/fritte")
-    post(client, "/fritte/kassensturz")
-    jahr = TODAY.year - 1
-    quest.gold_gutschreiben(conn, jahr, 50, "Test", "test:1")
-    assert 'id="drachengold"' not in client.get("/fritte").text  # no victory yet
-    assert "Gerade geht das nicht" in post(client, "/fritte/drachengold").text
-    assert quest.gold(conn, jahr) == 50
-
-    quest.notiere(conn, jahr, "sieg", "Der Drache ist besiegt")
-    page = client.get("/fritte").text
-    assert "noch <strong>50 Gold</strong>" in page and "20 Gold einkochen" in page
-    post(client, "/fritte/drachengold")
-    page = post(client, "/fritte/drachengold").text
-    assert quest.gold(conn, jahr) == 10
-    assert "2 Gläser Drachenwürze warten" in page and "20 Gold einkochen" not in page
-    assert "Gerade geht das nicht" in post(client, "/fritte/drachengold").text  # at most two
-
-    add_invoice(conn, "2026-0002", TODAY)
-    k = kassensturz_machen(conn)
-    assert k["gewuerze"][0]["id"] == "drachenwuerze" and k["wuerze"] >= 3
-    assert kassensturz.drachenglaeser(conn) == 0
-    assert 'id="drachengold"' not in client.get("/fritte").text  # 10 gold: not enough
+def test_no_drachengold_jar_any_more(client):  # noqa: F811
+    r = client.post("/fritte/drachengold", data={"token": client.token})
+    assert r.status_code in (404, 405)

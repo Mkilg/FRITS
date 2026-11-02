@@ -21,7 +21,6 @@ from __future__ import annotations
 import json
 import random
 import sqlite3
-from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
 
@@ -41,13 +40,11 @@ ZAEHLT = gw.PAPIERKRAM | {"steuer", "steuerjahr"}
 WILLKOMMEN = "willkommen"
 
 # What a chest can hold, by rarity. Körner grow with the house like prices do.
+# Only things FRITS already knows: treasures for the room (or a hat), a spice for the
+# shelf, Salzkörner. No item kinds of their own that would need explaining.
 KOERNER = {"gewöhnlich": 8, "selten": 20, "legendär": 50}
-JOKER = {"gewöhnlich": 4, "selten": 8, "legendär": 25}  # Körner of a Jokerkarte
-WUERZE = {"gewöhnlich": 0.5, "selten": 1.0, "legendär": 2.0}
-GOLD = {"selten": 8, "legendär": 15}  # for the Steuer-Quest (a helper costs 8 to 18)
-WUERZE_HOECHSTENS = 3.0  # chest Würze waiting for the next Kassensturz at most
 # How often each kind of find comes up within its rarity. Things to keep come first.
-GEWICHTE = {"ding": 3, "gewuerz": 3, "joker": 2, "wuerze": 2, "gold": 2, "koerner": 1}
+GEWICHTE = {"ding": 3, "gewuerz": 3, "koerner": 1}
 
 
 @dataclass
@@ -224,11 +221,7 @@ def _faktor(conn) -> float:
     return 1 + 0.5 * (ausbau.preisstufe(conn) - 1)
 
 
-def truhenwuerze(conn) -> float:
-    return float(stand.einstellung(conn, "truhen_wuerze", "0") or 0)
-
-
-def _fund(conn, rng: random.Random, seltenheit: str, gold: bool, sachen: bool = False) -> dict:
+def _fund(conn, rng: random.Random, seltenheit: str, sachen: bool = False) -> dict:
     from frits import haustier  # haustier imports the game modules, so only here
     from frits.spiel import kassensturz
 
@@ -246,11 +239,6 @@ def _fund(conn, rng: random.Random, seltenheit: str, gold: bool, sachen: bool = 
         frei = [i for i in frei if not stand.besitzt(conn, i)]
         if frei:
             pool.append((GEWICHTE["gewuerz"] * sache, {"art": "gewuerz", "id": rng.choice(frei)}))
-    pool.append((GEWICHTE["joker"], {"art": "joker", "wert": JOKER[seltenheit]}))
-    if truhenwuerze(conn) + WUERZE[seltenheit] <= WUERZE_HOECHSTENS:
-        pool.append((GEWICHTE["wuerze"], {"art": "wuerze", "wert": WUERZE[seltenheit]}))
-    if gold and seltenheit in GOLD:
-        pool.append((GEWICHTE["gold"], {"art": "gold", "wert": GOLD[seltenheit]}))
     pool.append(
         (
             GEWICHTE["koerner"],
@@ -267,9 +255,8 @@ def _fund(conn, rng: random.Random, seltenheit: str, gold: bool, sachen: bool = 
     return pool[-1][1]
 
 
-def oeffnen(conn: sqlite3.Connection, heute: date, gold_jahr: int | None = None) -> Truhe | None:
-    """Open the oldest closed chest. What is inside is decided now, once, and saved.
-    `gold_jahr`: the Steuer-Quest year gold would go to, None if there is no quest."""
+def oeffnen(conn: sqlite3.Connection, heute: date) -> Truhe | None:
+    """Open the oldest closed chest. What is inside is decided now, once, and saved."""
     from frits import haustier
     from frits.spiel import kassensturz
 
@@ -284,7 +271,7 @@ def oeffnen(conn: sqlite3.Connection, heute: date, gold_jahr: int | None = None)
         rng = random.Random(f"truhe/{t.id}/{t.grund}")
         seltenheit = _seltenheit(conn, rng, t.mindestens)
         # The very first chest shows what chests are about: something to keep.
-        fund = _fund(conn, rng, seltenheit, gold_jahr is not None, t.grund == WILLKOMMEN)
+        fund = _fund(conn, rng, seltenheit, t.grund == WILLKOMMEN)
         tag = heute.isoformat()
         art = fund["art"]
         if art == "ding":
@@ -301,23 +288,6 @@ def oeffnen(conn: sqlite3.Connection, heute: date, gold_jahr: int | None = None)
             fund.update(name=g.name, zeichen=g.zeichen, text=g.text)
             if len(kassensturz.regal(conn)) > kassensturz.plaetze(conn):  # can't happen
                 raise stand.SpielFehler("Das Regal ist voll.")
-        elif art == "joker":
-            conn.execute(
-                "INSERT OR IGNORE INTO spiel_karten (schluessel, art, gesehen)"
-                " VALUES (?, 'joker', ?)",
-                (f"joker:{t.id}", tag),
-            )
-            fund.update(name="Jokerkarte", zeichen="🃏",
-                        text=f"Liegt beim nächsten Kassensturz mit +{fund['wert']} Körnern"
-                        " auf dem Tisch. Die Würze zählt mit.")  # fmt: skip
-        elif art == "wuerze":
-            stand.setze(conn, "truhen_wuerze", f"{truhenwuerze(conn) + fund['wert']:g}")
-            fund.update(name="Glas Truhenwürze", zeichen="✨",
-                        text=f"+{gw._zahl(fund['wert'])} Würze beim nächsten Kassensturz.")  # fmt: skip
-        elif art == "gold":
-            fund.update(name=f"{fund['wert']} Drachengold", zeichen="🪙", jahr=gold_jahr,
-                        gutgeschrieben=False,
-                        text=f"Für die Steuer-Quest {gold_jahr}: damit holst du dir dort Helfer.")  # fmt: skip
         else:
             stand.buche(conn, tag, fund["wert"], "truhe", f"Truhe Nr. {t.id}")
             fund.update(name=f"{fund['wert']} Salzkörner", zeichen="🧂",
@@ -335,7 +305,7 @@ def oeffnen(conn: sqlite3.Connection, heute: date, gold_jahr: int | None = None)
 def bester(truhen: list[Truhe]) -> Truhe:
     """The find to show big when several chests open at once: the rarest, and among
     those something to keep before grains."""
-    rang = {"ding": 3, "gewuerz": 3, "gold": 2, "wuerze": 1, "joker": 1, "koerner": 0}
+    rang = {"ding": 1, "gewuerz": 1, "koerner": 0}
     return max(
         truhen,
         key=lambda t: (STUFE[t.inhalt["seltenheit"]], rang.get(t.inhalt["art"], 0), -t.id),
@@ -343,34 +313,3 @@ def bester(truhen: list[Truhe]) -> Truhe:
 
 
 ALLE_HOECHSTENS = 12  # "Alle öffnen" opens at most this many at once
-
-
-def gold_buchen(conn, t: Truhe, gutschreiben: Callable[..., int] | None) -> None:
-    """Gold goes to the Steuer-Quest's own gold book, after the chest is saved (that
-    function keeps its own books). Once per chest, however often this runs."""
-    fund = t.inhalt or {}
-    if fund.get("art") != "gold" or fund.get("gutgeschrieben") or gutschreiben is None:
-        return
-    try:
-        gutschreiben(
-            conn, fund["jahr"], fund["wert"], f"Aus Frittes Truhe Nr. {t.id}",
-            f"fritte-truhe:{t.id}",
-        )  # fmt: skip
-    except Exception:  # noqa: BLE001  the quest may not be set up; try again next time
-        return
-    fund["gutgeschrieben"] = True
-    t.inhalt = fund
-    conn.execute(
-        "UPDATE spiel_truhen SET inhalt = ? WHERE id = ?",
-        (json.dumps(fund, ensure_ascii=False), t.id),
-    )
-
-
-def joker_wert(conn, schluessel: str) -> int | None:
-    key = schluessel.split(":", 1)[1]
-    if not key.isdigit():
-        return None
-    t = laden(conn, int(key))
-    if t is None or not t.inhalt or t.inhalt.get("art") != "joker":
-        return None
-    return int(t.inhalt["wert"])

@@ -24,7 +24,6 @@
       <span class="fund-text">{{ fund.text }}</span>
       {% if fund.art == "ding" %}<span class="hint">{{ "Liegt im Hutschrank." if fund.wo == "hut" else "Steht jetzt in Frittes Zimmer." }}</span>{% endif %}
       {% if fund.art == "gewuerz" %}<span class="hint">Steht jetzt im Gewürzregal.</span>{% endif %}
-      {% if fund.art == "gold" and not fund.gutgeschrieben %}<span class="hint">Das Gold kommt in die Steuer-Quest, sobald sie bereit ist.</span>{% endif %}
     </div>
   </div>
   {% if mit %}
@@ -49,7 +48,6 @@
     {% endif %}
     {% if fund.art == "ding" %}<a class="button{{ '' if weitere else ' primary' }}" href="/fritte?neu={{ fund.id }}">Bei Fritte ansehen</a>
     {% elif fund.art == "gewuerz" %}<a class="button{{ '' if weitere else ' primary' }}" href="/fritte/laden#regal">Zum Gewürzregal</a>
-    {% elif fund.art == "gold" %}<a class="button{{ '' if weitere else ' primary' }}" href="/steuer">Zur Steuer-Quest</a>
     {% else %}<a class="button{{ '' if weitere else ' primary' }}" href="/fritte#kassensturz">Zu Fritte</a>{% endif %}
   </div>
   <p class="hint truhe-fair">Chancen: {% for name, p in chancen.prozent %}{{ p }} % {{ name }}{{ ", " if not loop.last }}{% endfor %}. Die nächste seltene kommt spätestens in {{ chancen.selten_in }}, die nächste legendäre spätestens in {{ chancen.legendaer_in }} {{ "Truhe" if chancen.legendaer_in == 1 else "Truhen" }}.</p>

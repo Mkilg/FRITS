@@ -90,32 +90,16 @@ def wirkung(conn, heute: date, g, aufgeraeumt: bool) -> tuple[int, int, str]:
     return mit - ohne, len(dicts), quelle
 
 
-def gold_jahr(root: Path, heute: date) -> int | None:
-    """The Steuer-Quest year chest gold goes to: the newest year with a questionnaire.
-    None while Fritz doesn't use the quest (gold he can't use is no find)."""
-    from frits.steuer import quest
-
-    if getattr(quest, "gold_gutschreiben", None) is None:
-        return None
-    for jahr in range(heute.year, heute.year - 6, -1):
-        if quest.profil_datei(root, jahr).exists():
-            return jahr
-    return None
-
-
-def drachengold(conn, heute: date) -> dict | None:
-    """Gold from a Steuer-Quest year with a dragon victory, if there is enough for a jar.
-    The newest such year in the last six."""
-    from frits.steuer import quest
-
-    if getattr(quest, "gold_ausgeben", None) is None:
-        return None
-    for jahr in range(heute.year, heute.year - 6, -1):
-        if quest.hat_notiz(conn, jahr, "sieg"):
-            gold = quest.gold(conn, jahr)
-            if gold >= kassensturz.DRACHENGOLD_PREIS:
-                return {"jahr": jahr, "gold": gold}
-    return None
+def haus_sichtbar(conn) -> bool:
+    """Frittes Haus with its stages comes into view after the third Kassensturz (Lena:
+    five stages with prices up to 900 overwhelm someone with 128 grains), or as soon as
+    something was built."""
+    return (
+        len(kassensturz.chronik(conn, 3)) >= 3
+        or ausbau.stufe(conn).nummer > 1
+        or ausbau.ruf(conn) > 0
+        or ausbau.im_bau(conn) is not None
+    )
 
 
 def drachen_serie(gewuerze: int) -> dict:
@@ -133,12 +117,6 @@ def drachen_serie(gewuerze: int) -> dict:
         "sanduhr": start(gewuerze, frozenset({"sanduhr"})),
         "max": spiel.GEWUERZ_START_MAX,
     }
-
-
-def gold_gutschreiben():
-    from frits.steuer import quest
-
-    return getattr(quest, "gold_gutschreiben", None)
 
 
 def register_haustier(
@@ -235,6 +213,7 @@ def register_haustier(
             g.id: kassensturz.vorschau(conn, today(), sauber, g.id)[1]["summe"] for g in gerichte
         }
         geschaetzt = {d.id for d in haustier.SCHAETZE if d.id in f.gekauft}
+        jetzt = saison.jetzt(conn, today())
         return page(
             request,
             "fritte.html",
@@ -245,17 +224,15 @@ def register_haustier(
             pro_truhe=truhen.KARTEN_PRO_TRUHE,
             chancen=truhen.chancen(conn),
             schaetze=[(d, d.id in geschaetzt) for d in haustier.SCHAETZE],
-            drachengold=drachengold(conn, today()),
-            drachenglaeser=kassensturz.drachenglaeser(conn),
-            drachen_max=kassensturz.DRACHENGLAESER,
-            drachen_preis=kassensturz.DRACHENGOLD_PREIS,
             neu=ding.id if ding else "",
             karten=karten,
             pro_karte=pro_karte,
             vorschau=vorschau,
             willkommen=willkommen,
             stil_fragen=willkommen and stand.einstellung(conn, "stil_gefragt") != "1",
-            saison=saison.jetzt(conn, today()),
+            saison=jetzt,
+            streifen=saison.streifen(conn, jetzt, today()),
+            haus_sichtbar=haus_sichtbar(conn),
             ort=ausbau.ort(conn),
             orte=ausbau.ORTE,
             naechster_ort=ausbau.naechster_ort(conn),
@@ -269,7 +246,7 @@ def register_haustier(
             gerichte=gerichte,
             gericht_summe=gericht_summe,
             plaetze=kassensturz.plaetze(conn),
-            chronik=kassensturz.chronik(conn),
+            kassenbuch=stand.kassenbuch(conn),
             arten=stand.ARTEN_TEXT,
             grund=stand.GRUND,
             stufen=ausbau.STUFEN,
@@ -363,42 +340,17 @@ def register_haustier(
             offene_truhen=len(truhen.geschlossen(conn)),
         )  # fmt: skip
 
-    @app.post("/fritte/drachengold", dependencies=guarded)
-    def drachengold_einkochen():
-        """20 quest gold from a won year become a jar of +1 Würze for the next Kassensturz."""
-        from frits.steuer import quest
-
-        conn = db()
-        stand.vorbereiten(conn)
-        quelle = drachengold(conn, today())
-        n = kassensturz.drachenglaeser(conn)
-        if quelle is None or n >= kassensturz.DRACHENGLAESER:
-            flash("Gerade geht das nicht: Es braucht einen besiegten Drachen, 20 Gold und Platz"
-                  " für ein Glas (höchstens zwei warten).", "error")  # fmt: skip
-            return back("/fritte#kassensturz")
-        preis = kassensturz.DRACHENGOLD_PREIS
-        if not quest.gold_ausgeben(conn, quelle["jahr"], preis, "Drachenwürze für Fritte"):
-            flash("Dafür reicht das Gold gerade nicht.", "error")
-            return back("/fritte#kassensturz")
-        stand.setze(conn, "drachen_wuerze", str(n + 1))
-        flash(
-            f"Fritte hat {preis} Drachengold zu Drachenwürze eingekocht: +1 Würze beim nächsten"
-            " Kassensturz.", cue="done",
-        )  # fmt: skip
-        return back("/fritte#kassensturz")
-
     @app.post("/fritte/truhe/oeffnen", dependencies=guarded)
     def truhe_oeffnen():
         conn = db()
         try:
-            t = truhen.oeffnen(conn, today(), gold_jahr(ws.root, today()))
+            t = truhen.oeffnen(conn, today())
         except stand.SpielFehler as exc:
             flash(str(exc), "error")
             return back("/fritte#truhen")
         if t is None:
             flash("Gerade wartet keine Truhe. Echter Papierkram füllt die nächste.")
             return back("/fritte#truhen")
-        truhen.gold_buchen(conn, t, gold_gutschreiben())
         album_pruefen(conn)
         return back(f"/fritte/truhe/{t.id}?neu=1")
 
@@ -408,12 +360,10 @@ def register_haustier(
         show the best find big and the others next to it, instead of a conveyor belt."""
         conn = db()
         offen = []
-        jahr = gold_jahr(ws.root, today())
         for _ in range(truhen.ALLE_HOECHSTENS):
-            t = truhen.oeffnen(conn, today(), jahr)
+            t = truhen.oeffnen(conn, today())
             if t is None:
                 break
-            truhen.gold_buchen(conn, t, gold_gutschreiben())
             offen.append(t)
         if not offen:
             flash("Gerade wartet keine Truhe. Echter Papierkram füllt die nächste.")
@@ -429,7 +379,6 @@ def register_haustier(
         t = truhen.laden(conn, tid)
         if t is None or t.inhalt is None:
             return back("/fritte#truhen")
-        truhen.gold_buchen(conn, t, gold_gutschreiben())  # if it didn't work the first time
         fund = t.inhalt
         bild = ""
         if fund["art"] == "ding":
@@ -496,7 +445,7 @@ def register_haustier(
             laden=haustier.LADEN,
             schaetze=haustier.SCHAETZE,
             drachen_serie=drachen_serie(len(shelf)),
-            kassenbuch=stand.kassenbuch(conn),
+            haus_sichtbar=haus_sichtbar(conn),
             stufe=ausbau.stufe(conn),
             ruf=ausbau.ruf(conn),
         )
