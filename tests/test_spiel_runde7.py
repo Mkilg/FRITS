@@ -132,7 +132,7 @@ def test_fritte_does_not_ask_again_what_the_settings_already_chose(client, ws): 
     post(client, "/settings", effects="verspielt")
     page = client.get("/fritte").text
     assert "Willkommen bei Fritte" in page and "Wie soll Fritte feiern?" not in page
-    assert "Fritte feiert verspielt" in page
+    assert "Fritte feiert verspielt, aber ohne Klang." in page  # Lena: not "verspielt und leise"
 
 
 def test_the_list_notices_finished_work(client, ws):  # noqa: F811
