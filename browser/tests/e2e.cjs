@@ -91,7 +91,13 @@ async function step(name, fn) {
     let s = await openFrits(profile, undefined, "#/setup/welcome");
     console.log(`FRITS started in ${(s.startMs / 1000).toFixed(1)} s (first visit)`);
     const { page, f, nav, go } = s;
-    const click = (sel) => nav(() => f().click(sel));
+    // Buttons with data-confirm ask on a card inside the page (frits.js rueckfrage), no longer
+    // with the browser's own dialog; answer it with "yes", like page.on("dialog") does for the rest.
+    const click = (sel) => nav(async () => {
+      const fragt = await f().locator(sel).first().getAttribute("data-confirm");
+      await f().click(sel);
+      if (fragt) await f().click("dialog.rueckfrage-karte[open] .row button:first-child");
+    });
 
     await step("Einrichtung: KI wählen, Schlüssel testen", async () => {
       await click("button[value=next]");
