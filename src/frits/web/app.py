@@ -62,6 +62,7 @@ from frits.billing import (
     EARLIER_TAX,
     BillingError,
     Draft,
+    EarlierNumberError,
     NumberGap,
     add_earlier,
     approve,
@@ -1164,7 +1165,8 @@ def create_app(
             "fehlt": (", ".join(names[:-1]) + " und " + names[-1])
             if len(names) > 1
             else "".join(names),
-            "fokus": missing[0][0] if missing else None,
+            # Nothing else missing but the day the money came: the cursor waits there.
+            "fokus": missing[0][0] if missing else "paid" if bezahlt == "ja" and not paid else None,
         }
 
     def already_entered(number: str | None) -> bool:
@@ -1282,7 +1284,7 @@ def create_app(
                 f"Rechnung {number} ist schon nachgetragen. Du musst nichts mehr tun.",
                 link=(f"/invoices#r-{number}", "Zur Rechnung"),
             )
-            return back("/invoices#frueher")
+            return back("/invoices")  # the note sits at the top: start there, in sight
         frueher.merken(folder, original.name if original else None, fields)
         return back(f"/invoices?frueher={token}#frueher")
 
@@ -1343,7 +1345,7 @@ def create_app(
                 issue_date=issued,
                 service_date=date.fromisoformat(served) if served else None,
                 description=str(form.get("description", "")),
-                net=parse_amount(str(form.get("net", ""))),
+                net=_earlier_net(str(form.get("net", ""))),
                 tax=str(form.get("tax", "")),
                 paid_date=date.fromisoformat(paid) if paid else None,
                 original=original,
@@ -1359,6 +1361,15 @@ def create_app(
                 "error",
                 feld="number",
                 knopf=("frueher-form", "luecke", "ok", "Stimmt, trotzdem nachtragen"),
+            )
+            return back(retry)
+        except EarlierNumberError as exc:
+            number = " ".join(str(form.get("number", "")).split())
+            flash(
+                str(exc),
+                "error",
+                feld=exc.feld,
+                link=(f"/invoices#r-{number}", "Zur Rechnung") if already_entered(number) else None,
             )
             return back(retry)
         except BillingError as exc:
@@ -1897,6 +1908,26 @@ def create_app(
         if job["status"] == "check-me":
             return "Die liegt schon bei „Bitte einmal ansehen“.", ("/check-me", "Ansehen")
         if job["status"] == "frueher":
+            for w in waiting_earlier(None):
+                folder = ws.staging / w["token"]
+                data = json.loads((folder / "gelesen.json").read_text(encoding="utf-8"))
+                if data.get("job") == job["id"]:
+                    return (
+                        "Das ist deine eigene Rechnung von früher. Sie wartet aufs Nachtragen.",
+                        (f"/invoices?frueher={w['token']}#frueher", "Prüfen und nachtragen"),
+                    )
+            kept = ws.done / Path(job["filename"]).name
+            try:
+                text = extract_text(kept).text if kept.is_file() else ""
+            except IngestError:
+                text = ""
+            current = settings()
+            number = frueher.lesen(text, (current.name, current.company)).get("number")
+            if already_entered(number):
+                return (
+                    f"Rechnung {number} ist schon nachgetragen. Du musst nichts mehr tun.",
+                    (f"/invoices#r-{number}", "Zur Rechnung"),
+                )
             return (
                 (
                     "Das ist deine eigene Rechnung von früher. Sie wartet unter Rechnungen aufs "
@@ -3042,6 +3073,14 @@ def _apply_form(draft: Draft, form, customer_by, current: Settings) -> None:
     draft.lines = lines
     if form.get("questions_done") == "on":
         draft.questions = []
+
+
+def _earlier_net(text: str) -> Decimal | None:
+    """The amount of an old invoice, the way it is printed on it ("600,00 EUR")."""
+    try:
+        return parse_amount(text)
+    except BillingError as exc:
+        raise BillingError(str(exc), feld="net") from None
 
 
 def _paid_day(value, day: date) -> date:

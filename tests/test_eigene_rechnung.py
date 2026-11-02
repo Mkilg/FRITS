@@ -305,3 +305,59 @@ def test_old_open_invoice_gets_no_payment_day_of_today(client, ws):
     page = client.get("/invoices").text
     form = page.split('action="/invoices/2025-020/paid"')[1].split("</form>")[0]
     assert 'name="paid" required' in form and "2026-11-02" not in form.split("max=")[0]
+
+
+# ---------- Nachtest 33b8cea ----------
+
+
+def test_amount_as_printed_on_the_invoice_is_taken(client, ws):
+    assert "ist nachgetragen" in _enter(client, "2025-030", net="600,00 EUR").text
+    gross = store.connect(ws.db).execute("SELECT net FROM invoices").fetchone()[0]
+    assert str(gross) in ("600", "600.00", "600.0")
+    wrong = _enter(client, "2025-031", net="sechshundert").text
+    assert "„sechshundert“ ist keine Zahl." in wrong and 'data-feld="net"' in wrong
+
+
+def test_typed_number_entered_already_links_to_it(client, ws):
+    _enter(client, "2025-040")
+    page = _enter(client, "2025-040").text
+    assert "gibt es in FRITS schon" in page
+    assert 'href="/invoices#r-2025-040">Zur Rechnung' in page
+
+
+def test_same_file_again_on_heute_says_it_is_entered(client, ws, provider):
+    pdf = _old_invoice_pdf(WORD)
+    (ws.inbox / "Rechnung_2025-007.pdf").write_bytes(pdf)
+    post(client, "/inbox/process")
+    [token] = _staged(ws)
+    # Still waiting: the same file again leads to the waiting form.
+    (ws.inbox / "Rechnung_2025-007.pdf").write_bytes(pdf)
+    waiting = post(client, "/inbox/process").text
+    assert "Sie wartet aufs Nachtragen" in waiting and f"frueher={token}" in waiting
+    _enter(client, "2025-007", customer="Deutschlandradio", staged=token)
+    (ws.inbox / "Rechnung_2025-007.pdf").write_bytes(pdf)
+    page = post(client, "/inbox/process").text
+    assert "Rechnung 2025-007 ist schon nachgetragen" in page
+    assert 'href="/invoices#r-2025-007">Zur Rechnung' in page
+    assert provider.calls == []
+
+
+def test_entered_invoice_dropped_on_rechnungen_shows_the_note_at_the_top(client, ws):
+    _enter(client, "2025-007", customer="Deutschlandradio")
+    response = client.post(
+        "/invoices/frueher/lesen",
+        data={"token": client.token},
+        files={"files": ("alt.pdf", _old_invoice_pdf(WORD), "application/pdf")},
+        follow_redirects=True,
+    )
+    assert str(response.url).endswith("/invoices")  # no jump down to the form
+    assert "Rechnung 2025-007 ist schon nachgetragen" in response.text
+
+
+def test_payment_day_gets_the_cursor_when_it_is_all_that_is_missing(client, ws):
+    text = (
+        "Rechnung Nr. 2025-099\nAn: Radio Süd\nDatum: 20.12.2025\nKonzertmoderation, 18.12.2025"
+        "\nGesamtbetrag 300,00 €\n§ 19 UStG"
+    )
+    page = post(client, "/invoices/frueher/lesen", text=text).text
+    assert 'aria-label="Bezahlt am" autofocus' in page

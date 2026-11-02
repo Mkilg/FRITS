@@ -593,6 +593,16 @@
 
   // Folded sections ("Fächer" in the settings): a link like /settings#ki opens its fold,
   // and a field the browser complains about is never hidden in a closed one.
+  // A note that was just put next to its field wins over the page's anchor: scrolling to
+  // "#frueher" would push it out of sight again.
+  function noteInSight() {
+    var hier = document.querySelector("form .flash.error.flash-hier");
+    if (!hier) return false;
+    var outer = hier.closest("details");
+    if (outer && !outer.open) outer.open = true;
+    hier.scrollIntoView({ block: "center" });
+    return true;
+  }
   function openFold() {
     var id = decodeURIComponent((location.hash || "").slice(1));
     var target = id && document.getElementById(id);
@@ -601,7 +611,17 @@
     if (fold && !fold.open) fold.open = true;
     if (target.scrollIntoView) target.scrollIntoView({ block: "start" });
   }
-  openFold();
+  // "Schon bezahlt? Ja, am …": with "Ja" the day is needed, the browser says so at the field
+  // before anything is sent; with "Nein" it isn't.
+  Array.prototype.forEach.call(document.querySelectorAll("fieldset.schon-bezahlt"), function (box) {
+    var ja = box.querySelector('input[name="bezahlt"][value="ja"]');
+    var day = box.querySelector('input[name="paid"]');
+    if (!ja || !day) return;
+    function sync() { day.required = ja.checked; }
+    box.addEventListener("change", sync);
+    sync();
+  });
+  if (!noteInSight()) openFold();
   window.addEventListener("hashchange", openFold);
   document.addEventListener("invalid", function (e) {
     var fold = e.target && e.target.closest && e.target.closest("details");
