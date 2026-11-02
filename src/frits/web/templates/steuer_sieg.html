@@ -49,7 +49,7 @@
       {% if frei %}
       {% set sparen = noch_sparen %}
       <p>{% if sparen %}Freiwillig, aber oft bares Geld: {{ sparen | length }} Zettel{{ " kann" if sparen | length == 1 else " können" }} Steuern sparen{% if frei | length > sparen | length %}, dazu {{ frei | length - sparen | length }} für die Ordnung{% endif %}.{% else %}Freiwillig: {{ frei | length }} Zettel für die Ordnung.{% endif %} {% if schatz_salz %}<b>Jeder Fund bringt +{{ schatz_salz }} {{ salz }}</b>{% if "goldwaage" in helfer %} (mit der Goldwaage){% endif %}.{% endif %} Was du jetzt noch findest, packst du einfach neu in die Fundkiste.</p>
-      <ul>{% for g in noch_gruppen %}<li><a href="/steuer/{{ jahr }}/gebiet/{{ g.gebiet }}?karte={{ g.karten[0].id }}">{{ g.titel }}</a>: {{ g.karten[:2] | map(attribute="name") | join(", ") }}{% if g.karten | length > 2 %} und {{ g.karten | length - 2 }} {{ "weiterer" if g.karten | length == 3 else "weitere" }}{% endif %}</li>{% endfor %}</ul>
+      <ul class="sq-noch-liste">{% for g in noch_gruppen %}<li><a href="/steuer/{{ jahr }}/gebiet/{{ g.gebiet }}?karte={{ g.karten[0].id }}">{{ g.titel }}</a>: {{ g.karten[:2] | map(attribute="name") | join(", ") }}{% if g.karten | length > 2 %} und {{ g.karten | length - 2 }} {{ "weiterer" if g.karten | length == 3 else "weitere" }}{% endif %}</li>{% endfor %}</ul>
       {% set erster = noch_gruppen[0].karten[0] %}
       <p><a class="sq-stempelknopf" href="/steuer/{{ jahr }}/gebiet/{{ erster.gebiet }}?karte={{ erster.id }}">Zum ersten Schatz →</a></p>
       {% endif %}
@@ -69,7 +69,7 @@
       <form method="post" action="/steuer/{{ jahr }}/truhe/zeigen" class="reihe">
         <input type="hidden" name="token" value="{{ token }}">
         <button class="sq-stempelknopf">Im Finder zeigen</button>
-        <span class="muted">Von dort ziehst du die Fundkiste in die Mail, falls sie nicht schon dranhängt.</span>
+        <span class="muted">Von dort hängst du die Fundkiste an die Mail, falls sie nicht schon dranhängt.</span>
       </form>
       {% if not kiste_aenderung %}<p><a class="sq-stempelknopf sq-weiter-brief" href="#brief">Weiter zu 2. Brief ↓</a></p>{% endif %}
       {% if passwort %}
@@ -85,7 +85,7 @@
           <label><input type="radio" name="schloss" value="passwort" {% if mit_passwort %}checked{% endif %}>
             <span><strong>Mit Passwort</strong> (empfohlen). Nur wer das Passwort hat, kann die Unterlagen lesen, sogar die Dateinamen. <details class="sq-mehr"><summary>Mehr</summary>Im verschlossenen Zip liegt ein zweites Zip mit den Unterlagen, das sich dann ganz normal öffnet. Der Finder auf dem Mac kann solche Zips nicht öffnen; deine Beraterin braucht 7-Zip (Windows) oder Keka bzw. The Unarchiver (Mac).</details></span></label>
           <label><input type="radio" name="schloss" value="ohne" {% if not mit_passwort %}checked{% endif %}>
-            <span><strong>Ohne Passwort.</strong> Öffnet sich überall mit Doppelklick. Aber jeder, der die Mail sieht, kann alles lesen. Gut, wenn du die Datei über ein sicheres Portal hochlädst oder persönlich übergibst.</span></label>
+            <span><strong>Ohne Passwort.</strong> Öffnet sich überall ohne Extra-Programm. Aber jeder, der die Mail sieht, kann alles lesen. Gut, wenn du die Datei über ein sicheres Portal hochlädst oder persönlich übergibst.</span></label>
         </fieldset>
         {% if zip_pfad %}</details>{% endif %}
         <button class="{{ 'quiet' if zip_pfad else 'sq-siegelknopf' }}">{{ "Neu packen" if zip_pfad else "Fundkiste packen" }}</button>

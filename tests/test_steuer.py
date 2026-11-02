@@ -3176,3 +3176,84 @@ def test_runde_38_zurueckgelegt_bleibt_in_der_provinz_und_fremdes_jahr(client, w
     quest.lager(ws.root).mkdir(parents=True, exist_ok=True)
     (quest.lager(ws.root) / "krankenversicherung-2024.pdf").write_bytes(b"%PDF kv")
     assert "aus 2024?" in client.get("/steuer/2025").text
+
+
+def test_runde_39_zurueckgelegt_und_neu_geworfen_ohne_serie(client, ws):
+    """Lena (Runde 38): Zurücklegen und auf der Drachenseite neu werfen brachte die neue Serie,
+    jede Karte also mehr als vorher (Steuer-ID 44 → 38 → 46)."""
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    _bis_wach(conn)
+    lager = quest.lager(ws.root)
+    lager.mkdir(parents=True, exist_ok=True)
+    for name in ("a.pdf", "b.pdf"):
+        (lager / name).write_bytes(b"%PDF " + name.encode())
+    erste = spiel.drache(quest.stuecke(conn, 2025)).karte
+    post(client, "/steuer/2025/drache/schlag", stueck_id=str(erste["id"]), aktion="zettel",
+         zettel="a.pdf")  # fmt: skip
+    zweite = spiel.drache(quest.stuecke(conn, 2025)).karte
+    post(client, "/steuer/2025/drache/schlag", stueck_id=str(zweite["id"]), aktion="zettel",
+         zettel="b.pdf")  # fmt: skip
+    grund = spiel.karten_grund(zweite, "fund")
+    basis = spiel.gold_fuer(zweite, "gesammelt")
+    sql = "SELECT betrag FROM steuer_gold WHERE jahr = 2025 AND grund = ?"
+    assert conn.execute(sql, (grund,)).fetchone()[0] > basis  # mit Serie
+    d = quest.dateien(conn, 2025, zweite["id"])[0]
+    post(client, f"/steuer/2025/datei/{d['id']}/entfernen")
+    assert grund in quest.stornierte_gruende(conn, 2025)
+    serie = client.app.state.steuer_combo.get(2025, {}).get("combo", 0)
+    name = quest.lager_dateien(ws.root)[0].name
+    seite = post(client, "/steuer/2025/drache/schlag", stueck_id=str(zweite["id"]),
+                 aktion="zettel", zettel=name).text  # fmt: skip
+    assert conn.execute(sql, (grund,)).fetchone()[0] == basis  # nur der Grundwert
+    assert client.app.state.steuer_combo[2025]["combo"] == serie  # die Serie wächst nicht
+    assert "schon gewertet" in seite and "Volltreffer mit Beleg" not in seite
+
+
+def test_runde_39_letzte_bonus_datei_fuehrt_zum_korb(client, ws):
+    """Lena (Runde 38): Die Burg verschwand aus dem Belegbuch, die Seite sprang nach oben."""
+    conn, _bonus = _besiegt_mit_bonus(client, ws)
+    fragebogen(
+        client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"}, teil3={"haken": "vorsorge"}
+    )
+    bonus = quest.stuecke(conn, 2025, "burg")[0]  # die Burg hat nur Bonus-Schätze
+    (ws.root / "riester.pdf").write_bytes(b"%PDF riester")
+    quest.sammeln(conn, ws.root, bonus["id"], ws.root / "riester.pdf")
+    d = quest.dateien(conn, 2025, bonus["id"])[0]
+    ziel = f"/steuer/2025/belege#provinz-{bonus['gebiet']}"
+    antwort = client.post(
+        f"/steuer/2025/datei/{d['id']}/entfernen",
+        data={"token": client.token, "back": ziel},
+        follow_redirects=False,
+    )
+    assert antwort.headers["location"].endswith("/steuer/2025#sq-korb")
+    # Eine Pflicht-Provinz bleibt im Belegbuch: dorthin geht es zurück
+    erste = spiel.pflicht(quest.stuecke(conn, 2025))[0]
+    d = quest.dateien(conn, 2025, erste["id"])[0]
+    ziel = f"/steuer/2025/belege#provinz-{erste['gebiet']}"
+    antwort = client.post(
+        f"/steuer/2025/datei/{d['id']}/entfernen",
+        data={"token": client.token, "back": ziel},
+        follow_redirects=False,
+    )
+    assert antwort.headers["location"].endswith(ziel)
+
+
+def test_runde_39_vorjahres_briefe_und_kleine_worte(client, ws):
+    from frits.web.steuer import fremdes_jahr
+
+    assert fremdes_jahr("Steuerbescheid_2024.pdf", 2025, "bescheid") is None
+    assert fremdes_jahr("vorauszahlung-2024.png", 2025, "vorauszahlungen") is None
+    assert fremdes_jahr("Lohnsteuerbescheinigung_2024.png", 2025, "lohnsteuer") == 2024
+    assert fremdes_jahr("Steuerbescheid_2022.pdf", 2025, "bescheid") == 2022
+    _conn, _bonus = _besiegt_mit_bonus(client, ws)
+    quest.lager(ws.root).mkdir(parents=True, exist_ok=True)
+    (quest.lager(ws.root) / "krankenversicherung-2024.pdf").write_bytes(b"%PDF kv")
+    insel = client.get("/steuer/2025").text
+    # Das Schild steht in der zweiten Zeile, nicht als drittes Kind im Raster des Zettels
+    assert re.search(r'<small[^>]*><span class="sq-anderes-jahr"[^>]*>aus 2024\?</span>', insel)
+    post(client, "/steuer/2025/lager/hochladen", files=[("datei", ("x.pdf", b"%PDF x"))])
+    seite = post(
+        client, "/steuer/2025/lager/hochladen", files=[("datei", ("x.pdf", b"%PDF x"))]
+    ).text
+    assert 'href="/steuer/2025#sq-korb">Zum Korb' in seite
