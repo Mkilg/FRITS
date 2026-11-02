@@ -135,6 +135,7 @@ def _tell(message: str) -> None:
 
 
 def serve(port: int | None = None, open_browser: bool = True) -> None:
+    print(f"Python läuft, {_since_start()} nach dem Start.", flush=True)
     import uvicorn
 
     from frits.web.app import create_app
@@ -161,8 +162,14 @@ def serve(port: int | None = None, open_browser: bool = True) -> None:
     url = f"http://127.0.0.1:{port}/"
     print(f"FRITS läuft: {url}  (Strg+C beendet FRITS)")
     app = create_app()
-    if open_browser:
-        threading.Timer(2.0, _open_unless_waiting, args=(app, url)).start()
+    # The Mac app shows its loading page while Python starts; it finds FRITS on the usual
+    # port by itself. Anywhere else, the browser opens as soon as FRITS answers.
+    loading_page = os.environ.get("FRITS_LADESEITE") == "1" and port == DEFAULT_PORT
+    threading.Thread(
+        target=_when_ready,
+        args=(app, port, url, open_browser and not loading_page),
+        daemon=True,
+    ).start()
     run_file = _run_file() if port == DEFAULT_PORT else None
     if run_file:
         try:
@@ -179,7 +186,31 @@ def serve(port: int | None = None, open_browser: bool = True) -> None:
             run_file.unlink(missing_ok=True)
 
 
-def _open_unless_waiting(app, url: str) -> None:
-    """Open FRITS in the browser, unless the "FRITS ist aus" tab already came back by itself."""
-    if not app.state.tab_waiting:
+def _since_start() -> str:
+    """Seconds since the double-click (the Mac app's launcher notes the time), for the log."""
+    try:
+        return f"{time.time() - float(os.environ['FRITS_START']):.1f} s"
+    except (KeyError, ValueError):
+        return "?"
+
+
+def _when_ready(app, port: int, url: str, open_browser: bool) -> None:
+    """Once FRITS answers: open the browser (unless a FRITS tab is already waiting), note in
+    the log how long the start took, then load the German language model in the background,
+    so the first "Jetzt lesen" doesn't wait for it."""
+    deadline = time.monotonic() + 60
+    while time.monotonic() < deadline and _port_free(port):
+        time.sleep(0.1)
+    print(f"FRITS ist bereit, {_since_start()} nach dem Start.", flush=True)
+    if open_browser and not app.state.tab_waiting:
         webbrowser.open(url)
+    if os.environ.get("FRITS_VORLADEN", "1") != "1":
+        return
+    time.sleep(2)  # the first page first
+    begun = time.monotonic()
+    try:
+        app.state.nlp_laden()
+    except Exception as exc:  # noqa: BLE001 - it is loaded again (with its message) when needed
+        print(f"Sprachmodell nicht vorgeladen: {exc}", flush=True)
+        return
+    print(f"Sprachmodell geladen in {time.monotonic() - begun:.1f} s.", flush=True)

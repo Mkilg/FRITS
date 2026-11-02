@@ -25,6 +25,12 @@
       fetch("/health?reopen=1", { cache: "no-store" })
         .then(function (r) { return r.ok ? r.text() : ""; })
         .then(function (text) {
+          if (text === "FRITS-neu" && gone) {
+            // The Mac app opened FRITS in a new tab already: this one can go.
+            document.getElementById("frits-waiting").textContent =
+              "FRITS läuft wieder, in einem neuen Fenster. Dieses kannst du schließen.";
+            return;
+          }
           if (text === "FRITS" && gone) { window.location.href = "/"; return; }
           if (text !== "FRITS") gone = true;
           setTimeout(check, 1500);

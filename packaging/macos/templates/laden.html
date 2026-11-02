@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FRITS startet …</title>
+<!-- The Mac app opens this page from its own folder the moment FRITS is double-clicked,
+     so there is something to look at while Python starts. It asks FRITS on this computer
+     every half second and goes there as soon as FRITS answers. Nothing leaves the Mac. -->
+<style>
+  :root { --creme: #f6ecd2; --papier: #fcf6e6; --tinte: #24395c; --eiche: #5b391d; --ocker: #d9a441; --muted: #6e6253; }
+  html, body { margin: 0; height: 100%; }
+  body { background: radial-gradient(circle at 50% 35%, var(--papier), var(--creme) 70%); color: var(--eiche);
+    font-family: "Iowan Old Style", Palatino, Georgia, serif; display: flex; align-items: center; justify-content: center; }
+  main { text-align: center; padding: 1.5rem 16px; max-width: 30rem; }
+  img { width: 9rem; height: auto; animation: wippen 1.6s ease-in-out infinite; transform-origin: 50% 90%; }
+  h1 { font-size: 1.9rem; margin: 0.6rem 0 0.4rem; color: var(--tinte); letter-spacing: 0.02em; }
+  p { margin: 0.4rem 0; line-height: 1.5; }
+  .leise { color: var(--muted); font-family: -apple-system, "Helvetica Neue", sans-serif; font-size: 0.95rem; }
+  .balken { width: 14rem; max-width: 80%; height: 0.45rem; margin: 1.2rem auto; border-radius: 1rem;
+    background: rgba(91, 57, 29, .15); overflow: hidden; }
+  .balken span { display: block; width: 35%; height: 100%; border-radius: 1rem; background: var(--ocker);
+    animation: laufen 1.3s ease-in-out infinite; }
+  @keyframes wippen { 50% { transform: rotate(-6deg) translateY(-4px); } }
+  @keyframes laufen { from { transform: translateX(-100%); } to { transform: translateX(290%); } }
+  @media (prefers-reduced-motion: reduce) { img, .balken span { animation: none; } .balken span { width: 100%; opacity: .5; } }
+  [hidden] { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <img src="fritte.webp" alt="">
+  <h1 id="titel">FRITS startet …</h1>
+  <div class="balken" id="balken"><span></span></div>
+  <p class="leise" id="hinweis">Gleich geht es los. Dieses Fenster wird von selbst zu FRITS.</p>
+  <p class="leise" id="langsam" hidden>Beim ersten Start nach dem Auspacken prüft der Mac alle Teile von FRITS einmal. Das kann ein, zwei Minuten dauern. Danach geht es schneller.</p>
+  <p class="leise" id="haengt" hidden>Das dauert ungewöhnlich lange. Ist FRITS vielleicht nicht gestartet? Öffne FRITS.app noch einmal. Hilft das nicht, steht in <strong>Dokumente/FRITS</strong> nichts Verlorenes: Deine Daten sind sicher.</p>
+</main>
+<script>
+  (function () {
+    var url = "http://127.0.0.1:8765/";
+    var start = Date.now();
+    function show(id) { document.getElementById(id).hidden = false; }
+    function found(text) {
+      if (text === "FRITS-offen") {
+        // FRITS was already waiting in another tab (the "FRITS ist aus" page) and came back there.
+        document.getElementById("titel").textContent = "FRITS ist im anderen Fenster";
+        document.getElementById("hinweis").textContent = "FRITS läuft schon in deinem anderen Browser-Fenster. Dieses kannst du schließen.";
+        document.getElementById("balken").hidden = true;
+        document.getElementById("langsam").hidden = true;
+        document.getElementById("haengt").hidden = true;
+        window.close();
+        return;
+      }
+      window.location.replace(url);
+    }
+    function later() {
+      var waited = (Date.now() - start) / 1000;
+      if (waited > 15) show("langsam");
+      if (waited > 180) show("haengt");
+      setTimeout(check, 500);
+    }
+    function check() {
+      fetch(url + "health?ladeseite=1", { cache: "no-store" })
+        .then(function (r) { return r.text(); })
+        .then(function (text) { if (text.indexOf("FRITS") === 0) found(text); else later(); })
+        .catch(function () {
+          // Some browsers don't let a page from a file read the answer. Then it's enough
+          // that FRITS answers at all.
+          fetch(url + "health?ladeseite=1", { cache: "no-store", mode: "no-cors" })
+            .then(function () { found("FRITS"); })
+            .catch(later);
+        });
+    }
+    check();
+  })();
+</script>
+</body>
+</html>
