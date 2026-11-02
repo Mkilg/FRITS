@@ -372,6 +372,9 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offs
 input.falsch:focus-visible, select.falsch:focus-visible, textarea.falsch:focus-visible { outline-color: var(--ketchup); box-shadow: 0 0 0 3px rgba(178, 70, 40, 0.18); }
 input[type=checkbox], input[type=radio] { width: 1.15rem; height: 1.15rem; vertical-align: -0.2rem; margin: 0 0.3rem 0 0;
   accent-color: var(--moos-dunkel); }
+/* Words for a mouse or for a finger ("hierher ziehen" vs. "tippen") */
+.nur-touch { display: none; }
+@media (pointer: coarse) { .nur-maus { display: none; } .nur-touch { display: inline; } }
 /* Fingers instead of a mouse: every button, link in the menu and choice at least 44 px high */
 @media (pointer: coarse) {
   button, .button, button.tiny, .button.tiny { min-height: 44px; }
