@@ -44,6 +44,8 @@ def test_salbei_multiplies_real_paperwork_only():
     assert gw.wirkung(salbei, papier, {}) == (True, "Würze ×1,5")
     klicks = [karte("aufgabe"), karte("lernen"), karte("feierabend"), karte("rechnung")]
     assert gw.wirkung(salbei, klicks, {}) == (False, "1 von 3 Karten echter Papierkram")
+    steuer = [karte("steuer")] * 7  # tax documents are real paperwork too
+    assert gw.wirkung(salbei, steuer, {}) == (True, "Würze ×1,5")
     ergebnis = kassensturz.berechnen(papier, [salbei], {})
     assert (ergebnis["koerner"], ergebnis["wuerze"], ergebnis["summe"]) == (6, 1.5, 9)
 

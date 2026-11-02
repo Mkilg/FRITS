@@ -92,8 +92,8 @@ from frits.quotes import accept_quote, create_quote, decline_quote, list_quotes
 from frits.reminders import create_reminder
 from frits.render import eur, qty
 from frits.settings import Settings, Workspace
+from frits.spiel import abspann, tagesziel
 from frits.spiel import stand as spiel_stand
-from frits.spiel import tagesziel
 from frits.web.haustier import fritte_datei, register_haustier
 
 UNITS = ("Std", "km", "Stk", "pauschal")
@@ -2225,6 +2225,7 @@ def create_app(
             else 0,
             sicherung_ziel=settings().backup_dir,
             sicherung_faellig=sicherung.faellig(settings().backup_dir),
+            abspann=abspann.heute(conn, today(), settings().haustier),
         )
 
     @app.get("/health")

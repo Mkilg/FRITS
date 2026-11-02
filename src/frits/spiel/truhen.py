@@ -36,7 +36,7 @@ SELTEN_SPAETESTENS = 4  # at the latest every 4th chest is rare or better
 LEGENDAER_SPAETESTENS = 12  # at the latest every 12th chest is legendary
 STUFE = {"gewöhnlich": 0, "selten": 1, "legendär": 2}
 # Only real paperwork fills a chest.
-ZAEHLT = gw.PAPIERKRAM | {"steuer", "steuerjahr"}
+ZAEHLT = gw.ECHTE_ARBEIT
 WILLKOMMEN = "willkommen"
 
 # What a chest can hold, by rarity. Körner grow with the house like prices do.
