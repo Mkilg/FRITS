@@ -98,6 +98,12 @@
   </div>
 </section>
 
+{% if insel_regal %}
+<section class="card" id="insel">
+  {% include "_steuer_helfer_regal.html" ignore missing %}
+</section>
+{% endif %}
+
 {% set huete = (laden + schaetze) | selectattr("art", "equalto", "hut") | selectattr("id", "in", f.gekauft) | list %}
 {% if huete %}
 <section class="card" id="huete">
