@@ -51,9 +51,16 @@
   </div>
 
   {# Vorschau statt Rückblick: Der große Faktor gilt für den nächsten Beleg, nicht für den letzten #}
+  {% if goldjahr %}
   <div class="sq-combo{% if combo.wartet %} wartet{% endif %}" aria-live="polite"><span class="mult" title="Gold-Serie: So oft zählt das Gold für deinen nächsten Beleg">Gold ×{{ combo.naechster }}</span><span class="ruf">{{ combo.ruf }}</span>
-    <small class="sq-combo-regel">Nächster Beleg: {{ combo.basis }} × {{ combo.naechster }} = {{ combo.basis * combo.naechster }} Gold. Die Serie steht bei ×{{ combo.mult }}, jeder Beleg legt 2 drauf. Fragen treffen den Drachen auch, aber die Serie wartet dann.</small>
+    <small class="sq-combo-regel">Nächster Beleg: {{ combo.basis }} × {{ combo.naechster }} = {{ combo.basis * combo.naechster }} Gold. Jeder Beleg lässt die Serie wachsen, Fragen treffen auch, aber die Serie wartet dann.</small>
   </div>
+  {% else %}
+  {# Alte Jahre zahlen kein Gold: Dann keine Zahl, die etwas verspricht #}
+  <div class="sq-combo wartet" aria-live="polite"><span class="ruf">{{ "Volltreffer mit Beleg!" if frisch == "kritisch" else ("Treffer!" if frisch else "Der Drache wartet auf dich.") }}</span>
+    <small class="sq-combo-regel">Kein Gold in alten Jahren: Hier zählt nur der Sieg. Jeder Treffer nimmt dem Drachen eine Karte.</small>
+  </div>
+  {% endif %}
 
   {% if drache.karte %}
   {% set k = drache.karte %}
