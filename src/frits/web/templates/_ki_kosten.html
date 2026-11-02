@@ -1,0 +1,8 @@
+{# What the AI cost, from the audit log on this computer. Needs `ki_kosten` (store.ki_kosten). #}
+{% macro betrag(usd) %}{% if usd < 0.01 %}unter 1 Cent{% else %}etwa {{ "%.2f" | format(usd) | replace(".", ",") }} US-Dollar{% endif %}{% endmacro %}
+{% if ki_kosten %}{% set m = ki_kosten.monat %}{% set v = ki_kosten.vormonat %}
+<p class="hint ki-kosten" id="ki-kosten">💶 <strong>KI-Kosten diesen Monat:</strong>
+  {% if m.anfragen %}{{ betrag(m.usd) }} für {{ m.anfragen }} {{ "Anfrage" if m.anfragen == 1 else "Anfragen" }}{% else %}noch keine Anfrage{% endif %}{% if v.anfragen %}, im letzten Monat {{ betrag(v.usd) }}{% endif %}.
+  {% if m.ohne_preis %}Für {{ m.ohne_preis }} davon kenne ich keinen Preis, die fehlen in der Summe.{% endif %}
+  Ich rechne mit den Preisen des Anbieters, die genaue Abrechnung steht in deinem Konto dort. Die lokale KI kostet nichts.</p>
+{% endif %}

@@ -7,6 +7,7 @@ FRITS's buttons for him (that attack is called CSRF).
 
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 import secrets
@@ -31,6 +32,7 @@ from fastapi.templating import Jinja2Templates
 from jinja2 import Environment, PackageLoader, select_autoescape
 from markupsafe import Markup
 from PIL import Image
+from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from frits import (
@@ -595,7 +597,13 @@ def create_app(
         if aufgaben.braucht_ki(punkte) and ai_ready(current):
             try:
                 people = [*customers(), current.owner] if current.name else customers()
-                punkte = aufgaben.ki_aufteilen(text, provider_for(current), people, nlp())
+                punkte = aufgaben.ki_aufteilen(
+                    text,
+                    provider_for(current),
+                    people,
+                    nlp(),
+                    protokoll=lambda usage, sha: store.log_ai_call(db(), None, usage, sha),
+                )
                 ki = " Die KI hat deinen Satz aufgeteilt, die Namen waren vorher geschwärzt."
             except LeakError:
                 ki = " Aufgeteilt habe ich ihn nicht: Da war etwas, das ich nicht sicher schwärzen konnte."
@@ -834,45 +842,22 @@ def create_app(
 
     @app.post("/check-me/notfall", dependencies=guarded)
     async def check_me_chat(request: Request):
-        """A letter or a notice: open it in the Notfall-Chat, redacted, to understand it.
+        """A letter or a notice: open it in the chat, redacted, to understand it. If something
+        can't be redacted safely, the chat opens anyway with the file waiting in it.
         The file stays under "Zum Prüfen" until Fritz puts it away."""
-        from frits import notfall
-        from frits.redact import LeakError
-
         path = _check_me_file((await request.form()).get("name"))
-        current = settings()
-        known = list(customers()) + ([current.owner] if current.name else [])
-        try:
-            text = extract_text(path).text
-            g = notfall.neues_gespraech()
-            notfall.add_document(
-                g, path.name, path.suffix.lstrip(".") or "text", text, known, nlp()
-            )
-        except IngestError as exc:
-            flash(str(exc), "error")
+        key, problems = await run_in_threadpool(app.state.notfall_mit_datei, path, path.name)
+        for p in problems:
+            flash(p, "warn" if key else "error")
+        if key is None:
             return back("/check-me")
-        except LeakError:
-            flash(
-                "Ich konnte nicht alles sicher schwärzen, darum geht davon nichts raus. Im "
-                "Notfall-Chat kannst du selbst Wörter zum Schwärzen eintragen: Zieh die Datei "
-                "dort noch einmal auf das Feld.",
-                "error",
-            )
-            return back("/notfall")
-        except RuntimeError as exc:
-            flash(str(exc), "error")
-            return back("/check-me")
-        chats = app.state.notfall
-        chats[g.key] = g
-        while len(chats) > notfall.KEEP:
-            chats.popitem(last=False)
-        return back(f"/notfall/{g.key}")
+        return back(f"/chat/{key}#unterlagen")
 
     @app.post("/check-me/weglegen", dependencies=guarded)
     async def check_me_away(request: Request):
         path = _check_me_file((await request.form()).get("name"))
         target, _ = _check_me_done(path, "check-me-ignored")
-        flash(f"{target.name} liegt jetzt im Ordner „erledigt“ und zählt nirgends mit.")
+        flash(f"Verworfen. {target.name} liegt jetzt im Ordner „erledigt“ und zählt nirgends mit.")
         return back("/check-me")
 
     @app.post("/check-me/retry", dependencies=guarded)
@@ -1488,7 +1473,12 @@ def create_app(
             db(), today().year, current.number_pattern, current.last_number_before
         )
         return page(
-            request, "settings.html", keys=keys, folder=ws.root, next_invoice_number=upcoming
+            request,
+            "settings.html",
+            keys=keys,
+            folder=ws.root,
+            next_invoice_number=upcoming,
+            ki_kosten=store.ki_kosten(db()),
         )
 
     @app.post("/settings", dependencies=guarded)
@@ -1822,7 +1812,7 @@ def create_app(
             "UPDATE jobs SET status = 'receipt-ignored' WHERE id = ? AND status = 'receipt'",
             (job_id,),
         )
-        flash("Beleg ausgeblendet. Die Datei liegt weiter im Ordner „done“.")
+        flash("Verworfen. Der Beleg zählt nirgends mit, die Datei liegt weiter im Ordner „done“.")
         return back("/expenses")
 
     @app.get("/euer", response_class=HTMLResponse)
@@ -2054,6 +2044,7 @@ def create_app(
                 sent, result, usage = setup.connection_test(provider_for(updated), updated, nlp())
             except (ProviderError, RuntimeError) as exc:
                 return setup_page(request, step, test_error=str(exc))
+            store.log_ai_call(db(), None, usage, hashlib.sha256(sent.encode()).hexdigest())
             return setup_page(request, step, test_sent=sent, test_result=result, test_usage=usage)
         if action == "redact":
             text = str(form.get("text", ""))[:5000]

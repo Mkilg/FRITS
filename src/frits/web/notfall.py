@@ -1,4 +1,7 @@
-"""The Notfall-Chat pages: drop any document in, see what the AI will see, then ask.
+"""The Chat pages: ask anything, drop any document in, see what the AI will see, then send.
+
+It used to be two chats (a Notfall-Chat for letters and a Freier Chat); now it is one, at
+/chat. The old /notfall addresses still work and lead to the same pages.
 
 Chats live only in this process's memory (app.state.notfall). Nothing of them is written to
 disk; the audit log gets one line per AI call with the provider, the token counts and a hash
@@ -25,8 +28,12 @@ LEAK_TEXT = (
     "Ich konnte nicht alles sicher schwärzen. Darum geht davon nichts raus. "
     "Trag die Namen oder Nummern unten bei „Auch schwärzen“ ein und versuch es noch einmal."
 )
+WARTET_TEXT = (
+    "Ein paar Stellen konnte ich nicht sicher schwärzen, darum geht davon noch nichts raus. "
+    "Die Datei liegt schon im Chat bereit: Trag bei „Auch schwärzen“ ein, was noch weg muss."
+)
 GONE_TEXT = (
-    "Dieser Chat ist nicht mehr da. Das ist Absicht: Notfall-Chats werden nie gespeichert "
+    "Dieser Chat ist nicht mehr da. Das ist Absicht: Chats werden nie gespeichert "
     "und sind weg, sobald FRITS neu startet."
 )
 
@@ -67,26 +74,33 @@ def register_notfall(
             return "die lokale KI"
         return _LABELS.get(current.provider, current.provider)
 
-    def show(
-        request: Request, g: notfall.Gespraech | None, frei: bool = False, **extra
-    ) -> HTMLResponse:
+    def show(request: Request, g: notfall.Gespraech | None, **extra) -> HTMLResponse:
         current = settings()
-        frei = frei or bool(g and g.frei)
         return page(
             request,
             "notfall.html",
             g=g,
-            frei=frei,
             chats=list(reversed(chats.values())),
             ki=ai_label(current),
             ai_ready=ai_ready(current),
-            vorschlaege=notfall.VORSCHLAEGE_FREI if frei else notfall.VORSCHLAEGE,
+            vorschlaege=g.vorschlaege if g else notfall.VORSCHLAEGE_FREI,
             max_docs=notfall.MAX_DOCS,
-            system=g.system if g else notfall.SYSTEM,
+            system=g.system if g else notfall.SYSTEM_FREI,
             leicht=notfall.leicht,
-            nav="/chat" if frei else "/notfall",
+            ki_kosten=store.ki_kosten(db()),
+            nav="/chat",
             **extra,
         )
+
+    def route(method: str, path: str, **kw):
+        """Register a page under /chat and, for old links and bookmarks, under /notfall."""
+
+        def deco(fn):
+            getattr(app, method)("/chat" + path, **kw)(fn)
+            getattr(app, method)("/notfall" + path, include_in_schema=False, **kw)(fn)
+            return fn
+
+        return deco
 
     def keep(g: notfall.Gespraech) -> None:
         chats[g.key] = g
@@ -129,7 +143,7 @@ def register_notfall(
                 model = model or nlp()
                 doc = notfall.add_document(g, name, art, text, known, model, ocr)
             except LeakError:
-                problems.append(f"{name}: {LEAK_TEXT}")
+                problems.append(f"{name}: {WARTET_TEXT}")
                 continue
             except RuntimeError as exc:  # the German language model is missing
                 problems.append(str(exc))
@@ -142,9 +156,10 @@ def register_notfall(
         return problems
 
     def mit_datei(pfad: Path, name: str) -> tuple[str | None, list[str]]:
-        """A new chat that starts with one file from this computer (a Steuer-Quest Beleg).
-        Read and redacted here; nothing leaves until Fritz asks a question.
-        Returns (chat key or None, problems)."""
+        """A new chat that starts with one file from this computer (a Steuer-Quest Beleg,
+        a letter from "Zum Prüfen"). Read and redacted here; nothing leaves until Fritz asks.
+        If the file can't be redacted safely, the chat opens anyway with the file waiting in
+        it, so Fritz only adds the words to hide. Returns (chat key or None, problems)."""
         from frits.ingest import extract_text
 
         try:
@@ -161,7 +176,8 @@ def register_notfall(
                 g, name, "foto" if ocr else suffix, text, people(), nlp(), ocr
             )
         except LeakError:
-            return None, [f"{name}: {LEAK_TEXT}"]
+            keep(g)
+            return g.key, [f"{name}: {WARTET_TEXT}"]
         except RuntimeError as exc:
             return None, [str(exc)]
         keep(g)
@@ -170,58 +186,44 @@ def register_notfall(
 
     app.state.notfall_mit_datei = mit_datei
 
-    @app.get("/notfall", response_class=HTMLResponse)
-    def notfall_start(request: Request):
-        return show(request, None)
-
-    @app.post("/notfall/neu", dependencies=guarded)
-    async def notfall_neu(request: Request):
-        form = await request.form()
-        g = notfall.neues_gespraech()
-        problems = await take_documents(g, form)
-        for p in problems:
-            flash(p, "error")
-        if not g.docs:
-            if not problems:
-                flash("Zieh ein Dokument auf das Feld oder füg Text ein.", "error")
-            return back("/notfall")
-        keep(g)
-        return back(f"/notfall/{g.key}")
-
     @app.get("/chat", response_class=HTMLResponse)
     def chat_start(request: Request):
-        return show(request, None, frei=True)
+        return show(request, None)
 
-    @app.post("/chat/neu", dependencies=guarded)
+    @app.get("/notfall", include_in_schema=False)
+    def notfall_start():
+        return back("/chat")
+
+    @route("post", "/neu", dependencies=guarded)
     async def chat_neu(request: Request):
-        """Freier Chat: a question straight away; documents only if Fritz adds some."""
+        """A new chat: a question, documents, or both. Documents are shown first, redacted,
+        before anything goes out."""
         form = await request.form()
         g = notfall.neues_gespraech()
-        g.frei = True
         problems = await take_documents(g, form)
         for p in problems:
             flash(p, "error")
         question = str(form.get("vorschlag") or form.get("frage") or "").strip()
-        if not question and not g.docs:
+        if not question and not g.docs and not g.wartend:
             if not problems:
-                flash("Schreib kurz, was du wissen möchtest.", "error")
+                flash("Schreib kurz, was du wissen möchtest, oder leg ein Dokument rein.", "error")
             return back("/chat")
         keep(g)
-        if g.docs:  # first look at what the AI would see, then send
+        if g.docs or g.wartend:  # first look at what the AI would see, then send
             g.entwurf = question
-            return back(f"/notfall/{g.key}#unterlagen")
+            return back(f"/chat/{g.key}#unterlagen")
         return await send(g, question, str(form.get("action") or form.get("modus") or "senden"))
 
-    @app.get("/notfall/{key}", response_class=HTMLResponse)
-    def notfall_chat(request: Request, key: str):
+    @route("get", "/{key}", response_class=HTMLResponse)
+    def chat_page(request: Request, key: str):
         g = chats.get(key)
         if g is None:
             flash(GONE_TEXT)
-            return back("/notfall")
+            return back("/chat")
         chats.move_to_end(key)
         return show(request, g)
 
-    @app.post("/notfall/{key}/dokument", dependencies=guarded)
+    @route("post", "/{key}/dokument", dependencies=guarded)
     async def notfall_dokument(request: Request, key: str):
         g = chat_or_404(key)
         form = await request.form()
@@ -235,21 +237,30 @@ def register_notfall(
                 if added == 1
                 else f"{added} Dokumente dazugelegt und geschwärzt."
             )
-        return back(f"/notfall/{key}#unterlagen")
+        return back(f"/chat/{key}#unterlagen")
 
-    @app.post("/notfall/{key}/dokument/{nr}/weg", dependencies=guarded)
+    @route("post", "/{key}/dokument/{nr}/weg", dependencies=guarded)
     def notfall_dokument_weg(key: str, nr: int):
         g = chat_or_404(key)
         doc = next((d for d in g.docs if d.nr == nr), None)
         if doc and not doc.sent:
             g.docs.remove(doc)
             flash(f"{doc.name} ist wieder raus. Es wurde nichts davon verschickt.")
-        return back(f"/notfall/{key}#unterlagen")
+        return back(f"/chat/{key}#unterlagen")
 
-    @app.post("/notfall/{key}/schwaerzen", dependencies=guarded)
+    @route("post", "/{key}/wartend/{index}/weg", dependencies=guarded)
+    def chat_wartend_weg(key: str, index: int):
+        g = chat_or_404(key)
+        if 0 <= index < len(g.wartend):
+            doc = g.wartend.pop(index)
+            flash(f"{doc.name} ist verworfen. Davon wurde nichts verschickt.")
+        return back(f"/chat/{key}#unterlagen")
+
+    @route("post", "/{key}/schwaerzen", dependencies=guarded)
     async def notfall_schwaerzen(request: Request, key: str):
         g = chat_or_404(key)
         form = await request.form()
+        vorher = len(g.wartend)
         try:
             g.set_extra(str(form.get("extra", "")), people(), nlp())
         except LeakError:
@@ -257,10 +268,21 @@ def register_notfall(
         except RuntimeError as exc:
             flash(str(exc), "error")
         else:
-            flash("Neu geschwärzt. Schau unten nach, ob jetzt alles weg ist.")
-        return back(f"/notfall/{key}#unterlagen")
+            frei = vorher - len(g.wartend)
+            if g.wartend:
+                flash(
+                    f"Neu geschwärzt. {len(g.wartend)} "
+                    f"{'Datei ist' if len(g.wartend) == 1 else 'Dateien sind'} noch nicht sicher. "
+                    "Schau im Original nach, welcher Name oder welche Nummer noch fehlt.",
+                    "warn",
+                )
+            elif frei:
+                flash("Jetzt ist alles sicher geschwärzt. Schau kurz drüber, dann frag los.")
+            else:
+                flash("Neu geschwärzt. Schau unten nach, ob jetzt alles weg ist.")
+        return back(f"/chat/{key}#unterlagen")
 
-    @app.post("/notfall/{key}/frage", dependencies=guarded)
+    @route("post", "/{key}/frage", dependencies=guarded)
     async def notfall_frage(request: Request, key: str):
         g = chat_or_404(key)
         form = await request.form()
@@ -273,20 +295,20 @@ def register_notfall(
         key = g.key
         if not question:
             flash("Schreib kurz, was du wissen möchtest.", "error")
-            return back(f"/notfall/{key}#frage")
+            return back(f"/chat/{key}#frage")
         if g.waiting_for_answer:
             flash("Füg zuerst die Antwort auf deine letzte Frage ein, oder lass sie weg.", "error")
-            return back(f"/notfall/{key}#antwort")
+            return back(f"/chat/{key}#antwort")
         try:
             notfall.ask(g, question, people(), nlp(), via="kopiert" if mode == "kopieren" else "ki")
         except LeakError:
             flash(LEAK_TEXT, "error")
-            return back(f"/notfall/{key}#frage")
+            return back(f"/chat/{key}#frage")
         except RuntimeError as exc:
             flash(str(exc), "error")
-            return back(f"/notfall/{key}#frage")
+            return back(f"/chat/{key}#frage")
         if mode == "kopieren":
-            return back(f"/notfall/{key}#kopieren")
+            return back(f"/chat/{key}#kopieren")
 
         current = settings()
         try:
@@ -301,38 +323,38 @@ def register_notfall(
             notfall.take_back(g)
             g.entwurf = question  # kept for the field, not in the address (browser history)
             flash(f"{exc} Deine Frage ist nicht verloren, sie steht unten noch im Feld.", "error")
-            return back(f"/notfall/{key}#frage")
+            return back(f"/chat/{key}#frage")
         conn = db()
         store.log_ai_call(conn, None, usage, g.fingerprint())
         g.calls += 1
         g.cost_usd += usage.cost_usd or 0.0
         g.entwurf = ""
         notfall.answer(g, text, "ki", usage.model)
-        return back(f"/notfall/{key}#ende")
+        return back(f"/chat/{key}#ende")
 
-    @app.post("/notfall/{key}/antwort", dependencies=guarded)
+    @route("post", "/{key}/antwort", dependencies=guarded)
     async def notfall_antwort(request: Request, key: str):
         g = chat_or_404(key)
         form = await request.form()
         if form.get("action") == "verwerfen":
             notfall.take_back(g)
             flash("Die Frage ist wieder weg.")
-            return back(f"/notfall/{key}#frage")
+            return back(f"/chat/{key}#frage")
         pasted = str(form.get("antwort") or "").strip()
         if not pasted:
             flash("Füg die Antwort der KI in das Feld ein.", "error")
-            return back(f"/notfall/{key}#antwort")
+            return back(f"/chat/{key}#antwort")
         if not g.waiting_for_answer:
-            return back(f"/notfall/{key}#ende")
+            return back(f"/chat/{key}#ende")
         try:
             notfall.answer(g, pasted, "kopiert", people=people(), nlp=nlp())
         except LeakError:
             flash(LEAK_TEXT, "error")
-            return back(f"/notfall/{key}#antwort")
-        return back(f"/notfall/{key}#ende")
+            return back(f"/chat/{key}#antwort")
+        return back(f"/chat/{key}#ende")
 
-    @app.post("/notfall/{key}/vergessen", dependencies=guarded)
+    @route("post", "/{key}/vergessen", dependencies=guarded)
     def notfall_vergessen(key: str):
         chats.pop(key, None)
         flash("Vergessen. Von diesem Chat ist auf deinem Computer nichts mehr übrig.", cue="done")
-        return back("/notfall")
+        return back("/chat")
