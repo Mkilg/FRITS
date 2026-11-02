@@ -199,40 +199,6 @@ def aufsetzen(conn: sqlite3.Connection, ding_id: str) -> None:
         stand.setze(conn, "hut", "")
 
 
-def salz_aus_quest(conn: sqlite3.Connection, jahr: int, gold: int, text: str,
-                   heute: date | None = None) -> int:  # fmt: skip
-    """One purse (Lena): Drachengold only counts inside its Steuer-Quest year. What is left
-    when the dragon is beaten becomes Salzkörner for Fritte: 2 gold = 1 Korn, at most 60
-    (a victory should help with the house, not buy it: the Stube costs 250).
-
-    Returns the Körner booked. Once per quest year: a second call, or too little gold,
-    books nothing and returns 0. When it returns more than 0, the whole rest of that
-    year's gold is used up. Opens its own transaction (call it outside the quest's).
-    Works even before Fritte was ever opened."""
-    koerner = salz_fuer_gold(gold)
-    if koerner <= 0:
-        return 0
-    tag = (heute or date.today()).isoformat()
-    stand.vorbereiten(conn)
-    with store.transaction(conn):
-        if stand.einstellung(conn, f"drachensieg_salz:{jahr}"):
-            return 0
-        stand.setze(conn, f"drachensieg_salz:{jahr}", tag)
-        stand.buche(
-            conn, tag, koerner, "drachensieg", text or f"Drachengold aus der Steuer-Quest {jahr}"
-        )
-    return koerner
-
-
-GOLD_PRO_KORN = 2
-SALZ_PRO_SIEG = 30  # Lena: with 60, day one already bought the Stube (150)
-
-
-def salz_fuer_gold(gold: int) -> int:
-    """How many Salzkörner this much leftover dragon gold becomes (for the victory page)."""
-    return max(0, min(int(gold) // GOLD_PRO_KORN, SALZ_PRO_SIEG))
-
-
 # What the finds that were removed in round 10 are worth now (Lena: no find is lost).
 ALT_WUERZE_KORN = 10  # one Würze from a jar
 

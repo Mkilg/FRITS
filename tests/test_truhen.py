@@ -179,26 +179,6 @@ def test_chest_treasures_are_not_for_sale(conn):
         haustier.kaufen(conn, TODAY, "waage")
 
 
-def test_leftover_dragon_gold_becomes_salzkoerner_once_a_year(conn):
-    vorher = stand.guthaben(conn)
-    text = "Restgold aus der Steuer-Quest 2025"
-    assert haustier.salz_aus_quest(conn, 2025, 37, text, TODAY) == 18  # 2 gold, 1 Korn
-    assert stand.guthaben(conn) == vorher + 18
-    assert stand.kassenbuch(conn)[0]["text"] == text
-    assert haustier.salz_aus_quest(conn, 2025, 37, "nochmal", TODAY) == 0  # once per year
-    assert haustier.salz_aus_quest(conn, 2024, 1, "zu wenig", TODAY) == 0
-    assert stand.guthaben(conn) == vorher + 18
-    # a victory helps with the house but doesn't buy it (Lena: the Stube costs 150)
-    assert haustier.salz_aus_quest(conn, 2023, 500, "", TODAY) == haustier.SALZ_PRO_SIEG == 30
-    assert haustier.salz_fuer_gold(37) == 18 and haustier.salz_fuer_gold(-3) == 0
-
-
-def test_salz_from_the_quest_works_before_fritte_was_ever_opened(tmp_path):
-    conn = store.connect(tmp_path / "frits.db")
-    assert haustier.salz_aus_quest(conn, 2025, 12, "Restgold", TODAY) == 6
-    assert stand.guthaben(conn) == 6
-
-
 def test_old_games_get_grains_for_jokers_and_jars_once(conn):
     truhen.truhe_geben(conn, "alt")
     t = truhen.oeffnen(conn, TODAY)
