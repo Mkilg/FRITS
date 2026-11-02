@@ -26,11 +26,10 @@
         <button name="stil" value="ruhig">{{ zeichen("ruhig", "🌿") }} Ruhig und leise<small>Nur das Ergebnis und ein Stempel</small></button>
       </form>
     </div>
+    {% else %}
+    <p class="hint">{% set bunt = settings.effects == "verspielt" %}Fritte feiert {{ ("verspielt mit Klang" if settings.sound else "verspielt, aber ohne Klang") if bunt else ("ruhig, aber mit Klang" if settings.sound else "ruhig und leise") }}. Ändern kannst du das in den <a href="/settings">Einstellungen</a>.</p>
     {% endif %}
-    <form method="post" action="/fritte/kassensturz">
-      <input type="hidden" name="token" value="{{ token }}">
-      <button class="gross">Ersten Kassensturz machen</button>
-    </form>
+    <p class="hint">Unten wartet dein erster <a href="#kassensturz">Kassensturz</a>.</p>
   </div>
 </section>
 {% endif %}

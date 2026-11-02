@@ -8,9 +8,10 @@ import hashlib
 import shutil
 import time
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 
-from frits import store
+from frits import frueher, store
 from frits.billing import build_draft
 from frits.customers import load_customers
 from frits.extract import check
@@ -27,10 +28,11 @@ OTHER_TEXT = (
 
 @dataclass(frozen=True)
 class Outcome:
-    status: str  # drafted | check-me | receipt | skipped
+    status: str  # drafted | check-me | receipt | frueher | skipped
     message: str
     draft_id: int | None = None
     sha256: str | None = None  # for "skipped": which known file it was
+    staged: str | None = None  # for "frueher": the token of the "Rechnung von früher" form
 
 
 def file_hash(path: Path) -> str:
@@ -38,7 +40,12 @@ def file_hash(path: Path) -> str:
 
 
 def process_file(
-    path: Path, ws: Workspace, settings: Settings, provider: Provider, nlp=None
+    path: Path,
+    ws: Workspace,
+    settings: Settings,
+    provider: Provider,
+    nlp=None,
+    today: date | None = None,
 ) -> Outcome:
     path = Path(path)
     conn = store.connect(ws.db)
@@ -56,6 +63,20 @@ def process_file(
         source = extract_text(path)
     except IngestError as exc:
         return _to_check_me(conn, path, ws, digest, str(exc))
+
+    if frueher.eigene_rechnung(source.text, settings):
+        # Fritz's own invoice from before FRITS: income, not a receipt and not a job to bill.
+        # It goes to the "Rechnung von früher" form, read here and without any AI.
+        target = _move(path, ws.done)
+        job_id = store.add_job(conn, digest, target.name, "frueher")
+        token = frueher.vormerken(
+            ws.staging, target, source.text, settings, today or date.today(), job_id
+        )
+        return Outcome(
+            "frueher",
+            f"{path.name} ist deine eigene Rechnung von früher. Prüf sie kurz und trag sie nach.",
+            staged=token,
+        )
 
     customers = load_customers(ws.customers)
     try:

@@ -80,6 +80,7 @@ def test_kleinunternehmer_invoice_is_read():
         "customer": "Radio Süd GmbH",
         "issue_date": "2025-03-12",
         "service_date": "2025-03-10",
+        "due_date": "2025-03-26",
         "description": "Moderation Workshop",
         "net": "1.200,00",
         "tax": "klein",

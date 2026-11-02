@@ -2949,3 +2949,23 @@ def test_runde_33_nach_dem_sieg_keine_trommel_und_kontostand_im_regal(client, ws
 
 def test_runde_33_ohne_ernte_nichts_von_frits(conn):
     assert quest.von_frits(conn, 2025) == set()
+
+
+def test_heute_nennt_den_naechsten_quest_schritt(client, ws):
+    """Lena (11-02): „Als Nächstes“ schwieg, obwohl die Quest etwas zu tun hatte."""
+    Settings(
+        name="Kim Beispiel",
+        address="Weg 1, 12345 Ort",
+        iban="DE02120300000000202051",
+        hourly_rate=Decimal(1),
+        setup_done=True,
+    ).save(ws.settings_file)
+    assert client.app.state.quest_auftrag(store.connect(ws.db)) is None  # noch keine Quest
+    fragebogen(client)
+    page = client.get("/").text
+    nxt = page[page.index('id="als-naechstes"') :]
+    nxt = nxt[: nxt.index("</section>")]
+    assert "Steuer 2025:" in nxt and 'class="button primary" href="/steuer/2025' in nxt
+    # Ist die Fundkiste gepackt, ist das Jahr fertig und Heute wieder ruhig
+    quest.notiere(store.connect(ws.db), 2025, "truhe", "fundkiste.zip")
+    assert "Nichts, was eilt" in client.get("/").text

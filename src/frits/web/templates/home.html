@@ -48,9 +48,18 @@
   <h2>{{ "1 Beleg wartet" if receipts | length == 1 else receipts | length ~ " Belege warten" }}</h2>
   <p>Als Ausgabe eintragen dauert pro Beleg eine halbe Minute. FRITS hat Betrag und Datum schon geraten.</p>
   <a class="button primary" href="/expenses?receipt={{ receipts[0].id }}">Ersten Beleg eintragen</a>
+  {% elif naechstes == "quest" %}
+  {% set q = quest_auftrag %}
+  <h2>Steuer {{ q.jahr }}: {{ q.titel }}</h2>
+  <p>{{ q.text }}</p>
+  <a class="button primary" href="{{ q.ziel }}">{{ q.knopf }}</a>
   {% else %}
   <h2>Nichts, was eilt</h2>
   <p class="muted">Zeit für deine eigentliche Arbeit. Kommt etwas rein, leg es einfach unten ab.</p>
+  {% if f and f.wartend %}
+  {# Calm, but not silent: Fritte's reward is waiting. A quiet link, no second primary button. #}
+  <p class="fritte-wartet">Bei Fritte {{ "wartet 1 Karte" if f.wartend == 1 else "warten " ~ f.wartend ~ " Karten" }} auf den Kassensturz, etwa +{{ f.bereit }} Salzkörner. <a href="/fritte">Zu Fritte</a></p>
+  {% endif %}
   {% endif %}
 </section>
 

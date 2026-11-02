@@ -134,3 +134,63 @@ def test_kassenbuch_groups_quest_bookings_of_one_day(tmp_path):
     ]
     assert zeilen[1]["betrag"] == 5 and len(zeilen[1]["teile"]) == 3
     assert sum(z["betrag"] for z in zeilen) == stand.guthaben(conn)
+
+
+def test_heute_shows_the_quest_step_when_the_desk_is_clear(client):
+    client.app.state.quest_auftrag = lambda conn: {
+        "jahr": 2025, "art": "sieg", "titel": "Hol dir deine Beute",
+        "text": "Pack die Fundkiste.", "knopf": "Zur Fundkiste", "ziel": "/steuer/2025/sieg",
+    }  # fmt: skip
+    page = client.get("/").text
+    nxt = page[page.index('id="als-naechstes"') :]
+    nxt = nxt[: nxt.index("</section>")]
+    assert "Steuer 2025: Hol dir deine Beute" in nxt
+    assert 'class="button primary" href="/steuer/2025/sieg"' in nxt
+    assert page.count('class="button primary"') == 1
+    post(client, "/drafts/new")  # work on the desk comes first
+    assert "Ein Entwurf braucht dich" in client.get("/").text
+    client.app.state.quest_auftrag = lambda conn: 1 / 0  # a hiccup in the quest
+    assert client.get("/").status_code == 200
+
+
+def test_fritte_is_under_mehr_on_the_desktop_too(client):
+    page = client.get("/").text
+    header = page[page.index('<header class="top">') : page.index("</header>")]
+    mehr = header[header.index('<details class="mehr">') :]
+    assert 'href="/fritte"' in mehr
+    tabs = page[page.index('<nav class="tabs"') :]
+    assert tabs.count('href="/fritte"') == 1  # not twice on the phone
+
+
+def test_kassenbuch_shows_the_currency_move_as_one_row(tmp_path):
+    from frits import store
+    from frits.spiel import stand
+
+    conn = store.connect(tmp_path / "frits.db")
+    stand.vorbereiten(conn)
+    tag = "2026-11-02"
+    stand.buche(conn, tag, 30, "drachensieg", "Restgold aus der Steuer-Quest 2025")
+    stand.buche(conn, tag, 7, "quest", "Steuer-Quest 2026: Gold von früher, jetzt Salzkörner")
+    stand.buche(conn, tag, 2, "quest", "Steuer-Quest 2026: Fund")
+    zeilen = stand.kassenbuch(conn)
+    assert [(z["text"], z["betrag"]) for z in zeilen] == [
+        ("Steuer-Quest 2026: Fund", 2),
+        ("Umstellung auf eine Währung", 37),
+    ]
+
+
+def test_kassenbuch_keeps_one_quest_row_per_day_around_a_purchase(tmp_path):
+    from frits import store
+    from frits.spiel import stand
+
+    conn = store.connect(tmp_path / "frits.db")
+    stand.vorbereiten(conn)
+    tag = "2026-11-02"
+    stand.buche(conn, tag, 8, "quest", "Steuer-Quest 2025: Steuer-ID (×4)")
+    stand.buche(conn, tag, -3, "kauf", "Steuer-Quest 2025: Gekauft: Brieftaube")
+    stand.buche(conn, tag, 16, "quest", "Steuer-Quest 2025: Bescheid (×8)")
+    zeilen = stand.kassenbuch(conn)
+    assert [(z["text"], z["betrag"]) for z in zeilen] == [
+        ("Steuer-Quest 2025: 2 Buchungen · Serie bis ×8", 24),
+        ("Steuer-Quest 2025: Gekauft: Brieftaube", -3),
+    ]

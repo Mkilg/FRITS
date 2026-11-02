@@ -497,6 +497,21 @@ def register_steuer(
             "chronik": quest.chronik(c, jahr),
         }
 
+    def heute_auftrag(c) -> dict | None:
+        """Der eine nächste Quest-Schritt für „Als Nächstes“ auf Heute (app.state.quest_auftrag).
+        Das älteste Steuerjahr, dessen Fundkiste noch nicht gepackt ist, weil es zuerst fällig
+        ist. None ohne Quest oder wenn jede Fundkiste gepackt ist."""
+        for jahr in quest_jahre():
+            if quest.hat_notiz(c, jahr, "truhe"):
+                continue
+            a = lage(jahr)["auftrag"]
+            ziel = a.ziel if a.ziel.startswith("/") else f"/steuer/{jahr}{a.ziel}"
+            return {"jahr": jahr, "art": a.art, "titel": a.titel, "text": a.text,
+                    "knopf": a.knopf, "ziel": ziel}  # fmt: skip
+        return None
+
+    app.state.quest_auftrag = heute_auftrag
+
     def beraterin_merken(p: Profil, form) -> None:
         """Übernimmt, was im Formular über die Beraterin steht. Felder, die fehlen, bleiben."""
         if "beraterin_email" in form:
