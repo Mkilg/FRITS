@@ -1525,3 +1525,15 @@ a.sq-beleg-vorschau:hover, a.sq-beleg-vorschau:focus-visible { transform: rotate
 /* Runde 24: Herkunft einer Zierde auf Touch (erstes Antippen) */
 .sq-zier-zettel { position: absolute; transform: rotate(-1deg); z-index: 400; width: max-content; max-width: min(220px, 70vw); padding: 0.4rem 0.6rem; background: #fffaf0; color: var(--tinte, #2a2016); border: 1px solid #d9c9a3; border-radius: 3px; box-shadow: 0 6px 14px rgba(20, 10, 2, .35); font: 600 0.8rem/1.3 system-ui, sans-serif; text-align: left; white-space: normal; animation: sq-treffer-rein .25s ease-out both; }
 .sq-zier-zettel small { display: block; font-weight: 400; color: #7a6e5c; margin-top: 0.2rem; }
+
+/* Runde 25: Am Handy mit gemalter Insel ist das Zierden-Feld ein Stück derselben gemalten Wiese,
+   mit weichen Rändern statt Kante und Schatten (Lena: wirkte wie ein Aufkleber). Die Wiese liegt
+   in ::before, damit sie den Zeitalter-Filter der Insel bekommt, die Zierden aber nicht. */
+@media (max-width: 760px) {
+  .sq-insel.mit-bild .sq-zierde { background: none; border-radius: 0; box-shadow: none; isolation: isolate; padding: 1.6rem 1.2rem 1.2rem; margin-top: -0.8rem; }
+  .sq-insel.mit-bild .sq-zierde::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+    background: var(--insel-bild) 56% 48% / 420% auto no-repeat;
+    -webkit-mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 55%, transparent 100%);
+    mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 55%, transparent 100%); }
+  .sq-insel.mit-bild.zeitalter-0 .sq-zierde::before { filter: saturate(.35) brightness(.86) contrast(.95); }
+}
