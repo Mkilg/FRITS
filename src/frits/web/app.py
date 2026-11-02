@@ -2375,6 +2375,7 @@ def create_app(
             "inbox": ws.inbox,
             "sample": setup.sample_note(current),
             "learning": step in setup.LEARNING_STEPS,
+            "lern_nr": setup.LEARNING_STEPS.index(step) + 1 if step in setup.LEARNING_STEPS else 0,
         }
         if step == "trick_document" and "demo" not in extra:
             try:  # no AI involved: show the result right away

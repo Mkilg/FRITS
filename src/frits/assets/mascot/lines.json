@@ -29,7 +29,7 @@
     "redaction_test": {
       "mood": "thinking",
       "title": "Kurzer Datenschutz-Test",
-      "text": "Bevor eine KI etwas liest, schwärze ich Namen, Adressen und Kontonummern hier auf deinem Rechner. Schau dir links das Original und rechts an, was die KI zu sehen bekommt."
+      "text": "Bevor eine KI etwas liest, schwärze ich Namen, Adressen und Kontonummern hier auf deinem Rechner. Drück auf „Schwärzen“ und sieh, was die KI zu sehen bekommt."
     },
     "trick_document": {
       "mood": "warning",
