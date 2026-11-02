@@ -9,7 +9,8 @@
 <div class="spielkarte art-{{ k.art }}{{ ' klein' if klein }}{{ ' glueck' if k.glueck }}" data-karte="{{ index }}">
   {% set art_name = "Gutschrift" if k.art == "rechnung" and (k.titel or "").startswith("Gutschrift ") else KARTEN_NAME.get(k.art, k.art) %}
   <span class="karte-art{{ ' lang' if art_name|length > 9 }}">{{ art_name }}</span>
-  <span class="karte-bild" aria-hidden="true">{% if picture(KARTEN_BILD.get(k.art, "")) %}<img src="{{ picture(KARTEN_BILD[k.art]) }}" alt="">{% else %}{{ KARTEN_ZEICHEN.get(k.art, "📄") }}{% endif %}</span>
+  {% set eigen, eigen_filter = karten_bild(k) %}
+  <span class="karte-bild" aria-hidden="true">{% if eigen %}<img class="karte-gemalt" src="{{ eigen }}" alt=""{% if eigen_filter %} style="filter: {{ eigen_filter }}"{% endif %}>{% elif picture(KARTEN_BILD.get(k.art, "")) %}<img src="{{ picture(KARTEN_BILD[k.art]) }}" alt="">{% else %}{{ KARTEN_ZEICHEN.get(k.art, "📄") }}{% endif %}</span>
   {% if not klein %}
   <strong class="karte-titel">{{ k.titel }}</strong>
   <span class="karte-detail">{{ k.detail }}</span>

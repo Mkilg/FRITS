@@ -102,6 +102,20 @@ def haus_sichtbar(conn) -> bool:
     )
 
 
+def karten_bild(karte) -> tuple[str, str]:
+    """Picture (and CSS filter) for a card from the Steuer-Quest: the painted province the paper
+    was found in, the beaten dragon for a finished year. ("", "") for every other card."""
+    from frits.web.steuer import bild, provinzbild
+
+    art = karte.get("art") if isinstance(karte, dict) else getattr(karte, "art", "")
+    fakten = karte if isinstance(karte, dict) else getattr(karte, "fakten", {}) or {}
+    if art == "steuerjahr":
+        return bild("drache-besiegt"), ""
+    if art == "steuer" and fakten.get("provinz"):
+        return provinzbild(fakten["provinz"], 3)  # built up: the paper is found
+    return "", ""
+
+
 MAL = {2: "zweimal", 3: "dreimal", 4: "viermal", 5: "fünfmal", 6: "sechsmal", 7: "siebenmal",
        8: "achtmal", 9: "neunmal", 10: "zehnmal", 11: "elfmal", 12: "zwölfmal"}  # fmt: skip
 
