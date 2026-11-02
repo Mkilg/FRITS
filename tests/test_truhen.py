@@ -310,3 +310,16 @@ def test_the_dish_chosen_already_really_brings_something():
     assert vorwahl({"braten": 7, "teller": 9, "einkochen": 6}, 6) == "teller"
     assert vorwahl({"suppe": 2, "eintopf": 2, "einkochen": 2}, 2) == "einkochen"  # Lena
     assert vorwahl({"suppe": 2, "eintopf": 2}, 2) == ""
+
+
+def test_chests_of_the_same_kind_are_named_once_with_their_number():
+    """Lena: "Glückskarte: Steuer-Unterlage." three times read like a bug."""
+    from types import SimpleNamespace as T
+
+    from frits.web.haustier import truhen_saetze
+
+    zu = [T(text=t) for t in ["Mach sie auf!", "Glückskarte: Rechnung", "Glückskarte: Rechnung"]]
+    assert truhen_saetze(zu) == (["Mach sie auf!", "Glückskarte: Rechnung (2 Truhen)."], 0)
+    zu += [T(text="Volle Truhe."), T(text="Glückskarte: Ausgabe"), T(text="Volle Truhe.")]
+    saetze, rest = truhen_saetze(zu)
+    assert saetze[-1] == "Volle Truhe (2 Truhen)." and rest == 1  # the Ausgabe one
