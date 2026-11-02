@@ -111,7 +111,7 @@
       {% endfor %}
       {% set gibts_nicht = p.karten | selectattr("status", "equalto", "gibts_nicht") | list %}
       {% if gibts_nicht %}
-      <p class="sq-buch-leer">Steht als „gibt es nicht“ in der Mail: {% for k in gibts_nicht %}<a href="/steuer/{{ jahr }}/gebiet/{{ p.g.id }}" title="Doch vorhanden? Auf der Karte den Stempel zurücknehmen">{{ k.name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}. Doch vorhanden? Klick drauf und nimm den Stempel zurück.</p>
+      <p class="sq-buch-leer">Steht als „gibt es nicht“ in der Mail: {% for k in gibts_nicht %}<a href="/steuer/{{ jahr }}/gebiet/{{ p.g.id }}" title="Doch vorhanden? Auf der Karte den Stempel zurücknehmen">{{ k.name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}. Doch vorhanden? Tipp drauf und nimm den Stempel zurück.</p>
       {% endif %}
       {% if p.leer %}
       <p class="sq-buch-leer">Noch leer: {% for k in p.leer %}<a href="/steuer/{{ jahr }}/gebiet/{{ p.g.id }}">{{ k.name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</p>

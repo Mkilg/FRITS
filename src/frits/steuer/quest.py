@@ -815,6 +815,21 @@ def verdiene(conn: sqlite3.Connection, jahr: int, grund: str, betrag: int, text:
     return wert
 
 
+STORNO = "storno:"
+
+
+def stornierte_gruende(conn: sqlite3.Connection, jahr: int) -> set[str]:
+    """Gründe, deren Salzkörner schon einmal zurückgebucht wurden. Eine solche Karte war schon
+    gewertet: Legt man sie wieder ab, zahlt sie den Grundwert, aber keine Serie aus dem Kampf
+    mehr (sonst ließe sich durch Zurücklegen und Neuwerfen Salz farmen)."""
+    ensure_schema(conn)
+    rows = conn.execute(
+        "SELECT grund FROM steuer_gold WHERE jahr = ? AND substr(grund, 1, ?) = ?",
+        (jahr, len(STORNO), STORNO),
+    ).fetchall()
+    return {r[0][len(STORNO) :].rsplit(":", 1)[0] for r in rows}
+
+
 def storniere(conn: sqlite3.Connection, jahr: int, grund: str, text: str) -> int:
     """Bucht die Salzkörner für einen Grund zurück und gibt den Grund wieder frei.
 
@@ -830,7 +845,12 @@ def storniere(conn: sqlite3.Connection, jahr: int, grund: str, text: str) -> int
         ).fetchone()
         if row is None:
             return 0
-        conn.execute("UPDATE steuer_gold SET grund = NULL WHERE id = ?", (row["id"],))
+        # Der Grund wird frei, bleibt aber lesbar: Wer eine Karte zurücklegt und neu wirft,
+        # bekommt nur den Grundwert (siehe stornierte_gruende, Lena Runde 38)
+        conn.execute(
+            "UPDATE steuer_gold SET grund = ? WHERE id = ?",
+            (f"{STORNO}{grund}:{row['id']}", row["id"]),
+        )
         cur = conn.execute(
             "INSERT INTO steuer_gold (jahr, zeit, betrag, grund, text) VALUES (?, ?, ?, NULL, ?)",
             (jahr, _now(), -row["betrag"], f"Zurückgebucht: {text}"),

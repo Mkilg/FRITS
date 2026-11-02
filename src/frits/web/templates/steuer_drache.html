@@ -44,7 +44,7 @@
   {% else %}
   <span class="sq-band rot" style="width: 320px"><span style="width: {{ drache.prozent }}%"></span></span>
   {% endif %}
-  <span class="sq-lp-zahl"><b data-zaehler="lp">{{ drache.lp }}</b> Lebenspunkte</span>
+  <span class="sq-lp-zahl"><b data-zaehler="lp">{{ drache.lp }}</b> Lebenspunkt{{ "e" if drache.lp != 1 }}</span>
   {% if helfer %}
   <ul class="sq-helferreihe" aria-label="Deine Helfer">{% for key in helfer | sort %}{% set w = ware(key) %}<li><span class="sq-ware-zeichen {{ key }}" aria-hidden="true"></span><b>{{ w.name }}</b> <small>{{ helfer_satz(key) }}</small></li>{% endfor %}</ul>
   {% endif %}
@@ -87,7 +87,7 @@
       {% if beute.mult > 1 %}
       <span class="sq-rechnung" aria-label="{{ koerner(beute.plus) }} verdient"><span class="chips">{{ beute.basis }}</span><span class="mal">×</span><span class="faktor">{{ beute.mult }}</span><span class="gleich">=</span><b>+{{ karte_gold }} {{ salz }}</b>{% if beute.plus > karte_gold %}<small>+{{ beute.plus - karte_gold }} Bonus</small>{% endif %}</span>
       {% else %}
-      <span class="sq-rechnung" aria-label="{{ koerner(beute.plus) }} verdient"><b>+{{ karte_gold }} {{ salz }}</b>{% if beute.plus > karte_gold %}<small>+{{ beute.plus - karte_gold }} Bonus</small>{% endif %}{% if wurf.wie not in ["datei", "zettel", "verweis"] and combo.mult > 1 %}<small>ohne Serie, die zählt nur für Belege</small>{% endif %}</span>
+      <span class="sq-rechnung" aria-label="{{ koerner(beute.plus) }} verdient"><b>+{{ karte_gold }} {{ salz }}</b>{% if beute.plus > karte_gold %}<small>+{{ beute.plus - karte_gold }} Bonus</small>{% endif %}{% if wurf.wieder and combo.mult > 1 %}<small>ohne Serie, die Karte war schon gewertet</small>{% elif wurf.wie not in ["datei", "zettel", "verweis"] and combo.mult > 1 %}<small>ohne Serie, die zählt nur für Belege</small>{% endif %}</span>
       {% endif %}
       {% endif %}
     </div>
