@@ -1,27 +1,16 @@
 {# Messingleiste der Steuer-Quest: oben auf jeder Quest-Seite. Die Zahlen tickern (steuer.js). #}
 <header class="sq-leiste" data-jahr="{{ jahr }}">
   <a class="sq-titel" href="/steuer/{{ jahr }}">Steuer-Quest <span>{{ jahr }}</span></a>
-  <ul class="sq-marken">
-    <li class="sq-marke belege"><a href="/steuer/{{ jahr }}/belege" title="Gesicherte Dokumente. Hier geht es zum Belegbuch: alles ansehen, Fragen dazu stellen."><i></i><b data-zaehler="belege">{{ ressourcen.belege }}</b> Belege</a></li>
-    <li class="sq-marke briefe" title="Wünsche deiner Beraterin"><i></i><b data-zaehler="briefe">{{ ressourcen.briefe }}</b> Briefe</li>
-    <li class="sq-marke siegel" title="Komplette Provinzen"><i></i><b data-zaehler="siegel">{{ ressourcen.siegel }}</b> Siegel</li>
-    <li class="sq-marke fragen" title="Fragen an deine Beraterin"><i></i><b data-zaehler="fragen">{{ ressourcen.fragen }}</b> Fragen</li>
-    <li class="sq-marke gold"><a href="/steuer/{{ jahr }}/markt" title="Dein Gold. Auf dem Hafenmarkt holst du dir damit Helfer für den Drachenkampf."><i></i><b data-zaehler="gold">{{ ressourcen.gold }}</b> Gold</a></li>
-    {% if sammlung_da is defined and sammlung_da %}{% set sammel = sammlung_stand() %}{% if sammel %}
-    <li class="sq-marke sammlung"><a href="/sammlung" title="Deine Sammlung mit Fritte: Orden, Zierden und Schätze aus allen Jahren. {{ sammel[0] }} von {{ sammel[1] }} Plätzen gefüllt."><i></i><b>{{ sammel[0] }}/{{ sammel[1] }}</b><span class="sr-only"> in deiner Sammlung</span></a></li>
-    {% endif %}{% endif %}
-  </ul>
   {# 100 % erst mit dem Sieg: Fehlt nur noch ein echtes Dokument, steht dort 99 % #}
   {% set prozent = 99 if (gesamt.prozent >= 100 and drache is defined and not drache.besiegt) else gesamt.prozent %}
   <details class="sq-zeitalter">
-    <summary title="Was bringt das nächste Zeitalter?">
-    <span>{{ zeitalter[1] }}</span>
+    <summary title="{{ zeitalter[1] }}: Was bringt das nächste Zeitalter?">
+    <span>Insel zu <b data-zaehler="prozent">{{ prozent }}</b> % fertig</span>
     <span class="sq-band" role="progressbar" aria-label="Fortschritt" aria-valuenow="{{ prozent }}" aria-valuemin="0" aria-valuemax="100"><span style="width: {{ prozent }}%"></span></span>
-    <span><b data-zaehler="prozent">{{ prozent }}</b> %</span>
     <span class="sq-zeitalter-info" aria-hidden="true">?</span>
     </summary>
     <div class="sq-zeitalter-zettel">
-      <p><strong>{{ zeitalter[1] }}.</strong> {{ zeitalter[2] }}</p>
+      <p><strong>Zeitalter: {{ zeitalter[1] }}.</strong> {{ zeitalter[2] }}</p>
       {% if weg is defined and weg %}
       <p>Nächstes: <strong>{{ weg[0] }}</strong>, noch <strong>{{ weg[1] }} Karte{{ "n" if weg[1] != 1 }}</strong>. {{ weg[2] }}</p>
       {% elif drache is defined and drache.will_beleg %}
@@ -32,5 +21,21 @@
       <p class="muted">Jede beantwortete Karte zählt: eine Datei, eine Angabe, „Gibt's nicht“ oder eine Frage an die Beraterin. Bonus-Schätze zählen nicht mit, sie bringen Gold.</p>
       <p class="muted">Bisher: {{ gesamt.erledigt }} von {{ gesamt.gesamt }} Karten.</p>
     </div>
+  </details>
+  <ul class="sq-marken sq-marken-haupt">
+    <li class="sq-marke gold"><a href="/steuer/{{ jahr }}/markt" title="Dein Gold. Auf dem Hafenmarkt holst du dir damit Helfer für den Drachenkampf."><i></i><b data-zaehler="gold">{{ ressourcen.gold }}</b> Gold</a></li>
+  </ul>
+  {# Alles Weitere auf einen Klick: weniger Zahlen auf einmal (Marie, 2.11.) #}
+  <details class="sq-mehr-marken">
+    <summary><span class="lang">Belege, Siegel, Fragen</span><span class="kurz">Mehr</span> <span class="sq-mehr-pfeil" aria-hidden="true">▾</span></summary>
+    <ul class="sq-marken">
+      <li class="sq-marke belege"><a href="/steuer/{{ jahr }}/belege" title="Gesicherte Dokumente. Hier geht es zum Belegbuch: alles ansehen, Fragen dazu stellen."><i></i><b data-zaehler="belege">{{ ressourcen.belege }}</b> Belege</a></li>
+      <li class="sq-marke briefe" title="Wünsche deiner Beraterin"><i></i><b data-zaehler="briefe">{{ ressourcen.briefe }}</b> Briefe</li>
+      <li class="sq-marke siegel" title="Komplette Provinzen"><i></i><b data-zaehler="siegel">{{ ressourcen.siegel }}</b> Siegel</li>
+      <li class="sq-marke fragen" title="Fragen an deine Beraterin"><i></i><b data-zaehler="fragen">{{ ressourcen.fragen }}</b> Fragen</li>
+    {% if sammlung_da is defined and sammlung_da %}{% set sammel = sammlung_stand() %}{% if sammel %}
+      <li class="sq-marke sammlung"><a href="/sammlung" title="Deine Sammlung mit Fritte: Orden, Zierden und Schätze aus allen Jahren. {{ sammel[0] }} von {{ sammel[1] }} Plätzen gefüllt."><i></i><b>{{ sammel[0] }}/{{ sammel[1] }}</b><span class="sr-only"> in deiner Sammlung</span></a></li>
+    {% endif %}{% endif %}
+    </ul>
   </details>
 </header>

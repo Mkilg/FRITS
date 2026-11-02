@@ -1633,3 +1633,57 @@ a.sq-beleg-vorschau:hover, a.sq-beleg-vorschau:focus-visible { transform: rotate
     linear-gradient(transparent 46%, #8f5b2c 46%, #6f431e),
     linear-gradient(transparent 38%, #4a2a12 38%, #4a2a12 46%, transparent 46%),
     repeating-linear-gradient(90deg, #b5462e 0 8px, #f3e4c4 8px 16px); }
+
+/* Runde 29: schlanke Leiste. Fortschritt und Gold sichtbar, der Rest auf einen Klick */
+.sq-leiste details.sq-zeitalter { margin-left: 0; flex: 1 1 260px; max-width: 520px; }
+.sq-leiste details.sq-zeitalter > summary { width: 100%; }
+.sq-leiste .sq-zeitalter .sq-band { flex: 1; min-width: 80px; }
+.sq-leiste .sq-zeitalter-zettel { left: 0; right: auto; }
+.sq-marken-haupt { margin-left: auto; }
+details.sq-mehr-marken { position: relative; }
+details.sq-mehr-marken > summary { list-style: none; cursor: pointer; font: 600 0.85rem system-ui, sans-serif; color: #5c4a2a; padding: 0.25rem 0.55rem; border-radius: 6px; white-space: nowrap; }
+details.sq-mehr-marken > summary::-webkit-details-marker { display: none; }
+details.sq-mehr-marken > summary:hover, details.sq-mehr-marken[open] > summary { background: rgba(255, 255, 255, .45); }
+details.sq-mehr-marken > .sq-marken { position: absolute; right: 0; top: calc(100% + 10px); z-index: 80; flex-direction: column; flex-wrap: nowrap; gap: 0.45rem;
+  min-width: 190px; padding: 0.7rem 0.9rem; background: var(--papier); border-radius: 4px; box-shadow: 0 10px 24px rgba(25, 12, 3, .35); }
+details.sq-mehr-marken .sq-marke { font-size: 0.9rem; }
+@media (max-width: 720px) {
+  .sq-leiste details.sq-zeitalter { order: 5; flex-basis: 100%; max-width: none; }
+  .sq-marken-haupt { margin-left: auto; }
+  details.sq-mehr-marken > .sq-marken .sq-marke { font-size: 0.9rem; }
+  details.sq-mehr-marken > summary { font-size: 0.8rem; }
+}
+
+/* Runde 29: Insel aufgeräumt. Ohne Zettel im Korb steht die Insel in der Mitte,
+   darunter ein Ablagefeld und drei kleine Werkzeuge */
+.sq-flaeche.ohne-korb { grid-template-columns: minmax(0, 1fr) 250px; max-width: 1240px; }
+@media (max-width: 1100px) { .sq-flaeche.ohne-korb { grid-template-columns: minmax(0, 1fr); } }
+.sq-unten { width: min(640px, 100%); margin: 0.4rem auto 0; display: flex; flex-direction: column; align-items: stretch; gap: 0.5rem; position: relative; z-index: 80; }
+.sq-unten .sq-einwurf { margin: 0; text-align: center; }
+.sq-unten .sq-einwurf .dropzone { padding: 1rem 1.2rem; }
+.sq-unten .sq-einwurf .dz-titel { font-size: 1.2rem; }
+.sq-unten-brief { margin: 0; text-align: center; font-size: 0.88rem; }
+.sq-unten-brief a { color: #ffe6a8; text-shadow: 0 1px 2px rgba(0,0,0,.9); }
+.sq-werkzeuge { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.6rem; margin-top: 0.3rem; }
+.sq-werkzeuge a { display: inline-flex; align-items: center; gap: 0.45rem; min-height: 40px; padding: 0.3rem 0.8rem 0.3rem 0.5rem; border-radius: 4px;
+  background: linear-gradient(175deg, var(--papier), var(--creme)); color: var(--tinte); font: 700 0.92rem var(--schrift); text-decoration: none;
+  box-shadow: 0 1px 0 var(--papier-schatten), 0 5px 10px rgba(25, 12, 3, .3); transition: transform .15s; }
+.sq-werkzeuge a:hover, .sq-werkzeuge a:focus-visible { transform: translateY(-2px); }
+.sq-werkzeuge .sq-ding-bild.buch { width: 20px; height: 24px; box-shadow: inset -2px 0 0 #f1e2bd; filter: none; }
+.sq-werkzeug-orden { width: 18px; height: 18px; border-radius: 50%; margin-top: 4px; position: relative; background: radial-gradient(circle at 38% 32%, #fff3c4, #d8a640 50%, #7a5512); border: 1px solid #6b4a10; }
+.sq-werkzeug-orden::before { content: ""; position: absolute; left: 3px; top: -8px; width: 10px; height: 8px; background: linear-gradient(90deg, var(--wachs, #a8322b) 0 50%, var(--tinte-hell, #4a6896) 50%); clip-path: polygon(0 0, 100% 0, 80% 100%, 20% 100%); }
+.sq-werkzeug-feder { width: 18px; height: 18px; background: linear-gradient(135deg, transparent 42%, var(--tinte) 43% 57%, transparent 58%); position: relative; }
+.sq-werkzeug-feder::after { content: ""; position: absolute; right: 0; top: 0; width: 9px; height: 9px; border-radius: 0 50% 0 50%; background: var(--terrakotta-dunkel, #8e3f22); }
+.sq-flaeche.ohne-korb > .sq-meer { width: min(720px, 100%); justify-self: center; padding-bottom: 1.5rem; }
+/* Das Ablagefeld rückt in die Wolken unter der Insel: so ist es ohne Scrollen zu sehen */
+.sq-insel-buehne { position: relative; }
+@media (min-width: 761px) {
+  .sq-meer:has(.sq-unten) { padding-bottom: 1.5rem; }
+  .sq-insel-buehne { padding-bottom: 4.5rem; }
+}
+@media (min-width: 1101px) { .sq-flaeche.ohne-korb .sq-insel-buehne:has(.sq-insel.mit-bild) + .sq-unten { margin-top: -150px; } }
+@media (max-width: 760px) { .sq-insel-buehne { display: contents; } }
+.sq-unten .sq-einwurf .dropzone { background: rgba(30, 14, 4, .72); }
+@media (min-width: 1101px) { .sq-flaeche.ohne-korb .sq-insel-buehne > .sq-hort-insel { right: -130px; } }
+details.sq-mehr-marken .kurz { display: none; }
+@media (max-width: 720px) { details.sq-mehr-marken .lang { display: none; } details.sq-mehr-marken .kurz { display: inline; } }

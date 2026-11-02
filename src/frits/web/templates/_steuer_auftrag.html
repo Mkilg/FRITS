@@ -3,7 +3,7 @@
 <section class="sq-auftrag art-{{ auftrag.art }}" aria-label="Dein Auftrag">
   <span class="sq-auftrag-siegel" aria-hidden="true">!</span>
   <div class="sq-auftrag-text">
-    <p class="sq-kicker">Dein Auftrag</p>
+    <p class="sq-kicker">Als Nächstes</p>
     <h2{% if auftrag.titel | length > 24 %} class="lang"{% endif %}>{{ auftrag.titel }}</h2>
     <p>{{ auftrag.text }}</p>
     {% if auftrag.gesamt and auftrag.art == "provinz" %}
@@ -15,7 +15,8 @@
     {% for b in auftrag.belohnungen %}<li>{{ b }}</li>{% endfor %}
   </ul>
   {% endif %}
-  {% if tagwerk is defined %}{% set heute, tagesziel = tagwerk %}
+  {# Mit Fritte steht das gemeinsame Tagesziel schon auf Heute: hier nicht doppelt #}
+  {% if tagwerk is defined and not (tagesziel_info is defined and tagesziel_info) %}{% set heute, tagesziel = tagwerk %}
   {# Mit Fritte ist es ein gemeinsames Tagesziel: derselbe Text und dieselben Zahlen wie auf Heute #}
   {% set gemeinsam = tagesziel_info is defined and tagesziel_info %}
   <p class="sq-tagwerk{% if heute >= tagesziel %} geschafft{% endif %}" title="{{ tagesziel_info.erklaerung if gemeinsam and tagesziel_info.erklaerung else 'Tagesziel: ' ~ tagesziel ~ ' Karten am Tag reichen. Langsam und stetig gewinnt.' }}">

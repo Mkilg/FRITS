@@ -124,6 +124,49 @@
       {% set stimmung = "done" if summen.leer == 0 else "thinking" %}{% include "_steuer_fritte.html" %}
       <p class="sq-sprechblase">{% if summen.belege + summen.angaben == 0 %}Noch leer hier. Zieh deinen ersten Beleg auf eine Karte, dann taucht er hier auf.{% elif summen.leer %}Schon {{ summen.belege + summen.angaben }} Stück gesichert. Unten in jeder Provinz steht, was noch fehlt.{% elif drache.besiegt %}Der Drache ist besiegt! Hier siehst du noch einmal alles, bevor du die Fundkiste packst.{% else %}Alle Pflichtkarten haben etwas. Jetzt nur noch den Drachen besiegen!{% endif %}</p>
     </div>
+    {# Vom Tisch hierher: der Lager-Ordner und alles, was man selten braucht (Marie, 2.11.) #}
+    <form method="post" action="/steuer/{{ jahr }}/lager/oeffnen">
+      <input type="hidden" name="token" value="{{ token }}">
+      <button class="sq-ding"><span class="sq-ding-bild kiste"></span><span><strong>Lager-Ordner</strong>öffnen und Dateien hineinlegen</span></button>
+    </form>
+    <details class="sq-papier sq-wohin">
+      <summary>Was gehört wohin?</summary>
+      <p class="muted">Zieh ein Dokument auf die Provinz, zu der es gehört. Unsicher? Dann leg es im Rathaus unter „Sonstiges für die Beraterin“ ab.</p>
+      <ul>
+        {% for p in provinzen %}
+        <li><a href="/steuer/{{ jahr }}/gebiet/{{ p.gebiet.id }}"><strong>{{ p.gebiet.titel }}</strong></a>
+          <span>{{ p.gebiet.provinz.wofuer or (p.gebiet.bereich ~ ": " ~ (p.stuecke | rejectattr("art", "equalto", "bonus") | map(attribute="name") | list)[:3] | join(", ") ~ ".") }}</span></li>
+        {% endfor %}
+      </ul>
+      <p class="muted">So wächst eine Provinz: Jede beantwortete Karte baut weiter, sei es eine Datei, eine Angabe, „Gibt's nicht“ oder eine Frage. Sind alle Karten erledigt, bekommt sie ein Siegel.</p>
+    </details>
+
+    {% if vergleich %}
+    {% set fehlt = vergleich | rejectattr("jetzt", "in", ["gesammelt", "gibts_nicht", "fragen"]) | list %}
+    <section class="sq-papier sq-schief sq-notiz" style="--r: 1.2deg">
+      <h2>Wie letztes Jahr?</h2>
+      {% if fehlt %}
+      <p>{{ jahr - 1 }} hattest du {{ vergleich | length }} Sachen. Noch offen: {{ fehlt | length }}.</p>
+      <ul>{% for v in fehlt[:4] %}<li>{{ v.name }}</li>{% endfor %}</ul>
+      {% else %}<p>Alles, was {{ jahr - 1 }} da war, ist wieder da. Stark!</p>{% endif %}
+    </section>
+    {% endif %}
+
+    {% if not sammlung_da %}
+    <section aria-label="Orden" id="orden">
+      <h2 class="sq-rand-titel">Orden</h2>
+      <ul class="sq-orden">
+        {% for e in erfolge %}<li class="{{ '' if e.erreicht else 'aus' }}" tabindex="0" aria-label="{{ e.name }}: {{ e.beschreibung }}{% if not e.erreicht %} (noch nicht){% endif %}"><span class="sq-orden-zeichen" aria-hidden="true">{{ e.zeichen }}</span><span class="sq-orden-info" aria-hidden="true"><strong>{{ e.name }}</strong>{{ e.beschreibung }}{% if not e.erreicht %} <em>Noch nicht geschafft.</em>{% endif %}{% set z = zierde_fuer(e.key) %}{% if z %} <em>Belohnung: {{ z.name }} auf der Insel.</em>{% endif %}</span></li>{% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+
+    {% if chronik %}
+    <section class="sq-papier sq-schief sq-notiz" style="--r: -0.8deg">
+      <h2>Chronik</h2>
+      <ul>{% for e in chronik[:6] %}<li>{{ e.text }}</li>{% endfor %}</ul>
+    </section>
+    {% endif %}
     <div class="sq-papier sq-schief sq-wer-sieht" style="--r: 0.8deg">
       <h2>Wer sieht deine Belege?</h2>
       <p>Nur du. Die Steuer-Quest schickt nichts an eine KI. Die Vorschläge im Eingangskorb rät FRITS aus dem Dateinamen, hier auf deinem Computer.</p>
