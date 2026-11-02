@@ -928,6 +928,8 @@ def register_steuer(
             "stueck_id": s["id"],
             "karte": s["name"],
             "text": z.text,
+            "besser_id": z.besser["id"] if z.besser else None,
+            "besser": z.besser["name"] if z.besser else "",
         }
         wo = (
             "Es bleibt erst mal im Eingangskorb."
@@ -940,20 +942,29 @@ def register_steuer(
         felder = {"name": name, "stueck_id": s["id"], "trotzdem": "1", "back": zurueck}
         if im_kampf:
             felder.update(aktion="zettel", zettel=name)
-        flash(
-            f"Fritte stutzt: {z.text} {wo}",
-            "warn",
-            aktion={
-                "url": url,
-                "knopf": "Trotzdem ablegen",
-                "felder": felder,
-                "zweit": {
-                    "url": f"/steuer/{jahr}/lager/beiseite",
-                    "knopf": "Beiseite legen",
-                    "felder": {"name": name, "back": zurueck},
+        trotzdem = {"url": url, "knopf": "Trotzdem ablegen", "felder": felder}
+        beiseite = {
+            "url": f"/steuer/{jahr}/lager/beiseite",
+            "knopf": "Beiseite legen",
+            "felder": {"name": name, "back": zurueck},
+        }
+        if z.besser:
+            # Lena (Runde 45): Fritte nannte die richtige Karte, aber ohne Weg dorthin
+            aktion = {
+                "url": f"/steuer/{jahr}/lager/zuordnen",
+                "knopf": f"Zu „{z.besser['name']}“",
+                "felder": {
+                    "name": name,
+                    "stueck_id": z.besser["id"],
+                    "trotzdem": "1",
+                    "back": zurueck,
                 },
-            },
-        )
+                "zweit": trotzdem,
+                "dritt": beiseite,
+            }
+        else:
+            aktion = {**trotzdem, "zweit": beiseite}
+        flash(f"Fritte stutzt: {z.text} {wo}", "warn", aktion=aktion)
 
     def in_den_korb(tmp: Path, name: str) -> Path:
         """Legt die Datei in den Eingangskorb. Liegt genau diese Datei dort schon, bleibt es

@@ -1478,7 +1478,7 @@ a.sq-beleg-vorschau:hover, a.sq-beleg-vorschau:focus-visible { transform: rotate
 .sq-combo-regel { flex-basis: 100%; text-align: center; color: #f3e3c0; font: 600 0.85rem system-ui, sans-serif; text-shadow: 0 1px 2px rgba(0,0,0,.9); }
 .sq-rechnung small + small { margin-left: 0.4rem; }
 /* Belohnungen nacheinander: jede springt einzeln auf (steuer.js spielt dazu je einen Ton) */
-.sq-belohnung.nacheinander .sq-beute li { animation: sq-beute-pop .55s cubic-bezier(.2, 1.7, .4, 1) both; animation-delay: calc(0.6s + var(--i, 0) * 0.7s); font-size: 1.05rem; }
+.sq-belohnung.nacheinander .sq-beute li { animation: sq-beute-pop .55s cubic-bezier(.2, 1.7, .4, 1) both; animation-delay: calc(0.3s + var(--i, 0) * 0.4s); font-size: 1.05rem; }
 @keyframes sq-beute-pop { 0% { opacity: 0; transform: scale(.4) rotate(-6deg); } 60% { opacity: 1; transform: scale(1.12) rotate(1deg); } 100% { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .sq-belohnung.nacheinander .sq-beute li { animation: none; } }
 /* Auf der Insel liegen links der Korb und rechts die Chronik: Meldungen kommen unten in die
@@ -1806,3 +1806,23 @@ details.sq-mehr-marken .kurz { display: none; }
   .sq-arena .sq-kampf-kurz { display: block; order: -2; margin: 0; padding: .25rem .8rem; border-radius: 999px; background: rgba(30, 14, 4, .55); color: var(--creme); font-size: .9rem; }
   .sq-arena .sq-kampf-kurz b { color: var(--gold, #e9bd4f); }
 }
+
+/* Runde 44 (Lenas Runde 45) */
+/* Über den Notausgang gepackt: ein ehrlicher Satz statt Siegel und Konfetti */
+.sq-kiste-halb { margin: -.2rem 0 1rem; padding: .8rem; border: 2px dashed #b08a4a; border-radius: 6px; background: #fbf3e0; }
+.sq-kiste-halb p { margin: 0 0 .4rem; }
+/* Der Knopf unter dem Satz bekommt Luft (am Handy berührte „abschicken.“ den Knopf) */
+.sq-kiste-finale p:has(> .sq-stempelknopf), .sq-kiste-halb p:has(> .sq-stempelknopf) { margin-top: .7rem; }
+/* Am Mac war das Finale ein schmaler Streifen (154 px): Wie am Handy steht die Kiste groß
+   über dem Satz, das Siegel unten rechts neben ihr statt auf ihr. */
+@media (min-width: 601px) {
+  .sq-kiste-finale { flex-direction: column; text-align: center; gap: .6rem; padding: 1.4rem 1.6rem 1.2rem; }
+  .sq-kiste-finale-bild, .sq-kiste-finale-bild img { width: 220px; }
+  .sq-kiste-finale .sq-kiste-siegel { right: -44px; bottom: 4px; width: 68px; height: 68px; font-size: 1rem; }
+  .sq-kiste-finale-titel { font-size: 1.7rem; }
+}
+/* Fritte stutzt: Der Weg zur passenden Karte ist der erste Knopf */
+.sq-ahnung.sq-stutzt button.sq-besser { background: #9a6a1a; color: var(--papier); font-weight: 700; }
+.sq-ahnung.sq-stutzt button.sq-besser:hover { background: #6b4a10; }
+/* Die Karte vorn war schon gewertet: Die Serie wartet grau, statt groß über „ohne Serie“ zu stehen */
+.sq-combo.gewertet .mult { background: #7c6a58; box-shadow: 0 5px 0 #3e3227; }

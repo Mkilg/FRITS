@@ -52,7 +52,7 @@
 
   {# Vorschau statt Rückblick: Der große Faktor gilt für den nächsten Beleg, nicht für den letzten #}
   {% if goldjahr %}
-  <div class="sq-combo{% if combo.wartet %} wartet{% endif %}" aria-live="polite"><span class="mult" title="Serie: So oft zählen die Salzkörner für deinen nächsten Beleg">Serie ×{{ combo.naechster }}</span><span class="ruf">{{ combo.ruf }}</span>
+  <div class="sq-combo{% if combo.wartet %} wartet{% endif %}{% if combo.gewertet is defined %} gewertet{% endif %}" aria-live="polite"><span class="mult" title="Serie: So oft zählen die Salzkörner für deinen nächsten Beleg">Serie ×{{ combo.naechster }}</span><span class="ruf">{{ combo.ruf }}</span>
     {% if combo.gewertet is defined %}
     <small class="sq-combo-regel">Die Karte vorn war schon gewertet: +{{ koerner(combo.gewertet) }}{% if combo.siegel_dazu %}, dazu das Siegel +{{ combo.siegel_dazu }}{% endif %}, ohne Serie. Deine Serie wartet auf die nächste neue Karte.</small>
     {% else %}

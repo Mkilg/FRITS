@@ -500,14 +500,26 @@ def auftrag(
             gesamt=drache_.max_lp,
         )
     if zettel:
-        return Auftrag(
-            "korb",
-            "Sortiere den Eingangskorb",
-            (
+        if all(s["status"] == "offen" for s in stuecke):
+            # Lena (Runde 45): Ein neues Jahr begann mit einem Zettel aus dem Vorjahr. Der Korb
+            # gilt für alle Jahre; in einem frischen Jahr sagen wir das, statt ihn ihm zuzuschreiben.
+            text = (
+                "Im Korb liegt noch ein Zettel. Der Korb gilt für alle Jahre:"
+                f" Gehört er zu {jahr}, leg ihn auf seine Provinz."
+                if zettel == 1
+                else f"Im Korb liegen noch {zettel} Zettel. Der Korb gilt für alle Jahre:"
+                f" Was zu {jahr} gehört, legst du auf seine Provinz."
+            )
+        else:
+            text = (
                 "Ein Zettel wartet. Leg ihn auf seine Provinz."
                 if zettel == 1
                 else f"{zettel} Zettel warten. Leg jeden auf seine Provinz."
-            ),
+            )
+        return Auftrag(
+            "korb",
+            "Sortiere den Eingangskorb",
+            text,
             "Ersten Zettel ansehen",
             "#sq-korb",
             ("+1 Beleg pro Zettel",),
@@ -603,8 +615,13 @@ def koerner(n: int) -> str:
 
 
 def kiste_aenderung(neu: int, weg: int) -> str:
-    """„2 neue Belege und 1 Beleg herausgenommen seit dem Packen.“ Leer, wenn nichts anders ist."""
+    """„1 Beleg getauscht und 1 neuer Beleg seit dem Packen.“ Leer, wenn nichts anders ist."""
     teile = []
+    # Lena (Runde 45): „1 neuer Beleg und 1 Beleg herausgenommen“ heißt einfach getauscht
+    getauscht = min(neu, weg)
+    neu, weg = neu - getauscht, weg - getauscht
+    if getauscht:
+        teile.append(f"{getauscht} Beleg{'e' if getauscht > 1 else ''} getauscht")
     if neu:
         teile.append("1 neuer Beleg" if neu == 1 else f"{neu} neue Belege")
     if weg:

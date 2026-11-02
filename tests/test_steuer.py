@@ -3022,9 +3022,7 @@ def test_runde_34_fundkiste_neu_packen_nach_neuen_belegen(client, ws):
 def test_runde_34_kiste_aenderung_text():
     assert spiel.kiste_aenderung(0, 0) == ""
     assert spiel.kiste_aenderung(2, 0) == "2 neue Belege seit dem Packen."
-    assert (
-        spiel.kiste_aenderung(1, 1) == "1 neuer Beleg und 1 Beleg herausgenommen seit dem Packen."
-    )
+    assert spiel.kiste_aenderung(1, 1) == "1 Beleg getauscht seit dem Packen."
 
 
 def test_runde_34_fund_banner_nennt_die_salzkoerner(client, ws):
@@ -3459,3 +3457,64 @@ def test_runde_43_kiste_vergleicht_nach_inhalt(client, ws):
          trotzdem="1")  # fmt: skip
     assert quest.kiste_stand(conn, 2025) == (0, 0)  # gleicher Inhalt: nichts neu zu packen
     assert "Pack die Fundkiste neu" not in client.get("/steuer/2025/sieg").text
+
+
+def test_runde_44_kiste_aenderung_sagt_getauscht():
+    """Lena (Runde 45): „1 neuer Beleg und 1 Beleg herausgenommen“ heißt einfach getauscht."""
+    assert spiel.kiste_aenderung(2, 1) == "1 Beleg getauscht und 1 neuer Beleg seit dem Packen."
+    assert (
+        spiel.kiste_aenderung(1, 3)
+        == "1 Beleg getauscht und 2 Belege herausgenommen seit dem Packen."
+    )
+
+
+def test_runde_44_leere_kiste_wird_nicht_gefeiert(client, ws):
+    """Lena (Runde 45): „Heute nur senden“, 0 Dokumente, und das Finale sagte „Alles drin“."""
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    post(client, "/steuer/2025/drache/notausgang")
+    seite = post(client, "/steuer/2025/truhe", schloss="passwort").text
+    assert 'class="sq-kiste-finale"' not in seite and "sq-kiste-siegel" not in seite
+    assert "ist gepackt, aber noch leer" in seite and "noch offen" in seite
+    assert "Alles, was deine Beraterin braucht" not in seite
+
+
+def test_runde_44_fritte_stutzt_mit_weg_zur_passenden_karte(client, ws):
+    """Lena (Runde 45): Fritte nannte die richtige Karte, aber ohne Knopf dorthin."""
+    from frits.steuer.katalog import quellen_text
+    from frits.steuer.pruefung import nennt_die_karte
+
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    alle = quest.stuecke(conn, 2025)
+    paar = next(
+        (s, b)
+        for s in alle
+        for b in alle
+        if b["id"] != s["id"]
+        and spiel.ahnung(f"{b['name']}.pdf", [s]).stueck is None
+        and (spiel.ahnung(f"{b['name']}.pdf", alle).stueck or {}).get("id") == b["id"]
+        and not nennt_die_karte(f"{b['name']}.pdf", quellen_text(s["gebiet"], s["key"]))
+    )
+    s, besser = paar
+    name = f"{besser['name']}.pdf"
+    lager = quest.lager(ws.root)
+    lager.mkdir(parents=True, exist_ok=True)
+    (lager / name).write_bytes(b"%PDF-1.4 brief")
+    seite = post(client, "/steuer/2025/lager/zuordnen", name=name, stueck_id=s["id"]).text
+    assert "Fritte stutzt" in seite and f"Zu „{besser['name']}“" in seite
+    assert "Trotzdem ablegen" in seite and "Beiseite legen" in seite
+    korb = client.get("/steuer/2025").text
+    assert 'class="sq-besser"' in korb
+    post(client, "/steuer/2025/lager/zuordnen", name=name, stueck_id=besser["id"], trotzdem="1")
+    assert quest.stueck(conn, besser["id"])["status"] == "gesammelt"
+    assert quest.stueck(conn, s["id"])["status"] == "offen"
+
+
+def test_runde_44_frisches_jahr_sagt_der_korb_gilt_fuer_alle_jahre(client, ws):
+    """Lena (Runde 45): 2024 begann mit „Ein Zettel wartet“, dem DB-Ticket aus 2025."""
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    a = spiel.auftrag(
+        2025, [], spiel.drache(quest.stuecke(conn, 2025)), 1, quest.stuecke(conn, 2025)
+    )
+    assert a.art == "korb" and "Der Korb gilt für alle Jahre" in a.text and "2025" in a.text
