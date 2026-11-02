@@ -612,12 +612,13 @@ def register_steuer(
         # Mit dem gemeinsamen Tagesziel kann es auch bei Fritte erreicht worden sein:
         # Dann zahlt die Insel ihr Gold beim nächsten Quest-Schritt dieses Tages.
         erreicht = ziel <= heute and (gemeinsam or vorher["tagwerk"][0] < ziel)
-        if erreicht and not sieg and not quest.hat_gold(c, jahr, tag):
+        # Ein Tag, ein Tagesziel: Das Gold gibt es einmal am Tag, nicht einmal pro Steuerjahr
+        if erreicht and not sieg and not quest.hat_gold(c, None, tag):
             # Einmal am Tag: Wer zurücklegt und neu zuordnet, bekommt kein zweites Fest
             quest.notiere(c, jahr, "tagwerk", "Tagwerk geschafft")
             lohn = spiel.tagwerk_gold(helfer) if goldjahr else 0
             if lohn:
-                lohn = quest.verdiene(c, jahr, tag, lohn, "Tagwerk")
+                lohn = quest.verdiene(c, jahr, tag, lohn, "Tagesziel" if gemeinsam else "Tagwerk")
             plus += lohn
             if gemeinsam:
                 text = f"Tagesziel geschafft: {ziel} echte Erledigungen heute"
@@ -710,9 +711,9 @@ def register_steuer(
             koerner = int(tausch(c, jahr, rest, f"Restgold aus der Steuer-Quest {jahr}") or 0)
         except Exception:  # noqa: BLE001 — der Sieg darf an Frittes Kasse nie scheitern
             return 0
-        koerner = min(koerner, rest)
         if koerner > 0:
-            quest.gold_ausgeben(c, jahr, koerner, f"Zu {koerner} Salzkörnern bei Fritte")
+            # Das ganze Restgold geht hinüber; den Kurs bestimmt Frittes Kasse
+            quest.gold_ausgeben(c, jahr, rest, f"Zu {koerner} Salzkörnern bei Fritte")
         return koerner
 
     def fritte_truhe(c, jahr: int, silber: bool) -> bool:
@@ -831,6 +832,21 @@ def register_steuer(
         if profil(jahr) is None:
             return back(f"/steuer/{jahr}/intro")
         daten = lage(jahr)
+        if (
+            daten["drache"].besiegt
+            and daten["ressourcen"].gold > 0
+            and spiel.gold_jahr(jahr, today())
+        ):
+            # Jahre, die vor der einen Währung gewonnen wurden: Ihr Restgold lag tot im Beutel
+            koerner = gold_zu_salz(conn(), jahr)
+            if koerner:
+                flash(
+                    f"Dein Restgold aus dem gewonnenen Jahr {jahr} ist zu {koerner} Salzkörnern"
+                    " bei Fritte geworden.",
+                    "beute",
+                    link=("/fritte", "Zu Fritte"),
+                )
+                daten = lage(jahr)
         lager = quest.lager_dateien(ws.root)
         stimmung, tipp = fritte_tipp(daten, lager)
         return seite(

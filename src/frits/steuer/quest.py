@@ -728,10 +728,14 @@ def wunsch_funde(conn: sqlite3.Connection, jahr: int) -> int:
     return int(conn.execute(sql, (jahr,)).fetchone()[0])
 
 
-def hat_gold(conn: sqlite3.Connection, jahr: int, grund: str) -> bool:
+def hat_gold(conn: sqlite3.Connection, jahr: int | None, grund: str) -> bool:
+    """Gab es Gold mit diesem Grund schon? jahr=None: in irgendeinem Steuerjahr."""
     ensure_schema(conn)
-    sql = "SELECT 1 FROM steuer_gold WHERE jahr = ? AND grund = ?"
-    return conn.execute(sql, (jahr, grund)).fetchone() is not None
+    if jahr is None:
+        sql, args = "SELECT 1 FROM steuer_gold WHERE grund = ?", (grund,)
+    else:
+        sql, args = "SELECT 1 FROM steuer_gold WHERE jahr = ? AND grund = ?", (jahr, grund)
+    return conn.execute(sql, args).fetchone() is not None
 
 
 def gold(conn: sqlite3.Connection, jahr: int) -> int:
