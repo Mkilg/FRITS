@@ -1749,3 +1749,23 @@ details.sq-mehr-marken .kurz { display: none; }
 .sq-weiter-brief { display: inline-block; text-decoration: none; }
 .sq .nur-touch { display: none; }
 @media (pointer: coarse) { .sq .nur-maus { display: none; } .sq .nur-touch { display: inline; } }
+/* Runde 37 (Lena, Runde 36): Handy kürzer */
+.sq-buch-klappe > summary { list-style: none; cursor: pointer; }
+.sq-buch-klappe > summary::-webkit-details-marker { display: none; }
+.sq-buch-klappe > summary h2::after { content: "▾"; font-size: .8em; margin-left: .4rem; color: var(--muted-papier, #6b5a48); display: inline-block; transition: transform .2s; }
+.sq-buch-klappe:not([open]) > summary h2::after { transform: rotate(-90deg); }
+.sq-buch-klappe:not([open]) > summary header p { margin-bottom: 0; }
+.sq-buch-zahl { font: 600 .78rem system-ui, sans-serif; color: var(--muted-papier, #6b5a48); }
+.sq-schloss .sq-mehr { display: inline; }
+.sq-schloss .sq-mehr > summary { display: inline; cursor: pointer; text-decoration: underline; color: var(--tinte); }
+.sq-schloss .sq-mehr[open] { display: block; margin-top: .3rem; }
+@media (max-width: 600px) {
+  /* Fragebogen Teil 2: zwei Spalten, kleine Bilder, „Weiter“ bleibt über der Leiste */
+  .sq-provinzwahl { grid-template-columns: 1fr 1fr; gap: .5rem; }
+  .sq-wahlkarte { padding: .5rem; }
+  .sq-wahlbild { width: 64px; height: 48px; }
+  .sq-wahlbild img { max-width: 64px; max-height: 54px; }
+  .sq-fb-fuss { position: sticky; bottom: calc(64px + env(safe-area-inset-bottom)); z-index: 5; background: var(--papier, #fbf4e4); padding: .5rem .6rem; margin-inline: -.6rem; box-shadow: 0 -6px 12px rgba(40, 20, 5, .12); border-radius: 4px; }
+  /* Meldungen sitzen über der unteren Leiste, nicht auf ihr */
+  .sq-zettelchen { bottom: calc(76px + env(safe-area-inset-bottom)); }
+}

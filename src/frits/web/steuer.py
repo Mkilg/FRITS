@@ -649,7 +649,8 @@ def register_steuer(
             text += f" ({' und '.join(teile)})." if minus and minus_siegel else "."
             if minus_siegel and not minus:
                 text = f"−{spiel.koerner(minus_siegel)} zurückgebucht: Das Siegel ist wieder offen."
-            flash(text + " Wer es neu verdient, bekommt es wieder.", "hinweis")
+            # Lena (Runde 36): persönlicher statt „Wer es neu verdient …“
+            flash(text + " Legst du wieder etwas ab, bekommst du sie zurück.", "hinweis")
             for name in quest.decke_schulden(c, jahr):
                 flash(
                     f"Die Salzkörner waren schon ausgegeben, darum ist {name} zurück im Hafen."
@@ -2050,6 +2051,7 @@ def register_steuer(
             lager=quest.lager_dateien(ws.root),
             noch_frei=noch_frei(daten),
             noch_sparen=[s for s in noch_frei(daten) if spiel.spart_steuern(s)],
+            noch_gruppen=noch_gruppen(daten),
             schatz_salz=schatz_salz(jahr, daten),
             kiste_aenderung=spiel.kiste_aenderung(*daten["kiste"]) if daten["kiste"] else "",
             **daten,
@@ -2067,6 +2069,17 @@ def register_steuer(
         frei = [s for s in daten["stuecke"] if s["status"] == "offen" and spiel.ist_bonus(s)]
         # Lena (Runde 35): Was Steuern spart, zuerst; Ordnungskram (Buchungsliste, GoBD) danach
         return sorted(frei, key=lambda s: not spiel.spart_steuern(s))
+
+    def noch_gruppen(daten: dict) -> list[dict]:
+        """„Lohnt sich noch“ nach Provinz, in Insel-Reihenfolge; Provinzen mit Schätzen, die
+        Steuern sparen, zuerst. So zeigt „Zum ersten Schatz“ auf die erste Zeile (Lena, R36)."""
+        frei = noch_frei(daten)
+        gruppen = []
+        for p in daten["provinzen"]:
+            karten = [s for s in frei if s["gebiet"] == p.gebiet.id]
+            if karten:
+                gruppen.append({"gebiet": p.gebiet.id, "titel": p.gebiet.titel, "karten": karten})
+        return sorted(gruppen, key=lambda g: not spiel.spart_steuern(g["karten"][0]))
 
     @app.post("/steuer/{jahr}/truhe", dependencies=guarded)
     async def truhe_packen(request: Request, jahr: int):

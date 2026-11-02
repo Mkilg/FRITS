@@ -17,7 +17,7 @@
   {% set a = ahnungen[f.name] %}{% set spur = a.stueck %}
   <div class="sq-zettel-reihe">
   <details class="sq-zettel" style="--r: {{ [-2.5, 1.5, -1, 2.2, -1.8, 0.8][loop.index0 % 6] }}deg" data-name="{{ f.name }}">
-    <summary draggable="true" title="{{ f.name }}: auf eine Provinz ziehen"><span class="art{% if endung in ['jpg', 'jpeg', 'png', 'heic'] %} bild{% endif %}">{{ (endung or "?")[:4] | upper }}</span><strong>{{ f.name }}</strong>{% if spur %}<small class="sq-spur" title="Geraten nach dem Dateinamen">Vielleicht: {{ spur.name }}{% if titel_von | length > 1 %} · {{ titel_von.get(spur.gebiet, "") }}{% endif %}?</small>{% elif a.gebiet %}<small class="sq-spur" title="Geraten nach dem Dateinamen">Vielleicht: {{ titel_von.get(a.gebiet, "") }}?</small>{% else %}<small>ziehen oder klicken</small>{% endif %}</summary>
+    <summary draggable="true" title="{{ f.name }}: auf eine Provinz ziehen"><span class="art{% if endung in ['jpg', 'jpeg', 'png', 'heic'] %} bild{% endif %}">{{ (endung or "?")[:4] | upper }}</span><strong>{{ f.name }}</strong>{% if spur %}<small class="sq-spur" title="Geraten nach dem Dateinamen">Vielleicht: {{ spur.name }}{% if titel_von | length > 1 %} · {{ titel_von.get(spur.gebiet, "") }}{% endif %}?</small>{% elif a.gebiet %}<small class="sq-spur" title="Geraten nach dem Dateinamen">Vielleicht: {{ titel_von.get(a.gebiet, "") }}?</small>{% else %}<small><span class="nur-maus">ziehen oder klicken</span><span class="nur-touch">antippen</span></small>{% endif %}</summary>
     <form method="post" action="/steuer/{{ jahr }}/lager/zuordnen" data-stempel="GESICHERT">
       <input type="hidden" name="token" value="{{ token }}">
       <input type="hidden" name="name" value="{{ f.name }}">
