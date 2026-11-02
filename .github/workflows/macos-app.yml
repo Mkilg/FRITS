@@ -95,13 +95,19 @@ jobs:
           # Like a double-click: run the app's own start file, with a fresh data folder.
           APP="$RUNNER_TEMP/try/FRITS/FRITS.app"
           export FRITS_HOME="$RUNNER_TEMP/frits-home"
+          test -f "$APP/Contents/Resources/laden/index.html"
+          test -f "$APP/Contents/Resources/laden/fritte.webp"
+          begun=$(date +%s)
           "$APP/Contents/MacOS/FRITS" &
-          for i in $(seq 1 60); do
+          for i in $(seq 1 240); do
             curl -fsS http://127.0.0.1:8765/health 2>/dev/null | grep -q FRITS && break
-            sleep 2
+            sleep 0.5
           done
           curl -fsS http://127.0.0.1:8765/health | grep FRITS || { cat "$HOME/Library/Logs/FRITS.log"; exit 1; }
+          echo "FRITS answered $(( $(date +%s) - begun )) s after the double-click"
           curl -fsS -L http://127.0.0.1:8765/ | grep -q "FRITS"
+          sleep 20  # the language model loads in the background; the log says how long
+          cat "$HOME/Library/Logs/FRITS.log"
           kill %1 || true
 
       - name: Upload zip

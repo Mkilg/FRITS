@@ -371,6 +371,7 @@ def create_app(
     app.state.undo = None  # the last step that can still be taken back
     app.state.nlp = None
     app.state.tab_waiting = False  # a "FRITS ist aus" tab is waiting to come back
+    app.state.loading_page = False  # the Mac app's loading page found FRITS
     app.state.files = ExitStack()
     templates = _templates()
 
@@ -392,12 +393,19 @@ def create_app(
             return False
         return bool(get_api_key(current.provider))
 
-    def nlp():
-        if app.state.nlp is None:
-            from frits.redact import load_ner
+    nlp_lock = threading.Lock()
 
-            app.state.nlp = (nlp_loader or load_ner)()
+    def nlp():
+        # Loaded once, also when the background warm-up (web.serve) and a first "Jetzt lesen"
+        # ask at the same moment.
+        with nlp_lock:
+            if app.state.nlp is None:
+                from frits.redact import load_ner
+
+                app.state.nlp = (nlp_loader or load_ner)()
         return app.state.nlp
+
+    app.state.nlp_laden = nlp
 
     def db():
         return store.connect(ws.db)
@@ -2557,10 +2565,22 @@ def create_app(
 
     @app.get("/health")
     def health(request: Request):
+        """ "FRITS" when FRITS runs. Two pages wait for it after a restart: the "FRITS ist aus"
+        tab (?reopen=1) and the Mac app's loading page (?ladeseite=1). The first one to find
+        FRITS takes the user back; the other says so instead of opening FRITS a second time."""
+        answer = "FRITS"
         if request.query_params.get("reopen"):
-            # The goodbye page found FRITS again: it takes the user back, no second tab needed.
-            app.state.tab_waiting = True
-        return HTMLResponse("FRITS")
+            if app.state.loading_page:
+                answer = "FRITS-neu"  # it is open in the loading page's tab
+            else:
+                app.state.tab_waiting = True
+        elif request.query_params.get("ladeseite"):
+            if app.state.tab_waiting:
+                answer = "FRITS-offen"  # the old tab came back already
+            else:
+                app.state.loading_page = True
+        # The loading page is a file on the Mac (file://), so it may read this answer.
+        return HTMLResponse(answer, headers={"Access-Control-Allow-Origin": "*"})
 
     @app.post("/quit", dependencies=guarded)
     def quit_frits(request: Request):

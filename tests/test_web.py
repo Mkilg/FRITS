@@ -523,13 +523,46 @@ def test_waiting_goodbye_tab_means_no_second_tab(ws, provider, nlp, monkeypatch)
 
     opened = []
     monkeypatch.setattr(web.webbrowser, "open", opened.append)
+    monkeypatch.setattr(web, "_port_free", lambda port: False)  # FRITS answers at once
+    monkeypatch.setenv("FRITS_VORLADEN", "0")
     app = create_app(ws, provider_factory=provider, nlp_loader=lambda: nlp)
-    web._open_unless_waiting(app, "http://127.0.0.1:8765/")
+    web._when_ready(app, 8765, "http://127.0.0.1:8765/", True)
     assert opened == ["http://127.0.0.1:8765/"]  # a normal start opens the browser
     with TestClient(app) as c:
         assert c.get("/health?reopen=1").text == "FRITS"
-    web._open_unless_waiting(app, "http://127.0.0.1:8765/")
+    web._when_ready(app, 8765, "http://127.0.0.1:8765/", True)
     assert len(opened) == 1  # the old tab came back, so no new one
+
+
+def test_old_tab_and_loading_page_never_both_open_frits(ws, provider, nlp):
+    # The Mac app's loading page finds FRITS first: the old "FRITS ist aus" tab steps back.
+    app = create_app(ws, provider_factory=provider, nlp_loader=lambda: nlp)
+    with TestClient(app) as c:
+        found = c.get("/health?ladeseite=1")
+        assert found.text == "FRITS" and found.headers["access-control-allow-origin"] == "*"
+        assert c.get("/health?reopen=1").text == "FRITS-neu"
+        assert c.get("/health").text == "FRITS"
+    # The old tab was faster: the loading page says FRITS is open elsewhere.
+    app = create_app(ws, provider_factory=provider, nlp_loader=lambda: nlp, stop=lambda: None)
+    with TestClient(app) as c:
+        assert c.get("/health?reopen=1").text == "FRITS"
+        assert c.get("/health?ladeseite=1").text == "FRITS-offen"
+        page = c.post("/quit", data={"token": app.state.token})
+        assert "FRITS-neu" in page.text  # the goodbye tab knows the answer
+
+
+def test_loading_page_means_no_browser_tab_and_the_model_is_warmed(ws, provider, monkeypatch):
+    from frits import web
+
+    opened, loads = [], []
+    monkeypatch.setattr(web.webbrowser, "open", opened.append)
+    monkeypatch.setattr(web, "_port_free", lambda port: False)
+    monkeypatch.setattr(web.time, "sleep", lambda s: None)
+    monkeypatch.delenv("FRITS_VORLADEN", raising=False)
+    app = create_app(ws, provider_factory=provider, nlp_loader=lambda: loads.append(1) or "nlp")
+    web._when_ready(app, 8765, "http://127.0.0.1:8765/", False)
+    assert opened == [] and loads == [1]  # the language model is ready before the first read
+    assert app.state.nlp_laden() == "nlp" and loads == [1]  # and loaded only once
 
 
 def test_second_start_reopens_the_running_frits(monkeypatch, tmp_path):
@@ -563,6 +596,7 @@ def test_starting_a_new_version_ends_the_old_one(monkeypatch, tmp_path):
     monkeypatch.setattr(web, "_tell", told.append)
     monkeypatch.setattr("frits.web.app.create_app", lambda: object())
     monkeypatch.setattr(uvicorn, "run", lambda app, **kw: started.append(kw["port"]))
+    monkeypatch.setattr(web, "_when_ready", lambda *a: None)  # no real server here
     web.serve(open_browser=False)
     assert stopped == [web.DEFAULT_PORT] and started == [web.DEFAULT_PORT] and not told
     assert not (tmp_path / web.RUN_FILE).exists()  # cleaned up when this FRITS ends
