@@ -1,7 +1,7 @@
 {# Der Auftrag: immer genau ein klarer nächster Schritt, mit Belohnung. Erwartet: auftrag, jahr #}
 {% set ziel = auftrag.ziel if not auftrag.ziel.startswith("#") else auftrag.ziel %}
-<section class="sq-auftrag art-{{ auftrag.art }}" aria-label="Dein Auftrag">
-  <span class="sq-auftrag-siegel" aria-hidden="true">!</span>
+<section class="sq-auftrag art-{{ auftrag.art }}{{ ' ruhig' if auftrag.ruhig }}" aria-label="Dein Auftrag">
+  <span class="sq-auftrag-siegel" aria-hidden="true">{{ "✓" if auftrag.ruhig else "!" }}</span>
   <div class="sq-auftrag-text">
     <p class="sq-kicker">Als Nächstes</p>
     <h2{% if auftrag.titel | length > 24 %} class="lang"{% endif %}>{{ auftrag.titel }}</h2>

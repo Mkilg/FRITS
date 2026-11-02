@@ -56,7 +56,11 @@
     <section class="sq-papier" id="kiste">
       <h2>1. Fundkiste packen</h2>
       {% if zip_pfad and kiste_aenderung %}
-      <p class="sq-kiste-alt" role="status"><strong>{{ kiste_aenderung }}</strong> Pack die Fundkiste unten neu, sonst fehlen sie bei deiner Beraterin.</p>
+      <form method="post" action="/steuer/{{ jahr }}/truhe" class="sq-kiste-alt" role="status">
+        <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="schloss" value="{{ 'passwort' if mit_passwort else 'ohne' }}">
+        <p><strong>{{ kiste_aenderung }}</strong> Pack die Fundkiste neu, damit deine Beraterin genau das bekommt, was jetzt da ist.{% if mit_passwort %} Die Kiste bekommt dabei ein neues Passwort.{% endif %}</p>
+        <button class="sq-siegelknopf">Neu packen</button>
+      </form>
       {% endif %}
       {% if zip_pfad %}
       <p>Gepackt: <strong>{{ zip_pfad.name }}</strong> ({{ "mit Passwort" if mit_passwort else "ohne Passwort" }})</p>
@@ -67,7 +71,7 @@
       </form>
       {% if passwort %}
       <p class="sq-passwort"><span>Passwort: <b data-passwort>{{ passwort }}</b></span> <button type="button" class="sq-stempelknopf" data-kopieren="{{ passwort }}">Passwort kopieren</button></p>
-      <p class="muted">Schick es deiner Beraterin getrennt, zum Beispiel per SMS, nicht in dieselbe Mail. Ich zeige es nur jetzt. Neu packen macht ein neues Passwort.</p>
+      <p class="muted">Schick es deiner Beraterin getrennt, zum Beispiel per SMS, nicht in dieselbe Mail. Ich speichere es nirgends: Nach einem Neustart von FRITS ist es weg, dann hilft Neu packen (mit neuem Passwort).</p>
       {% endif %}
       {% endif %}
       <form method="post" action="/steuer/{{ jahr }}/truhe">
