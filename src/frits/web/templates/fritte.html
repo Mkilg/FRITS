@@ -167,7 +167,7 @@
   <ol class="zeitalter">
     {% for st in stufen if st.nummer <= f.stufe + 1 %}
     <li class="{{ 'erreicht' if st.nummer <= f.stufe else '' }}{{ ' im-bau' if f.bau == st.name else '' }}{{ ' jetzt' if st.nummer == f.stufe else '' }}">
-      <span class="za-zeichen" aria-hidden="true">{{ st.zeichen }}</span>
+      <span class="muenze za-muenze" aria-hidden="true"><span class="praegung">{{ st.zeichen }}</span></span>
       <strong>{{ st.name }}</strong>
       {% if st.nummer > f.stufe %}<span class="hint">{{ bau_preis(st) }} {{ salz }}</span>{% endif %}
     </li>

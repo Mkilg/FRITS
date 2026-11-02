@@ -80,7 +80,7 @@
     {% for d in laden %}
     {% set hat = d.id in f.gekauft %}
     <div class="ware{{ ' gekauft' if hat }}">
-      <span class="ware-bild" aria-hidden="true">{% if picture('ding-' ~ d.id) %}<img src="{{ picture('ding-' ~ d.id) }}" alt="">{% else %}{{ d.zeichen }}{% endif %}</span>
+      <span class="muenze ware-muenze" aria-hidden="true">{% if picture('ding-' ~ d.id) %}<img src="{{ picture('ding-' ~ d.id) }}" alt="">{% else %}<span class="praegung">{{ d.zeichen }}</span>{% endif %}</span>
       <strong>{{ d.name }}</strong>
       <span class="hint">{{ d.text }}</span>
       {% if hat %}
