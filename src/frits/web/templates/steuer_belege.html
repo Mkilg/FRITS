@@ -39,10 +39,13 @@
     {% set verneint = p.karten | selectattr("status", "equalto", "gibts_nicht") | list %}
     {% if gefuellt or mitbenutzt or gefragt or p.leer or verneint %}
     <section class="sq-papier sq-buch-provinz" id="provinz-{{ p.g.id }}" style="--r: {{ [-0.4, 0.3, -0.2, 0.5][loop.index0 % 4] }}deg">
-      <header>
-        <h2><a href="/steuer/{{ jahr }}/gebiet/{{ p.g.id }}">{{ p.g.titel }}</a></h2>
-        <p class="muted">{{ p.g.bereich }} · In der Fundkiste im Ordner „{{ p.ordner }}“</p>
-      </header>
+      {# Lena (Runde 36): Am Handy 5158 px. Jede Provinz klappt zu, steuer.js schließt am Handy alle bis auf die erste #}
+      {% set n_dateien = p.karten | map(attribute="dateien") | map("length") | sum %}
+      <details class="sq-buch-klappe" open>
+      <summary><header>
+        <h2>{{ p.g.titel }} <small class="sq-buch-zahl">{{ n_dateien }} Datei{{ "en" if n_dateien != 1 }}{% if p.leer %} · {{ p.leer | length }} leer{% endif %}</small></h2>
+        <p class="muted">{{ p.g.bereich }} · In der Fundkiste im Ordner „{{ p.ordner }}“ · <a href="/steuer/{{ jahr }}/gebiet/{{ p.g.id }}">Zur Provinz</a></p>
+      </header></summary>
       {% for k in p.karten if k.dateien or k.mit or k.frage %}
       <article class="sq-buch-karte" id="karte-{{ k.id }}">
         <h3>{{ k.name }}{% if k.status == "gibts_nicht" %} <small>gibt es dieses Jahr nicht</small>{% elif k.status == "fragen" and k.frage == MACHT_BERATERIN %} <small>macht deine Beraterin</small>{% endif %}</h3>
@@ -113,6 +116,7 @@
       {% if p.leer %}
       <p class="sq-buch-leer">Noch leer: {% for k in p.leer %}<a href="/steuer/{{ jahr }}/gebiet/{{ p.g.id }}">{{ k.name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</p>
       {% endif %}
+      </details>
     </section>
     {% endif %}
     {% endfor %}
