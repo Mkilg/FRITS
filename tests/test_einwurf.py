@@ -412,3 +412,66 @@ def test_check_me_puts_away_what_the_steuer_quest_already_keeps(client, ws):  # 
     page = client.get("/check-me").text
     assert "liegt schon in der Steuer-Quest 2025" in page
     assert not brief.exists() and (ws.done / "brief.txt").exists()
+
+
+def test_invoice_paper_names_the_contact_under_the_company(tmp_path):
+    """Tester (Marie): „z. Hd. Jana Weber“ was missing under the rbb."""
+    from decimal import Decimal
+
+    from pypdf import PdfReader
+
+    from frits.billing import Draft, Line, set_customer, totals
+    from frits.customers import Customer
+    from frits.render import render_invoice
+
+    rbb = Customer(
+        id="rbb",
+        name="Jana Weber",
+        company="Rundfunk Berlin-Brandenburg (rbb)",
+        address="Masurenallee 8-14, 14057 Berlin",
+    )
+    draft = Draft(
+        None,
+        None,
+        None,
+        [],
+        ["Berlin-Brandenburg ist noch nicht in deiner Kundenliste. Bitte Adresse ergänzen."],
+        [],
+        "x",
+    )
+    set_customer(draft, rbb)
+    assert draft.customer_contact == "Jana Weber" and draft.questions == []
+    draft.lines = [Line("Moderation", None, Decimal(1), "pauschal", Decimal(500), None, [])]
+    settings = Settings(name="Marie", address="Weg 1, 10115 Berlin")
+    pdf = render_invoice(
+        tmp_path / "r.pdf",
+        "2026-0001",
+        draft,
+        totals(draft.lines, settings),
+        settings,
+        date(2026, 11, 2),
+        date(2026, 11, 16),
+    )
+    text = PdfReader(pdf).pages[0].extract_text()
+    assert "Rundfunk Berlin-Brandenburg (rbb)\nz. Hd. Jana Weber\nMasurenallee 8-14" in text
+
+
+def test_one_line_signature_keeps_the_company(nlp):
+    found = kontakt.details(
+        "Jana Weber | Rundfunk Berlin-Brandenburg (rbb) | Masurenallee 8-14 | 14057 Berlin", nlp
+    )
+    assert found["company"] == "Rundfunk Berlin-Brandenburg (rbb)"
+    assert found["address"] == "Masurenallee 8-14, 14057 Berlin"
+
+
+def test_own_name_is_never_the_customer():
+    """Tester (Marie): FRITS proposed Marie herself as the customer of her own invoice."""
+    from types import SimpleNamespace
+
+    from frits.billing import build_draft
+
+    checked = SimpleNamespace(customer_ref="P1", questions=[], items=[], injection_suspected=False)
+    mapping = SimpleNamespace(entries={"P1": {"value": "Marie Kilg"}}, reidentify=lambda t: t)
+    draft = build_draft(checked, mapping, [], Settings(name="Marie Kilg"), "notiz.txt")
+    assert draft.customer_name is None
+    assert draft.questions == ["Für wen ist das? Bitte oben den Kunden wählen."]

@@ -78,6 +78,7 @@ class Draft:
     customer_country: str = "DE"  # ISO 3166 code, for the e-invoice
     customer_reference: str | None = None  # Leitweg-ID or order number the customer asked for
     earlier: bool = False  # written before FRITS and only entered here ("nachgetragen")
+    customer_contact: str | None = None  # the person at a company: "z. Hd." on the paper
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), default=str, ensure_ascii=False)
@@ -120,6 +121,12 @@ def build_draft(
     questions = list(checked.questions)
     if checked.customer_ref:
         customer_name = mapping.entries[checked.customer_ref]["value"]
+        own = {n.casefold() for n in (settings.name, settings.company) if n}
+        if customer_name.casefold() in own:
+            # The AI took Fritz himself for the customer (his name stands under the note).
+            customer_name = None
+            questions.append("Für wen ist das? Bitte oben den Kunden wählen.")
+    if customer_name:
         customer = next((c for c in customers if customer_name in (c.name, c.company)), None)
         if customer is None:
             questions.append(
@@ -162,6 +169,7 @@ def build_draft(
         customer_ust_id=customer.ust_id if customer else None,
         customer_country=customer.land if customer else "DE",
         customer_reference=customer.referenz if customer else None,
+        customer_contact=contact_of(customer),
         lines=lines,
         questions=questions,
         warnings=warnings,
@@ -714,6 +722,18 @@ def set_customer(draft: Draft, customer: Customer | None) -> None:
     draft.customer_ust_id = customer.ust_id if customer else None
     draft.customer_country = customer.land if customer else "DE"
     draft.customer_reference = customer.referenz if customer else None
+    draft.customer_contact = contact_of(customer)
+    if customer:  # chosen now: the question about an unknown customer is answered
+        draft.questions = [
+            q for q in draft.questions if "noch nicht in deiner Kundenliste" not in q
+        ]
+
+
+def contact_of(customer: Customer | None) -> str | None:
+    """The person to address at a company, for "z. Hd." under the company name."""
+    if customer and customer.company and customer.name and customer.name != customer.company:
+        return customer.name
+    return None
 
 
 def reviewed_line(
@@ -793,6 +813,7 @@ def copy_invoice(conn, number: str, customer: Customer | None = None) -> int:
         customer_ust_id=old.customer_ust_id,
         customer_country=old.customer_country,
         customer_reference=old.customer_reference,
+        customer_contact=old.customer_contact,
     )
     if customer is not None:
         set_customer(draft, customer)

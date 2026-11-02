@@ -71,6 +71,8 @@ def details(text: str, nlp=None) -> dict[str, str]:
     """Name, company, address, e-mail and phone found in `text`."""
     if "BEGIN:VCARD" in text.upper():
         return from_vcard(text)
+    # A signature on one line: "Jana Weber | Rundfunk Berlin-Brandenburg | Masurenallee 8-14"
+    text = re.sub(r"[ \t]+[|•·][ \t]+", "\n", text)
     from frits.setup import own_details
 
     found = {
