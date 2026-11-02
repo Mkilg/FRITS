@@ -3,7 +3,7 @@
 {% block content %}
 <div class="head-row">
   <h1>Rechnungen</h1>
-  {% if not im_browser() %}<form method="post" action="/open/invoices"><input type="hidden" name="token" value="{{ token }}"><button class="quiet">Ordner öffnen</button></form>{% endif %}
+  {% if not im_browser() %}<form method="post" action="/open/invoices" class="nur-maus"><input type="hidden" name="token" value="{{ token }}"><button class="quiet">Ordner öffnen</button></form>{% endif %}
 </div>
 {% if invoices %}
 <div class="table-wrap"><table class="table">

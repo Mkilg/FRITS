@@ -806,7 +806,8 @@ def create_app(
             )
         if counts["check-me"]:
             parts.append(f"{counts['check-me']} zum Prüfen")
-        flash("Fertig gelesen: " + (", ".join(parts) or "nichts Neues") + ".", cue="done")
+        if parts or not counts["skipped"]:  # known files already said where they are
+            flash("Fertig gelesen: " + (", ".join(parts) or "nichts Neues") + ".", cue="done")
         if target == "/" and not counts["check-me"]:
             # Exactly one thing to do next? Then go there instead of making Fritz look for it.
             if len(drafted) == 1 and not counts["receipt"] and not earlier:
@@ -2087,10 +2088,16 @@ def create_app(
         form = await request.form()
         year = today().year
         try:
-            gross = parse_amount(str(form.get("gross", "")))
+            try:
+                gross = parse_amount(str(form.get("gross", "")))
+            except BillingError as exc:
+                raise BillingError(str(exc), feld="gross") from None
             if gross is None:
-                raise BillingError("Bitte den Betrag eintragen.")
-            paid = date.fromisoformat(str(form.get("date") or today().isoformat()))
+                raise BillingError("Bitte den Betrag eintragen.", feld="gross")
+            try:
+                paid = date.fromisoformat(str(form.get("date") or today().isoformat()))
+            except ValueError:
+                raise BillingError("Bitte das Datum prüfen.", feld="date") from None
             year = paid.year
             rate = str(form.get("vat_rate", ""))
             expense = expenses.Expense(
@@ -2108,6 +2115,7 @@ def create_app(
                 if isinstance(exc, BillingError)
                 else "Bitte Datum, Betrag und Kategorie prüfen.",
                 "error",
+                feld=exc.feld if isinstance(exc, BillingError) else None,
             )
             return back("/expenses")
         twin = next(

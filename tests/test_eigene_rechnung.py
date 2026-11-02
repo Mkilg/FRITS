@@ -361,3 +361,28 @@ def test_payment_day_gets_the_cursor_when_it_is_all_that_is_missing(client, ws):
     )
     page = post(client, "/invoices/frueher/lesen", text=text).text
     assert 'aria-label="Bezahlt am" autofocus' in page
+
+
+# ---------- Nachtest 0b8af98 ----------
+
+
+def test_round_amount_with_dash_and_an_example_when_wrong(client, ws):
+    from frits.billing import BillingError, parse_amount
+
+    assert str(parse_amount("600,- €")) == "600"
+    try:
+        parse_amount("sechshundert")
+    except BillingError as exc:
+        assert "zum Beispiel so: 600,00" in str(exc)
+    page = post(client, "/expenses", date="2026-10-01", gross="zwölf", category="sonstiges").text
+    assert 'data-feld="gross"' in page
+
+
+def test_known_file_again_on_heute_has_no_nothing_new_note(client, ws):
+    pdf = _old_invoice_pdf(WORD)
+    (ws.inbox / "a.pdf").write_bytes(pdf)
+    post(client, "/inbox/process")
+    (ws.inbox / "a.pdf").write_bytes(pdf)
+    page = post(client, "/inbox/process").text
+    assert "Sie wartet aufs Nachtragen" in page
+    assert "nichts Neues" not in page
