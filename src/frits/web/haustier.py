@@ -193,7 +193,8 @@ def register_haustier(
         neu = album.neue(conn, today())
         if neu:
             flash(
-                "Neu in der Sammlung: " + ", ".join(f"{e.zeichen} {e.name}" for e in neu),
+                # no emoji in the painted world (Lena): the coin waits in the Sammlung
+                "Neu in der Sammlung: " + ", ".join(e.name for e in neu),
                 cue="done",
             )
 
