@@ -174,6 +174,15 @@ def textname(text: str) -> str:
     return f"{name or 'Eingefügter Text'}.txt"
 
 
+def fremdes_jahr(name: str, jahr: int) -> int | None:
+    """Ein Zettel, dessen Name ein anderes Steuerjahr nennt („krankenversicherung-2025.pdf“
+    auf der Insel 2024): der Korb ist für alle Jahre gemeinsam (Lena, Runde 37)."""
+    jahre = {int(j) for j in re.findall(r"(?<!\d)(20[1-3]\d)(?!\d)", name)}
+    if not jahre or jahr in jahre:
+        return None
+    return max(jahre)
+
+
 def fritte_tipp(daten: dict, lager: list) -> tuple[str, str]:
     """Was Fritte, die Kartografin, gerade sagt: (Stimmung, Satz)."""
     if daten["drache"].besiegt and daten["stuecke"]:
@@ -195,9 +204,9 @@ def fritte_tipp(daten: dict, lager: list) -> tuple[str, str]:
         if n == 1:
             return (
                 "welcome",
-                "Im Eingangskorb liegt ein Zettel. Zieh ihn auf die Insel, ich stempel.",
+                "Im Eingangskorb liegt ein Zettel. Leg ihn auf die Insel, ich stempel.",
             )
-        return "welcome", f"Im Eingangskorb liegen {n} Zettel. Zieh sie auf die Insel, ich stempel."
+        return "welcome", f"Im Eingangskorb liegen {n} Zettel. Leg sie auf die Insel, ich stempel."
     fehlt_vorjahr = [v for v in daten["vergleich"] if v["jetzt"] == "offen"]
     if fehlt_vorjahr:
         name = fehlt_vorjahr[0]["name"]
@@ -449,6 +458,7 @@ def register_steuer(
             markt_link=markt_link,
             koerner=spiel.koerner,
             stutzen=offene_stutzen(),
+            fremdes_jahr=fremdes_jahr,
             kopf_rest=kopf_rest,
             **context,
         )
@@ -620,8 +630,15 @@ def register_steuer(
             # Lena (Runde 33): Das Banner zum Fund nannte die Körner nicht
             app.state.flashes[-1]["text"] += f" · +{spiel.koerner(plus)}"
         # Wieder offen: Das Gold dafür geht zurück (sonst lohnt ein Fehlwurf bei ×8)
+        wieder = 0  # was ein erneutes Ablegen außerhalb des Kampfs ungefähr bringt
         for grund, text in spiel.rueckbuchungen(vorher["stuecke"], nachher["stuecke"]):
             minus += quest.storniere(c, jahr, grund, text)
+        if goldjahr:
+            alt = {s["id"]: s for s in vorher["stuecke"]}
+            for s in nachher["stuecke"]:
+                war = alt.get(s["id"])
+                if s["status"] == "offen" and war and war["status"] != "offen":
+                    wieder += spiel.gold_fuer(war, war["status"], helfer)
         neu_siegel = {p.gebiet.id for p in nachher["provinzen"] if p.stand.siegel}
         wartend = [
             p.gebiet.titel
@@ -649,8 +666,17 @@ def register_steuer(
             text += f" ({' und '.join(teile)})." if minus and minus_siegel else "."
             if minus_siegel and not minus:
                 text = f"−{spiel.koerner(minus_siegel)} zurückgebucht: Das Siegel ist wieder offen."
-            # Lena (Runde 36): persönlicher statt „Wer es neu verdient …“
-            flash(text + " Legst du wieder etwas ab, bekommst du sie zurück.", "hinweis")
+            # Lena (Runde 37): ehrlich rechnen. Ein Treffer aus dem Kampf trug die Serie, das
+            # erneute Ablegen bringt nur den Grundwert (plus das Siegel, wenn es wieder voll wird)
+            zurueck = wieder + minus_siegel
+            if zurueck >= minus + minus_siegel:
+                text += " Legst du wieder etwas ab, bekommst du sie zurück."
+            elif zurueck:
+                text += (
+                    f" Legst du sie wieder ab, bekommst du etwa {spiel.koerner(zurueck)} zurück."
+                    " Die Serie aus dem Kampf kommt nicht wieder."
+                )
+            flash(text, "hinweis")
             for name in quest.decke_schulden(c, jahr):
                 flash(
                     f"Die Salzkörner waren schon ausgegeben, darum ist {name} zurück im Hafen."
@@ -761,6 +787,11 @@ def register_steuer(
             flash(text, "gold", cue="done")
         if plus and not ferne and jahr in app.state.steuer_combo:
             app.state.steuer_combo[jahr]["beute"] = {"basis": basis, "mult": faktor, "plus": plus}
+        if sieg and quest.hat_notiz(c, jahr, "sieg"):
+            # Lena (Runde 37): Nach Zurücklegen und Wiederablegen kam ein zweites Fest ohne Beute
+            flash("Der Drache ist wieder besiegt. Deine Beute von vorhin bleibt.", "beute")
+            app.state.steuer_combo.pop(jahr, None)
+            return False  # kein Sprung zur Drachenseite
         if sieg:
             quest.notiere(c, jahr, "sieg", "Der Papierdrache ist besiegt")
             app.state.steuer_combo.pop(jahr, None)
@@ -1252,7 +1283,7 @@ def register_steuer(
         s = stueck_im_jahr(jahr, stueck_id)
         uploads = [f for f in form.getlist("datei") if hasattr(f, "filename") and f.filename]
         if not uploads:
-            flash("Da war keine Datei dabei. Zieh eine Datei in das Feld oder wähle eine aus.")
+            flash("Da war keine Datei dabei. Wähl eine Datei aus oder leg sie ins Feld.")
             return back(f"/steuer/{jahr}/gebiet/{s['gebiet']}")
         vorher = lage(jahr)
         zurueck = str(form.get("back") or f"/steuer/{jahr}/gebiet/{s['gebiet']}")
@@ -1607,7 +1638,7 @@ def register_steuer(
         form = await request.form()
         ablage = quest.lager(ws.root)
         ablage.mkdir(parents=True, exist_ok=True)
-        gelegt, zu_gross = [], []
+        gelegt, zu_gross, bekannt = [], [], 0
         c = conn()
         im_korb = {quest.datei_hash(p) for p in quest.lager_dateien(ws.root)}
         for upload in [*form.getlist("files"), *form.getlist("datei")]:
@@ -1628,9 +1659,11 @@ def register_steuer(
                     "warn",
                     aktion={"link": f"/steuer/{jahr}/belege#karte-{bei['id']}"},
                 )
+                bekannt += 1
                 continue
             if sha in im_korb:
                 flash(f"{name}: Genau diese Datei liegt schon im Eingangskorb.")
+                bekannt += 1
                 continue
             im_korb.add(sha)
             ziel, n = ablage / name, 1
@@ -1651,14 +1684,16 @@ def register_steuer(
         if gelegt:
             n = len(gelegt)
             flash(
-                f"{n} neue{'r' if n == 1 else ''} Zettel im Eingangskorb. Zieh {'ihn' if n == 1 else 'sie'} auf eine Provinz.",
+                f"{n} neue{'r' if n == 1 else ''} Zettel im Eingangskorb."
+                f" Leg {'ihn' if n == 1 else 'sie'} auf eine Provinz.",
                 "beute",
             )
         for name in zu_gross:
             flash(
                 f"{name} ist größer als 30 MB. Leg sie lieber direkt in den Lager-Ordner.", "error"
             )
-        if not gelegt and not zu_gross:
+        if not gelegt and not zu_gross and not bekannt:
+            # Lena (Runde 37): Nach „Kenne ich schon“ wirkte diese Meldung wie ein Fehler
             flash("Es wurde keine Datei mitgeschickt.", "error")
         return back(f"/steuer/{jahr}#sq-korb")
 
