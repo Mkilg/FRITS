@@ -93,7 +93,7 @@
         <button class="sq-stempelknopf">Im Finder zeigen</button>
         <span class="muted">Von dort hängst du die Fundkiste an die Mail, falls sie nicht schon dranhängt.</span>
       </form>
-      {% if not kiste_aenderung %}<p><a class="sq-stempelknopf sq-weiter-brief" href="#brief">Weiter zu 2. Brief ↓</a></p>{% endif %}
+      {% if not kiste_aenderung and not (frisch_gepackt and drache.besiegt) %}<p><a class="sq-stempelknopf sq-weiter-brief" href="#brief">Weiter zu 2. Brief ↓</a></p>{% endif %}
       {% if passwort %}
       <p class="sq-passwort"><span>Passwort: <b data-passwort>{{ passwort }}</b></span> <button type="button" class="sq-stempelknopf" data-kopieren="{{ passwort }}">Passwort kopieren</button></p>
       <p class="muted">Schick es deiner Beraterin getrennt, zum Beispiel per SMS, nicht in dieselbe Mail. Ich speichere es nirgends: Nach einem Neustart von FRITS ist es weg, dann hilft Neu packen (mit neuem Passwort).</p>
