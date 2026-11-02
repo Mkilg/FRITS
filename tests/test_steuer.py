@@ -916,7 +916,11 @@ def test_beraterin_steht_nicht_mehr_im_ersten_teil(client, ws):
     assert Profil.load(quest.profil_datei(ws.root, 2025)).beraterin_termin == ""
 
 
-def test_tagwerk_feiert_drei_karten_am_tag(client, ws):
+def test_tagwerk_feiert_drei_karten_am_tag(client, ws, monkeypatch):
+    import sys
+
+    # Das Quest-eigene Tagwerk (ohne Frittes gemeinsames Tagesziel, siehe Runde 20)
+    monkeypatch.setitem(sys.modules, "frits.spiel.tagesziel", None)
     fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
     conn = store.connect(ws.db)
     karte = client.get("/steuer/2025").text
@@ -2334,3 +2338,95 @@ def test_runde_19_toene_laufen_ueber_den_klangrahmen():
     klang = (Path(__file__).parent.parent / "src/frits/assets/sounds/frits-sound.js").read_text()
     assert "fs.tone(" in js
     assert "function tone(" in klang and "tone: tone" in klang and "host.tone(" in klang
+
+
+def test_runde_20_restgold_wird_zu_salz(client, ws, monkeypatch):
+    # Eine Währung: Was beim Sieg an Gold übrig ist, wird zu Salzkörnern bei Fritte.
+    # salz_aus_quest kommt aus dem Fritte-Thread; bis dahin hier ein Stellvertreter.
+    from frits import haustier
+
+    gebucht = {}
+
+    def salz_aus_quest(conn, jahr, gold, text):
+        if jahr in gebucht:
+            return 0
+        gebucht[jahr] = gold
+        return gold
+
+    monkeypatch.setattr(haustier, "salz_aus_quest", salz_aus_quest, raising=False)
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    assert "wird zu Salzkörnern bei Fritte" in client.get("/steuer/2025/markt").text
+    conn = quest.ensure_schema(store.connect(ws.db))
+    _bis_wach(conn)
+    quest.verdiene(conn, 2025, "test-rest", 17, "Testgold")
+    while not spiel.drache(quest.stuecke(conn, 2025)).besiegt:
+        k = spiel.drache(quest.stuecke(conn, 2025)).karte
+        seite = post(client, "/steuer/2025/drache/schlag", stueck_id=str(k["id"]), aktion="fragen")
+    rest = gebucht[2025]
+    assert rest >= 17 and quest.gold(conn, 2025) == 0
+    assert f"Dein übriges Gold ist zu {rest} Salzkörnern bei Fritte geworden." in seite.text
+    # Nach dem Sieg: neues Gold bleibt Gold, Salz gibt es nur einmal pro Jahr
+    quest.verdiene(conn, 2025, "test-spaet", 5, "Spätes Gold")
+    assert quest.gold(conn, 2025) == 5 and gebucht == {2025: rest}
+
+
+def test_runde_20_ohne_frittes_kasse_bleibt_das_gold(client, ws, monkeypatch):
+    from frits import haustier
+
+    monkeypatch.delattr(haustier, "salz_aus_quest", raising=False)
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    assert "wird zu Salzkörnern" not in client.get("/steuer/2025/markt").text
+    conn = quest.ensure_schema(store.connect(ws.db))
+    _bis_wach(conn)
+    while not spiel.drache(quest.stuecke(conn, 2025)).besiegt:
+        k = spiel.drache(quest.stuecke(conn, 2025)).karte
+        seite = post(client, "/steuer/2025/drache/schlag", stueck_id=str(k["id"]), aktion="fragen")
+    assert "Salzkörnern" not in seite.text and quest.gold(conn, 2025) > 0
+
+
+def test_runde_20_ein_tagesziel_mit_fritte(client, ws, monkeypatch):
+    # Ein Ziel unter einem Namen: Mit Fritte zeigt das Tagwerk Frittes gemeinsame Zählung.
+    # frits.spiel.tagesziel kommt aus dem Fritte-Thread; bis dahin hier ein Stellvertreter.
+    import sys
+    import types
+
+    stand = {"erledigt": 3}
+    attrappe = types.ModuleType("frits.spiel.tagesziel")
+
+    def zaehlen(conn, heute):
+        n = stand["erledigt"]
+        return {
+            "erledigt": n,
+            "ziel": 3,
+            "geschafft": n >= 3,
+            "text": "Tagesziel geschafft" if n >= 3 else f"Tagesziel: {n} von 3 geschafft",
+            "erklaerung": "Es zählt, was heute echt erledigt wurde.",
+        }
+
+    attrappe.zaehlen = zaehlen
+    monkeypatch.setitem(sys.modules, "frits.spiel.tagesziel", attrappe)
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    stand["erledigt"] = 2
+    seite = client.get("/steuer/2025")
+    assert "Tagesziel: 2 von 3 geschafft" in seite.text and "2/3" in seite.text
+    assert "Es zählt, was heute echt erledigt wurde." in seite.text
+    # Das Ziel wurde bei Fritte erreicht: Der nächste Quest-Schritt zahlt das Tagwerk-Gold
+    stand["erledigt"] = 3
+    conn = quest.ensure_schema(store.connect(ws.db))
+    s = next(s for s in quest.stuecke(conn, 2025) if s["status"] == "offen")
+    seite = post(client, f"/steuer/2025/stueck/{s['id']}/status", status="fragen")
+    assert "Tagesziel geschafft: 3 echte Erledigungen heute" in seite.text
+    assert quest.hat_gold(conn, 2025, f"tagwerk:{date.today()}")
+    # Nur einmal am Tag
+    s = next(s for s in quest.stuecke(conn, 2025) if s["status"] == "offen")
+    seite = post(client, f"/steuer/2025/stueck/{s['id']}/status", status="fragen")
+    assert "Tagesziel geschafft: 3" not in seite.text
+
+
+def test_runde_20_ohne_fritte_bleibt_das_tagwerk(client, ws, monkeypatch):
+    import sys
+
+    monkeypatch.setitem(sys.modules, "frits.spiel.tagesziel", None)  # Import schlägt fehl
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    seite = client.get("/steuer/2025")
+    assert "Tagwerk heute" in seite.text and "Tagesziel" not in seite.text

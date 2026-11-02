@@ -16,9 +16,11 @@
   </ul>
   {% endif %}
   {% if tagwerk is defined %}{% set heute, tagesziel = tagwerk %}
-  <p class="sq-tagwerk{% if heute >= tagesziel %} geschafft{% endif %}" title="Tagwerk: {{ tagesziel }} Karten am Tag reichen. Langsam und stetig gewinnt.">
+  {# Mit Fritte ist es ein gemeinsames Tagesziel: derselbe Text und dieselben Zahlen wie auf Heute #}
+  {% set gemeinsam = tagesziel_info is defined and tagesziel_info %}
+  <p class="sq-tagwerk{% if heute >= tagesziel %} geschafft{% endif %}" title="{{ tagesziel_info.erklaerung if gemeinsam and tagesziel_info.erklaerung else 'Tagwerk: ' ~ tagesziel ~ ' Karten am Tag reichen. Langsam und stetig gewinnt.' }}">
     <span class="sq-tagwerk-ring" style="--anteil: {{ [heute / tagesziel, 1] | min }}"><b>{{ [heute, tagesziel] | min }}/{{ tagesziel }}</b></span>
-    <span>{% if heute >= tagesziel %}Tagwerk geschafft{% else %}Tagwerk heute{% endif %}</span>
+    <span>{% if gemeinsam %}{{ tagesziel_info.text }}{% elif heute >= tagesziel %}Tagwerk geschafft{% else %}Tagwerk heute{% endif %}</span>
   </p>
   {% endif %}
   <a class="sq-siegelknopf" href="{{ ziel }}">{{ auftrag.knopf }} →</a>
