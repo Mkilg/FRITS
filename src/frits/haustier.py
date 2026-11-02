@@ -87,6 +87,7 @@ GEMALT_PLATZ: dict[int, dict[str, tuple[float, float, float]]] = {
         "kerze": (22, 51, 1.6),  # on the window sill, next to the painted plant
         "kleeblatt": (26.5, 51, 1.6),
         "waage": (71, 53.5, 1.8),  # on the workbench
+        "uhr": (87, 53.5, 2.0),  # also on the workbench, not floating on the empty wall
     },
     4: {
         "bild": (58.9, 54.5, 2.2),  # over the two small herbarium prints

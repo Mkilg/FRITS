@@ -84,7 +84,7 @@
     ["ausbau", "saison", "erfolge", "truhen"].forEach(function (n) { if (el(n)) el(n).classList.remove("da"); });
     karten.forEach(function (k, i) { k.classList.add("verdeckt"); k.classList.remove("aktiv"); chip(i).textContent = "+0"; });
   }
-  function finish() {
+  function finish(gestempelt) {
     stopAll();
     root.classList.remove("laeuft");
     root.classList.add("fertig");
@@ -96,11 +96,18 @@
     ["ausbau", "saison", "erfolge", "truhen"].forEach(function (n) { if (el(n)) el(n).classList.add("da"); });
     el("weiter").hidden = true;
     el("nochmal").hidden = reduced;
-    // A finished stage or season goal below the fold: bring it into view once.
+    // A finished stage or season goal below the fold: bring it into view once. After the
+    // played round only once the stamp has landed and was seen (Lena: on the phone the page
+    // jumped away right when the stamp came).
     var banner = el("ausbau") || el("saison") || el("erfolge") || (el("truhen") && el("truhen").classList.contains("mit-neuer") ? el("truhen") : null);
-    if (banner && !gezeigt && banner.getBoundingClientRect().bottom > window.innerHeight) {
+    if (banner && !gezeigt) {
       gezeigt = true;
-      banner.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
+      var zeigen = function () {
+        if (banner.getBoundingClientRect().bottom > window.innerHeight) {
+          banner.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
+        }
+      };
+      if (gestempelt === true) later(zeigen, 1600); else zeigen();
     }
   }
   var gezeigt = false;
@@ -113,7 +120,7 @@
         if (window.Frits && window.Frits.stampSound && soundOn()) window.Frits.stampSound();
         if (playful && fritte) bump(fritte, "jubeln");
         if (playful && data.summe >= 50) bump(tisch, "funkeln");
-        finish();
+        finish(true);
       });
     }, delay);
   }

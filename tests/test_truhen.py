@@ -319,7 +319,7 @@ def test_chests_of_the_same_kind_are_named_once_with_their_number():
     from frits.web.haustier import truhen_saetze
 
     zu = [T(text=t) for t in ["Mach sie auf!", "Glückskarte: Rechnung", "Glückskarte: Rechnung"]]
-    assert truhen_saetze(zu) == (["Mach sie auf!", "Glückskarte: Rechnung (2 Truhen)."], 0)
+    assert truhen_saetze(zu) == (["Mach sie auf!", "Glückskarte: Rechnung, zweimal."], 0)
     zu += [T(text="Volle Truhe."), T(text="Glückskarte: Ausgabe"), T(text="Volle Truhe.")]
     saetze, rest = truhen_saetze(zu)
-    assert saetze[-1] == "Volle Truhe (2 Truhen)." and rest == 1  # the Ausgabe one
+    assert saetze[-1] == "Volle Truhe, zweimal." and rest == 1  # the Ausgabe one
