@@ -86,7 +86,7 @@ FALLBACK_STEPS = {
     "first_invoice": (
         "thinking",
         "Deine erste Rechnung",
-        "Zieh eine Notiz auf das Feld oder füg sie mit ⌘V ein.",
+        "Gib mir eine Notiz, eine E-Mail oder ein Foto. Daraus wird ein Entwurf.",
     ),
     "done": ("done", "Erledigt!", "Alles eingerichtet."),
 }

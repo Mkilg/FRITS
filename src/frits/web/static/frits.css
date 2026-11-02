@@ -345,6 +345,7 @@ kbd { display: inline-block; min-width: 1.4em; padding: 0 0.3em; margin: 0 0.1em
 .ki-fehlt { border-left: 4px solid var(--fry); }
 .leise-links { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; margin-top: 0.6rem; font-size: 0.9rem; }
 .leise-links form { display: inline; }
+@media (pointer: coarse) { .leise-links .nur-maus { display: none; } }
 .leise-links button { background: none; border: 0; padding: 0; color: var(--tinte); text-decoration: underline;
   cursor: pointer; font: inherit; }
 p code, li code, p a { overflow-wrap: anywhere; }

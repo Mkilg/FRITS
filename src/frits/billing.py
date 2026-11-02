@@ -751,7 +751,9 @@ def parse_amount(text: str | None) -> Decimal | None:
 
     A dot before exactly three digits is a German thousands dot: "1.400" is 1400, not 1,40.
     """
-    text = (text or "").strip().replace("€", "").replace(" ", "")
+    typed = (text or "").strip()
+    # "600,00 EUR", "€ 600", "600 Euro": the currency the way it is printed doesn't matter.
+    text = re.sub(r"(?i)€|(?<![a-z])euro?(?![a-z])|[\s\u00a0\u202f]", "", typed)
     if not text:
         return None
     if "," in text:
@@ -761,9 +763,9 @@ def parse_amount(text: str | None) -> Decimal | None:
     try:
         value = Decimal(text)
     except ArithmeticError:
-        raise BillingError(f"„{text}“ ist keine Zahl.") from None
+        raise BillingError(f"„{typed}“ ist keine Zahl.") from None
     if not value.is_finite():
-        raise BillingError(f"„{text}“ ist keine Zahl.")
+        raise BillingError(f"„{typed}“ ist keine Zahl.")
     return value
 
 
