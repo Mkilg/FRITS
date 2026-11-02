@@ -602,13 +602,35 @@ def guthaben(conn) -> int:
     return int(conn.execute("SELECT COALESCE(SUM(betrag), 0) FROM spiel_kasse").fetchone()[0])
 
 
+UMSTELLUNG = "Umstellung auf eine Währung"
+
+
+def _gruppe(z: dict) -> str | None:
+    """Which Kassenbuch rows of one day fold into one: a quest year, or the currency move."""
+    if z["art"] == "drachensieg" or (z["art"] == "quest" and "Gold von früher" in z["text"]):
+        return UMSTELLUNG
+    q = re.match(r"(Steuer-Quest \d{4})", z["text"]) if z["art"] == "quest" else None
+    return q.group(1) if q else None
+
+
+def _sammeltext(zeile: dict) -> str:
+    """ "Steuer-Quest 2025: 11 Buchungen · Serie bis ×8" (the series if the texts name one)."""
+    if zeile["gruppe"] == UMSTELLUNG:
+        return UMSTELLUNG
+    text = f"{zeile['gruppe']}: {len(zeile['teile'])} Buchungen"
+    serien = [int(x) for t in zeile["teile"] for x in re.findall(r"×\s?(\d+)", t["text"])]
+    return f"{text} · Serie bis ×{max(serien)}" if serien else text
+
+
 def kassenbuch(conn, limit: int = 30) -> list[dict]:
     """Every grain in or out, newest first. A Kassensturz row knows its number, so the
     Kassenbuch is also the chronicle: each one can be replayed from there.
 
     The Steuer-Quest books many small amounts (one per Zettel). Those of one quest year
-    on one day become one row with a sum; the single bookings stay in "teile"."""
+    on one day become one row with a sum; the single bookings stay in "teile". The same
+    goes for the one-time move from the old quest gold to Salzkörner (Lena: one row)."""
     zeilen: list[dict] = []
+    sammel: dict[tuple[str, str], dict] = {}  # (gruppe, tag) -> its row
     for r in conn.execute(
         "SELECT tag, betrag, art, text FROM spiel_kasse ORDER BY id DESC LIMIT ?", (limit * 3,)
     ).fetchall():
@@ -616,17 +638,20 @@ def kassenbuch(conn, limit: int = 30) -> list[dict]:
         m = re.match(r"Kassensturz Nr\. (\d+)", z["text"]) if z["art"] == "kassensturz" else None
         z["nummer"] = int(m.group(1)) if m else None
         z["teile"] = []
-        q = re.match(r"(Steuer-Quest \d{4})", z["text"]) if z["art"] == "quest" else None
-        z["gruppe"] = q.group(1) if q else None
-        vorige = zeilen[-1] if zeilen else None
-        if z["gruppe"] and vorige and (vorige["gruppe"], vorige["tag"]) == (z["gruppe"], z["tag"]):
-            if not vorige["teile"]:
-                vorige["teile"] = [{"text": vorige["text"], "betrag": vorige["betrag"]}]
-            vorige["teile"].append({"text": z["text"], "betrag": z["betrag"]})
-            vorige["betrag"] += z["betrag"]
-            vorige["text"] = f"{z['gruppe']}: {len(vorige['teile'])} Buchungen"
+        z["gruppe"] = _gruppe(z)
+        # Lena: a purchase in between must not split one day's quest into several rows,
+        # so a group gathers the whole day and stays where its newest booking is.
+        zeile = sammel.get((z["gruppe"], z["tag"])) if z["gruppe"] else None
+        if zeile is None:
+            zeilen.append(z)
+            if z["gruppe"]:
+                sammel[(z["gruppe"], z["tag"])] = z
             continue
-        zeilen.append(z)
+        if not zeile["teile"]:
+            zeile["teile"] = [{"text": zeile["text"], "betrag": zeile["betrag"]}]
+        zeile["teile"].append({"text": z["text"], "betrag": z["betrag"]})
+        zeile["betrag"] += z["betrag"]
+        zeile["text"] = _sammeltext(zeile)
     return zeilen[:limit]
 
 

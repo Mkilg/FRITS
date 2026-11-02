@@ -30,6 +30,8 @@
      belong to a place light it up: Entwürfe and Angebote live under Rechnungen, EÜR and
      Umsatzsteuer under Ausgaben, and show up there as tabs. Everything rare sits behind "Mehr". #}
   {% set more = [("/settings", "Einstellungen"), ("/sicherung", "Datensicherung"), ("/lernen", "So funktionieren KI-Agenten"), ("/setup/welcome", "Einführung wiederholen"), ("/ueber", "Über FRITS")] %}
+  {# Fritte has no place of her own in the row (Heute is for work), but she is one click away under Mehr #}
+  {% set more = ([("/fritte", "Fritte")] if settings.haustier else []) + more %}
   {% set ns = namespace(here=false) %}
   {% for href, label in more %}{% if nav.startswith(href) %}{% set ns.here = true %}{% endif %}{% endfor %}
   <nav>
@@ -88,7 +90,7 @@
   <details class="mehr">
     <summary><span class="punkte" aria-hidden="true"></span><span>Mehr</span></summary>
     <div class="mehr-liste">
-      {% for href, label in [("/customers", "Kunden"), ("/chat", "Frag FRITS")] + ([("/fritte", "Fritte")] if settings.haustier else []) + more %}
+      {% for href, label in [("/customers", "Kunden"), ("/chat", "Frag FRITS")] + more %}
       <a href="{{ href }}" {% if nav.startswith(href) %}aria-current="page"{% endif %}>{{ label }}</a>
       {% endfor %}
     </div>
