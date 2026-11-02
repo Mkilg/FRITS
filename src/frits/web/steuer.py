@@ -1609,6 +1609,7 @@ def register_steuer(
             wurf=wurf,
             beute=beute,
             lager=quest.lager_dateien(ws.root),
+            goldjahr=spiel.gold_jahr(jahr, today()),
             **daten,
         )
 
