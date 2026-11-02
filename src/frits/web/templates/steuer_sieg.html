@@ -7,10 +7,12 @@
 <div class="sq sq-tisch" data-klang="{{ 'an' if klang else 'aus' }}" {% if drache.besiegt and kiste is none %}data-konfetti{% endif %}{% include "_steuer_stil.html" %}>
 {% include "_steuer_meldungen.html" %}
 {% include "_steuer_kopf.html" %}
-<h1 class="sq-sieg-titel{% if drache.besiegt and zweifel %} silber{% endif %}">{% if drache.besiegt and zweifel %}Silber-Sieg!{% elif drache.besiegt %}Goldenes Zeitalter!{% else %}Bereit zum Senden{% endif %}</h1>
+<h1 class="sq-sieg-titel{% if drache.besiegt and zweifel %} silber{% endif %}">{% if drache.besiegt and zweifel %}Silber-Sieg!{% elif drache.besiegt %}Goldenes Zeitalter!{% else %}Heute nur senden{% endif %}</h1>
+{% if not drache.besiegt %}<p class="sq-sieg-unter">{{ drache.max_lp - drache.lp }} von {{ drache.max_lp }} Karten erledigt. Was fehlt, steht als Liste in der Mail. Der Drache wartet, bis du weitermachst.</p>{% endif %}
 <div class="sq-sieg">
   <aside class="sq-rand">
-    <div class="sq-truhe">{% if truhe_bild %}<img src="{{ truhe_bild }}" alt="Fundkiste">{% else %}<span class="glanz"></span><span class="kasten"></span><span class="deckel"></span>{% endif %}</div>
+    {# Lena (Runde 46): Über den Notausgang zeigte die Seite eine volle Kiste, auch bei 0 Belegen #}
+    <div class="sq-truhe">{% if not drache.besiegt and kiste_zu %}<img src="{{ kiste_zu }}" alt="Fundkiste, noch nicht voll">{% elif truhe_bild %}<img src="{{ truhe_bild }}" alt="Fundkiste">{% else %}<span class="glanz"></span><span class="kasten"></span><span class="deckel"></span>{% endif %}</div>
     <section class="sq-papier sq-schief" style="--r: -1deg">
       <h2>Deine Ausbeute</h2>
       <dl class="sq-statistik">
@@ -71,7 +73,8 @@
         <div>
           <p class="sq-kiste-finale-titel">Die Fundkiste {{ jahr }} ist zu!</p>
           <p>Alles, was deine Beraterin braucht, liegt darin{% if mit_passwort %}, sicher hinter einem Passwort{% endif %}. Jetzt nur noch abschicken.</p>
-          {% if fritte_warten %}<p><a class="sq-stempelknopf" href="/fritte">Zu Fritte: {{ fritte_warten }} Karte{{ "n" if fritte_warten != 1 }} warte{{ "n" if fritte_warten != 1 else "t" }} →</a></p>{% endif %}
+          {# Lena (Runde 46): Der Hauptweg nach dem Packen ist der Brief, Fritte kommt danach #}
+          <p class="sq-kiste-wege"><a class="sq-siegelknopf" href="#brief">Weiter zum Brief ↓</a>{% if fritte_warten %} <a class="sq-stempelknopf" href="/fritte">Zu Fritte: {{ fritte_warten }} Karte{{ "n" if fritte_warten != 1 }} warte{{ "n" if fritte_warten != 1 else "t" }} →</a>{% endif %}</p>
         </div>
       </div>
       {% endif %}

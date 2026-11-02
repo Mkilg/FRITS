@@ -703,6 +703,19 @@ def chronik(conn: sqlite3.Connection, jahr: int, anzahl: int = 8) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def vor_dem_sieg_gepackt(conn: sqlite3.Connection, jahr: int) -> bool:
+    """Wurde die Fundkiste zuerst gepackt, als der Drache noch lebte (Notausgang)? Dann
+    hatte das Jahr noch kein Finale: Es kommt beim ersten Packen nach dem Sieg."""
+    ensure_schema(conn)
+    erste = {
+        art: conn.execute(
+            "SELECT MIN(id) FROM steuer_chronik WHERE jahr = ? AND art = ?", (jahr, art)
+        ).fetchone()[0]
+        for art in ("truhe", "sieg")
+    }
+    return erste["truhe"] is not None and (erste["sieg"] is None or erste["truhe"] < erste["sieg"])
+
+
 def hat_notiz(
     conn: sqlite3.Connection, jahr: int | None, art: str, text: str | None = None
 ) -> bool:

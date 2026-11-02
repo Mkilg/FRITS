@@ -1826,3 +1826,20 @@ details.sq-mehr-marken .kurz { display: none; }
 .sq-ahnung.sq-stutzt button.sq-besser:hover { background: #6b4a10; }
 /* Die Karte vorn war schon gewertet: Die Serie wartet grau, statt groß über „ohne Serie“ zu stehen */
 .sq-combo.gewertet .mult { background: #7c6a58; box-shadow: 0 5px 0 #3e3227; }
+
+/* Runde 45 (Lenas Runde 46) */
+/* Gold-Links auf Papier hatten 1,55 : 1: In Meldungen und im Sieg-Dialog gilt dunkle Tinte */
+.sq .sq-meldung a:not(.sq-stempelknopf, .sq-siegelknopf), .sq-belohnung .sq-beute a { color: var(--tinte, #24395c); text-decoration: underline; text-underline-offset: 2px; }
+/* Unter dem Notausgang-Titel: ehrlich, wie weit das Jahr ist */
+.sq .sq-sieg-unter { text-align: center; margin: -.6rem auto 1rem; max-width: 40rem; color: var(--creme, #f6ecd2); font-weight: 600; text-shadow: 0 1px 2px rgba(0, 0, 0, .8); }
+/* Knöpfe unter dem Satz: eigener Block mit Luft, am Handy untereinander */
+.sq-kiste-finale p.sq-kiste-wege, .sq-kiste-halb p:has(> .sq-stempelknopf) { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: center; margin-top: 1rem; }
+.sq-kiste-halb p:has(> .sq-stempelknopf) { justify-content: flex-start; }
+.sq-kiste-wege a { display: inline-block; }
+/* Am Handy deckte das Siegel die halbe Kiste: Kiste größer, Siegel daneben */
+@media (max-width: 600px) {
+  .sq-kiste-finale-bild, .sq-kiste-finale-bild img { width: 140px; }
+  .sq-kiste-finale .sq-kiste-siegel { right: -34px; bottom: 0; }
+}
+/* Die Handy-Kopfzeile wartet grau wie das große Schild, wenn die Karte vorn schon gewertet ist */
+.sq-arena .sq-kampf-kurz.gewertet b:last-child { color: #cbbda6; }

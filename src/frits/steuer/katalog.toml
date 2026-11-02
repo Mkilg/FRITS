@@ -22,7 +22,7 @@ frage = "immer"
 anlage = "Hauptvordruck (ESt 1 A)"
 woerter = ["finanzamt", "bescheid", "vorauszahlung", "steuer-id", "identifikationsnummer", "steuernummer"]
 stuecke = [
-  { key = "steuer-id", angabe = "Steuer-ID: 11 Ziffern. Steuernummer, falls du eine hast.", kern = true, fehlt_nie = true, name = "Steuer-ID", hinweis = "Steht auf jedem Steuerbescheid und auf der Lohnsteuerbescheinigung." },
+  { key = "steuer-id", woerter = ["identifikationsnummer", "idnr"], angabe = "Steuer-ID: 11 Ziffern. Steuernummer, falls du eine hast.", kern = true, fehlt_nie = true, name = "Steuer-ID", hinweis = "Steht auf jedem Steuerbescheid und auf der Lohnsteuerbescheinigung." },
   { key = "bescheid", name = "Letzter Steuerbescheid", hinweis = "Der Bescheid vom Vorjahr hilft der Beraterin beim Vergleich." },
   { key = "vorauszahlungen", name = "Vorauszahlungsbescheide", hinweis = "Nur wenn du Steuern vorab zahlst." },
   { key = "briefe", name = "Weitere Briefe vom Finanzamt", hinweis = "Alles, was das Finanzamt dieses Jahr geschickt hat." },

@@ -987,6 +987,9 @@ _LEERWOERTER = {
 def _woerter(text: str) -> set[str]:
     """Wörter ab 3 Buchstaben ("GbR", "KSK") und Zahlen wie "1099", aber keine Jahreszahlen."""
     text = text.lower().translate(_UMLAUTE)
+    # Lena (Runde 46): "Steuer-ID.pdf" fiel durch (zu kurz) und "steuer-id-brief" landete bei
+    # den Briefen. Die Steuer-ID zählt als ein Wort.
+    text = re.sub(r"steuer[\s_.\-]?id(?:nr)?(?![a-z])", "steuerid", text)
     return {
         w
         for w in re.findall(r"[a-z]{3,}|\d{4}", text)

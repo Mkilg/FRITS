@@ -713,7 +713,7 @@ def test_frits_ernte_kommt_von_selbst(client, ws):
 def test_notausgang(client):
     fragebogen(client, teil2={"m_freiberuflich_0": "1"})
     page = post(client, "/steuer/2025/drache/notausgang")
-    assert "Bereit zum Senden" in page.text
+    assert "Heute nur senden" in page.text and "Karten erledigt" in page.text
 
 
 def test_steuer_knoepfe_brauchen_das_token(client):
@@ -3518,3 +3518,47 @@ def test_runde_44_frisches_jahr_sagt_der_korb_gilt_fuer_alle_jahre(client, ws):
         2025, [], spiel.drache(quest.stuecke(conn, 2025)), 1, quest.stuecke(conn, 2025)
     )
     assert a.art == "korb" and "Der Korb gilt für alle Jahre" in a.text and "2025" in a.text
+
+
+def test_runde_45_finale_nach_dem_notausgang(client, ws):
+    """Lena (Runde 46): Nach dem Notausgang gab es nie ein Finale, obwohl FRITS versprach:
+    „Das Siegel gibt es, wenn der Drache besiegt ist“."""
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    post(client, "/steuer/2025/drache/notausgang")
+    seite = post(client, "/steuer/2025/truhe", schloss="ohne").text
+    assert "aber noch leer" in seite and 'class="sq-kiste-finale"' not in seite
+    # Jetzt den Drachen besiegen, wie im Spiel (mit Notiz in der Chronik)
+    for s in spiel.pflicht(quest.stuecke(conn, 2025)):
+        quest.setze_status(conn, s["id"], "fragen")
+    erste = spiel.pflicht(quest.stuecke(conn, 2025))[0]
+    (ws.root / "beleg.pdf").write_bytes(b"%PDF beleg")
+    quest.sammeln(conn, ws.root, erste["id"], ws.root / "beleg.pdf")
+    quest.notiere(conn, 2025, "sieg", "Der Papierdrache ist besiegt")
+    seite = post(client, "/steuer/2025/truhe", schloss="ohne").text
+    assert 'class="sq-kiste-finale"' in seite and "Weiter zum Brief" in seite
+    assert "Die Fundkiste ist gepackt, ohne Passwort." not in seite  # das sagt das Finale
+    seite = post(client, "/steuer/2025/truhe", schloss="ohne").text
+    assert 'class="sq-kiste-finale"' not in seite  # nur einmal
+
+
+def test_runde_45_kein_zweites_finale_fuer_alte_kisten(client, ws):
+    """Wer vor dieser Runde nach dem Sieg gepackt hat, bekommt beim Neu-Packen kein Fest."""
+    conn, _bonus = _besiegt_mit_bonus(client, ws)
+    quest.notiere(conn, 2025, "sieg", "Der Papierdrache ist besiegt")
+    quest.notiere(conn, 2025, "truhe", "Steuer-2025-Kim.zip")
+    quest.kiste_gepackt(conn, 2025)
+    seite = post(client, "/steuer/2025/truhe", schloss="ohne").text
+    assert 'class="sq-kiste-finale"' not in seite
+
+
+def test_runde_45_steuer_id_im_dateinamen():
+    """Lena (Runde 46): „steuer-id-brief.png“ landete bei den Briefen, „Steuer-ID.pdf“ nirgends."""
+    alle = [
+        {"id": 1, "gebiet": "rathaus", "key": "steuer-id", "name": "Steuer-ID", "status": "offen"},
+        {"id": 2, "gebiet": "rathaus", "key": "briefe", "status": "offen",
+         "name": "Weitere Briefe vom Finanzamt"},
+    ]  # fmt: skip
+    for name in ("steuer-id-brief.png", "Steuer-ID.pdf", "Steuer_ID_2025.pdf", "SteuerID.jpg"):
+        assert spiel.ahnung(name, alle).stueck["id"] == 1, name
+    assert spiel.ahnung("finanzamt-brief.png", alle).stueck["id"] == 2
