@@ -76,6 +76,12 @@
       </form>
       {% else %}
       <span><b>{{ "Volltreffer" if wurf.wie == "datei" else ("Notiert" if wurf.wie == "gibts_nicht" else "Treffer") }}:</b> {{ {"datei": "„" ~ wurf.karte ~ "“ ist gesichert.", "fragen": "„" ~ wurf.karte ~ "“ kommt als Frage in die Mail.", "gibts_nicht": "„" ~ wurf.karte ~ "“ gibt es nicht.", "verweis": "„" ~ wurf.karte ~ "“ benutzt dieselbe Datei mit."}.get(wurf.wie, "") }}</span>
+      {% if wurf.zurueck and not drache.besiegt %}
+      <form method="post" action="/steuer/{{ jahr }}/drache/zuruecknehmen">
+        <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="stueck_id" value="{{ wurf.zurueck }}">
+        <button class="quiet">Verklickt? Zurücknehmen</button>
+      </form>
+      {% endif %}
       {% endif %}
       {% if beute %}{% set karte_gold = beute.basis * beute.mult %}
       {% if beute.mult > 1 %}

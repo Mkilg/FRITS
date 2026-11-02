@@ -14,7 +14,7 @@
   <div>
     <p class="sq-kicker">Hafenmarkt</p>
     <h1>Was baust du mit deinem Gold?</h1>
-    <p>Gold bekommst du für jede Karte. Hier wird es zu Zierde für deine Insel oder zu Helfern, die mitspielen. Steuern ändert das nicht, es macht nur mehr Spaß.</p>
+    <p>Gold bekommst du für jede Karte. Hier wird es zu Helfern, die mitspielen. Zierden für die Insel bringen deine Orden. Steuern ändert das nicht, es macht nur mehr Spaß.</p>
     {% if not goldjahr %}<p class="sq-markt-alt"><b>{{ jahr }} liegt schon länger zurück.</b> Nachholen lohnt sich trotzdem, Gold gibt es aber nur für die letzten Steuerjahre. Deine Zierde von dort steht auch hier.</p>{% endif %}
   </div>
   <p class="sq-beutel" aria-label="{{ ressourcen.gold }} Gold"><i></i><b data-zaehler="gold-markt">{{ ressourcen.gold }}</b><span>Gold</span></p>
@@ -70,7 +70,7 @@
   <div class="sq-papier sq-schief" style="--r: 0.5deg">
     <h2 id="h-regeln">Woher kommt das Gold?</h2>
     <ul>
-      <li><b>{{ regeln.GOLD_FUND }}</b> für jede Unterlage, die du sicherst. Im Drachenkampf zählt deine <b>Serie mal</b>: ×2, ×3 … bis ×{{ regeln.MAX_MULT }}.</li>
+      <li><b>{{ regeln.GOLD_FUND }}</b> für jede Unterlage, die du sicherst. Im Drachenkampf wächst es mit deiner <b>Gold-Serie</b>, den Faktor zeigt das Banner im Kampf.</li>
       <li><b>{{ regeln.GOLD_SCHATZ }}</b> für jeden Bonus-Schatz (der kann Steuern sparen)</li>
       <li><b>{{ regeln.GOLD_FRAGE }}</b> für jede Frage an die Beraterin, <b>{{ regeln.GOLD_GIBTS_NICHT }}</b> für „Gibt's nicht“ (bei wichtigen Unterlagen 0). Ohne Serie.</li>
       <li>Ein <b>Siegel</b> bringt 2 und 2 je Fund darin, bis {{ regeln.GOLD_SIEGEL }}. Das <b>Tagesziel</b> bringt {{ regeln.GOLD_TAGWERK }}.</li>
