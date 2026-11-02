@@ -70,6 +70,10 @@ def _montag(tag: date) -> date:
 def buero_wochen(conn, anfang: date, ende: date) -> int:
     """Weeks with paperwork inside the season, by the days FRITS itself noticed new work
     (never a typed date). The welcome round, Feierabend and corrections don't count."""
+    return len(_buero_montage(conn, anfang, ende))
+
+
+def _buero_montage(conn, anfang: date, ende: date) -> set[date]:
     tage = [
         date.fromisoformat(g)
         for (g,) in stand.rows(
@@ -81,7 +85,26 @@ def buero_wochen(conn, anfang: date, ende: date) -> int:
         )
         if g
     ]
-    return len({_montag(t) for t in tage})
+    return {_montag(t) for t in tage}
+
+
+def streifen(conn, s: Saison, heute: date) -> list[str]:
+    """One dot per week of the season that counts, oldest first: "voll" (paperwork done),
+    "leer" (a quiet week, that's fine), "jetzt" (this week, nothing yet) or "kommt"."""
+    letzte = _montag(s.ende)
+    erste = letzte - timedelta(weeks=max(1, s.wochen) - 1)
+    gemacht = _buero_montage(conn, s.anfang, s.ende)
+    diese = _montag(heute)
+    punkte = []
+    for n in range(max(1, s.wochen)):
+        w = erste + timedelta(weeks=n)
+        if w in gemacht:
+            punkte.append("voll")
+        elif w < diese:
+            punkte.append("leer")
+        else:
+            punkte.append("jetzt" if w == diese else "kommt")
+    return punkte
 
 
 def jetzt(conn, heute: date) -> Saison:

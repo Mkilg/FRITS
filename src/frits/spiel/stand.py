@@ -8,6 +8,7 @@ The bookkeeping tables are only read. Every finished piece of paperwork becomes 
 from __future__ import annotations
 
 import random
+import re
 import sqlite3
 import tomllib
 from collections import Counter
@@ -594,12 +595,17 @@ def guthaben(conn) -> int:
 
 
 def kassenbuch(conn, limit: int = 30) -> list[dict]:
-    return [
-        dict(r)
-        for r in conn.execute(
-            "SELECT tag, betrag, art, text FROM spiel_kasse ORDER BY id DESC LIMIT ?", (limit,)
-        ).fetchall()
-    ]
+    """Every grain in or out, newest first. A Kassensturz row knows its number, so the
+    Kassenbuch is also the chronicle: each one can be replayed from there."""
+    zeilen = []
+    for r in conn.execute(
+        "SELECT tag, betrag, art, text FROM spiel_kasse ORDER BY id DESC LIMIT ?", (limit,)
+    ).fetchall():
+        z = dict(r)
+        m = re.match(r"Kassensturz Nr\. (\d+)", z["text"]) if z["art"] == "kassensturz" else None
+        z["nummer"] = int(m.group(1)) if m else None
+        zeilen.append(z)
+    return zeilen
 
 
 def bezahlen(conn, tag: str, preis: int, text: str) -> None:

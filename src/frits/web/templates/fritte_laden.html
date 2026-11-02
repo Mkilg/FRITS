@@ -38,7 +38,7 @@
 
 <section class="card" id="markt">
   <h2>Markttag <span class="hint">neue Ware jeden Montag</span></h2>
-  {% if stufe.nummer < 3 and not ruf %}<p class="hint">{{ "Seltene" if stufe.nummer < 2 else "Legendäre" }} Gewürze gibt es erst, wenn Frittes Haus weiter ausgebaut ist ({{ "Stube" if stufe.nummer < 2 else "Werkstatt" }}).</p>{% endif %}
+  {% if haus_sichtbar and stufe.nummer < 3 and not ruf %}<p class="hint">{{ "Seltene" if stufe.nummer < 2 else "Legendäre" }} Gewürze gibt es erst, wenn Frittes Haus weiter ausgebaut ist ({{ "Stube" if stufe.nummer < 2 else "Werkstatt" }}).</p>{% endif %}
   <div class="markt">
     {% for g in markt %}
     {% set kosten = preis(g) %}
@@ -113,21 +113,4 @@
 </section>
 {% endif %}
 
-<section class="card" id="kassenbuch">
-  <details>
-    <summary><h2>Frittes Kassenbuch</h2></summary>
-    <p class="hint">Fritte führt auch Buch: Jedes Salzkorn, das reinkommt oder rausgeht, steht hier in einer Zeile. So ähnlich führt man ein Kassenbuch. Fritte macht das nur zum Spaß; wer kein Bargeld kassiert, braucht keins.</p>
-    <table class="kassenbuch">
-      <thead><tr><th>Tag</th><th>Was</th><th class="amount">Salzkörner</th></tr></thead>
-      <tbody>
-        {% for z in kassenbuch %}
-        <tr><td>{{ z.tag | de_date }}</td><td>{{ z.text }}</td><td class="amount {{ 'plus' if z.betrag > 0 else 'minus' }}">{{ "%+d" % z.betrag }}</td></tr>
-        {% else %}
-        <tr><td colspan="3" class="muted">Noch keine Buchung.</td></tr>
-        {% endfor %}
-      </tbody>
-      <tfoot><tr><th colspan="2">Bestand</th><th class="amount">{{ f.guthaben }}</th></tr></tfoot>
-    </table>
-  </details>
-</section>
 {% endblock %}

@@ -93,6 +93,7 @@ from frits.reminders import create_reminder
 from frits.render import eur, qty
 from frits.settings import Settings, Workspace
 from frits.spiel import stand as spiel_stand
+from frits.spiel import tagesziel
 from frits.web.haustier import fritte_datei, register_haustier
 
 UNITS = ("Std", "km", "Stk", "pauschal")
@@ -563,6 +564,8 @@ def create_app(
             liste_rest=_liste_rest(),
             heute=today().isoformat(),
             karten_uebrig=aufgaben.karten_uebrig(conn, today()) if current.haustier else 0,
+            # after ansehen() above, which notices today's new paperwork
+            tagesziel=tagesziel.zaehlen(conn, today()) if current.haustier else None,
             pro_tag=aufgaben.PRO_TAG,
         )
 
