@@ -228,3 +228,32 @@ def test_fritte_page_and_opening_in_the_browser(client, ws):  # noqa: F811
 def test_other_websites_cannot_open_chests(client):  # noqa: F811
     r = client.post("/fritte/truhe/oeffnen", follow_redirects=False)
     assert r.status_code == 403
+
+
+def test_drachengold_becomes_wuerze_only_after_the_dragon(client, ws):  # noqa: F811
+    from frits.steuer import quest
+
+    conn = store.connect(ws.db)
+    add_invoice(conn, "2026-0001", TODAY - timedelta(days=30))
+    client.get("/fritte")
+    post(client, "/fritte/kassensturz")
+    jahr = TODAY.year - 1
+    quest.gold_gutschreiben(conn, jahr, 50, "Test", "test:1")
+    assert 'id="drachengold"' not in client.get("/fritte").text  # no victory yet
+    assert "Gerade geht das nicht" in post(client, "/fritte/drachengold").text
+    assert quest.gold(conn, jahr) == 50
+
+    quest.notiere(conn, jahr, "sieg", "Der Drache ist besiegt")
+    page = client.get("/fritte").text
+    assert "noch <strong>50 Gold</strong>" in page and "20 Gold einkochen" in page
+    post(client, "/fritte/drachengold")
+    page = post(client, "/fritte/drachengold").text
+    assert quest.gold(conn, jahr) == 10
+    assert "2 Gläser Drachenwürze warten" in page and "20 Gold einkochen" not in page
+    assert "Gerade geht das nicht" in post(client, "/fritte/drachengold").text  # at most two
+
+    add_invoice(conn, "2026-0002", TODAY)
+    k = kassensturz_machen(conn)
+    assert k["gewuerze"][0]["id"] == "drachenwuerze" and k["wuerze"] >= 3
+    assert kassensturz.drachenglaeser(conn) == 0
+    assert 'id="drachengold"' not in client.get("/fritte").text  # 10 gold: not enough

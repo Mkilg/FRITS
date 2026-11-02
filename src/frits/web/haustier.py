@@ -103,6 +103,21 @@ def gold_jahr(root: Path, heute: date) -> int | None:
     return None
 
 
+def drachengold(conn, heute: date) -> dict | None:
+    """Gold from a Steuer-Quest year with a dragon victory, if there is enough for a jar.
+    The newest such year in the last six."""
+    from frits.steuer import quest
+
+    if getattr(quest, "gold_ausgeben", None) is None:
+        return None
+    for jahr in range(heute.year, heute.year - 6, -1):
+        if quest.hat_notiz(conn, jahr, "sieg"):
+            gold = quest.gold(conn, jahr)
+            if gold >= kassensturz.DRACHENGOLD_PREIS:
+                return {"jahr": jahr, "gold": gold}
+    return None
+
+
 def gold_gutschreiben():
     from frits.steuer import quest
 
@@ -213,6 +228,10 @@ def register_haustier(
             pro_truhe=truhen.KARTEN_PRO_TRUHE,
             chancen=truhen.chancen(conn),
             schaetze=[(d, d.id in geschaetzt) for d in haustier.SCHAETZE],
+            drachengold=drachengold(conn, today()),
+            drachenglaeser=kassensturz.drachenglaeser(conn),
+            drachen_max=kassensturz.DRACHENGLAESER,
+            drachen_preis=kassensturz.DRACHENGOLD_PREIS,
             neu=ding.id if ding else "",
             karten=karten,
             pro_karte=pro_karte,
@@ -326,6 +345,30 @@ def register_haustier(
             request, "kassensturz.html", k=ergebnis, f=fritte(conn),
             offene_truhen=len(truhen.geschlossen(conn)),
         )  # fmt: skip
+
+    @app.post("/fritte/drachengold", dependencies=guarded)
+    def drachengold_einkochen():
+        """20 quest gold from a won year become a jar of +1 Würze for the next Kassensturz."""
+        from frits.steuer import quest
+
+        conn = db()
+        stand.vorbereiten(conn)
+        quelle = drachengold(conn, today())
+        n = kassensturz.drachenglaeser(conn)
+        if quelle is None or n >= kassensturz.DRACHENGLAESER:
+            flash("Gerade geht das nicht: Es braucht einen besiegten Drachen, 20 Gold und Platz"
+                  " für ein Glas (höchstens zwei warten).", "error")  # fmt: skip
+            return back("/fritte#kassensturz")
+        preis = kassensturz.DRACHENGOLD_PREIS
+        if not quest.gold_ausgeben(conn, quelle["jahr"], preis, "Drachenwürze für Fritte"):
+            flash("Dafür reicht das Gold gerade nicht.", "error")
+            return back("/fritte#kassensturz")
+        stand.setze(conn, "drachen_wuerze", str(n + 1))
+        flash(
+            f"Fritte hat {preis} Drachengold zu Drachenwürze eingekocht: +1 Würze beim nächsten"
+            " Kassensturz.", cue="done",
+        )  # fmt: skip
+        return back("/fritte#kassensturz")
 
     @app.post("/fritte/truhe/oeffnen", dependencies=guarded)
     def truhe_oeffnen():
