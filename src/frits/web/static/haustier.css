@@ -249,6 +249,13 @@ button.gross { font-size: 1.1rem; padding: .7rem 1.6rem; }
 .kassenbuch details.buchungen summary { cursor: pointer; }
 .kassenbuch details.buchungen ul { margin: .3rem 0 0; padding-left: 1.1rem; font-size: .88rem; }
 .kassenbuch details.buchungen li span { font-variant-numeric: tabular-nums; margin-left: .3rem; }
+/* Phones: long German words (Krankenversicherungsbeiträge) must not push the table wider than the card (Lena) */
+@media (max-width: 600px) {
+  .kassenbuch { font-size: .85rem; }
+  .kassenbuch th, .kassenbuch td { padding: .3rem .25rem; }
+  .kassenbuch td { overflow-wrap: anywhere; hyphens: auto; }
+  .kassenbuch details.buchungen ul { padding-left: .9rem; }
+}
 details > summary { cursor: pointer; list-style: none; }
 details > summary h2 { display: inline; }
 details > summary::before { content: "▸ "; color: var(--muted); }

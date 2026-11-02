@@ -674,7 +674,22 @@ def kassenbuch(conn, limit: int = 30) -> list[dict]:
         zeile["teile"].append({"text": _teiltext(z), "betrag": z["betrag"]})
         zeile["betrag"] += z["betrag"]
         zeile["text"] = _sammeltext(zeile)
-    return zeilen[:limit]
+    zeilen = zeilen[:limit]
+    # Lena: the window above may cut a long day in half, so a bundle counts its whole day
+    for (gruppe, tag), zeile in sammel.items():
+        if zeile not in zeilen:
+            continue
+        teile = []
+        for r in conn.execute(
+            "SELECT tag, betrag, art, text FROM spiel_kasse WHERE tag = ? ORDER BY id DESC", (tag,)
+        ).fetchall():
+            z = dict(r)
+            if _gruppe(z) == gruppe:
+                teile.append({"text": _teiltext({**z, "gruppe": gruppe}), "betrag": z["betrag"]})
+        if len(teile) > 1:
+            zeile["teile"], zeile["betrag"] = teile, sum(t["betrag"] for t in teile)
+            zeile["text"] = _sammeltext(zeile)
+    return zeilen
 
 
 def bezahlen(conn, tag: str, preis: int, text: str) -> None:
