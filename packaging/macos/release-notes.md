@@ -1,6 +1,6 @@
 ## FRITS für den Mac
 
-Vorher prüfen: Zum Entpacken braucht der Mac etwa **2,5 GB freien Speicher** (danach 1,4 GB). Reicht der Platz nicht, fehlen am Ende Dateien und FRITS startet nicht.
+Vorher prüfen: Zum Entpacken braucht der Mac etwa **3 GB freien Speicher** (danach 1,6 GB). Reicht der Platz nicht, meldet der Mac „Fehler 640“ oder es fehlen am Ende Dateien und FRITS startet nicht. Alte FRITS-ZIPs und -Ordner aus „Downloads“ kannst du vorher löschen, deine Daten liegen in Dokumente/FRITS.
 
 1. **FRITS-macOS.zip** unten herunterladen und doppelklicken. Es entsteht ein Ordner **FRITS** mit FRITS.app, Start-FRITS.command und LIESMICH.txt.
 2. Den Ordner dorthin legen, wo er bleiben soll (z. B. Programme oder USB-Stick).
@@ -8,6 +8,8 @@ Vorher prüfen: Zum Entpacken braucht der Mac etwa **2,5 GB freien Speicher** (d
    - Warnung schließen.
    - **Systemeinstellungen → Datenschutz & Sicherheit** öffnen und ganz nach unten scrollen.
    - Bei „FRITS wurde blockiert“ auf **Trotzdem öffnen** klicken und mit dem Passwort bestätigen.
+
+Klappt das Entpacken per Doppelklick nicht (z. B. „Fehler 640“), geht es im Terminal mit einem klaren Fehlertext: `ditto -x -k ~/Downloads/FRITS-macOS.zip ~/Downloads/`
 
 Sagt der Mac stattdessen, die App sei „beschädigt“: Terminal öffnen, `xattr -dr com.apple.quarantine ` tippen (mit Leerzeichen am Ende), den FRITS-Ordner ins Fenster ziehen und Enter drücken.
 
