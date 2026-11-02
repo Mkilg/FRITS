@@ -448,6 +448,8 @@ def register_haustier(
             bild = f"ding-{fund['id']}"
         elif fund["art"] == "gewuerz":
             bild = f"gewuerz-{fund['id']}"
+        elif fund["art"] == "koerner":
+            bild = "symbol-salz"
         return page(
             request,
             "truhe.html",

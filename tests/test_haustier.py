@@ -1050,4 +1050,7 @@ def test_hats_and_dishes_show_painted_pictures_not_emoji(client, ws):  # noqa: F
     assert "symbol-einkochen.webp" in glas and "🍲" not in glas
     assert "gewuerz-pfeffer.webp" in str(spiel.glas(NACH_ID["pfeffer"]))
     assert "ding-postkarte.webp" in str(spiel.bild_zeichen("ding", "postkarte", "💌"))
-    assert str(spiel.bild_zeichen("salz", "", "🧂")) == "🧂"
+    assert "symbol-salz.webp" in str(
+        spiel.bild_zeichen("koerner", None, "🧂")
+    )  # Lena: 🧂 next to painted pictures
+    assert str(spiel.bild_zeichen("etwas", "", "★")) == "★"
