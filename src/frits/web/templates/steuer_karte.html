@@ -75,8 +75,8 @@
         {% endif %}
       </div>
       {% if zierde %}
-      <div class="sq-zierde" aria-label="Zierde vom Hafenmarkt" data-wiese="{{ wiese | join(',') }}">
-        {% for w in zierde %}<a class="sq-zier {{ w.key }}{% if w.key == neu_zier %} neu{% endif %}" href="/steuer/{{ jahr }}/markt" style="--x: {{ w.platz[0] }}%; --y: {{ w.platz[1] }}%; --i: {{ loop.index0 }}" title="{{ w.name }}">{{ zierde_bild(w.key) }}</a>{% endfor %}
+      <div class="sq-zierde" aria-label="Zierden für deine Orden" data-wiese="{{ wiese | join(',') }}">
+        {% for w in zierde %}<a class="sq-zier {{ w.key }}{% if w.key == neu_zier %} neu{% endif %}" href="{{ '/sammlung' if sammlung_da else '#orden' }}" style="--x: {{ w.platz[0] }}%; --y: {{ w.platz[1] }}%; --i: {{ loop.index0 }}" title="{{ w.name }}">{{ zierde_bild(w.key) }}</a>{% endfor %}
       </div>
       {% endif %}
     </div>
@@ -133,11 +133,18 @@
     </section>
     {% endif %}
 
-    <section aria-label="Orden">
+    {% set stand = sammlung_stand() if sammlung_da else None %}
+    <section aria-label="Orden" id="orden">
+      {% if stand %}
+      {# Eine Vitrine statt drei: Orden, Frittes Sticker und Pokale stehen zusammen in der Sammlung #}
+      <h2 class="sq-rand-titel">Sammlung</h2>
+      <a class="sq-sammlung-karte" href="/sammlung"><b>{{ stand[0] }} von {{ stand[1] }}</b> gesammelt<small>Deine Orden, Frittes Sticker und die Zierden, die sie auf die Insel stellen</small></a>
+      {% else %}
       <h2 class="sq-rand-titel">Orden</h2>
       <ul class="sq-orden">
-        {% for e in erfolge %}<li class="{{ '' if e.erreicht else 'aus' }}" tabindex="0" aria-label="{{ e.name }}: {{ e.beschreibung }}{% if not e.erreicht %} (noch nicht){% endif %}"><span class="sq-orden-zeichen" aria-hidden="true">{{ e.zeichen }}</span><span class="sq-orden-info" aria-hidden="true"><strong>{{ e.name }}</strong>{{ e.beschreibung }}{% if not e.erreicht %} <em>Noch nicht geschafft.</em>{% endif %}</span></li>{% endfor %}
+        {% for e in erfolge %}<li class="{{ '' if e.erreicht else 'aus' }}" tabindex="0" aria-label="{{ e.name }}: {{ e.beschreibung }}{% if not e.erreicht %} (noch nicht){% endif %}"><span class="sq-orden-zeichen" aria-hidden="true">{{ e.zeichen }}</span><span class="sq-orden-info" aria-hidden="true"><strong>{{ e.name }}</strong>{{ e.beschreibung }}{% if not e.erreicht %} <em>Noch nicht geschafft.</em>{% endif %}{% set z = zierde_fuer(e.key) %}{% if z %} <em>Belohnung: {{ z.name }} auf der Insel.</em>{% endif %}</span></li>{% endfor %}
       </ul>
+      {% endif %}
     </section>
 
     {% if chronik %}

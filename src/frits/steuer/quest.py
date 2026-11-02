@@ -774,6 +774,57 @@ def besitz(conn: sqlite3.Connection, jahr: int) -> dict[str, bool]:
     return {r["ware"]: bool(r["angelegt"]) for r in rows}
 
 
+def zierde_freischalten(conn: sqlite3.Connection, key: str) -> bool:
+    """Stellt eine Zierde für alle Jahre auf die Insel (Belohnung für einen Orden).
+    True, wenn sie neu ist."""
+    ensure_schema(conn)
+    with transaction(conn):
+        cur = conn.execute(
+            "INSERT OR IGNORE INTO steuer_besitz (jahr, ware, angelegt, gekauft) VALUES (?, ?, 0, ?)",
+            (ALLE_JAHRE, key, _now()),
+        )
+    return cur.rowcount > 0
+
+
+def orden_fuer_sammlung(conn: sqlite3.Connection) -> list[dict]:
+    """Die Orden der Steuer-Quest für Frittes gemeinsame Sammlung (/sammlung).
+
+    Erreichte Orden stehen pro Jahr da (aus der Chronik), nicht erreichte einmal mit jahr=None,
+    damit die Vitrine leere Plätze zeigen kann. zierde: was der Orden auf die Insel stellt."""
+    from frits.steuer import spiel
+
+    ensure_schema(conn)
+    alle = spiel.erfolge([], [])
+    erreicht = conn.execute(
+        "SELECT jahr, text FROM steuer_chronik WHERE art = 'erfolg' ORDER BY jahr, id"
+    ).fetchall()
+    nach_name = {e.name: e for e in alle}
+    out, gesehen, schon = [], set(), set()
+    for r in erreicht:
+        e = nach_name.get(r["text"])
+        if e is None or (r["jahr"], e.key) in schon:
+            continue
+        schon.add((r["jahr"], e.key))
+        gesehen.add(e.key)
+        out.append(_orden_eintrag(e, r["jahr"], True))
+    out += [_orden_eintrag(e, None, False) for e in alle if e.key not in gesehen]
+    return out
+
+
+def _orden_eintrag(e, jahr: int | None, erreicht: bool) -> dict:
+    from frits.steuer import spiel
+
+    return {
+        "jahr": jahr,
+        "key": e.key,
+        "name": e.name,
+        "zeichen": e.zeichen,
+        "beschreibung": e.beschreibung,
+        "erreicht": erreicht,
+        "zierde": spiel.ORDEN_ZIERDE.get(e.key),
+    }
+
+
 def helfer(conn: sqlite3.Connection, jahr: int) -> frozenset[str]:
     """Die angelegten Helfer."""
     return frozenset(k for k, an in besitz(conn, jahr).items() if an)
@@ -874,6 +925,10 @@ def kaufe(conn: sqlite3.Connection, jahr: int, key: str) -> str:
     w = spiel.ware(key)
     if w is None:
         raise QuestError("Diese Ware gibt es auf dem Markt nicht.")
+    if w.art == "zierde":
+        raise QuestError(
+            "Zierden gibt es nicht mehr für Gold: Jeder Orden stellt eine auf die Insel."
+        )
     ensure_schema(conn)
     anlegen = w.art == "helfer" and len(helfer(conn, jahr)) < spiel.HELFER_PLAETZE
     with transaction(conn):

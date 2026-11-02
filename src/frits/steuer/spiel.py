@@ -650,7 +650,43 @@ MARKT: tuple[Ware, ...] = (
         "Zeigt dir auch nächstes Jahr den Weg zurück.",
         platz=(88.0, 58.0),
     ),
+    # Nur als Belohnung für einen Orden, nie zu kaufen
+    Ware(
+        "brunnen",
+        "Brunnen",
+        0,
+        "zierde",
+        "Hier schöpfst du jedes Jahr, was du letztes Jahr schon hattest.",
+        platz=(48.0, 68.0),
+    ),
+    Ware(
+        "schatzkiste",
+        "Schatzkiste",
+        0,
+        "zierde",
+        "Halb im Sand vergraben, voll mit gefundenen Steuer-Schätzen.",
+        platz=(76.0, 68.0),
+    ),
 )
+
+# Eine Sammlung statt drei (Lena, „Systeme verdichten“): Zierden kauft man nicht mehr,
+# jeder Orden stellt eine auf die Insel. Wer früher Zierden gekauft hat, behält sie.
+ORDEN_ZIERDE = {
+    "erster-fund": "laternen",
+    "mutig-gefragt": "kirschbaum",
+    "brieftaube": "wappenfahne",
+    "sammlerin": "bienen",
+    "erste-ernte": "windmuehle",
+    "drachenbaendigerin": "leuchtturm",
+    "gedaechtnis": "brunnen",
+    "schatzsucherin": "schatzkiste",
+}
+
+
+def zierde_fuer(orden_key: str) -> Ware | None:
+    key = ORDEN_ZIERDE.get(orden_key)
+    return ware(key) if key else None
+
 
 # Die Wiese der gemalten Insel (Prozent: links, oben, rechts, unten) für die Füße der Zierde.
 # Ist der Lieblingsplatz belegt, sucht steuer.js den nächsten freien Fleck auf dieser Wiese.
