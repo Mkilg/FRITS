@@ -118,12 +118,21 @@ def drachengold(conn, heute: date) -> dict | None:
     return None
 
 
-def drachen_serie(gewuerze: int) -> tuple[int, int]:
-    """(start of the gold streak in the dragon fight with this many spices, the most
-    spices that count). Spices on Fritte's shelf warm up the Steuer-Quest's dragon."""
+def drachen_serie(gewuerze: int) -> dict:
+    """What Fritte's shelf does in the Steuer-Quest's dragon fight, with the quest's own
+    numbers: each spice raises the gold streak at the start by one, up to a few spices.
+    The Sanduhr helper caps the streak, so the shop says that too when it matters."""
     from frits.steuer import spiel
 
-    return max(1, spiel.start_serie(gewuerze)), spiel.GEWUERZ_START_MAX
+    def start(n: int, helfer: frozenset[str] = frozenset()) -> int:
+        return spiel.multiplikator(spiel.start_serie(n), helfer)
+
+    return {
+        "jetzt": start(gewuerze),
+        "naechster": start(gewuerze + 1),
+        "sanduhr": start(gewuerze, frozenset({"sanduhr"})),
+        "max": spiel.GEWUERZ_START_MAX,
+    }
 
 
 def gold_gutschreiben():

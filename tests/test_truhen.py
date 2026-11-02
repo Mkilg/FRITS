@@ -276,7 +276,17 @@ def test_the_shop_shows_the_bridge_to_the_dragon(client, ws):  # noqa: F811
     page = client.get("/fritte/laden").text
     assert len(kassensturz.regal(conn)) == 1  # the first spice
     assert "drachen-bruecke" in page and "startet sie bei <strong>×2</strong>" in page
-    assert "🐉 Im Drachenkampf: Gold-Serie +1" in page  # on the spices one could add
+    assert "🐉 Drachenkampf: Start ×3 statt ×2" in page  # on the spices one could add
+    assert "Sanduhr" not in page.split("drachen-bruecke")[1].split("</p>")[0]  # ×2 is under its cap
+    for g in gw.GEWUERZE:
+        if len(kassensturz.regal(conn)) >= kassensturz.plaetze(conn):
+            break
+        if not stand.besitzt(conn, g.id):
+            stand.nimm(conn, g.id, "gewuerz", TODAY.isoformat(), 0)
+    assert len(kassensturz.regal(conn)) == 3
+    page = client.get("/fritte/laden").text
+    assert "startet sie bei <strong>×4</strong>, mit der Sanduhr nur bei ×3" in page
+    assert "drachen-plus" not in page  # a full bridge: no more promises
 
 
 def test_other_websites_cannot_open_chests(client):  # noqa: F811
