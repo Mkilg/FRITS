@@ -102,6 +102,16 @@ def haus_sichtbar(conn) -> bool:
     )
 
 
+def vorwahl(summen: dict[str, int], ohne: int) -> str:
+    """Which dish is chosen already (Lena): the one that brings the most today, and only one
+    that brings more than no dish (the first on a tie). If none does, Einkochen, which pays
+    next time; without it, none ("")."""
+    bringen = {i: n for i, n in summen.items() if i != "einkochen" and n > ohne}
+    if bringen:
+        return max(bringen, key=lambda i: bringen[i])
+    return "einkochen" if "einkochen" in summen else ""
+
+
 def drachen_serie(gewuerze: int, helfer: frozenset[str] = frozenset()) -> dict:
     """What Fritte's shelf does in the Steuer-Quest's dragon fight, with the quest's own
     numbers: each spice raises the gold streak at the start by one, up to a few spices.
@@ -215,12 +225,7 @@ def register_haustier(
         gericht_summe = {
             g.id: kassensturz.vorschau(conn, today(), sauber, g.id)[1]["summe"] for g in gerichte
         }
-        # Lena: chosen already is the dish that brings the most today, and only one that
-        # really brings something (Einkochen stays a deliberate choice). None: none chosen.
-        bringen = {
-            i: s for i, s in gericht_summe.items() if i != "einkochen" and s > vorschau["summe"]
-        }
-        gericht_vorwahl = max(bringen, key=lambda i: bringen[i]) if bringen else ""
+        gericht_vorwahl = vorwahl(gericht_summe, vorschau["summe"])
         geschaetzt = {d.id for d in haustier.SCHAETZE if d.id in f.gekauft}
         jetzt = saison.jetzt(conn, today())
         return page(
