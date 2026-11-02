@@ -411,6 +411,7 @@ def register_steuer(
     app.state.steuer_passwort = {}
     # Jahre, deren Drache gerade gefallen ist: dort die Falt-Animation zeigen
     app.state.steuer_finale = set()
+    app.state.steuer_gepackt = set()  # Lena (Runde 41): Packen ist das Finale des Jahres
     # Der letzte Zettel aus der Hand, damit man ihn zurücklegen kann
     app.state.steuer_wurf = {}
     # Der letzte Schlag ohne Datei (Fragen, "Gibt's nicht") darf zurück: Karte und Serie wie vorher
@@ -803,7 +804,11 @@ def register_steuer(
         for e in spiel.neue_erfolge(vorher["erfolge"], nachher["erfolge"]):
             if quest.hat_notiz(c, jahr, "erfolg", e.name):
                 continue  # den Orden gab es schon einmal
+            # Lena (Runde 41): „Erster Fund“ kam auf der Insel 2024 noch einmal
+            einmalig = e.key == "erster-fund" and quest.hat_notiz(c, None, "erfolg", e.name)
             quest.notiere(c, jahr, "erfolg", e.name)
+            if einmalig:
+                continue
             z = spiel.zierde_fuer(e.key)
             if z:
                 quest.zierde_freischalten(c, z.key)
@@ -1428,15 +1433,24 @@ def register_steuer(
         vorher = lage(jahr)
         d = quest.datei(conn(), jahr, datei_id)
         quest.entferne_datei(conn(), datei_id)
+        erst = len(app.state.flashes)
+        wieder_wach = vorher["drache"].besiegt and not lage(jahr)["drache"].besiegt
         # Lena (Runde 39): Zurücklegen kostete die ganze Serie (×7 → ×2). Seit Runde 39 bringt
         # eine schon gewertete Karte beim Wiederablegen keine Serie mehr, also lässt sich damit
         # nichts hochtreiben: Die Serie bleibt stehen, nur die Karte verliert ihre Körner.
-        if jahr in app.state.steuer_combo:
+        if jahr in app.state.steuer_combo and not vorher["drache"].besiegt:
             combo = app.state.steuer_combo[jahr]
             for weg in ("frisch", "beute"):
                 combo.pop(weg, None)
             combo["ruf"] = "Zurückgelegt. Deine Serie bleibt stehen."
             combo["wartet"] = True
+        elif wieder_wach:
+            # Lena (Runde 41): Nach dem Sieg stand „×4, bleibt stehen“, obwohl es ×8 war.
+            # Der Kampf war vorbei; ein neuer Kampf beginnt mit einer neuen Serie.
+            app.state.steuer_combo[jahr] = {
+                **kampf_anfang(),
+                "ruf": "Der Drache ist wieder wach. Ein neuer Kampf, eine neue Serie.",
+            }
         if d and quest.ist_angabe(d["original"]):
             flash("Die Angabe ist gelöscht. Du kannst sie jederzeit neu eintippen.")
         else:
@@ -1445,12 +1459,30 @@ def register_steuer(
         if vorher["drache_wach"] and lp > vorher["drache"].lp:
             flash(f"Der Drache hat wieder {lp} Karte{'n' if lp != 1 else ''}.", "treffer")
         belohnen(jahr, vorher, ferne=False)
+        zusammenfassen(erst)
         ziel = str(form.get("back") or f"/steuer/{jahr}")
         if d and "#provinz-" in ziel and not im_belegbuch(jahr, d["stueck_id"]):
             # Lena (Runde 38): Die letzte Datei einer Bonus-Provinz ist weg, die Provinz fehlt
             # im Belegbuch. Dann lieber zum Eingangskorb, wo die Datei jetzt liegt.
             ziel = f"/steuer/{jahr}#sq-korb"
         return back(ziel)
+
+    def zusammenfassen(ab: int) -> None:
+        """Lena (Runde 41): Nach dem Zurücklegen kamen vier Meldungen auf einmal („noch 3“).
+        Schlichte Meldungen ab Position `ab` werden zu einer: ein Zettel, ein Gedanke."""
+        neu = app.state.flashes[ab:]
+        schlicht = [
+            n
+            for n in neu
+            if n["kind"] in ("ok", "hinweis", "treffer")
+            and not (n.get("link") or n.get("aktion") or n.get("undo") or n.get("knopf"))
+        ]
+        if len(schlicht) < 2:
+            return
+        schlicht[0]["text"] = " ".join(n["text"] for n in schlicht)
+        schlicht[0]["kind"] = "hinweis"
+        for n in schlicht[1:]:
+            app.state.flashes.remove(n)
 
     def im_belegbuch(jahr: int, stueck_id: int) -> bool:
         """Steht die Provinz dieser Karte noch im Belegbuch? (gleiche Regel wie steuer_belege)"""
@@ -1923,28 +1955,30 @@ def register_steuer(
         # Lena (Runde 39): Für eine schon gewertete Karte versprach die Seite „2 × 2 = 4“
         karte = daten["drache"].karte
         if karte:
-            frueher = quest.stornierte_gruende(conn(), jahr)
+            c = conn()
+            frueher = quest.stornierte_gruende(c, jahr)
             grund = spiel.karten_grund(karte, "fund")
             if grund in frueher:
                 basis = spiel.gold_fuer(karte, "gesammelt", daten["helfer"])
                 combo["gewertet"] = min(basis, frueher[grund])
-                # Lena (Runde 40): Kommt mit dieser Karte das Siegel zurück, gehört es dazu
-                probe = [
-                    {**s, "status": "gesammelt"} if s["id"] == karte["id"] else s
-                    for s in daten["stuecke"]
-                ]
-                p = next(
-                    (
-                        p
-                        for p in spiel.provinzen(daten["gebiete"], probe)
-                        if p.gebiet.id == karte["gebiet"]
-                    ),
-                    None,
-                )
-                siegel = f"siegel:{karte['gebiet']}"
-                if p and p.stand.siegel and siegel in frueher:
-                    funde = sum(1 for x in p.stuecke if x["status"] == "gesammelt")
-                    combo["siegel_dazu"] = min(spiel.siegel_gold(funde), frueher[siegel])
+            # Lena (Runde 40/41): Kommt mit dieser Karte ein Siegel, gehört es in die Vorschau
+            probe = [
+                {**s, "status": "gesammelt"} if s["id"] == karte["id"] else s
+                for s in daten["stuecke"]
+            ]
+            p = next(
+                (
+                    p
+                    for p in spiel.provinzen(daten["gebiete"], probe)
+                    if p.gebiet.id == karte["gebiet"]
+                ),
+                None,
+            )
+            siegel = f"siegel:{karte['gebiet']}"
+            if p and p.stand.siegel and not quest.hat_gold(c, jahr, siegel):
+                funde = sum(1 for x in p.stuecke if x["status"] == "gesammelt")
+                wert = spiel.siegel_gold(funde)
+                combo["siegel_dazu"] = min(wert, frueher.get(siegel, wert))
         frisch = app.state.steuer_combo.get(jahr, {}).pop("frisch", False)
         wurf = app.state.steuer_wurf.pop(jahr, None) if frisch else None
         beute = app.state.steuer_combo.get(jahr, {}).pop("beute", None) if frisch else None
@@ -2185,6 +2219,16 @@ def register_steuer(
             flash("Erst der Drache, dann die Beute. Oder nimm den Notausgang, wenn es eilt.")
             return back(f"/steuer/{jahr}/drache")
         zip_pfad = truhe_pfad(jahr, daten["profil"])
+        frisch_gepackt = jahr in app.state.steuer_gepackt
+        app.state.steuer_gepackt.discard(jahr)
+        fritte_warten = 0
+        if frisch_gepackt and settings().haustier:
+            try:
+                from frits.spiel import stand as fritte_stand
+
+                fritte_warten = fritte_stand.wartende(conn())
+            except Exception:  # noqa: BLE001 - der Hinweis auf Fritte ist ein Extra
+                fritte_warten = 0
         mit_passwort = truhe.verschluesselt(zip_pfad) if zip_pfad.exists() else True
         betreff, text = truhe.mail(
             daten["profil"], daten["gebiete"], daten["stuecke"], mit_passwort=mit_passwort
@@ -2204,6 +2248,8 @@ def register_steuer(
             noch_gruppen=noch_gruppen(daten),
             schatz_salz=schatz_salz(jahr, daten),
             kiste_aenderung=spiel.kiste_aenderung(*daten["kiste"]) if daten["kiste"] else "",
+            frisch_gepackt=frisch_gepackt,
+            fritte_warten=fritte_warten,
             **daten,
         )
 
@@ -2265,6 +2311,8 @@ def register_steuer(
             flash("Die Fundkiste ist gepackt, ohne Passwort.", "erfolg", "done")
         quest.notiere(conn(), jahr, "truhe", ziel.name)
         quest.kiste_gepackt(conn(), jahr)
+        if not schon:
+            app.state.steuer_gepackt.add(jahr)
         return back(f"/steuer/{jahr}/sieg#kiste")
 
     @app.post("/steuer/{jahr}/beraterin/daten", dependencies=guarded)

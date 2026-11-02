@@ -743,7 +743,7 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
 .sq-intro-steuer { position: relative; z-index: 1; display: none; gap: 1rem; align-items: center; margin: 1.6rem 0 0; }
 .sq-intro-weiter { font: 700 1rem var(--schrift); padding: 0.55rem 1.2rem; border-radius: 999px; border: 0; cursor: pointer; background: var(--papierkarte); color: var(--eiche-tief); box-shadow: 0 4px 0 #b39c68, 0 8px 16px rgba(0,0,0,.35); }
 .sq-intro-weiter kbd { font: 600 0.7rem system-ui, sans-serif; padding: 0.1rem 0.35rem; border: 1px solid #c9b88e; border-radius: 3px; margin-left: 0.4rem; color: #8a7a5c; }
-.sq-intro-skip { color: #ffe3a6; font-size: 0.85rem; text-shadow: 0 1px 3px #000; }
+.sq-intro-skip { color: #ffe3a6; font-size: 0.85rem; text-shadow: 0 1px 3px #000; white-space: nowrap; }
 .sq-intro-hinweis { margin: 0; max-width: 34rem; color: #ffe3a6; font-size: 0.85rem; line-height: 1.4; text-shadow: 0 1px 3px #000; }
 .sq-intro-punkte { position: relative; z-index: 1; display: none; gap: 0.5rem; list-style: none; padding: 0; margin: 1rem 0 0; }
 .sq-intro-punkte li { width: 10px; height: 10px; border-radius: 50%; background: rgba(246, 236, 210, .35); transition: background .3s, transform .3s; }
@@ -1055,7 +1055,7 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
   background: linear-gradient(175deg, #fffdf5, var(--papier)); color: var(--tinte); border: 1px solid #d9c79c; border-radius: 5px;
   box-shadow: 0 8px 16px rgba(0,0,0,.4); transform: rotate(calc(var(--i) * 5deg)) translateY(calc(max(var(--i), -1 * var(--i)) * 6px));
   transition: transform .18s, box-shadow .18s; font: inherit; }
-.sq-handkarte strong { font-size: 0.78rem; line-height: 1.25; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
+.sq-handkarte strong { font-size: 0.78rem; line-height: 1.25; overflow-wrap: anywhere; hyphens: auto; -webkit-hyphens: auto; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
 .sq-handkarte .art { font: 700 0.68rem system-ui, sans-serif; padding: 0.15rem 0.35rem; border-radius: 3px; background: var(--tinte); color: var(--creme); }
 .sq-handkarte .art.bild { background: var(--moos-dunkel); }
 .sq-handkarte:hover, .sq-handkarte:focus-visible { transform: translateY(-22px) rotate(0) scale(1.06); z-index: 5; box-shadow: 0 18px 26px rgba(0,0,0,.5), 0 0 0 3px var(--gold); outline: none; }
@@ -1401,6 +1401,8 @@ details.sq-zeitalter > summary::-webkit-details-marker { display: none; }
 .sq-angabe textarea { width: 100%; font: 400 0.9rem/1.4 system-ui, sans-serif; padding: 0.4rem 0.5rem; border: 1.5px dashed #b9a57a; border-radius: 3px; background: #fffdf6; resize: vertical; }
 .sq-frage-hinweis { margin: 0 0 0.4rem; font-size: 0.82rem; color: #5a4a2c; }
 .sq-frage-ki { display: inline-block; margin-top: 0.4rem; font-size: 0.82rem; }
+/* Lena (Runde 41): Gold auf Creme war 1,57 : 1 */
+.sq .sq-frage-ki { color: #24395c; }
 
 /* Was gehört wohin? */
 .sq-wohin { margin: 0.8rem 0; padding: 0.6rem 0.8rem; font-size: 0.86rem; text-shadow: none; }
@@ -1787,3 +1789,20 @@ details.sq-mehr-marken .kurz { display: none; }
   .sq .sq-meldung > a, .sq .sq-meldung-aktion > a { display: inline-flex; align-items: center; min-height: 44px; }
 }
 .sq-anderes-jahr { display: inline-block; font: 700 .72rem system-ui, sans-serif; color: #8a2b16; background: #fbe3d6; border-radius: 999px; padding: .05rem .4rem; margin-right: .3rem; }
+
+/* Lena (Runde 41): Fundkiste gepackt = Finale des Jahres */
+.sq-kiste-finale { display: flex; gap: 1rem; align-items: center; margin: -.2rem 0 1rem; padding: .8rem; border: 2px solid var(--gold, #e9bd4f); border-radius: 6px; background: rgba(233, 189, 79, .14); animation: sq-siegel-drauf .6s cubic-bezier(.2, 1.4, .4, 1) both; }
+.sq-kiste-finale-bild { position: relative; flex: none; width: 96px; }
+.sq-kiste-finale-bild img { width: 96px; height: auto; display: block; }
+.sq-kiste-siegel { position: absolute; right: -10px; bottom: -8px; width: 52px; height: 52px; display: grid; place-items: center; border-radius: 50%;
+  font: 700 .8rem/1 var(--schrift, Georgia, serif); color: #fff6e6; background: radial-gradient(circle at 40% 35%, #d9564d, var(--wachs, #a8322a) 60%, #7c1d18);
+  box-shadow: 0 2px 6px rgba(25, 12, 3, .45); animation: sq-siegel-drauf .7s .35s cubic-bezier(.2, 1.8, .4, 1) both; }
+.sq-kiste-finale-titel { font: 700 1.25rem/1.2 var(--schrift, Georgia, serif); margin: 0 0 .3rem; }
+.sq-kiste-finale p { margin: 0 0 .4rem; }
+@media (max-width: 600px) { .sq-kiste-finale { flex-direction: column; text-align: center; } }
+@media (prefers-reduced-motion: reduce) { .sq-kiste-finale, .sq-kiste-siegel { animation: none; } }
+.sq-kampf-kurz { display: none; }
+@media (max-width: 720px) {
+  .sq-arena .sq-kampf-kurz { display: block; order: -2; margin: 0; padding: .25rem .8rem; border-radius: 999px; background: rgba(30, 14, 4, .55); color: var(--creme); font-size: .9rem; }
+  .sq-arena .sq-kampf-kurz b { color: var(--gold, #e9bd4f); }
+}
