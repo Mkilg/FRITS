@@ -158,7 +158,7 @@
   <form method="post" action="/fritte/feiern" class="row" data-confirm="Das {{ fest_name }} für {{ fest_preis }} Salzkörner feiern?">
     <input type="hidden" name="token" value="{{ token }}">
     <button {{ "disabled" if f.guthaben < fest_preis }}>{{ zeichen("fest", "🎉") }} {{ fest_name }} feiern für {{ fest_preis }} {{ salz }}</button>
-    <span class="hint">Einmal pro Saison, kommt ins Album.{% if f.guthaben < fest_preis %} Noch {{ fest_preis - f.guthaben }} Salzkörner.{% endif %}</span>
+    <span class="hint">Einmal pro Saison, kommt in die Sammlung.{% if f.guthaben < fest_preis %} Noch {{ fest_preis - f.guthaben }} Salzkörner.{% endif %}</span>
   </form>
   {% endif %}
   {% endif %}

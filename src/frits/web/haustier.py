@@ -7,10 +7,10 @@ from datetime import date
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 
 from frits import haustier, store
-from frits.spiel import album, ausbau, kassensturz, saison, stand, truhen
+from frits.spiel import album, ausbau, kassensturz, saison, sammlung, stand, truhen
 from frits.spiel.gewuerze import GEWICHT, GEWUERZE, NACH_ID
 
 MARKT_GROESSE = 3
@@ -146,7 +146,7 @@ def register_haustier(
         neu = album.neue(conn, today())
         if neu:
             flash(
-                "Neu in Frittes Album: " + ", ".join(f"{e.zeichen} {e.name}" for e in neu),
+                "Neu in der Sammlung: " + ", ".join(f"{e.zeichen} {e.name}" for e in neu),
                 cue="done",
             )
 
@@ -403,22 +403,24 @@ def register_haustier(
             ],
         )
 
-    @app.get("/fritte/album", response_class=HTMLResponse)
-    def album_page(request: Request):
+    @app.get("/fritte/album")
+    def album_page():
+        return RedirectResponse("/sammlung", status_code=303)  # old links keep working
+
+    @app.get("/sammlung", response_class=HTMLResponse)
+    def sammlung_page(request: Request):
+        """One showcase for Fritte's stickers, the Steuer-Quest's Orden and the seasons."""
         conn = db()
-        f = fritte(conn)
-        seiten = album.seiten(conn, today())
+        mit_fritte = settings().haustier
+        faecher = sammlung.faecher(conn, today(), alltag=mit_fritte)
+        hat, platz = sammlung.stand(faecher)
         return page(
             request,
-            "fritte_album.html",
-            f=f,
-            seiten=seiten,
-            geschafft=sum(1 for s in seiten if s["seit"]),
-            pokale=sorted(
-                (tuple(p.rsplit(" ", 1)) for p in saison.pokale(conn)),
-                key=lambda p: (p[1], saison.REIHE.get(p[0], 9)),
-            ),
-            feste=saison.feste(conn),
+            "sammlung.html",
+            f=fritte(conn) if mit_fritte else None,
+            faecher=faecher,
+            hat=hat,
+            platz=platz,
         )
 
     @app.get("/fritte/laden", response_class=HTMLResponse)

@@ -8,7 +8,7 @@ from test_haustier import add_expense, add_invoice, started
 from test_web import TODAY, client, mails, post, provider, ws  # noqa: F401
 
 from frits import aufgaben, store
-from frits.spiel import kassensturz, saison, stand, tagesziel
+from frits.spiel import kassensturz, saison, sammlung, stand, tagesziel
 
 
 @pytest.fixture
@@ -94,3 +94,47 @@ def test_fritte_page_is_calmer_at_the_start(client, ws):  # noqa: F811
     haus = page[page.index('id="haus"') :]
     haus = haus[: haus.index("</ol>")]
     assert haus.count("<li") == 2  # where Fritte is and the next stage, not all five
+
+
+def test_one_showcase_with_stickers_orden_and_their_zierde(client, ws, monkeypatch):  # noqa: F811
+    from frits.steuer import quest
+
+    orden = [
+        {"jahr": 2024, "key": "erster-fund", "name": "Erster Fund", "zeichen": "🔎",
+         "beschreibung": "Die erste Unterlage gefunden.", "erreicht": True, "zierde": "laternen"},
+        {"jahr": 2025, "key": "erster-fund", "name": "Erster Fund", "zeichen": "🔎",
+         "beschreibung": "Die erste Unterlage gefunden.", "erreicht": True, "zierde": "laternen"},
+        {"jahr": None, "key": "erste-ernte", "name": "Erste Ernte", "zeichen": "🌾",
+         "beschreibung": "Ein Gebiet ganz gesammelt.", "erreicht": False, "zierde": "windmuehle"},
+    ]  # fmt: skip
+    monkeypatch.setattr(quest, "orden_fuer_sammlung", lambda conn: orden, raising=False)
+    conn = store.connect(ws.db)
+    client.get("/fritte")
+    faecher = sammlung.faecher(conn, TODAY)
+    assert [f["id"] for f in faecher] == ["alltag", "steuer"]
+    assert "Drache besiegt" not in [k["name"] for k in faecher[0]["kacheln"]]  # the Orden says it
+    fund, ernte = faecher[1]["kacheln"]
+    assert fund["erreicht"] and fund["jahre"] == [2024, 2025]
+    assert not ernte["erreicht"] and ernte["zierde"] == "Windmühle"
+    page = client.get("/sammlung").text
+    assert "Sammlung" in page and "Steuer-Quest" in page and "Alltag mit Fritte" in page
+    assert "Bringt auf die Insel: Windmühle" in page and "2024, 2025" in page
+    assert 'href="/sammlung" aria-current="page"' in page
+
+
+def test_the_showcase_without_quest_or_fritte(client, ws, monkeypatch):  # noqa: F811
+    from dataclasses import replace
+
+    from frits.settings import Settings
+    from frits.steuer import quest
+
+    def kaputt(conn):
+        raise RuntimeError("quest not ready")
+
+    monkeypatch.setattr(quest, "orden_fuer_sammlung", kaputt, raising=False)
+    conn = store.connect(ws.db)
+    assert [f["id"] for f in sammlung.faecher(conn, TODAY)] == ["alltag"]
+    s = Settings.load(ws.settings_file)
+    replace(s, haustier=False).save(ws.settings_file)
+    page = client.get("/sammlung")
+    assert page.status_code == 200 and "Alltag mit Fritte" not in page.text

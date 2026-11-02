@@ -478,8 +478,9 @@ def test_album_page(client, ws):  # noqa: F811
     client.get("/")
     stand.setze(conn, "ausbau", "3")
     stand.nimm(conn, "trueffelsalz", "gewuerz", TODAY.isoformat(), 22)
-    page = client.get("/fritte/album")
-    assert "Frittes Album" in page.text and "3 von" in page.text  # Stube, Werkstatt, Legendär
+    page = client.get("/fritte/album")  # old links lead to the one showcase
+    assert str(page.url).endswith("/sammlung")
+    assert "Alltag mit Fritte" in page.text and "3 von" in page.text  # Stube, Werkstatt, Legendär
 
 
 # ---------- market, prices, seasons, new places ----------
@@ -975,7 +976,7 @@ def test_festival_and_album_pages(client, ws):  # noqa: F811
     page = post(client, "/fritte/feiern")
     assert "Fritte feiert das Herbstfest am Markt" in page.text
     assert 'class="wimpel"' in client.get("/fritte").text
-    album = client.get("/fritte/album").text
+    album = client.get("/sammlung").text
     assert "Saisons und Feste" in album and "Herbstfest" in album
 
 
