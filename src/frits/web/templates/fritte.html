@@ -67,10 +67,14 @@
     {% if gerichte %}
     <fieldset class="tagesgericht">
       <legend>Was kocht Fritte heute dazu? <span class="hint">Ein Gericht für diesen Kassensturz. Morgen gibt es andere.</span></legend>
+      {# Lena: an empty choice only got the browser's grey "Bitte ausfüllen". The dish with
+         the most grains today is chosen already; Einkochen stays a deliberate choice. #}
+      {% set ns = namespace(beste=gerichte[0].id, wert=-1) %}
+      {% for g in gerichte %}{% if g.id != "einkochen" and gericht_summe[g.id] > ns.wert %}{% set ns.beste = g.id %}{% set ns.wert = gericht_summe[g.id] %}{% endif %}{% endfor %}
       <div class="gerichte">
         {% for g in gerichte %}
         <label class="gericht">
-          <input type="radio" name="rezept" value="{{ g.id }}" required>
+          <input type="radio" name="rezept" value="{{ g.id }}" required{{ " checked" if g.id == ns.beste }}>
           <span class="gericht-zeichen" aria-hidden="true">{{ g.zeichen }}</span>
           <strong>{{ "Einkochen" if g.id == "einkochen" else g.name }}</strong>
           <span class="gericht-text">{{ g.text }}</span>
@@ -99,7 +103,7 @@
     </div>
     <div class="truhen-text">
       {% if truhen_zu %}
-      <p><strong>{{ "Eine Truhe wartet" if truhen_zu | length == 1 else truhen_zu | length ~ " Truhen warten" }}.</strong> {{ truhen_zu[0].text }}{% if truhen_zu | length > 1 %} und mehr{% endif %}.</p>
+      <p><strong>{{ "Eine Truhe wartet" if truhen_zu | length == 1 else truhen_zu | length ~ " Truhen warten" }}.</strong> {% set t = truhen_zu[0].text %}{% if truhen_zu | length > 1 %}{{ t.rstrip(".!") }} und mehr.{% else %}{{ t }}{{ "" if t[-1:] in [".", "!", "?"] else "." }}{% endif %}</p>
       <div class="row truhe-knoepfe">
         <form method="post" action="/fritte/truhe/oeffnen">
           <input type="hidden" name="token" value="{{ token }}">
