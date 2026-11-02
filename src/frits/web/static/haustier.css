@@ -280,15 +280,22 @@ details[open] > summary::before { content: "▾ "; }
   box-shadow: inset 0 0 0 6px var(--eiche), inset 0 0 0 8px var(--eiche-dunkel), 0 10px 24px rgba(40, 20, 5, .3);
 }
 .ks-rechnung { display: grid; grid-template-columns: 1fr auto 1fr; gap: .5rem; align-items: center; position: relative; }
-.ks-box { position: relative; padding: .5rem .4rem .6rem; border-radius: 6px; text-align: center; color: #fff; box-shadow: 0 3px 0 rgba(0, 0, 0, .25); }
-.ks-box.koerner { background: var(--tinte-hell); }
-.ks-box.wuerze { background: var(--terrakotta); }
+/* Körner and Würze are two coloured cards lying on the painted desk (Lena: they looked like a
+   web form): a light paper edge, a little grain, a real shadow, each a bit askew. */
+.ks-box { position: relative; padding: .5rem .4rem .6rem; border-radius: 6px; text-align: center; color: #fff;
+  border: 1px solid rgba(255, 246, 216, .35);
+  background-image: linear-gradient(160deg, rgba(255, 246, 216, .18), transparent 45%, rgba(40, 20, 5, .14)),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, .03) 0 2px, transparent 2px 5px);
+  box-shadow: inset 0 0 0 3px rgba(255, 246, 216, .12), 0 2px 0 rgba(0, 0, 0, .2), 0 10px 18px rgba(30, 15, 5, .4); }
+.ks-box.koerner { background-color: var(--tinte-hell); --dreh: -1.2deg; transform: rotate(var(--dreh)); }
+.ks-box.wuerze { background-color: var(--terrakotta); --dreh: 1deg; transform: rotate(var(--dreh)); }
 .ks-box strong { display: block; font-family: var(--schrift); font-size: 2rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .ks-label { font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; opacity: .9; }
 .ks-mal { color: var(--creme); font-size: 1.6rem; font-weight: 700; }
 .ks-ergebnis {
   grid-column: 1 / -1; position: relative; padding: .7rem; border-radius: 6px; text-align: center;
-  background: var(--papierkarte); box-shadow: 0 3px 0 rgba(0, 0, 0, .25);
+  background: var(--papierkarte); border: 1px solid var(--papier-schatten);
+  box-shadow: 0 2px 0 var(--papier-schatten), 0 10px 18px rgba(30, 15, 5, .4);
 }
 .ks-ergebnis .ks-label { color: var(--muted-papier); } /* paper on the dark table */
 .ks-ergebnis strong { display: block; font-family: var(--schrift); font-size: 2.6rem; color: var(--eiche-tief); line-height: 1.1; font-variant-numeric: tabular-nums; }
@@ -312,7 +319,7 @@ details[open] > summary::before { content: "▾ "; }
 .ks-plus.mal { background: var(--wachs); font-size: 1.8rem; top: -30%; }
 @keyframes aufsteigen { 0% { opacity: 0; transform: translate(-50%, 8px) scale(.6); } 20% { opacity: 1; transform: translate(-50%, 0) scale(1.1); } 100% { opacity: 0; transform: translate(-50%, -34px) scale(1); } }
 .pochen { animation: pochen .25s ease-out; }
-@keyframes pochen { 50% { transform: scale(1.12); } }
+@keyframes pochen { 50% { transform: rotate(var(--dreh, 0deg)) scale(1.12); } }
 .wackeln { animation: wackeln .4s ease-in-out; }
 @keyframes wackeln { 25% { transform: rotate(-9deg) translateY(-4px); } 75% { transform: rotate(7deg) translateY(-2px); } }
 .gross-werden { animation: pochen .5s ease-out; }
@@ -567,7 +574,9 @@ details[open] > summary::before { content: "▾ "; }
 
 /* ---------- What each jar does right now (Lena: a quiet jar must not look like a bug) ---------- */
 .glas-mit-wirkung { display: inline-flex; flex-direction: column; align-items: center; gap: .25rem; max-width: 9.5rem; }
-.glas-wirkung { font-size: .74rem; line-height: 1.25; text-align: center; color: var(--muted); }
+/* a small paper label, readable on the dark shelf of the Kassensturz too (Lena: 1.61 : 1) */
+.glas-wirkung { font-size: .74rem; line-height: 1.25; text-align: center; color: var(--muted-papier);
+  background: var(--papierkarte); padding: .05rem .45rem; border-radius: 3px; box-shadow: 0 1px 0 var(--papier-schatten); }
 .glas-mit-wirkung.wirkt .glas-wirkung { color: var(--moos-dunkel); font-weight: 600; }
 .glas-mit-wirkung.wirkt .glas-koerper { box-shadow: 0 0 0 2px var(--moos-hell), 0 4px 10px rgba(75, 106, 42, .25); }
 .glas-mit-wirkung.wartet .gewuerzglas { opacity: .72; }
