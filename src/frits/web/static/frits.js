@@ -4,6 +4,23 @@
 
   // Ask before steps that can't be undone (numbering an invoice, Storno, discarding), on a
   // card in FRITS's own look instead of the browser's grey box.
+  // Put the cursor in a field. A page that arrives in the still hidden Klangrahmen loses its
+  // focus when the frame turns visible, so try once more after the frame has shown it.
+  function cursorIn(field, pick) {
+    function go() {
+      field.focus();
+      if (pick && field.select) field.select();
+    }
+    go();
+    window.addEventListener("load", function () {
+      setTimeout(function () {
+        var now = document.activeElement;
+        if (now === field || (now && now !== document.body)) return;  // Fritz already moved on
+        go();
+      }, 80);
+    });
+  }
+
   function rueckfrage(message, ja, done, gefahr) {
     if (typeof HTMLDialogElement !== "function") { done(window.confirm(message)); return; }
     var d = document.createElement("dialog");
@@ -491,14 +508,17 @@
       }
       // Point at the field the note is about: red frame, cursor in it, number selected.
       var feld = error && error.getAttribute("data-feld");
-      var bad = feld && form.elements.namedItem(feld);
+      // "quantity:2" is the third field of that name (a row in the draft's table).
+      var parts = feld ? feld.split(":") : [];
+      var bad = parts.length === 2
+        ? form.querySelectorAll('[name="' + parts[0] + '"]')[Number(parts[1])]
+        : feld && form.elements.namedItem(feld);
       if (bad && bad.focus) {
         bad.classList.add("falsch");
         bad.setAttribute("aria-invalid", "true");
         var open = bad.closest("details");
         if (open) open.open = true;
-        bad.focus();
-        if (bad.select) bad.select();
+        cursorIn(bad, true);
         bad.addEventListener("input", function () {
           bad.classList.remove("falsch");
           bad.removeAttribute("aria-invalid");
@@ -513,6 +533,14 @@
         try { sessionStorage.setItem(key, JSON.stringify(data)); } catch (e) { /* egal */ }
       });
     });
+  })();
+
+  // Browsers skip autofocus inside the app's frame: put the cursor there by hand, unless an
+  // error note already points at another field.
+  (function () {
+    var first = document.querySelector("[autofocus]");
+    if (!first || document.querySelector(".flash.error[data-feld]")) return;
+    cursorIn(first, false);
   })();
 
   // The browser's own "Please fill out this field." is English: say it in German, plainly.

@@ -918,7 +918,7 @@ def create_app(
             _apply_form(draft, form, customer_by, settings())
             save_draft(conn, draft_id, draft)
         except BillingError as exc:
-            flash(str(exc), "error")
+            flash(str(exc), "error", feld=getattr(exc, "feld", None))
             return back(f"/drafts/{draft_id}")
         current = settings()
         if action == "approve":
@@ -2565,11 +2565,24 @@ def _apply_form(draft: Draft, form, customer_by, current: Settings) -> None:
     for index, (description, when, quantity, unit, price) in enumerate(fields):
         if not str(description).strip() and not str(quantity).strip():
             continue  # the empty row at the bottom
-        amount = parse_amount(str(quantity))
+        what = str(description).strip() or "der neuen Position"
+        try:
+            amount = parse_amount(str(quantity))
+        except BillingError:
+            raise FeldFehler(
+                f"Bei der Menge von „{what}“ bitte nur eine Zahl eingeben, zum Beispiel 2.",
+                f"quantity:{index}",
+            ) from None
         if amount is None:
-            raise BillingError(f"Bei „{description}“ fehlt die Menge.")
+            raise FeldFehler(f"Bei „{what}“ fehlt die Menge.", f"quantity:{index}")
         unit = str(unit) if unit in UNITS else "Stk"
-        given = parse_amount(str(price))
+        try:
+            given = parse_amount(str(price))
+        except BillingError:
+            raise FeldFehler(
+                f"Beim Preis von „{what}“ bitte nur eine Zahl eingeben, zum Beispiel 80.",
+                f"price:{index}",
+            ) from None
         if given is None:  # an empty price field takes the price list's price, if one fits
             customer = customer_by(draft.customer_id) if draft.customer_id else None
             given = unit_price(unit, customer, current, str(description))

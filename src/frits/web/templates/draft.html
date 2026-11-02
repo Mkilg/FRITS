@@ -42,7 +42,7 @@
   {% endif %}
 
   <section class="card">
-    <form method="post" action="/drafts/{{ row.id }}" id="draft-form">
+    <form method="post" action="/drafts/{{ row.id }}" id="draft-form" data-merken="entwurf-{{ row.id }}">
       <input type="hidden" name="token" value="{{ token }}">
       <label class="field">Kunde
         <div class="row">
