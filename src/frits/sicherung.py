@@ -39,8 +39,9 @@ INNER = "FRITS.zip"  # the plain zip inside the locked one
 _STAMP = re.compile(r"^FRITS-Sicherung_(\d{4}-\d{2}-\d{2}_\d{4})(\d{2})?\.zip$")
 DB_NAMES = {"frits.db", "frits.db-wal", "frits.db-shm", "frits.db-journal"}
 # Pseudonym tables of the redaction are short-lived and the most sensitive thing there is;
-# the run file only says which FRITS is running right now.
-SKIP = {".mappings", ".frits-laeuft.json"}
+# the run file only says which FRITS is running right now; ".nachtragen" holds an old invoice
+# only while Fritz checks it (it is filed with the invoices once he enters it).
+SKIP = {".mappings", ".frits-laeuft.json", ".nachtragen"}
 REMIND_AFTER_DAYS = 7
 
 

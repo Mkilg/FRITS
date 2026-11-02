@@ -64,7 +64,8 @@ def _money(whole: str, cents: str) -> str:
     return f"{euros},{cents}"
 
 
-def _amounts(line: str) -> list[str]:
+def amounts(line: str) -> list[str]:
+    """Every amount in one line, as "1234,56" (no thousands dots)."""
     line = _DATE.sub(" ", _ISO_DATE.sub(" ", line))  # "28.10.2026" is a day, not 28,10 €
     line = re.sub(r"\b\d{1,2}[:.]\d{2}\s*(uhr|h)\b", " ", line, flags=re.IGNORECASE)
     return [_money(m.group(1), m.group(2)) for m in _AMOUNT.finditer(line)]
@@ -88,12 +89,12 @@ def guess_total(text: str) -> str | None:
             line = _before_tax(line)
             if not pattern.search(line):
                 continue
-            found = _amounts(line)
+            found = amounts(line)
             if not found and i + 1 < len(lines):
-                found = _amounts(lines[i + 1])  # "Summe" on one line, the amount below
+                found = amounts(lines[i + 1])  # "Summe" on one line, the amount below
             if found:
                 return found[-1]
-    every = [a for line in lines if not _NOT_TOTAL.search(line) for a in _amounts(line)]
+    every = [a for line in lines if not _NOT_TOTAL.search(line) for a in amounts(line)]
     return max(every, key=_as_number) if every else None
 
 
@@ -104,9 +105,9 @@ _PAID_WORDS = re.compile(
 )
 
 
-def guess_date(text: str, today: date) -> str | None:
-    """The day it was paid if the receipt says so, else the first real day on it that isn't
-    in the future, as YYYY-MM-DD."""
+def dates(text: str) -> list[tuple[int, date]]:
+    """Every real day written in the text ("12.03.2025", "12. März 2025", "2025-03-12"),
+    with the position where it starts, in no particular order."""
     candidates = []
     for m in _DATE.finditer(text):
         day, month, year = int(m.group(1)), int(m.group(2)), int(m.group(3))
@@ -116,16 +117,25 @@ def guess_date(text: str, today: date) -> str | None:
     for m in _WORD_DATE.finditer(text):
         word = m.group(2).lower().replace("maerz", "märz")
         candidates.append((m.start(), int(m.group(3)), _MONTHS.index(word) + 1, int(m.group(1))))
+    found = []
+    for start, year, month, day in candidates:
+        try:
+            found.append((start, date(year, month, day)))
+        except ValueError:
+            continue
+    return found
+
+
+def guess_date(text: str, today: date) -> str | None:
+    """The day it was paid if the receipt says so, else the first real day on it that isn't
+    in the future, as YYYY-MM-DD."""
+    candidates = dates(text)
 
     def paid_first(candidate: tuple) -> tuple:
         start = candidate[0]
         return (not _PAID_WORDS.search(text[max(0, start - 50) : start]), start)
 
-    for _, year, month, day in sorted(candidates, key=paid_first):
-        try:
-            found = date(year, month, day)
-        except ValueError:
-            continue
+    for _, found in sorted(candidates, key=paid_first):
         if found <= today and (today - found).days < 3 * 366:
             return found.isoformat()
     return None

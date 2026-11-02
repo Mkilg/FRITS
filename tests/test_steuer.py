@@ -674,18 +674,16 @@ def test_frits_ernte_im_browser(client, ws):
     assert "Sag einmal, zu welchem Betrieb" in page.text
     page = post(client, "/steuer/2025/ernte", gebiet="werkstatt-1")
     assert (
-        "FRITS-Ernte eingebracht: 1 Rechnung, die EÜR mit Buchungsliste und Verfahrensdoku → Werkstatt"
+        "Aus FRITS dazugekommen: 1 Rechnung, die EÜR mit Buchungsliste und Verfahrensdoku → Werkstatt"
         in page.text
     )
-    assert "Alles aus FRITS ist schon auf der Insel" in page.text
+    assert "Sag einmal, zu welchem Betrieb" not in page.text  # erledigt: der Zettel verschwindet
     page = post(client, "/steuer/2025/ernte", gebiet="gehoeft-1")
     assert "Wähle aus, zu welchem Betrieb" in page.text
     # Danach kommt Neues von selbst dorthin, ohne Knopf
     rechnung(ws, "RE-2025-0002", "2025-04-01", "2025-04-02")
     page = client.get("/steuer/2025")
-    assert (
-        "FRITS-Ernte eingebracht: 1 Rechnung, die EÜR mit Buchungsliste → Werkstatt!" in page.text
-    )
+    assert "Aus FRITS dazugekommen: 1 Rechnung, die EÜR mit Buchungsliste → Werkstatt!" in page.text
     assert "+1 neu" not in page.text
 
 
@@ -694,9 +692,11 @@ def test_frits_ernte_kommt_von_selbst(client, ws):
     Mit einem Betrieb landen FRITS-Rechnungen beim Öffnen der Insel von selbst dort."""
     rechnung(ws, "RE-2025-0001", "2025-03-01", "2025-03-02")
     fragebogen(client, teil2={"m_freiberuflich_0": "1"})
-    page = client.get("/steuer/2025")
-    assert "FRITS-Ernte eingebracht: 1 Rechnung" in page.text
-    assert "Neue Rechnungen und Belege kommen von selbst" in page.text
+    page = client.get("/steuer/2025")  # der Fragebogen führte schon einmal auf die Insel
+    assert 'action="/steuer/2025/ernte"' not in page.text  # kein Knopf, kein Zettel
+    assert "+1 neu" not in page.text
+    # Die Chronik steht jetzt im Belegbuch
+    assert "Aus FRITS dazugekommen: 1 Rechnung" in client.get("/steuer/2025/belege").text
     assert "Kartentisch" not in page.text
     page = client.get("/steuer/2025")
     assert "Verfahrensdoku → Werkstatt!" not in page.text  # die Meldung kommt nur einmal
@@ -1194,7 +1194,7 @@ def test_gold_regeln_belohnen_finden_mehr_als_wegstempeln():
     assert spiel.gold_fuer(wunsch, "fragen") == 0 and spiel.gold_fuer(wunsch, "gibts_nicht") == 0
     assert spiel.gold_fuer(wunsch, "gesammelt") == spiel.GOLD_FUND
     # Siegel nach Funden gestaffelt
-    assert spiel.siegel_gold(0) == 2 and spiel.siegel_gold(2) == 6 and spiel.siegel_gold(9) == 10
+    assert spiel.siegel_gold(0) == 1 and spiel.siegel_gold(2) == 3 and spiel.siegel_gold(9) == 4
     # Die Serie multipliziert, gedeckelt; die Kriegstrommel legt eins drauf
     assert spiel.multiplikator(0) == 1 and spiel.multiplikator(3) == 3
     assert spiel.multiplikator(40) == spiel.MAX_MULT
@@ -1204,12 +1204,15 @@ def test_gold_regeln_belohnen_finden_mehr_als_wegstempeln():
 def test_jeder_helfer_hat_einen_haken():
     fund, schatz = _karte(), _karte(key="spende", art="bonus", name="Spende")
     assert all(w.haken for w in spiel.MARKT if w.art == "helfer")
-    assert spiel.gold_fuer(fund, "gesammelt", {"spuernase"}) == 2
+    assert spiel.gold_fuer(fund, "gesammelt", {"spuernase"}) == 1
     assert spiel.gold_fuer(fund, "fragen", {"brieftaube"}) == 2
     assert spiel.gold_fuer(fund, "gibts_nicht", {"brieftaube"}) == 0
-    assert spiel.gold_fuer(schatz, "gesammelt", {"goldwaage"}) == 20
+    assert spiel.gold_fuer(schatz, "gesammelt", {"goldwaage"}) == 8
     assert spiel.gold_fuer(fund, "fragen", {"goldwaage", "brieftaube"}) == 0
-    assert spiel.tagwerk_gold({"sanduhr"}) == 15 and spiel.multiplikator(8, {"sanduhr"}) == 3
+    assert spiel.tagwerk_gold({"sanduhr"}) == 6 and spiel.multiplikator(8, {"sanduhr"}) == 3
+    # Die Texte nennen die echten Zahlen (eine Währung: Salzkörner)
+    assert "1 Salzkorn statt 2" in spiel.ware("spuernase").haken
+    assert "8 Salzkörner statt 4" in spiel.ware("goldwaage").text
 
 
 def test_verdienste_haengen_an_der_karte_und_fragen_ohne_serie():
@@ -1217,8 +1220,8 @@ def test_verdienste_haengen_an_der_karte_und_fragen_ohne_serie():
     nachher = [_karte(id_=1, status="gesammelt"), _karte(id_=2, key="kasse", status="gesammelt")]
     v = spiel.verdienste(vorher, nachher, mult=2)
     assert [(x.grund, x.betrag) for x in v] == [
-        ("fund:werkstatt-1:belege", 6),
-        ("fund:werkstatt-1:kasse", 6),
+        ("fund:werkstatt-1:belege", 4),
+        ("fund:werkstatt-1:kasse", 4),
     ]
     # Neu angelegt (andere ID), gleicher Grund: zahlt also nicht doppelt
     neu = [_karte(id_=99, status="gesammelt")]
@@ -1236,10 +1239,10 @@ def test_verdienste_haengen_an_der_karte_und_fragen_ohne_serie():
 def test_goldbuch_zahlt_jeden_grund_einmal_und_bucht_ehrlich_zurueck(conn):
     assert quest.verdiene(conn, 2025, "fund:a:b", 6, "Belege") == 6
     assert quest.verdiene(conn, 2025, "fund:a:b", 6, "Belege") == 0
-    assert quest.verdiene(conn, 2024, "fund:a:b", 3, "Belege") == 3  # anderes Jahr, eigenes Gold
-    assert quest.gold(conn, 2025) == 6
+    assert quest.verdiene(conn, 2024, "fund:a:b", 3, "Belege") == 3  # anderes Jahr, eigener Grund
+    assert quest.gold(conn, 2025) == 9  # ein Beutel für alle Jahre (und für Fritte)
     assert quest.storniere(conn, 2025, "fund:a:b", "Belege") == 6
-    assert quest.gold(conn, 2025) == 0 and quest.storniere(conn, 2025, "fund:a:b", "x") == 0
+    assert quest.gold(conn) == 3 and quest.storniere(conn, 2025, "fund:a:b", "x") == 0
     assert quest.verdiene(conn, 2025, "fund:a:b", 2, "Belege") == 2  # neu verdient
     assert len(quest.goldbuch(conn, 2025)) == 3  # plus, minus, plus: nichts verschwindet
     assert quest.goldsummen(conn, 2025) == (2, 0)
@@ -1248,7 +1251,7 @@ def test_goldbuch_zahlt_jeden_grund_einmal_und_bucht_ehrlich_zurueck(conn):
 def test_markt_kaufen_helferplaetze_tauschgebuehr_und_zierde_fuer_alle_jahre(conn):
     with pytest.raises(quest.QuestError, match="fehlen dir noch"):
         quest.kaufe(conn, 2025, "trommel")
-    quest.verdiene(conn, 2025, "test", 200, "Testgold")
+    quest.verdiene(conn, 2025, "test", 200, "Testgold")  # gedeckelt: 120 im Jahr
     # Runde 21: Zierden gibt es nur noch für Orden, und sie gelten für alle Jahre
     with pytest.raises(quest.QuestError, match="Orden"):
         quest.kaufe(conn, 2025, "laternen")
@@ -1268,7 +1271,8 @@ def test_markt_kaufen_helferplaetze_tauschgebuehr_und_zierde_fuer_alle_jahre(con
     assert quest.gold(conn, 2025) == vorher - spiel.TAUSCH_PREIS  # Tauschen kostet
     assert quest.helfer(conn, 2025) == {"spuernase", "sanduhr"}
     preise = sum(spiel.ware(k).preis for k in ("spuernase", "brieftaube", "sanduhr"))
-    assert quest.goldsummen(conn, 2025) == (200, preise + spiel.TAUSCH_PREIS)
+    assert quest.goldsummen(conn, 2025) == (spiel.SALZ_DECKEL, preise + spiel.TAUSCH_PREIS)
+    assert quest.gold(conn) == spiel.SALZ_DECKEL - preise - spiel.TAUSCH_PREIS
     with pytest.raises(quest.QuestError):
         quest.kaufe(conn, 2025, "gibtsnicht")
 
@@ -1337,13 +1341,13 @@ def test_gold_im_kampf_mit_serie_und_markt_im_browser(client, ws):
     karte = spiel.drache(quest.stuecke(conn, 2025)).karte
     werfen = {"stueck_id": str(karte["id"]), "aktion": "zettel", "zettel": "scan-eins.pdf"}
     seite = post(client, "/steuer/2025/drache/schlag", **werfen)
-    # Volltreffer: Gold-Serie 2, also 3 Gold × 2
-    assert 'class="sq-rechnung"' in seite.text and "+6 Gold" in seite.text
-    assert quest.gold(conn, 2025) == gold_vorher + 6
+    # Volltreffer: Serie 2, also 2 Salzkörner × 2
+    assert 'class="sq-rechnung"' in seite.text and '+4 <svg class="salz-zeichen"' in seite.text
+    assert quest.gold(conn, 2025) == gold_vorher + 4
     # Zurücklegen bucht das Gold zurück; danach zahlt die Karte als Frage nur ihre 1
     datei = quest.dateien(conn, 2025, karte["id"])[0]
     seite = post(client, f"/steuer/2025/datei/{datei['id']}/entfernen", back="/steuer/2025/drache")
-    assert quest.gold(conn, 2025) == gold_vorher and "Gold zurückgebucht" in seite.text
+    assert quest.gold(conn, 2025) == gold_vorher and "Salzkörner zurückgebucht" in seite.text
     seite = post(client, "/steuer/2025/drache/schlag", stueck_id=str(karte["id"]), aktion="fragen")
     assert quest.gold(conn, 2025) == gold_vorher + 1
     assert f"„{karte['name']}“ kommt als Frage in die Mail" in seite.text
@@ -1352,10 +1356,11 @@ def test_gold_im_kampf_mit_serie_und_markt_im_browser(client, ws):
     # Der Markt: Helfer haben einen Haken, Zierden gibt es für Orden (Runde 21)
     quest.verdiene(conn, 2025, "test", 100, "Testgold")
     markt = client.get("/steuer/2025/markt")
-    assert markt.status_code == 200 and "Goldbuch" in markt.text and "Haken:" in markt.text
+    assert markt.status_code == 200 and "Kassenbuch der Insel" in markt.text
+    assert "Haken:" in markt.text
     assert "Belohnung für den Orden „Sammlerin“" in markt.text
     seite = post(client, "/steuer/2025/markt/kaufen", ware="windmuehle")
-    assert "Zierden gibt es nicht mehr für Gold" in seite.text
+    assert "Zierden kann man nicht kaufen" in seite.text
     post(client, "/steuer/2025/markt/kaufen", ware="spuernase")
     (quest.lager(ws.root) / "kontoauszug-juni.pdf").write_bytes(b"%PDF juni")
     (quest.lager(ws.root) / "quittung-juni.pdf").write_bytes(b"%PDF quittung")
@@ -1380,7 +1385,7 @@ def test_letzter_treffer_zeigt_seine_rechnung_im_sieg(client, ws):
         aktion="zettel",
         zettel="scan-04.pdf",
     )
-    assert "Letzter Treffer: 3 ×" in seite.text
+    assert "Letzter Treffer: 2 ×" in seite.text
 
 
 def test_gold_nur_fuer_die_letzten_steuerjahre_und_wuensche_ohne_serie():
@@ -1411,31 +1416,32 @@ def test_wuensche_zahlen_nur_bis_zum_deckel(client, ws):
 
 
 def test_gold_faellt_nie_unter_null_letzter_kauf_geht_in_den_hafen(conn):
-    """Bericht 2b, P2-A: Erst bei ×8 verdienen, ausgeben, dann zurücklegen darf nichts bringen."""
-    quest.verdiene(conn, 2025, "fund:a:b", 20, "Belege")
-    quest.verdiene(conn, 2025, "test", 30, "Testgold")
-    quest.kaufe(conn, 2025, "trommel")  # 18
-    quest.kaufe(conn, 2025, "goldwaage")  # 15
-    quest.kaufe(conn, 2025, "spuernase")  # 12
-    assert quest.gold(conn, 2025) == 5
+    """Bericht 2b, P2-A: Erst bei ×8 verdienen, ausgeben, dann zurücklegen darf nichts bringen.
+    Eine Währung: Der Beutel ist Frittes, er fällt nie unter null."""
+    quest.verdiene(conn, 2025, "fund:a:b", 10, "Belege")
+    quest.verdiene(conn, 2025, "test", 10, "Testgold")
+    quest.kaufe(conn, 2025, "trommel")  # 6
+    quest.kaufe(conn, 2025, "goldwaage")  # 5
+    quest.kaufe(conn, 2025, "spuernase")  # 4
+    assert quest.gold(conn) == 5
     quest.storniere(conn, 2025, "fund:a:b", "Belege")
-    assert quest.gold(conn, 2025) == -15
+    assert quest.gold(conn) == 0  # nimmt nur, was da ist; 5 fehlen
     assert quest.decke_schulden(conn, 2025) == ["Spürnase", "Goldwaage"]
-    assert quest.gold(conn, 2025) == 12
+    assert quest.gold(conn) == 4  # die Goldwaage deckte 1, der Rest kam zurück
     assert "goldwaage" not in quest.besitz(conn, 2025)
     assert "spuernase" not in quest.besitz(conn, 2025)
-    assert quest.goldsummen(conn, 2025) == (30, 18)
+    assert quest.goldsummen(conn, 2025) == (10, 6)
     assert quest.decke_schulden(conn, 2025) == []  # nichts mehr zu tun
     quest.kaufe(conn, 2025, "spuernase")  # zurückgegeben heißt: wieder kaufbar
 
-    # Steckt das Gold nur noch in Helfer-Wechseln, wird auf null ausgeglichen
-    quest.verdiene(conn, 2024, "fund:a:b", 20, "Belege")
+    # Stecken die Körner nur noch in Helfer-Wechseln, bleibt es bei null
+    quest.verdiene(conn, 2024, "fund:a:b", 10, "Belege")
     quest.kaufe(conn, 2024, "spuernase")
     quest.lege_helfer(conn, 2024, "spuernase", False)
     quest.lege_helfer(conn, 2024, "spuernase", True)
     quest.storniere(conn, 2024, "fund:a:b", "Belege")
     assert quest.decke_schulden(conn, 2024) == ["Spürnase"]
-    assert quest.gold(conn, 2024) == 0 and quest.helfer(conn, 2024) == frozenset()
+    assert quest.gold(conn) == 0 and quest.helfer(conn, 2024) == frozenset()
 
 
 def test_zurueckbuchen_mit_ausgegebenem_gold_im_browser(client, ws):
@@ -1448,8 +1454,8 @@ def test_zurueckbuchen_mit_ausgegebenem_gold_im_browser(client, ws):
         files=[("datei", ("beleg.pdf", b"%PDF beleg"))],
     )
     verdient = quest.gold(conn, 2025)
-    assert 0 < verdient < 18
-    quest.verdiene(conn, 2025, "test", 18 - verdient, "Testgold")
+    assert 0 < verdient < 6
+    quest.verdiene(conn, 2025, "test", 6 - verdient, "Testgold")
     post(client, "/steuer/2025/markt/kaufen", ware="trommel")
     assert quest.gold(conn, 2025) == 0
     datei = quest.dateien(conn, 2025, karte["id"])[0]
@@ -1792,7 +1798,7 @@ def test_runde_14_eintippen_statt_datei_und_steuernummer_aus_den_einstellungen(c
     )
     conn = quest.ensure_schema(store.connect(ws.db))
     rathaus = client.get("/steuer/2025/gebiet/rathaus").text
-    assert "Oder einfach eintippen" in rathaus and "Steuernummer: 12/345/67890" in rathaus
+    assert "Kein Dokument? Einfach eintippen" in rathaus and "Steuernummer: 12/345/67890" in rathaus
     fahrten = next(x for x in quest.stuecke(conn, 2025, "kaserne-1") if x["key"] == "fahrten")
     kaserne = client.get("/steuer/2025/gebiet/kaserne-1").text
     assert "14 km einfach" in kaserne  # das Beispiel im Feld
@@ -1819,8 +1825,9 @@ def test_runde_14_eintippen_statt_datei_und_steuernummer_aus_den_einstellungen(c
 def test_runde_14_fragen_zeitalter_und_was_gehoert_wohin(client, ws):
     fragebogen(client, teil1={"name": "Marie"}, teil2={"m_freiberuflich_0": "1"})
     karte = client.get("/steuer/2025").text
-    assert "Was gehört wohin?" in karte and "Sonstiges für die Beraterin" in karte
-    assert "Alles vom Finanzamt" in karte
+    buch = client.get("/steuer/2025/belege").text  # Runde 29: vom Tisch ins Belegbuch
+    assert "Was gehört wohin?" in buch and "Sonstiges für die Beraterin" in buch
+    assert "Alles vom Finanzamt" in buch
     assert "Nächstes: <strong>Zeitalter der Ordnung</strong>" in karte
     assert "Dann wacht der Papierdrache auf" in karte
     gebiet = client.get("/steuer/2025/gebiet/werkstatt-1").text
@@ -2181,7 +2188,8 @@ def test_runde_18_foto_ohne_text_und_kassenbon(tmp_path):
 
 def test_runde_18_ehrliche_gold_serie_und_gewuerze_waermen_auf():
     assert "Doppelschlag!" not in spiel.RUFE
-    assert all("Serie" not in r or "Gold-Serie" in r or r.endswith("hält.") for r in spiel.RUFE)
+    # Eine Währung (2.11.): Die Serie heißt nur noch Serie, nirgends Gold
+    assert not any("Gold" in r for r in spiel.RUFE) and "Gold" not in spiel.SERIE_WARTET
     assert spiel.start_serie(0) == 0
     assert spiel.start_serie(1) == 2 and spiel.multiplikator(spiel.start_serie(1)) == 2
     assert spiel.start_serie(7) == 4  # höchstens drei Gewürze zählen
@@ -2195,16 +2203,16 @@ def test_runde_18_drache_zeigt_den_echten_faktor(client, ws):
     post(client, "/steuer/2025/drache/schlag", stueck_id=str(karte["id"]), aktion="fragen")
     zweite = spiel.drache(quest.stuecke(conn, 2025)).karte
     seite = post(client, "/steuer/2025/drache/schlag", stueck_id=str(zweite["id"]), aktion="fragen")
-    # Runde 19: Fragen treffen, aber die Gold-Serie wartet auf Belege (Banner grau, ×1 + 2)
-    assert "Die Gold-Serie wartet auf den nächsten Beleg" in seite.text
-    assert "sq-combo wartet" in seite.text and "Gold ×2" in seite.text
+    # Runde 19: Fragen treffen, aber die Serie wartet auf Belege (Banner grau, ×1 + 2)
+    assert "Die Serie wartet auf den nächsten Beleg" in seite.text
+    assert "sq-combo wartet" in seite.text and "Serie ×2" in seite.text
     assert "1 × 1" not in seite.text
 
 
 def test_runde_18_erwachen_bietet_den_hafen_an(client, ws):
     fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
     conn = quest.ensure_schema(store.connect(ws.db))
-    quest.verdiene(conn, 2025, "test", 26, "Testgold")
+    quest.verdiene(conn, 2025, "test", 9, "Testgold")
     offen = [s for s in spiel.pflicht(quest.stuecke(conn, 2025)) if s["status"] == "offen"]
     for s in offen:
         stand = quest.stuecke(conn, 2025)
@@ -2212,7 +2220,7 @@ def test_runde_18_erwachen_bietet_den_hafen_an(client, ws):
             break
         nachher = post(client, f"/steuer/2025/stueck/{s['id']}/status", status="gibts_nicht")
     assert "Der Drache erwacht!" in nachher.text
-    assert "Erst zum Hafenmarkt: Helfer anheuern" in nachher.text
+    assert "Erst Helfer anheuern" in nachher.text
 
 
 def test_runde_18_freiberuflich_aus_der_einrichtung(client, ws):
@@ -2245,19 +2253,6 @@ def test_runde_18_falscher_wunsch_laesst_sich_zurueckholen(client, ws):
     assert "wieder ein Wunsch der Beraterin" in seite.text
     wieder = [s for s in quest.stuecke(conn, 2025) if s["name"] == "Hausordnung"]
     assert len(wieder) == 1 and wieder[0]["wunsch"] and wieder[0]["herkunft"] == "beraterin"
-
-
-def test_runde_18_gold_ausgeben_geht_nie_unter_null(conn):
-    quest.verdiene(conn, 2025, "test", 25, "Testgold")
-    assert quest.gold_ausgeben(conn, 2025, 20, "Drachengold: +1 Würze")
-    assert not quest.gold_ausgeben(conn, 2025, 20, "Drachengold: +1 Würze")
-    assert quest.gold(conn, 2025) == 5
-
-
-def test_runde_18_gold_von_fritte_zahlt_jeden_grund_einmal(conn):
-    assert quest.gold_gutschreiben(conn, 2025, 7, "Fritte-Truhe", "fritte-truhe:1") == 7
-    assert quest.gold_gutschreiben(conn, 2025, 7, "Fritte-Truhe", "fritte-truhe:1") == 0
-    assert quest.gold(conn, 2025) == 7
 
 
 def test_runde_18_drachensieg_gibt_fritte_eine_truhe(client, ws, monkeypatch):
@@ -2330,10 +2325,10 @@ def test_runde_19_banner_zeigt_den_naechsten_beleg_vorab(client, ws):
     seite = client.get("/steuer/2025/drache")
     start = spiel.start_serie(len(kassensturz.regal(conn)))
     naechster = spiel.multiplikator(start + 2)
-    assert f"Gold ×{naechster}" in seite.text
+    assert f"Serie ×{naechster}" in seite.text
     assert (
-        f"Nächster Beleg: {spiel.GOLD_FUND} × {naechster} = {spiel.GOLD_FUND * naechster} Gold"
-        in seite.text
+        f"Nächster Beleg: {spiel.GOLD_FUND} × {naechster} = "
+        f"{spiel.GOLD_FUND * naechster} Salzkörner" in seite.text
     )
     # Zwei Fragen: Die Vorschau bleibt gleich, die Serie wartet
     for _ in range(2):
@@ -2341,7 +2336,7 @@ def test_runde_19_banner_zeigt_den_naechsten_beleg_vorab(client, ws):
         seite = post(
             client, "/steuer/2025/drache/schlag", stueck_id=str(karte["id"]), aktion="fragen"
         )
-    assert f"Gold ×{naechster}" in seite.text and "sq-combo wartet" in seite.text
+    assert f"Serie ×{naechster}" in seite.text and "sq-combo wartet" in seite.text
 
 
 def test_runde_19_helfer_sagen_im_kampf_was_sie_tun(client, ws):
@@ -2375,48 +2370,86 @@ def test_runde_19_toene_laufen_ueber_den_klangrahmen():
     assert "function tone(" in klang and "tone: tone" in klang and "host.tone(" in klang
 
 
-def test_runde_20_restgold_wird_zu_salz(client, ws, monkeypatch):
-    # Eine Währung: Was beim Sieg an Gold übrig ist, wird zu Salzkörnern bei Fritte.
-    # salz_aus_quest kommt aus dem Fritte-Thread; bis dahin hier ein Stellvertreter.
-    from frits import haustier
+def test_runde_31_eine_waehrung_quest_zahlt_in_frittes_beutel(client, ws):
+    # Marie (2.11.): eine Währung statt Gold und Salzkörner. Die Quest zahlt direkt in
+    # Frittes Beutel, der Sieg tauscht nichts mehr um.
+    from frits.spiel import stand
 
-    gebucht = {}
-
-    def salz_aus_quest(conn, jahr, gold, text):
-        if jahr in gebucht:
-            return 0
-        gebucht[jahr] = gold
-        return gold
-
-    monkeypatch.setattr(haustier, "salz_aus_quest", salz_aus_quest, raising=False)
     fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
-    assert "wird zu Salzkörnern bei Fritte" in client.get("/steuer/2025/markt").text
+    markt = client.get("/steuer/2025/markt").text
+    assert "derselbe Beutel wie bei Fritte" in markt and "wird zu Salzkörnern" not in markt
     conn = quest.ensure_schema(store.connect(ws.db))
-    _bis_wach(conn)
-    quest.verdiene(conn, 2025, "test-rest", 17, "Testgold")
-    while not spiel.drache(quest.stuecke(conn, 2025)).besiegt:
-        k = spiel.drache(quest.stuecke(conn, 2025)).karte
-        seite = post(client, "/steuer/2025/drache/schlag", stueck_id=str(k["id"]), aktion="fragen")
-    rest = gebucht[2025]
-    assert rest >= 17 and quest.gold(conn, 2025) == 0
-    assert f"Dein übriges Gold ist zu {rest} Salzkörnern bei Fritte geworden." in seite.text
-    # Nach dem Sieg: neues Gold bleibt Gold, Salz gibt es nur einmal pro Jahr
-    quest.verdiene(conn, 2025, "test-spaet", 5, "Spätes Gold")
-    assert quest.gold(conn, 2025) == 5 and gebucht == {2025: rest}
-
-
-def test_runde_20_ohne_frittes_kasse_bleibt_das_gold(client, ws, monkeypatch):
-    from frits import haustier
-
-    monkeypatch.delattr(haustier, "salz_aus_quest", raising=False)
-    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
-    assert "wird zu Salzkörnern" not in client.get("/steuer/2025/markt").text
-    conn = quest.ensure_schema(store.connect(ws.db))
+    vorher = stand.guthaben(conn)
+    s = next(s for s in quest.stuecke(conn, 2025) if s["status"] == "offen")
+    post(client, f"/steuer/2025/stueck/{s['id']}/datei", files=[("datei", ("a.pdf", b"%PDF a"))])
+    assert stand.guthaben(conn) > vorher  # derselbe Beutel
+    assert quest.gold(conn, 2025) == stand.guthaben(conn)
+    assert any("Steuer-Quest 2025" in z["text"] for z in stand.kassenbuch(conn))
+    leiste = client.get("/steuer/2025").text
+    assert "Salzkörner</span></a></li>" in leiste and "> Gold</a>" not in leiste
     _bis_wach(conn)
     while not spiel.drache(quest.stuecke(conn, 2025)).besiegt:
         k = spiel.drache(quest.stuecke(conn, 2025)).karte
         seite = post(client, "/steuer/2025/drache/schlag", stueck_id=str(k["id"]), aktion="fragen")
-    assert "Salzkörnern" not in seite.text and quest.gold(conn, 2025) > 0
+    assert "übriges Gold" not in seite.text and quest.gold(conn) > 0
+
+
+def test_runde_31_deckel_pro_steuerjahr(conn):
+    assert quest.verdiene(conn, 2025, "a", 100, "viel") == 100
+    assert quest.verdiene(conn, 2025, "b", 50, "zu viel") == spiel.SALZ_DECKEL - 100
+    assert quest.verdiene(conn, 2025, "c", 5, "nichts mehr") == 0
+    assert quest.hat_gold(conn, 2025, "c")  # steht mit 0 im Buch, klopft nicht wieder an
+    assert quest.verdiene(conn, 2024, "a", 5, "anderes Jahr") == 5
+    # Zurückbuchen macht wieder Platz, neu verdienen geht bis zum Deckel
+    quest.storniere(conn, 2025, "a", "viel")
+    assert quest.jahres_salz(conn, 2025) == spiel.SALZ_DECKEL - 100
+    assert quest.verdiene(conn, 2025, "a", 10, "neu") == 10
+
+
+def test_runde_31_altes_gold_zieht_einmal_um(conn):
+    from frits.spiel import stand
+
+    quest.ensure_schema(conn)
+    stand.vorbereiten(conn)
+    zeilen = [
+        (2025, 30, "fund:x", "Belege"),
+        (2025, -12, "kauf:spuernase", "Gekauft: Spürnase"),
+        (2024, 60, "fund:y", "Belege"),  # schon gewonnen, Restgold wurde Salz (alter Weg)
+        (2021, 90, "fund:z", "Belege"),  # zu alt: zahlt nicht in den Beutel
+    ]
+    for jahr, betrag, grund, text in zeilen:
+        conn.execute(
+            "INSERT INTO steuer_gold (jahr, zeit, betrag, grund, text) VALUES (?, 'x', ?, ?, ?)",
+            (jahr, betrag, grund, text),
+        )
+    stand.setze(conn, "drachensieg_salz:2024", "2026-10-30")
+    conn.commit()
+    quest.umziehen(conn)
+    assert stand.guthaben(conn) == 10 - 4  # ein Drittel, wie die neuen Preise
+    assert quest.goldsummen(conn, 2025) == (10, 4)
+    quest.umziehen(conn)
+    assert stand.guthaben(conn) == 6  # nur einmal
+    # Die alte Zeile brachte im Beutel nichts: Zurückbuchen nimmt dafür auch nichts
+    assert quest.storniere(conn, 2025, "fund:x", "Belege") == 10
+    assert stand.guthaben(conn) == 6
+
+
+def test_runde_31_regal_fuer_die_insel_in_frittes_laden(client, ws):
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    quest.verdiene(conn, 2025, "test", 20, "Testgold")
+    regal = client.app.state.helfer_regal(conn)
+    assert regal["jahr"] == 2025 and len(regal["waren"]) == 5
+    laden = client.get("/fritte/laden")
+    if laden.status_code != 200:
+        pytest.skip("Frittes Laden ist in diesem Aufbau nicht da")
+    assert 'id="insel"' in laden.text and "Für die Insel" in laden.text
+    seite = post(client, "/steuer/2025/markt/kaufen", ware="sanduhr", zurueck="laden")
+    assert (
+        str(seite.url).endswith("/fritte/laden#insel") and "Sanduhr spielt jetzt mit" in seite.text
+    )
+    assert "sanduhr" in quest.helfer(conn, 2025)
+    assert 'href="/fritte/laden#insel"' in client.get("/steuer/2025").text
 
 
 def test_runde_20_ein_tagesziel_mit_fritte(client, ws, monkeypatch):
@@ -2443,8 +2476,8 @@ def test_runde_20_ein_tagesziel_mit_fritte(client, ws, monkeypatch):
     fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
     stand["erledigt"] = 2
     seite = client.get("/steuer/2025")
-    assert "Tagesziel: 2 von 3 geschafft" in seite.text and "2/3" in seite.text
-    assert "Es zählt, was heute echt erledigt wurde." in seite.text
+    # Runde 29: Mit Fritte steht das gemeinsame Tagesziel auf Heute, nicht noch einmal auf der Insel
+    assert "Tagesziel: 2 von 3 geschafft" not in seite.text and "sq-tagwerk-ring" not in seite.text
     # Das Ziel wurde bei Fritte erreicht: Der nächste Quest-Schritt zahlt das Tagwerk-Gold
     stand["erledigt"] = 3
     conn = quest.ensure_schema(store.connect(ws.db))
@@ -2473,11 +2506,11 @@ def test_runde_20_alte_jahre_versprechen_kein_gold(client, ws):
     conn = quest.ensure_schema(store.connect(ws.db))
     _bis_wach(conn, 2023)
     seite = client.get("/steuer/2023/drache")
-    assert "Kein Gold in alten Jahren" in seite.text
-    assert "Nächster Beleg" not in seite.text and "Gold ×" not in seite.text
+    assert "Keine Salzkörner in alten Jahren" in seite.text
+    assert "Nächster Beleg" not in seite.text and "Serie ×" not in seite.text
     karte = spiel.drache(quest.stuecke(conn, 2023)).karte
     seite = post(client, "/steuer/2023/drache/schlag", stueck_id=str(karte["id"]), aktion="fragen")
-    assert "Gold-Serie" not in seite.text.split("sq-combo")[1].split("</div>")[0]
+    assert "Serie ×" not in seite.text.split("sq-combo")[1].split("</div>")[0]
 
 
 def test_runde_20_banner_ohne_widerspruch(client, ws):
@@ -2520,8 +2553,9 @@ def test_runde_21_orden_fuer_frittes_sammlung(conn):
 def test_runde_21_insel_fuehrt_in_die_sammlung(client, ws):
     fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
     insel = client.get("/steuer/2025").text
-    assert 'class="sq-sammlung-karte" href="/sammlung"' in insel and "gesammelt" in insel
+    assert 'href="/sammlung"><span class="sq-werkzeug-orden"' in insel
     assert '<ul class="sq-orden">' not in insel  # eine Vitrine statt zwei
+    assert '<ul class="sq-orden">' not in client.get("/steuer/2025/belege").text
     vitrine = client.get("/sammlung")
     assert vitrine.status_code == 200
     assert "Gutes Gedächtnis" in vitrine.text and "Brunnen" in vitrine.text
@@ -2553,35 +2587,6 @@ def test_runde_21_tagwerk_gold_einmal_am_tag_ueber_alle_jahre(client, ws, monkey
         post(client, f"/steuer/{jahr}/stueck/{s['id']}/status", status="fragen")
     tag = f"tagwerk:{date.today()}"
     assert quest.hat_gold(conn, 2025, tag) and not quest.hat_gold(conn, 2024, tag)
-
-
-def test_runde_21_restgold_alter_siege_und_frittes_kurs(client, ws, monkeypatch):
-    from frits import haustier
-
-    gebucht = {}
-
-    def salz_aus_quest(conn, jahr, gold, text):
-        if jahr in gebucht:
-            return 0
-        gebucht[jahr] = gold // 2  # Frittes Kasse darf einen eigenen Kurs haben
-        return gebucht[jahr]
-
-    monkeypatch.setattr(haustier, "salz_aus_quest", salz_aus_quest, raising=False)
-    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
-    conn = quest.ensure_schema(store.connect(ws.db))
-    # Ein Jahr, das vor der einen Währung gewonnen wurde, mit Gold im Beutel
-    for s in spiel.pflicht(quest.stuecke(conn, 2025)):
-        quest.setze_status(conn, s["id"], "fragen")
-    erste = spiel.pflicht(quest.stuecke(conn, 2025))[0]
-    (ws.root / "beleg.pdf").write_bytes(b"%PDF beleg")
-    quest.sammeln(conn, ws.root, erste["id"], ws.root / "beleg.pdf")
-    assert spiel.drache(quest.stuecke(conn, 2025)).besiegt
-    quest.verdiene(conn, 2025, "test-alt", 40, "Altes Gold")
-    rest = quest.gold(conn, 2025)
-    seite = client.get("/steuer/2025")
-    assert f"Restgold aus dem gewonnenen Jahr 2025 ist zu {rest // 2} Salzkörnern" in seite.text
-    assert quest.gold(conn, 2025) == 0  # das ganze Restgold ging hinüber
-    assert "Restgold" not in client.get("/steuer/2025").text  # nur einmal
 
 
 def test_runde_22_zierde_nur_fuer_notierte_orden(client, ws):
@@ -2628,7 +2633,7 @@ def test_runde_22_gewuerz_ruf_ohne_zweite_zahl(client, ws, monkeypatch):
     fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
     _bis_wach(quest.ensure_schema(store.connect(ws.db)))
     seite = client.get("/steuer/2025/drache").text
-    assert "Gold-Serie startet schon warm" in seite
+    assert "Deine Serie startet schon warm" in seite
     assert "startet bei ×" not in seite
 
 
@@ -2676,7 +2681,7 @@ def test_runde_24_hafen_auf_der_insel_ohne_zierde_fuer_gold(client, ws):
     fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
     insel = client.get("/steuer/2025").text
     assert "Gold für Zierde" not in insel
-    assert 'title="Hafenmarkt: Gold für Helfer im Kampf"' in insel
+    assert 'title="Hafenmarkt: Salzkörner für Helfer im Kampf"' in insel
     js = (Path(__file__).parents[1] / "src/frits/web/static/steuer.js").read_text(encoding="utf-8")
     assert "sq-zier-zettel" in js and "(hover: none)" in js  # Herkunft auf Touch per Antippen
 
@@ -2772,3 +2777,53 @@ def test_runde_28_hafenmarkt_ist_ein_stand_und_klappt_selten_gebrauchtes_ein(cli
     assert "Zierden für deine Insel" in markt and "0 von 8" in markt
     insel = client.get("/steuer/2025").text
     assert 'class="sq-hafen-stand"' in insel and "sq-hafen-muenze" not in insel
+
+
+def test_runde_29_insel_aufgeraeumt(client, ws):
+    """Marie (2.11.): zu viele Menüs und Optionen. Die Insel hat einen Weg hinein, eine schlanke
+    Leiste und eine Fritte-Blase; Seltenes liegt im Belegbuch."""
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    insel = client.get("/steuer/2025").text
+    assert "Insel zu <b" in insel and '<details class="sq-mehr-marken">' in insel
+    assert insel.count("data-einwurf") == 1 and "Alles hier ablegen" in insel
+    assert 'id="sq-korb"' not in insel and "ohne-korb" in insel  # leer: kein Korb
+    assert "Lager-Ordner" not in insel and "Was gehört wohin?" not in insel
+    assert "Keine Sorge: Was fehlt" not in insel and insel.count('class="sq-sprechblase"') == 1
+    buch = client.get("/steuer/2025/belege").text
+    assert "Lager-Ordner" in buch and "/lager/oeffnen" in buch and "Chronik" in buch
+    # Ein Zettel im Lager: Jetzt erscheint der Eingangskorb neben der Insel
+    quest.lager(ws.root).mkdir(parents=True, exist_ok=True)
+    (quest.lager(ws.root) / "Kontoauszug.pdf").write_bytes(b"%PDF-1.4")
+    insel = client.get("/steuer/2025").text
+    assert 'id="sq-korb"' in insel and "ohne-korb" not in insel
+
+
+def test_runde_30_provinz_zettel_fuer_zettel(client, ws):
+    """Marie (2.11.): weniger auf einmal. Eine Karte liegt vorn, „Später ›“ blättert weiter,
+    die Liste bleibt als Umschalter und wird gemerkt."""
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    seite = client.get("/steuer/2025/gebiet/werkstatt-1").text
+    assert '<ul class="sq-akte stapel"' in seite and seite.count(' vorn"') == 1
+    assert "Zettel 1 von" in seite and "Später ›" in seite
+    assert "Alle Zettel als Liste zeigen" in seite
+    assert seite.count("Kein Dokument? Einfach eintippen") <= len(
+        re.findall("sq-karte status-offen", seite)
+    )
+    conn = quest.ensure_schema(store.connect(ws.db))
+    karten = [s for s in quest.stuecke(conn, 2025) if s["gebiet"] == "werkstatt-1"]
+    zweite = karten[1]
+    seite = client.get(f"/steuer/2025/gebiet/werkstatt-1?karte={zweite['id']}").text
+    assert f'data-stueck="{zweite["id"]}"' in seite and "Zettel 2 von" in seite
+    # Liste wählen: gemerkt, bis man zurückschaltet
+    seite = client.get("/steuer/2025/gebiet/werkstatt-1?ansicht=liste").text
+    assert "sq-akte stapel" not in seite and "Ein Zettel nach dem anderen" in seite
+    assert "sq-akte stapel" not in client.get("/steuer/2025/gebiet/werkstatt-1").text
+    client.get("/steuer/2025/gebiet/werkstatt-1?ansicht=stapel")
+    assert "sq-akte stapel" in client.get("/steuer/2025/gebiet/werkstatt-1").text
+
+
+def test_runde_30_frits_karten_stehen_als_erledigt_da(client, ws):
+    rechnung(ws, "RE-2025-0001", "2025-03-01", "2025-03-02")
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    seite = client.get("/steuer/2025/gebiet/werkstatt-1").text
+    assert "Hat FRITS schon dabei" in seite and "✓ Ausgangsrechnungen" in seite

@@ -185,7 +185,7 @@ class Ressourcen:
     siegel: int  # fertige Provinzen
     fragen: int
     schaetze: int = 0  # gefundene Bonus-Schätze
-    gold: int = 0  # Gold im Beutel (aus dem Goldbuch, siehe quest.gold)
+    gold: int = 0  # Salzkörner in Frittes Beutel (siehe quest.gold)
 
 
 def ressourcen(stuecke: list[dict], provinzstaende: list[Provinzstand]) -> Ressourcen:
@@ -206,20 +206,20 @@ def ressourcen(stuecke: list[dict], provinzstaende: list[Provinzstand]) -> Resso
 # ---------- Der Papierdrache ----------
 
 # Ehrlich bleiben: Jeder Treffer nimmt dem Drachen genau eine Karte. Die Serie vervielfacht
-# nur das Gold für gefundene Belege, darum heißt sie Gold-Serie und nicht "Doppelschlag".
+# nur die Salzkörner für gefundene Belege, sie ist kein "Doppelschlag".
 # Ein Ruf pro Stufe bis ×8: "Legendär" erst ganz oben, sonst ist ×8 nichts mehr wert.
 RUFE = (
     "Er wirft dir eine Karte zu!",
     "Treffer!",
-    "Die Gold-Serie läuft!",
-    "Die Gold-Serie wächst!",
-    "Heiße Gold-Serie!",
-    "Die Münzen klimpern!",
+    "Die Serie läuft!",
+    "Die Serie wächst!",
+    "Heiße Serie!",
+    "Die Körner rieseln!",
     "Unaufhaltsam!",
     "Fast legendär!",
-    "Legendäre Gold-Serie!",
+    "Legendäre Serie!",
 )
-SERIE_WARTET = "Treffer! Die Gold-Serie wartet auf den nächsten Beleg."
+SERIE_WARTET = "Treffer! Die Serie wartet auf den nächsten Beleg."
 VOLLTREFFER = "Volltreffer mit Beleg! "
 
 
@@ -530,27 +530,37 @@ def zweifel(stuecke: list[dict]) -> list[dict]:
     return [s for s in stuecke if s["status"] == "gibts_nicht" and ist_kern(s["gebiet"], s["key"])]
 
 
-# ---------- Gold: die Wirtschaft der Insel ----------
+# ---------- Salzkörner: die Wirtschaft der Insel ----------
+# Eine Währung für ganz FRITS (Marie, 2.11.): Die Quest zahlt Salzkörner in Frittes Beutel.
+# Intern heißt es weiter "gold" (steuer_gold ist das Journal der Quest), sichtbar nie.
+# Die Werte sind etwa ein Drittel der alten Gold-Werte, gedeckelt bei SALZ_DECKEL pro Jahr:
+# Ein Steuerjahr soll bei Fritte spürbar helfen, aber nicht das ganze Haus kaufen.
 # Balatro rechnet "Chips mal Multiplikator": Jede Karte bringt etwas Gold, die Serie im
 # Drachenkampf multipliziert es. Age of Empires: Mit dem Gold baust du dein Reich aus.
 # Ehrlich bleibt es trotzdem: Finden bringt am meisten, Fragen mehr als Wegstempeln,
 # und jede Karte zahlt nur einmal aus (Stempel zurücknehmen und neu setzen bringt nichts).
 
-GOLD_FUND = 3  # eine Unterlage gesichert
-GOLD_SCHATZ = 10  # ein Bonus-Schatz: kann Steuern sparen
+GOLD_FUND = 2  # eine Unterlage gesichert
+GOLD_SCHATZ = 4  # ein Bonus-Schatz: kann Steuern sparen
 GOLD_FRAGE = 1  # lieber gefragt (ohne Serien-Multiplikator)
 GOLD_GIBTS_NICHT = 1  # gibt es nicht (wichtige Unterlagen: 0)
-GOLD_SIEGEL = 10  # höchstens, für eine Provinz voller Funde (siehe siegel_gold)
-GOLD_TAGWERK = 5  # das Tagwerk geschafft
+GOLD_SIEGEL = 4  # höchstens, für eine Provinz voller Funde (siehe siegel_gold)
+GOLD_TAGWERK = 2  # das Tagwerk geschafft
 MAX_MULT = 8
 HELFER_PLAETZE = 2
-TAUSCH_PREIS = 5  # einen Helfer an den Tisch holen, der gerade Pause macht
-WUNSCH_DECKEL = 5  # so viele erfüllte Wünsche der Beraterin zahlen Gold, pro Jahr
+TAUSCH_PREIS = 2  # einen Helfer an den Tisch holen, der gerade Pause macht
+WUNSCH_DECKEL = 5  # so viele erfüllte Wünsche der Beraterin zahlen Salzkörner, pro Jahr
+SALZ_DECKEL = 120  # mehr Salzkörner bringt ein Steuerjahr nicht in Frittes Beutel
 GOLD_JAHRE = 2  # Gold gibt es für dieses Jahr und die zwei davor (Abgabe mit Beraterin)
 
 
+def koerner(n: int) -> str:
+    """ "1 Salzkorn", "3 Salzkörner": die eine Währung, richtig gebeugt."""
+    return f"{n} Salzkorn" if abs(n) == 1 else f"{n} Salzkörner"
+
+
 def gold_jahr(jahr: int, heute: date) -> bool:
-    """Bringt eine Quest für dieses Steuerjahr Gold? Nur die letzten Jahre: Mit Beraterin
+    """Bringt eine Quest für dieses Steuerjahr Salzkörner? Nur die letzten Jahre: Mit Beraterin
     gibt man die Erklärung oft erst im übernächsten Frühjahr ab (2025 also bis Anfang 2027).
     Ältere Jahre darf man trotzdem nachholen, sie füllen nur nicht mehr den Beutel. Sonst
     ließe sich mit erfundenen Jahren beliebig Gold für die Insel sammeln."""
@@ -572,41 +582,41 @@ MARKT: tuple[Ware, ...] = (
     Ware(
         "spuernase",
         "Spürnase",
-        12,
+        4,
         "helfer",
         "Stempelt alle Vorschläge im Korb auf einmal ab, statt Zettel für Zettel.",
-        haken="Sie frisst mit: Funde bringen 2 Gold statt 3.",
+        haken=f"Sie frisst mit: Funde bringen {GOLD_FUND - 1} Salzkorn statt {GOLD_FUND}.",
     ),
     Ware(
         "brieftaube",
         "Brieftaube",
-        8,
+        3,
         "helfer",
-        "Fragen an die Beraterin bringen 2 Gold statt 1.",
-        haken="„Gibt's nicht“ bringt kein Gold mehr.",
+        f"Fragen an die Beraterin bringen {GOLD_FRAGE + 1} Salzkörner statt {GOLD_FRAGE}.",
+        haken="„Gibt's nicht“ bringt nichts mehr.",
     ),
     Ware(
         "goldwaage",
         "Goldwaage",
-        15,
+        5,
         "helfer",
-        "Bonus-Schätze wiegen doppelt: 20 Gold statt 10.",
-        haken="Fragen bringen kein Gold mehr.",
+        f"Bonus-Schätze wiegen doppelt: {GOLD_SCHATZ * 2} Salzkörner statt {GOLD_SCHATZ}.",
+        haken="Fragen bringen nichts mehr.",
     ),
     Ware(
         "sanduhr",
         "Sanduhr",
-        8,
+        3,
         "helfer",
-        "Das Tagesziel bringt 15 Gold statt 5. Wenig am Tag, aber jeden Tag.",
+        f"Das Tagesziel bringt {GOLD_TAGWERK * 3} Salzkörner statt {GOLD_TAGWERK}. Wenig am Tag, aber jeden Tag.",
         haken="Im Drachenkampf zählt die Serie höchstens ×3.",
     ),
     Ware(
         "trommel",
         "Kriegstrommel",
-        18,
+        6,
         "helfer",
-        "Im Drachenkampf wächst die Gold-Serie eine Stufe schneller.",
+        "Im Drachenkampf wächst die Serie eine Stufe schneller.",
         haken="„Gibt's nicht“ im Kampf setzt die Serie auf null.",
     ),
     Ware(
@@ -703,8 +713,8 @@ GEWUERZ_START_MAX = 3  # so viele Gewürze aus Frittes Regal wärmen höchstens 
 
 def start_serie(gewuerze: int) -> int:
     """Die Brücke vom Alltag zum Drachen: Jedes Gewürz in Frittes Regal (gepflegt mit
-    Kassenstürzen) hebt die Gold-Serie zum Kampfbeginn um eins, höchstens um drei.
-    Ein Gewürz heißt also Gold ×2 schon für den ersten Beleg."""
+    Kassenstürzen) hebt die Serie zum Kampfbeginn um eins, höchstens um drei.
+    Ein Gewürz heißt also ×2 schon für den ersten Beleg."""
     n = max(0, min(gewuerze, GEWUERZ_START_MAX))
     return n + 1 if n else 0
 
@@ -712,11 +722,11 @@ def start_serie(gewuerze: int) -> int:
 def im_kampf(key: str) -> str:
     """Was ein Helfer in diesem Drachenkampf wirklich tut, in einem Satz mit echten Zahlen."""
     return {
-        "spuernase": f"Belege bringen {GOLD_FUND - 1} statt {GOLD_FUND} Gold.",
-        "brieftaube": f"Fragen bringen {GOLD_FRAGE + 1} Gold, „Gibt's nicht“ bringt 0.",
-        "goldwaage": f"Schätze bringen {GOLD_SCHATZ * 2} Gold, Fragen 0.",
-        "trommel": "Die Gold-Serie zählt eins mehr. „Gibt's nicht“ setzt sie auf null.",
-        "sanduhr": "Die Gold-Serie zählt höchstens ×3.",
+        "spuernase": f"Belege bringen {GOLD_FUND - 1} statt {GOLD_FUND} Salzkörner.",
+        "brieftaube": f"Fragen bringen {GOLD_FRAGE + 1} Salzkörner, „Gibt's nicht“ bringt 0.",
+        "goldwaage": f"Schätze bringen {GOLD_SCHATZ * 2} Salzkörner, Fragen 0.",
+        "trommel": "Die Serie zählt eins mehr. „Gibt's nicht“ setzt sie auf null.",
+        "sanduhr": "Die Serie zählt höchstens ×3.",
     }.get(key, "")
 
 
@@ -767,9 +777,9 @@ def gold_fuer(stueck: dict, status: str, helfer: frozenset[str] | set[str] = fro
 
 
 def siegel_gold(funde: int) -> int:
-    """Ein Siegel zahlt nach Funden: 2 Gold und 2 je gefundener Unterlage, höchstens 10.
+    """Ein Siegel zahlt nach Funden: 1 Salzkorn und 1 je gefundener Unterlage, höchstens 4.
     Eine Provinz voller "Gibt's nicht" bekommt ihr Siegel, aber kaum Gold."""
-    return min(GOLD_SIEGEL, 2 + 2 * funde)
+    return min(GOLD_SIEGEL, 1 + funde)
 
 
 def tagwerk_gold(helfer: frozenset[str] | set[str] = frozenset()) -> int:

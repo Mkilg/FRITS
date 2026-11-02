@@ -12,7 +12,7 @@
 <section class="card" id="regal">
   <h2>Gewürzregal <span class="hint">{{ regal | length }} von {{ plaetze }} Plätzen</span></h2>
   <p class="hint">Die Würze wirkt von links nach rechts. Ein „×“-Gewürz ganz rechts multipliziert alles davor.</p>
-  <p class="drachen-bruecke"><span class="warm-zeichen" aria-hidden="true">🐉</span> Im Drachenkampf der Steuer-Quest hebt jedes Gewürz im Regal die Gold-Serie zum Start um eins (höchstens {{ drachen_serie.max }}). Mit deinem Regal startet sie bei <strong>×{{ drachen_serie.jetzt }}</strong>.</p>
+  <p class="drachen-bruecke"><span class="warm-zeichen" aria-hidden="true">🐉</span> Im Drachenkampf der Steuer-Quest hebt jedes Gewürz im Regal die Serie zum Start um eins (höchstens {{ drachen_serie.max }}). Mit deinem Regal startet sie bei <strong>×{{ drachen_serie.jetzt }}</strong>.</p>
   <div class="regalbrett">
     {% for g in regal %}
     <div class="regal-platz">
@@ -97,6 +97,12 @@
     {% endfor %}
   </div>
 </section>
+
+{% if insel_regal %}
+<section class="card" id="insel">
+  {% include "_steuer_helfer_regal.html" ignore missing %}
+</section>
+{% endif %}
 
 {% set huete = (laden + schaetze) | selectattr("art", "equalto", "hut") | selectattr("id", "in", f.gekauft) | list %}
 {% if huete %}

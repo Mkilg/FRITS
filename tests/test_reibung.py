@@ -27,12 +27,12 @@ def post(client, url, **data):
 
 def test_first_setup_shows_no_menu_but_a_way_out(client, ws):  # noqa: F811
     page = client.get("/setup/welcome").text
-    assert '<a href="/drafts"' not in page and 'class="feierabend"' not in page
+    assert '<a href="/invoices"' not in page and 'class="feierabend"' not in page
     assert "Später einrichten" in page
     home = post(client, "/setup-spaeter")
     assert str(home.url).endswith("/")
     assert Settings.load(ws.settings_file).setup_done
-    assert '<a href="/drafts"' in client.get("/setup/welcome").text  # later: the full menu again
+    assert '<a href="/invoices"' in client.get("/setup/welcome").text  # later: the full menu again
 
 
 def test_learning_steps_can_be_skipped(client):

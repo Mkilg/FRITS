@@ -12,6 +12,10 @@ from datetime import date
 
 from frits.spiel import album, stand, tagesziel
 
+# Salt the Steuer-Quest pays into Fritte's purse (stand.beutel_gutschreiben: art "quest",
+# take-backs negative; "drachensieg" from before the one purse).
+QUEST_SALZ = "SELECT SUM(betrag) FROM spiel_kasse WHERE art IN ('quest', 'drachensieg') AND tag = ?"
+
 
 def _zahl(conn, sql: str, args: tuple) -> int:
     r = stand.rows(conn, sql, args)
@@ -79,6 +83,8 @@ def heute(conn, tag: date, mit_fritte: bool = True) -> list[str]:
             f"{'Kassensturz' if len(stuerze) == 1 else f'{len(stuerze)} Kassenstürze'}: "
             f"{summe} Salzkörner für Fritte"
         )
+    if (quest := _zahl(conn, QUEST_SALZ, (t,))) > 0:
+        zeilen.append(f"Aus der Steuer-Quest: {quest} {'Salzkorn' if quest == 1 else 'Salzkörner'}")
     sachen, koerner = [], 0
     for (inhalt,) in stand.rows(
         conn,
@@ -139,6 +145,7 @@ def bilanz(conn, tag: date, mit_fritte: bool = True) -> dict:
     ]
     salz = (
         _zahl(conn, "SELECT SUM(summe) FROM spiel_kassenstuerze WHERE tag = ?", (t,))
+        + max(0, _zahl(conn, QUEST_SALZ, (t,)))
         if mit_fritte
         else 0
     )

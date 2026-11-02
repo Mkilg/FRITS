@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+from frits.spiel import stand
 from frits.steuer.katalog import Gebiet, Profil, reich
 from frits.store import transaction
 
@@ -73,6 +74,10 @@ CREATE TABLE IF NOT EXISTS steuer_verweise (
     stueck_id INTEGER NOT NULL REFERENCES steuer_stuecke(id),
     datei_id INTEGER NOT NULL REFERENCES steuer_dateien(id),
     UNIQUE (stueck_id, datei_id)
+);
+CREATE TABLE IF NOT EXISTS steuer_schuld (
+    jahr INTEGER PRIMARY KEY,      -- Salzkörner, die beim Zurückbuchen im Beutel fehlten
+    betrag INTEGER NOT NULL        -- (schon ausgegeben): decke_schulden holt sie zurück
 );
 CREATE TABLE IF NOT EXISTS steuer_besitz (
     jahr INTEGER NOT NULL,
@@ -679,46 +684,143 @@ def vergleich(conn: sqlite3.Connection, jahr: int) -> list[dict]:
     return [{**dict(r), "jetzt": r["jetzt"] or "nicht im Fragebogen"} for r in rows]
 
 
-# ---------- Gold und Markt ----------
-# Das Goldbuch ist ehrlich und vollständig: jede Münze mit Grund. Ein Grund zahlt nur
-# einmal aus, darum bringt Zurücknehmen und neu Stempeln kein zweites Gold.
+# ---------- Salzkörner und Markt ----------
+# Eine Währung (Marie, 2.11.): Die Quest zahlt in Frittes Beutel (frits.spiel.stand). Das
+# Goldbuch (steuer_gold, der Name ist von früher) bleibt das Journal der Quest: jede Buchung
+# mit Grund, ein Grund zahlt nur einmal aus, darum bringt Zurücknehmen und neu Stempeln
+# nichts. Der Kontostand kommt nur aus dem Beutel. Jede Zeile bucht im Beutel unter
+# "quest:<jahr>:gold:<zeile>", Rücknahmen unter "quest:<jahr>:zurueck:<zeile>".
 # Zierde gilt für alle Jahre (jahr 0 in steuer_besitz), Helfer nur für das Jahr.
 
 ALLE_JAHRE = 0
 
 
+def _beutel_text(jahr: int, text: str) -> str:
+    return f"Steuer-Quest {jahr}: {text}"
+
+
+def jahres_salz(conn: sqlite3.Connection, jahr: int) -> int:
+    """Was dieses Steuerjahr schon in Frittes Beutel gezahlt hat (nach Rücknahmen). Zählt
+    gegen den Deckel; Käufe und was aus dem Hafen zurückkommt, zählen nicht mit."""
+    stand.vorbereiten(conn)
+    row = conn.execute(
+        "SELECT COALESCE(SUM(betrag), 0) FROM spiel_beutel WHERE grund LIKE ? AND grund NOT LIKE ?",
+        (f"quest:{jahr}:%", f"quest:{jahr}:hafen:%"),
+    ).fetchone()
+    return int(row[0])
+
+
 def verdiene(conn: sqlite3.Connection, jahr: int, grund: str, betrag: int, text: str) -> int:
-    """Bucht Gold, wenn es für diesen Grund noch keins gab. Gibt den Betrag zurück (sonst 0)."""
+    """Bucht Salzkörner in Frittes Beutel, wenn es für diesen Grund noch keine gab.
+
+    Höchstens bis zum Deckel des Jahres (spiel.SALZ_DECKEL): Darüber steht die Zeile mit 0
+    im Goldbuch, damit derselbe Grund nicht immer wieder anklopft. Gibt zurück, was wirklich
+    in den Beutel ging (0, wenn der Grund schon bezahlt war)."""
+    from frits.steuer import spiel
+
     ensure_schema(conn)
+    stand.vorbereiten(conn)
     if betrag <= 0:
         return 0
     with transaction(conn):
+        _umzug(conn, jahr)
+        if conn.execute(
+            "SELECT 1 FROM steuer_gold WHERE jahr = ? AND grund = ?", (jahr, grund)
+        ).fetchone():
+            return 0
+        wert = max(0, min(int(betrag), spiel.SALZ_DECKEL - jahres_salz(conn, jahr)))
+        zeile = text if wert == betrag else f"{text} (Jahresdeckel erreicht)"
         cur = conn.execute(
-            "INSERT OR IGNORE INTO steuer_gold (jahr, zeit, betrag, grund, text)"
-            " VALUES (?, ?, ?, ?, ?)",
-            (jahr, _now(), betrag, grund, text),
+            "INSERT INTO steuer_gold (jahr, zeit, betrag, grund, text) VALUES (?, ?, ?, ?, ?)",
+            (jahr, _now(), wert, grund, zeile),
         )
-    return betrag if cur.rowcount else 0
+        if wert:
+            wert = stand.beutel_gutschreiben(
+                conn, f"quest:{jahr}:gold:{cur.lastrowid}", wert, _beutel_text(jahr, text)
+            )
+    return wert
 
 
 def storniere(conn: sqlite3.Connection, jahr: int, grund: str, text: str) -> int:
-    """Bucht das Gold für einen Grund zurück und gibt den Grund wieder frei.
+    """Bucht die Salzkörner für einen Grund zurück und gibt den Grund wieder frei.
 
     Beide Zeilen bleiben im Goldbuch stehen (plus und minus), nichts verschwindet heimlich.
+    Fehlt im Beutel etwas (schon ausgegeben), merkt sich die Quest das für decke_schulden.
     Gibt den zurückgebuchten Betrag zurück (0, wenn es für den Grund nichts gab)."""
     ensure_schema(conn)
+    stand.vorbereiten(conn)
     with transaction(conn):
+        _umzug(conn, jahr)
         row = conn.execute(
             "SELECT id, betrag FROM steuer_gold WHERE jahr = ? AND grund = ?", (jahr, grund)
         ).fetchone()
         if row is None:
             return 0
         conn.execute("UPDATE steuer_gold SET grund = NULL WHERE id = ?", (row["id"],))
-        conn.execute(
+        cur = conn.execute(
             "INSERT INTO steuer_gold (jahr, zeit, betrag, grund, text) VALUES (?, ?, ?, NULL, ?)",
             (jahr, _now(), -row["betrag"], f"Zurückgebucht: {text}"),
         )
+        # Nur was diese Zeile wirklich in den Beutel gebracht hat (Zeilen von vor der einen
+        # Währung brachten dort nichts, ihr Rest kam beim Umzug hinüber)
+        im_beutel = stand.beutel_gebucht(conn, f"quest:{jahr}:gold:{row['id']}") or 0
+        if im_beutel > 0:
+            genommen = -stand.beutel_gutschreiben(
+                conn,
+                f"quest:{jahr}:zurueck:{cur.lastrowid}",
+                -im_beutel,
+                _beutel_text(jahr, f"zurückgebucht: {text}"),
+            )
+            if genommen < im_beutel:
+                conn.execute(
+                    "INSERT INTO steuer_schuld (jahr, betrag) VALUES (?, ?)"
+                    " ON CONFLICT(jahr) DO UPDATE SET betrag = betrag + excluded.betrag",
+                    (jahr, im_beutel - genommen),
+                )
     return int(row["betrag"])
+
+
+def umziehen(conn: sqlite3.Connection, jahr: int | None = None) -> None:
+    """Einmal pro Steuerjahr: das Gold von vor der einen Währung in Frittes Beutel.
+
+    Läuft vor der ersten neuen Buchung eines Jahres, also sind dann alle Zeilen alt. Das
+    Goldbuch wird auf Salzkörner umgerechnet (ein Drittel, wie die neuen Preise), der Rest
+    kommt in den Beutel, höchstens bis zum Deckel. Hat ein gewonnenes Jahr sein Restgold
+    schon zu Salzkörnern gemacht (alter Weg, Fritte-Thread), kommt nichts mehr dazu.
+    jahr=None: alle Jahre im Goldbuch. Nie in einer offenen Transaktion aufrufen."""
+    ensure_schema(conn)
+    stand.vorbereiten(conn)
+    if jahr is None:
+        jahre = [r[0] for r in conn.execute("SELECT DISTINCT jahr FROM steuer_gold").fetchall()]
+    else:
+        jahre = [jahr]
+    for j in jahre:
+        if stand.beutel_gebucht(conn, f"quest:{j}:umzug") is None:
+            with transaction(conn):
+                _umzug(conn, j)
+
+
+def _umzug(conn: sqlite3.Connection, jahr: int) -> None:
+    """umziehen für ein Jahr, in der Transaktion des Aufrufers (Schema muss bereit sein)."""
+    from frits.steuer import spiel
+
+    grund = f"quest:{jahr}:umzug"
+    if stand.beutel_gebucht(conn, grund) is not None:
+        return
+    conn.execute("UPDATE steuer_gold SET betrag = betrag / 3 WHERE jahr = ?", (jahr,))
+    rest = conn.execute(
+        "SELECT COALESCE(SUM(betrag), 0) FROM steuer_gold WHERE jahr = ?", (jahr,)
+    ).fetchone()[0]
+    if stand.einstellung(conn, f"drachensieg_salz:{jahr}") or not spiel.gold_jahr(
+        jahr, datetime.now().date()
+    ):
+        rest = 0
+    stand.beutel_gutschreiben(
+        conn,
+        grund,
+        max(0, min(int(rest), spiel.SALZ_DECKEL)),
+        _beutel_text(jahr, "Gold von früher, jetzt Salzkörner"),
+    )
 
 
 def wunsch_funde(conn: sqlite3.Connection, jahr: int) -> int:
@@ -738,10 +840,9 @@ def hat_gold(conn: sqlite3.Connection, jahr: int | None, grund: str) -> bool:
     return conn.execute(sql, args).fetchone() is not None
 
 
-def gold(conn: sqlite3.Connection, jahr: int) -> int:
-    ensure_schema(conn)
-    row = conn.execute("SELECT COALESCE(SUM(betrag), 0) FROM steuer_gold WHERE jahr = ?", (jahr,))
-    return int(row.fetchone()[0])
+def gold(conn: sqlite3.Connection, jahr: int | None = None) -> int:
+    """Die Salzkörner in Frittes Beutel: ein Kontostand für ganz FRITS, in jedem Jahr gleich."""
+    return stand.guthaben(conn)
 
 
 def goldsummen(conn: sqlite3.Connection, jahr: int) -> tuple[int, int]:
@@ -867,86 +968,72 @@ def helfer(conn: sqlite3.Connection, jahr: int) -> frozenset[str]:
 def _abbuchen(
     conn: sqlite3.Connection, jahr: int, betrag: int, text: str, was: str, grund: str | None = None
 ) -> None:
-    """Zieht Gold ab, im selben Schreibschloss wie die Prüfung: Zwei schnelle Klicks können
-    das Gold nie unter null drücken. Käufe tragen den Grund "kauf:<ware>", damit sie
-    zurück in den Hafen gehen können (siehe decke_schulden)."""
-    stand = conn.execute(
-        "SELECT COALESCE(SUM(betrag), 0) FROM steuer_gold WHERE jahr = ?", (jahr,)
-    ).fetchone()[0]
-    if betrag > stand:
-        raise QuestError(f"Für {was} fehlen dir noch {betrag - stand} Gold.")
+    """Bezahlt aus Frittes Beutel, in der Transaktion des Aufrufers: Zwei schnelle Klicks
+    können nie zweimal bezahlen. Im Goldbuch steht der Kauf mit dem Grund "kauf:<ware>",
+    damit er zurück in den Hafen gehen kann (siehe decke_schulden)."""
+    _umzug(conn, jahr)
+    try:
+        stand.beutel_bezahlen(conn, betrag, _beutel_text(jahr, text))
+    except stand.SpielFehler:
+        fehlt = betrag - max(0, stand.guthaben(conn))
+        raise QuestError(
+            f"Für {was} fehlen dir noch {fehlt} Salzkorn."
+            if fehlt == 1
+            else f"Für {was} fehlen dir noch {fehlt} Salzkörner."
+        ) from None
     conn.execute(
         "INSERT INTO steuer_gold (jahr, zeit, betrag, grund, text) VALUES (?, ?, ?, ?, ?)",
         (jahr, _now(), -betrag, grund, text),
     )
 
 
-def gold_ausgeben(conn: sqlite3.Connection, jahr: int, betrag: int, text: str) -> bool:
-    """Gold aus der Quest woanders ausgeben, z. B. als Würze in Frittes Kassensturz.
-    Gibt False zurück, wenn es nicht reicht (dann wird nichts abgebucht). Steht im Goldbuch
-    wie jeder Kauf, nur ohne Ware: Es geht nie unter null, auch bei zwei schnellen Klicks."""
-    ensure_schema(conn)
-    if betrag <= 0:
-        return False
-    try:
-        with transaction(conn):
-            _abbuchen(conn, jahr, betrag, text, text)
-    except QuestError:
-        return False
-    return True
-
-
-def gold_gutschreiben(
-    conn: sqlite3.Connection, jahr: int, betrag: int, text: str, grund: str
-) -> int:
-    """Gold von außerhalb der Quest, z. B. aus Frittes Truhen. Jeder Grund zahlt nur einmal
-    (z. B. "fritte-truhe:17"), so lässt sich nichts doppelt einlösen. Gibt den gutgeschriebenen
-    Betrag zurück (0, wenn es den Grund schon gab)."""
-    return verdiene(conn, jahr, f"aussen:{grund}", betrag, text)
-
-
 def decke_schulden(conn: sqlite3.Connection, jahr: int) -> list[str]:
-    """Gold geht nie unter null. Fehlt nach einem Zurückbuchen Gold, weil es schon ausgegeben
-    ist, geht der letzte Kauf aus diesem Jahr zurück in den Hafen (mit vollem Preis), bis es
-    reicht. Sonst könnte man Gold bei ×8 verdienen, ausgeben, die Karte zurücklegen und es
-    neu verdienen. Gibt die Namen der zurückgegebenen Waren zurück.
+    """Der Beutel geht nie unter null. Fehlten beim Zurückbuchen Salzkörner, weil sie schon
+    ausgegeben sind, geht der letzte Kauf aus diesem Jahr zurück in den Hafen, bis es
+    reicht; was vom Preis übrig ist, kommt zurück in den Beutel. Sonst könnte man bei ×8
+    verdienen, ausgeben, die Karte zurücklegen und neu verdienen. Gibt die Namen der
+    zurückgegebenen Waren zurück.
 
-    Nur wenn gar kein Kauf mehr da ist (das Gold steckt in Helfer-Wechseln), wird auf null
-    ausgeglichen: Das sind höchstens ein paar Münzen."""
+    Ist gar kein Kauf mehr da (die Körner stecken in Helfer-Wechseln oder bei Fritte),
+    bleibt es dabei: Das sind höchstens ein paar Körner."""
     from frits.steuer import spiel
 
     ensure_schema(conn)
+    stand.vorbereiten(conn)
     zurueck: list[str] = []
     with transaction(conn):
-        while True:
-            stand = conn.execute(
-                "SELECT COALESCE(SUM(betrag), 0) FROM steuer_gold WHERE jahr = ?", (jahr,)
-            ).fetchone()[0]
-            if stand >= 0:
-                break
+        row = conn.execute("SELECT betrag FROM steuer_schuld WHERE jahr = ?", (jahr,)).fetchone()
+        schuld = int(row[0]) if row else 0
+        while schuld > 0:
             kauf = conn.execute(
                 "SELECT id, betrag, grund FROM steuer_gold WHERE jahr = ? AND grund LIKE 'kauf:%'"
                 " ORDER BY id DESC LIMIT 1",
                 (jahr,),
             ).fetchone()
             if kauf is None:
-                conn.execute(
-                    "INSERT INTO steuer_gold (jahr, zeit, betrag, grund, text)"
-                    " VALUES (?, ?, ?, NULL, ?)",
-                    (jahr, _now(), -stand, "Ausgleich: Gold geht nicht unter null"),
-                )
                 break
             key = kauf["grund"].removeprefix("kauf:")
             w = spiel.ware(key)
             name = w.name if w else key
             wo = ALLE_JAHRE if w and w.art == "zierde" else jahr
+            preis = -int(kauf["betrag"])
             conn.execute("DELETE FROM steuer_besitz WHERE jahr = ? AND ware = ?", (wo, key))
             conn.execute("UPDATE steuer_gold SET grund = NULL WHERE id = ?", (kauf["id"],))
             conn.execute(
                 "INSERT INTO steuer_gold (jahr, zeit, betrag, grund, text) VALUES (?, ?, ?, NULL, ?)",
-                (jahr, _now(), -kauf["betrag"], f"Zurück in den Hafen: {name}"),
+                (jahr, _now(), preis, f"Zurück in den Hafen: {name}"),
             )
+            rest = preis - min(preis, schuld)
+            schuld -= preis - rest
+            if rest:
+                stand.beutel_gutschreiben(
+                    conn,
+                    f"quest:{jahr}:hafen:{kauf['id']}",
+                    rest,
+                    _beutel_text(jahr, f"{name} zurück im Hafen"),
+                )
             zurueck.append(name)
+        conn.execute("DELETE FROM steuer_schuld WHERE jahr = ?", (jahr,))
     return zurueck
 
 
@@ -960,10 +1047,9 @@ def kaufe(conn: sqlite3.Connection, jahr: int, key: str) -> str:
     if w is None:
         raise QuestError("Diese Ware gibt es auf dem Markt nicht.")
     if w.art == "zierde":
-        raise QuestError(
-            "Zierden gibt es nicht mehr für Gold: Jeder Orden stellt eine auf die Insel."
-        )
+        raise QuestError("Zierden kann man nicht kaufen: Jeder Orden stellt eine auf die Insel.")
     ensure_schema(conn)
+    stand.vorbereiten(conn)
     anlegen = w.art == "helfer" and len(helfer(conn, jahr)) < spiel.HELFER_PLAETZE
     with transaction(conn):
         if conn.execute(
@@ -999,6 +1085,7 @@ def lege_helfer(conn: sqlite3.Connection, jahr: int, key: str, an: bool) -> str:
         raise QuestError(
             f"Nur {spiel.HELFER_PLAETZE} Helfer passen an den Tisch. Mach erst mit einem Pause."
         )
+    stand.vorbereiten(conn)
     with transaction(conn):
         if an:
             _abbuchen(conn, jahr, spiel.TAUSCH_PREIS, f"An den Tisch: {w.name}", w.name)

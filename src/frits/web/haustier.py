@@ -438,10 +438,18 @@ def register_haustier(
         bezahlt = stand.besitz_preise(conn)
         ware = markt(conn, today())
         sauber = aufgeraeumt()
+        # One shop (Marie, 2026-11-02): the Steuer-Quest's helpers sit on their own shelf here.
+        # The quest registers app.state.helfer_regal(conn) -> dict | None; buying stays there.
+        insel = getattr(request.app.state, "helfer_regal", None)
+        try:
+            insel_regal = insel(conn) if insel else None
+        except Exception:  # noqa: BLE001 — the shop must open even if the quest has a hiccup
+            insel_regal = None
         return page(
             request,
             "fritte_laden.html",
             f=f,
+            insel_regal=insel_regal,
             markt=ware,
             wirkung={g.id: wirkung(conn, today(), g, sauber) for g in ware},
             preis=lambda g: preis(conn, g),

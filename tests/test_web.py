@@ -1,3 +1,4 @@
+import os
 import re
 import shutil
 import time
@@ -978,6 +979,208 @@ def test_earlier_invoice_is_entered_from_the_invoices_page(client, ws):
         tax="klein",
     )
     assert "Zukunft" in future.text
+
+
+def _old_invoice_pdf(lines):
+    from fpdf import FPDF
+
+    from frits.render import FONTS
+
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.add_font("dejavu", fname=str(FONTS / "DejaVuSans.ttf"))
+    pdf.set_font("dejavu", size=11)
+    for line in lines:
+        if line:
+            pdf.cell(text=line, new_x="LMARGIN", new_y="NEXT")
+        else:
+            pdf.ln()
+    return bytes(pdf.output())
+
+
+OLD_INVOICE = [
+    "Fritz Beispiel · Werkstattweg 1 · 12345 Musterstadt",
+    "Radio Süd GmbH",
+    "Hauptstraße 5",
+    "80331 München",
+    "",
+    "Musterstadt, 12. März 2026",
+    "Rechnung Nr. 2026-0002",
+    "Leistungsdatum: 10.03.2026",
+    "Pos. Beschreibung Menge Gesamt",
+    "1 Moderation Workshop 1 pauschal 1.200,00 €",
+    "Gesamtbetrag 1.200,00 €",
+    "Gemäß § 19 UStG wird keine Umsatzsteuer berechnet.",
+]
+
+
+def _staged(ws):
+    return sorted(p.name for p in ws.staging.iterdir()) if ws.staging.is_dir() else []
+
+
+def test_old_invoice_dropped_is_read_and_entered_with_its_original(client, ws):
+    page = client.get("/invoices").text
+    assert 'action="/invoices/frueher/lesen"' in page and "Alte Rechnung hierher ziehen" in page
+    original = _old_invoice_pdf(OLD_INVOICE)
+    response = client.post(
+        "/invoices/frueher/lesen",
+        data={"token": client.token},
+        files={"files": ("alte-rechnung.pdf", original, "application/pdf")},
+        follow_redirects=True,
+    )
+    assert "frueher=" in str(response.url)
+    [token] = _staged(ws)
+    page = response.text
+    assert 'id="frueher" open' in page
+    assert "Vorausgefüllt aus dem Dokument, hier auf deinem Computer gelesen" in page
+    assert "Nicht gefunden" not in page
+    assert 'value="2026-0002" class="imported"' in page
+    assert 'value="Radio Süd GmbH" class="imported"' in page
+    assert 'value="2026-03-12" class="imported"' in page
+    assert 'value="2026-03-10" class="imported"' in page
+    assert 'value="1.200,00" class="imported"' in page
+    assert '<option value="klein" selected>' in page
+    assert f'name="staged" value="{token}"' in page
+    assert "Verwerfen" in page and 'name="original"' not in page  # the PDF is the original
+    assert client.get(f"/invoices/frueher/{token}/original").content == original
+    # Fritz checks, adds the payment day and presses "Nachtragen".
+    response = post(
+        client,
+        "/invoices/frueher",
+        staged=token,
+        number="2026-0002",
+        customer="Radio Süd GmbH",
+        issue_date="2026-03-12",
+        service_date="2026-03-10",
+        description="Moderation Workshop",
+        net="1.200,00",
+        tax="klein",
+        paid="2026-03-20",
+    )
+    assert "Rechnung 2026-0002 ist nachgetragen" in response.text
+    assert client.get("/invoices/2026-0002/pdf").content == original
+    assert _staged(ws) == []  # nothing lingers once it is entered
+
+
+def test_missing_fields_get_the_focus_and_a_mistake_keeps_the_review(client, ws):
+    response = client.post(
+        "/invoices/frueher/lesen",
+        data={"token": client.token, "text": "Rechnung Nr. 7\nGesamtbetrag 300,00 €\n"},
+        follow_redirects=True,
+    )
+    [token] = _staged(ws)
+    page = response.text
+    assert (
+        "Nicht gefunden habe ich den Kunden, das Rechnungsdatum, den Betrag und die Umsatzsteuer"
+        in page
+    )
+    assert 'name="customer" required maxlength="120" value="" autofocus' in page
+    assert 'value="7" class="imported"' in page
+    assert 'name="original"' in page  # pasted text: a PDF can still be added by hand
+    future = post(
+        client,
+        "/invoices/frueher",
+        staged=token,
+        number="7",
+        customer="X",
+        issue_date="2027-01-01",
+        net="300",
+        tax="klein",
+    )
+    assert "Zukunft" in future.text and f"frueher={token}" in str(future.url)
+    assert _staged(ws) == [token]
+
+
+def test_old_invoice_photo_is_read_with_ocr_but_only_a_pdf_is_filed(client, ws, needs_ocr):
+    from io import BytesIO
+
+    from PIL import Image, ImageDraw, ImageFont
+
+    from frits.render import FONTS
+
+    img = Image.new("RGB", (1400, 700), "white")
+    draw = ImageDraw.Draw(img)
+    font = ImageFont.truetype(str(FONTS / "DejaVuSans.ttf"), 40)
+    for i, line in enumerate(
+        (
+            "Rechnungsnummer: 2026-0004",
+            "Datum: 05.06.2026",
+            "Gesamtbetrag 450,00 EUR",
+            "Kleinunternehmer, keine Umsatzsteuer",
+        )
+    ):
+        draw.text((60, 60 + i * 120), line, fill="black", font=font)
+    photo = BytesIO()
+    img.save(photo, "PNG")
+    response = client.post(
+        "/invoices/frueher/lesen",
+        data={"token": client.token},
+        files={"files": ("foto.png", photo.getvalue(), "image/png")},
+        follow_redirects=True,
+    )
+    page = response.text
+    assert 'value="2026-0004" class="imported"' in page
+    assert 'value="2026-06-05" class="imported"' in page
+    assert 'value="450,00" class="imported"' in page
+    assert "Als Original lege ich nur PDFs ab" in page and 'name="original"' in page
+    assert '<img class="receipt"' in page
+
+
+def test_discarding_an_old_invoice_removes_the_file(client, ws):
+    client.post(
+        "/invoices/frueher/lesen",
+        data={"token": client.token},
+        files={"files": ("alt.pdf", _old_invoice_pdf(OLD_INVOICE), "application/pdf")},
+    )
+    [token] = _staged(ws)
+    response = post(client, "/invoices/frueher/verwerfen", staged=token)
+    assert "Verworfen. Es wurde nichts eingetragen." in response.text
+    assert _staged(ws) == []
+    assert store.connect(ws.db).execute("SELECT COUNT(*) FROM invoices").fetchone()[0] == 0
+    gone = client.get(f"/invoices?frueher={token}")
+    assert "nicht mehr da" in gone.text and 'id="frueher" open' not in gone.text
+
+
+def test_bad_staged_tokens_are_refused(client, ws):
+    (ws.root / "geheim.pdf").write_bytes(b"%PDF-1.4 geheim")
+    for bad in ("../geheim.pdf", "..", "a/b", "x" * 21, "%2e%2e"):
+        response = post(
+            client,
+            "/invoices/frueher",
+            staged=bad,
+            number="2026-0005",
+            customer="X",
+            issue_date="2026-03-01",
+            net="5",
+            tax="klein",
+        )
+        assert response.status_code == 400, bad
+        assert post(client, "/invoices/frueher/verwerfen", staged=bad).status_code == 400
+    assert client.get("/invoices/frueher/..%2Fgeheim.pdf/original").status_code in (400, 404)
+    assert client.get(f"/invoices/frueher/{'y' * 22}/original").status_code == 404
+    assert store.connect(ws.db).execute("SELECT COUNT(*) FROM invoices").fetchone()[0] == 0
+    assert (ws.root / "geheim.pdf").exists()
+
+
+def test_staged_old_invoices_older_than_a_day_are_cleaned_up(client, ws):
+    old = ws.staging / ("o" * 22)
+    old.mkdir(parents=True)
+    (old / "gelesen.json").write_text("{}")
+    long_ago = time.time() - 2 * 24 * 3600
+    os.utime(old, (long_ago, long_ago))
+    post(client, "/invoices/frueher/lesen", text="Rechnung Nr. 1")
+    assert old.name not in _staged(ws) and len(_staged(ws)) == 1
+
+
+def test_unreadable_drop_is_a_calm_error(client, ws):
+    response = client.post(
+        "/invoices/frueher/lesen",
+        data={"token": client.token},
+        files={"files": ("tabelle.xlsx", b"PK", "application/octet-stream")},
+        follow_redirects=True,
+    )
+    assert "selbst ein" in response.text
+    assert _staged(ws) == []
 
 
 def test_phones_get_a_tab_bar_but_not_during_the_first_setup(client, ws):

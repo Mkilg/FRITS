@@ -10,6 +10,11 @@
   {% block head %}{% endblock %}
 </head>
 <body data-effekte="{{ settings.effects }}"{% if sounds %} data-frits-sound="on" data-frits-sound-base="{{ sounds }}"{% endif %}>
+{% set nav_orte = [("/", "Heute"), ("/invoices", "Rechnungen"), ("/expenses", "Ausgaben"), ("/customers", "Kunden"), ("/steuer", "Steuer-Quest")] %}
+{% set nav_gruppen = {"/invoices": ["/invoices", "/drafts", "/quotes"], "/expenses": ["/expenses", "/receipts", "/euer", "/ustva"]} %}
+{% set ns_ort = namespace(ort="") %}
+{% for href, label in nav_orte %}{% for pre in nav_gruppen.get(href, [href]) %}{% if nav == href or (href != "/" and nav.startswith(pre)) %}{% set ns_ort.ort = href %}{% endif %}{% endfor %}{% endfor %}
+{% set nav_ort = ns_ort.ort %}
 <header class="top">
   <a class="brand" href="/"><span class="brand-fry">{{ mascot("welcome") }}</span><span>FRITS</span></a>
   {% if nav.startswith("/setup") and not settings.setup_done %}
@@ -21,13 +26,15 @@
     </form>
   </div>
   {% else %}
-  {# Everyday places in the row; the rest behind "Mehr", so the row stays one line #}
-  {% set more = [("/chat", "Chat"), ("/lernen", "So funktionieren KI-Agenten"), ("/settings", "Einstellungen"), ("/sicherung", "Datensicherung"), ("/setup/welcome", "Einführung wiederholen"), ("/ueber", "Über FRITS")] %}
+  {# Five places for the everyday work (Hick's law: few doors, each one clear). Pages that
+     belong to a place light it up: Entwürfe and Angebote live under Rechnungen, EÜR and
+     Umsatzsteuer under Ausgaben, and show up there as tabs. Everything rare sits behind "Mehr". #}
+  {% set more = [("/settings", "Einstellungen"), ("/sicherung", "Datensicherung"), ("/lernen", "So funktionieren KI-Agenten"), ("/setup/welcome", "Einführung wiederholen"), ("/ueber", "Über FRITS")] %}
   {% set ns = namespace(here=false) %}
   {% for href, label in more %}{% if nav.startswith(href) %}{% set ns.here = true %}{% endif %}{% endfor %}
   <nav>
-    {% for href, label in [("/", "Heute"), ("/drafts", "Entwürfe"), ("/invoices", "Rechnungen"), ("/quotes", "Angebote"), ("/expenses", "Ausgaben"), ("/customers", "Kunden"), ("/steuer", "Steuer-Quest")] %}
-    <a href="{{ href }}" {% if nav == href or (href != "/" and nav.startswith(href)) %}aria-current="page"{% endif %}>{{ label }}</a>
+    {% for href, label in nav_orte %}
+    <a href="{{ href }}" {% if nav_ort == href %}aria-current="page"{% endif %}>{{ label }}</a>
     {% endfor %}
     <details class="mehr">
       <summary {% if ns.here %}aria-current="page"{% endif %}>Mehr</summary>
@@ -39,6 +46,7 @@
     </details>
   </nav>
   <div class="top-actions">
+    <a class="button frag" href="/chat" {% if nav.startswith("/chat") or nav.startswith("/notfall") %}aria-current="page"{% endif %} title="Frag die KI etwas oder leg ein Dokument hinein. Namen und Adressen schwärzt FRITS vorher.">Frag FRITS</a>
     {% if sounds %}
     <button type="button" class="quiet" data-frits-music="{{ music }}" data-frits-music-main data-label-playing="♪ Musik läuft" aria-pressed="false" title="{{ 'Abenteuer-Musik für die Steuer-Quest' if nav.startswith('/steuer') else 'Musik: ' ~ (moods[settings.music].title if settings.music in moods else 'Entspannt') ~ '. Die Stimmung wählst du in den Einstellungen' }}. Nochmal klicken schaltet sie aus.">♪ Musik</button>
     {% endif %}
@@ -61,6 +69,7 @@
   <div class="flash {{ f.kind }}{{ ' mit-stempel' if f.stamp }}" role="status"{% if f.feld %} data-feld="{{ f.feld }}"{% endif %}>{{ f.text }}{% if f.stamp %} <span class="stempel stempel-{{ f.stamp | lower }}" aria-hidden="true">{{ f.stamp }}</span>{% endif %}{% if f.link %} <a class="button tiny" href="{{ f.link }}">{{ f.link_text }}</a>{% endif %}{% if f.abhaken %} <form method="post" action="/aufgaben/{{ f.abhaken }}/abhaken" class="rueckgaengig" data-leise><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back" value="{{ nav }}"><button class="tiny">Abhaken</button></form>{% endif %}{% if f.undo %} <form method="post" action="/rueckgaengig" class="rueckgaengig"><input type="hidden" name="token" value="{{ token }}"><button class="tiny">Rückgängig</button></form>{% endif %}</div>
   {% endif %}{% endfor %}
   {% endblock %}
+  {% if nav_ort in nav_gruppen and nav in nav_gruppen[nav_ort] %}{% include "_reiter.html" %}{% endif %}
   {% block content %}{% endblock %}
 </main>
 <footer class="bottom">
@@ -69,18 +78,17 @@
   {% else %}KI: {{ providers.get(settings.provider, settings.provider) }}. Namen, Adressen und Kontonummern werden vorher auf diesem Computer geschwärzt.{% endif %}
 </footer>
 {% if not (nav.startswith("/setup") and not settings.setup_done) %}
-{# Phones: the four everyday places as a tab bar at the bottom, the rest behind "Mehr" #}
-{% set tabs = [("/", "Heute", "symbol-eingang"), ("/expenses", "Ausgaben", "symbol-ausgaben"), ("/steuer", "Quest", "symbol-steuer")] %}
-{% if settings.haustier %}{% set tabs = tabs + [("/fritte", "Fritte", "fritte-willkommen")] %}{% endif %}
+{# Phones: four everyday places as a tab bar at the bottom, the rest behind "Mehr" #}
+{% set tabs = [("/", "Heute", "symbol-eingang"), ("/invoices", "Rechnungen", "symbol-rechnungen"), ("/expenses", "Ausgaben", "symbol-ausgaben"), ("/steuer", "Quest", "symbol-steuer")] %}
 <nav class="tabs" aria-label="Schnellwahl">
   {% for href, label, bild in tabs %}
-  <a href="{{ href }}" {% if nav == href or (href != "/" and nav.startswith(href)) %}aria-current="page"{% endif %}>
+  <a href="{{ href }}" {% if nav_ort == href %}aria-current="page"{% endif %}>
     {% if picture(bild) %}<img src="{{ picture(bild) }}" alt="" width="26" height="26">{% endif %}<span>{{ label }}</span></a>
   {% endfor %}
   <details class="mehr">
     <summary><span class="punkte" aria-hidden="true"></span><span>Mehr</span></summary>
     <div class="mehr-liste">
-      {% for href, label in [("/drafts", "Entwürfe"), ("/invoices", "Rechnungen"), ("/quotes", "Angebote"), ("/customers", "Kunden")] + more %}
+      {% for href, label in [("/customers", "Kunden"), ("/chat", "Frag FRITS")] + ([("/fritte", "Fritte")] if settings.haustier else []) + more %}
       <a href="{{ href }}" {% if nav.startswith(href) %}aria-current="page"{% endif %}>{{ label }}</a>
       {% endfor %}
     </div>

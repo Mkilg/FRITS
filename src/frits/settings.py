@@ -62,6 +62,12 @@ class Workspace:
         return self.root / ".mappings"
 
     @property
+    def staging(self) -> Path:
+        """Old invoices dropped on the Rechnungen page wait here until Fritz enters or
+        discards them (never longer than a day)."""
+        return self.root / ".nachtragen"
+
+    @property
     def db(self) -> Path:
         return self.root / "frits.db"
 

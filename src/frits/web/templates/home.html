@@ -7,13 +7,52 @@
 </section>
 {% if tagesziel %}<p class="tagesziel{{ ' geschafft' if tagesziel.geschafft }}" title="{{ tagesziel.erklaerung }}"><span class="tagesziel-punkte" aria-hidden="true">{% for i in range(tagesziel.ziel) %}<i class="{{ 'voll' if i < tagesziel.erledigt }}"></i>{% endfor %}</span> {{ tagesziel.text }}</p>{% endif %}
 
-{% if not settings.is_complete %}
-<section class="card accent">
-  <h2>Zuerst: deine Angaben</h2>
-  <p>Name, Adresse, IBAN und Stundensatz brauche ich für jede Rechnung.</p>
-  <a class="button" href="/settings">Angaben eintragen</a>
+{# Als Nächstes: the one step that matters now, with the page's only primary button.
+   Everything else on Heute waits quietly below; empty boxes are left out. #}
+{% set ready_drafts = drafts | selectattr("ready") | list %}
+<section class="card als-naechstes{{ ' ruhig' if not naechstes }}" id="als-naechstes">
+  <p class="kicker">Als Nächstes</p>
+  {% if naechstes == "angaben" %}
+  <h2>Deine Angaben eintragen</h2>
+  <p>Name, Adresse, IBAN und Stundensatz brauche ich für jede Rechnung. Das dauert zwei Minuten.</p>
+  <a class="button primary" href="/settings">Angaben eintragen</a>
+  {% elif naechstes == "ansehen" %}
+  <h2>Bitte einmal ansehen</h2>
+  <ul class="plain">
+    {% for c in check_me[:3] %}<li><strong>{{ c.name }}</strong>: {{ c.reason }}</li>{% endfor %}
+    {% if check_me | length > 3 %}<li class="muted">und {{ check_me | length - 3 }} weitere</li>{% endif %}
+  </ul>
+  <a class="button primary" href="/check-me">Ansehen</a>
+  {% elif naechstes == "lesen" %}
+  <h2>{{ "1 Datei wartet" if waiting | length == 1 else waiting | length ~ " Dateien warten" }} aufs Lesen</h2>
+  <p class="muted">{{ waiting | map(attribute="name") | join(", ") | truncate(140) }}</p>
+  <form method="post" action="/inbox/process" data-busy="Ich lese gerade. Das dauert einen Moment.">
+    <input type="hidden" name="token" value="{{ token }}">
+    <button class="primary">Jetzt lesen lassen</button>
+  </form>
+  <p class="hint">Bevor die KI liest, schwärze ich Namen, Adressen und Kontonummern hier auf deinem Computer.</p>
+  {% elif naechstes == "entwurf" %}
+  {% set d = (ready_drafts or drafts)[0] %}
+  <h2>{% if d.ready %}Rechnung an {{ d.draft.customer_name or "deinen Kunden" }} ist fertig{% else %}Ein Entwurf braucht dich{% endif %}</h2>
+  <p>{% if d.sums.gross %}{{ d.sums.gross | eur }}{% if d.draft.customer_name and not d.ready %} für {{ d.draft.customer_name }}{% endif %}. {% endif %}
+    {% if d.ready %}Einmal drüberschauen, dann ist sie raus.{% else %}Es fehlt noch eine Angabe, die ich nicht raten wollte.{% endif %}
+    {% if drafts | length > 1 %}<span class="muted">Danach {{ "wartet noch einer" if drafts | length == 2 else "warten noch " ~ (drafts | length - 1) }}.</span>{% endif %}</p>
+  <a class="button primary" href="/drafts/{{ d.id }}">{{ "Ansehen und fertig machen" if d.ready else "Ergänzen" }}</a>
+  {% elif naechstes == "erinnern" %}
+  {% set i = overdue[0] %}
+  <h2>{{ i.customer }} hat noch nicht bezahlt</h2>
+  <p>Rechnung {{ i.number }} über {{ i.gross | eur }} ist seit dem {{ i.due_date | de_date }} über dem Zahlungsziel. Eine freundliche Erinnerung bereite ich dir vor.
+    {% if overdue | length > 1 %}<span class="muted">{{ overdue | length - 1 }} weitere {{ "ist" if overdue | length == 2 else "sind" }} auch drüber.</span>{% endif %}</p>
+  <a class="button primary" href="/invoices#r-{{ i.number }}">Erinnerung vorbereiten</a>
+  {% elif naechstes == "beleg" %}
+  <h2>{{ "1 Beleg wartet" if receipts | length == 1 else receipts | length ~ " Belege warten" }}</h2>
+  <p>Als Ausgabe eintragen dauert pro Beleg eine halbe Minute. FRITS hat Betrag und Datum schon geraten.</p>
+  <a class="button primary" href="/expenses?receipt={{ receipts[0].id }}">Ersten Beleg eintragen</a>
+  {% else %}
+  <h2>Nichts, was eilt</h2>
+  <p class="muted">Zeit für deine eigentliche Arbeit. Kommt etwas rein, leg es einfach unten ab.</p>
+  {% endif %}
 </section>
-{% endif %}
 
 <section class="card eingang">
   <h2>Eingang</h2>
@@ -26,10 +65,10 @@
   {% endif %}
   {% if waiting %}
   <p><strong>{{ waiting | length }} {{ "Datei wartet" if waiting | length == 1 else "Dateien warten" }}</strong>: {{ waiting | map(attribute="name") | join(", ") }}</p>
-  {% if ai_ready %}
+  {% if ai_ready and naechstes != "lesen" %}
   <form method="post" action="/inbox/process" data-busy="Ich lese gerade. Das dauert einen Moment.">
     <input type="hidden" name="token" value="{{ token }}">
-    <button class="primary">Jetzt lesen lassen</button>
+    <button>Jetzt lesen lassen</button>
   </form>
   <p class="hint">Bevor die KI liest, schwärze ich Namen, Adressen und Kontonummern hier auf deinem Computer. Die KI sieht nur Platzhalter wie [PERSON_1].</p>
   {% endif %}
@@ -42,7 +81,7 @@
   </div>
 </section>
 
-{% if check_me %}
+{% if check_me and naechstes != "ansehen" %}
 <section class="card warn">
   <h2>Bitte einmal ansehen</h2>
   <ul class="plain">
@@ -88,9 +127,9 @@
   <p class="hint">Jede Zeile wird ein Punkt.{% if ai_ready %} Einen langen Satz teilt die KI auf, die Namen schwärze ich vorher hier auf deinem Computer.{% endif %} <span class="taste-hinweis"><kbd data-taste-cmd>⌘</kbd> + <kbd>↩</kbd> trägt ein.</span></p>
 </section>
 
+{% if drafts | length > 1 or (drafts and naechstes != "entwurf") %}
 <section class="card">
   <h2>Entwürfe</h2>
-  {% if drafts %}
   <ul class="list">
     {% for d in drafts[:5] %}
     <li><a href="/drafts/{{ d.id }}">
@@ -102,12 +141,10 @@
     {% endfor %}
   </ul>
   {% if drafts | length > 5 %}<a href="/drafts">Alle {{ drafts | length }} Entwürfe</a>{% endif %}
-  {% else %}
-  <p class="muted">Keine offenen Entwürfe.</p>
-  {% endif %}
 </section>
+{% endif %}
 
-{% if receipts %}
+{% if receipts and naechstes != "beleg" %}
 <section class="card">
   <h2>Belege</h2>
   <p>{{ receipts | length }} {{ "Beleg wartet" if receipts | length == 1 else "Belege warten" }} darauf, als Ausgabe eingetragen zu werden. Das dauert pro Beleg eine halbe Minute.</p>
@@ -115,6 +152,7 @@
 </section>
 {% endif %}
 
+{% if (overdue and (naechstes != "erinnern" or overdue | length > 1)) or (open_count and not overdue) %}
 <section class="card">
   <h2>Rechnungen</h2>
   {% if overdue %}
@@ -124,14 +162,12 @@
     <li><a href="/invoices#r-{{ i.number }}"><span>{{ i.number }}</span><span>{{ i.customer }}</span><span class="amount">{{ i.gross | eur }}</span><span class="badge late">fällig seit {{ i.due_date | de_date }}</span></a></li>
     {% endfor %}
   </ul>
-  {% elif open_count %}
-  <p>{{ open_count }} offen, alle noch im Zahlungsziel.</p>
   {% else %}
-  <p class="muted">Nichts offen.</p>
+  <p>{{ open_count }} offen, alle noch im Zahlungsziel. <a href="/invoices">Ansehen</a></p>
   {% endif %}
 </section>
+{% endif %}
 
-<p class="notfall-hinweis">Ein Brief, der Bauchweh macht? <a href="/chat">Im Chat besprechen</a>: Dokument reinlegen, geschwärzt mit {{ "der lokalen KI" if settings.strict_local else providers.get(settings.provider, settings.provider).split(" (")[0] }} besprechen.</p>
 
 {% if f %}{% include "_fritte_ecke.html" %}{% endif %}
 {% endblock %}
