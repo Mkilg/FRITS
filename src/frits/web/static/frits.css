@@ -347,7 +347,7 @@ kbd { display: inline-block; min-width: 1.4em; padding: 0 0.3em; margin: 0 0.1em
 .leise-links form { display: inline; }
 .leise-links button { background: none; border: 0; padding: 0; color: var(--tinte); text-decoration: underline;
   cursor: pointer; font: inherit; }
-p code, li code { overflow-wrap: anywhere; }
+p code, li code, p a { overflow-wrap: anywhere; }
 .flash form.rueckgaengig { display: inline; margin-left: 0.6rem; }
 details.mehr-felder { margin: 0.4rem 0 0.8rem; }
 details.mehr-felder summary { cursor: pointer; color: var(--tinte); font-size: 0.92rem; margin-bottom: 0.4rem; }
@@ -377,6 +377,10 @@ input[type=checkbox], input[type=radio] { width: 1.15rem; height: 1.15rem; verti
   button, .button, button.tiny, .button.tiny { min-height: 44px; }
   nav a, nav summary, nav details.mehr summary { min-height: 44px; display: inline-flex; align-items: center; gap: 0.25rem; }
   .choice, label.choice { min-height: 44px; display: flex; align-items: center; gap: 0.3rem; }
+  /* A flex row ignores <br>: the explanation below a choice gets its own line, never runs off the phone */
+  .choice:has(> .muted) { flex-wrap: wrap; }
+  .choice > .muted { flex-basis: 100%; }
+  .choice:has(> .muted) > :not(input):not(.muted) { flex: 1 1 0; min-width: 0; }
   input[type=checkbox], input[type=radio] { width: 1.4rem; height: 1.4rem; flex: 0 0 auto; }
   input:not([type=checkbox]):not([type=radio]), select { min-height: 44px; }
   .brand { min-height: 44px; }
