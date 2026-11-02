@@ -550,8 +550,15 @@ def register_steuer(
     def heute_auftrag(c) -> dict | None:
         """Der eine nächste Quest-Schritt für „Als Nächstes“ auf Heute (app.state.quest_auftrag).
         Das älteste Steuerjahr, dessen Fundkiste noch nicht gepackt ist, weil es zuerst fällig
-        ist. None ohne Quest oder wenn jede Fundkiste gepackt ist."""
-        for jahr in quest_jahre():
+        ist. Ohne Quest: der Einstieg fürs Vorjahr (Lena, Runde 41: der erste Abend blieb
+        sonst stumm). None, wenn jede Fundkiste gepackt ist."""
+        jahre = quest_jahre()
+        if not jahre:
+            return {"jahr": standard_jahr(), "art": "start", "titel": "Leg los",
+                    "text": "Ein paar Fragen, dann weiß FRITS, welche Unterlagen du brauchst. "
+                    "Was schon in FRITS steckt, ist von selbst dabei.",
+                    "knopf": "Zur Steuer-Quest", "ziel": "/steuer"}  # fmt: skip
+        for jahr in jahre:
             if quest.kiste_stand(c, jahr) == (0, 0):
                 continue  # gepackt und aktuell; neue Belege danach melden sich (Lena, Runde 33)
             a = lage(jahr)["auftrag"]

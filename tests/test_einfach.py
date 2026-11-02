@@ -56,6 +56,8 @@ def test_drafts_and_quotes_live_under_rechnungen(client):
 
 
 def test_heute_puts_one_next_step_first(client):
+    assert "Leg los" in client.get("/").text  # no quest yet: Heute shows how to start it
+    client.app.state.quest_auftrag = lambda conn: None  # every Fundkiste packed
     calm = client.get("/").text
     assert "Nichts, was eilt" in calm
     assert "Keine offenen Entwürfe" not in calm and "Nichts offen" not in calm  # no empty boxes
