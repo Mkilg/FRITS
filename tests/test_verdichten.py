@@ -256,7 +256,19 @@ def test_feierabend_shows_what_the_game_made_of_today(client, ws):  # noqa: F811
     assert "1 Unterlage für die Steuer gesammelt" in zeilen
     assert any(z.startswith("Tagesziel") for z in zeilen)
     page = client.get("/feierabend").text
-    assert "Was daraus wurde" in page and "Unterlage für die Steuer" in page
+    assert "Alles von heute" in page and "Unterlage für die Steuer" in page
+    bilanz = abspann.bilanz(conn, TODAY)
+    assert (
+        bilanz["schlagzeile"]
+        and bilanz["zeichen"]
+        and [k["titel"] for k in bilanz["kacheln"]]
+        == [
+            "Arbeit",
+            "Steuer",
+            "Fritte",
+        ]
+    )
+    assert 'class="abspann-schlagzeile"' in page
     assert all("Salzkörner" not in z for z in abspann.heute(conn, TODAY, mit_fritte=False))
 
 
