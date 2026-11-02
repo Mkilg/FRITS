@@ -325,6 +325,15 @@ fieldset.prices input { width: 100%; }
 /* ---------- Einwurf: drop, paste (⌘V) or pick ---------- */
 .einwurf .dropzone { padding: 1.4rem 1rem; }
 .dz-titel { display: block; font-size: 1.12rem; font-weight: 600; margin-bottom: 0.2rem; }
+.dz-titel { text-wrap: balance; }
+/* Phones and touch: the tray sits above the sentence, so a two-line title doesn't step
+   down like a staircase next to it (Lena, round 42) */
+@media (max-width: 600px), (pointer: coarse) {
+  .dz-titel > img.zeichen-bild { display: block; width: 2.6rem; height: 2.6rem; margin: 0 auto 0.35rem; }
+  .dz-titel > .zeichen-emoji { display: block; font-size: 1.8rem; margin-bottom: 0.2rem; }
+  /* the empty-inbox picture floats right: the field starts below it, not squeezed beside it */
+  .einwurf .dropzone { clear: both; }
+}
 .dropzone small { display: block; line-height: 1.5; }
 body.zieht-datei .dropzone { border-color: var(--fry); }
 .dropzone.over { box-shadow: 0 0 0 4px rgba(217, 164, 65, .25); }
