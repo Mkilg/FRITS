@@ -8,11 +8,14 @@ FRITS's buttons for him (that attack is called CSRF).
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import re
 import secrets
+import shutil
 import signal
 import threading
+import time
 from collections.abc import Callable
 from contextlib import ExitStack, asynccontextmanager
 from dataclasses import replace
@@ -42,6 +45,7 @@ from frits import (
     emails,
     euer,
     expenses,
+    frueher,
     gutschriften,
     haustier,
     setup,
@@ -88,7 +92,7 @@ from frits.customers import (
     save_note,
     vat_place,
 )
-from frits.ingest import SUPPORTED, IngestError, extract_text
+from frits.ingest import IMAGE_TYPES, SUPPORTED, IngestError, extract_text
 from frits.providers import KEY_ENV, ProviderError, get_api_key, make_provider, store_api_key
 from frits.quotes import accept_quote, create_quote, decline_quote, list_quotes
 from frits.reminders import create_reminder
@@ -1014,7 +1018,10 @@ def create_app(
     # ----- Rechnungen -----
 
     @app.get("/invoices", response_class=HTMLResponse)
-    def invoices_page(request: Request):
+    def invoices_page(request: Request, frueher: str | None = None):
+        staged = staged_review(frueher) if frueher else None
+        if frueher and staged is None:
+            flash("Das Dokument ist nicht mehr da. Zieh es bitte noch einmal auf das Feld.")
         return page(
             request,
             "invoices.html",
@@ -1023,12 +1030,144 @@ def create_app(
             today_iso=today().isoformat(),
             earlier_tax=EARLIER_TAX,
             earlier_default="klein" if settings().tax_mode != "regelbesteuerung" else "19",
+            staged=staged,
         )
+
+    # An old invoice dropped on the page waits in ws.staging/<token>/ while Fritz checks
+    # what FRITS read from it: the file itself and "gelesen.json" with the guesses.
+
+    def staged_folder(token: str | None, strict: bool = True) -> Path | None:
+        """The waiting folder for `token`. A token that isn't one FRITS made is refused
+        (400) when `strict`; a well-formed one that is gone (entered, discarded, older than a
+        day) gives None."""
+        if not token or not STAGED_TOKEN.fullmatch(token):
+            if strict:
+                raise HTTPException(400, "Dieses Dokument kenne ich nicht.")
+            return None
+        root = ws.staging.resolve()
+        folder = (root / token).resolve()
+        if folder.parent != root or not (folder / "gelesen.json").is_file():
+            return None
+        return folder
+
+    def staged_file(folder: Path) -> Path | None:
+        found = json.loads((folder / "gelesen.json").read_text(encoding="utf-8"))
+        name = found.get("datei")
+        path = (folder / name).resolve() if name else None
+        return path if path and path.parent == folder and path.is_file() else None
+
+    def staged_review(token: str) -> dict | None:
+        """What the invoices page shows next to the prefilled form."""
+        folder = staged_folder(token, strict=False)
+        if folder is None:
+            return None
+        found = json.loads((folder / "gelesen.json").read_text(encoding="utf-8"))
+        fields = found.get("felder") or {}
+        original = staged_file(folder)
+        suffix = original.suffix.lower() if original else ""
+        missing = [(key, label) for key, label in EARLIER_NEEDED if not fields.get(key)]
+        names = [label for _, label in missing]
+        return {
+            "token": token,
+            "datei": original.name if original else None,
+            "zeigen": "pdf" if suffix == ".pdf" else "bild" if suffix in IMAGE_TYPES else None,
+            "ablegen": suffix == ".pdf",
+            "felder": fields,
+            "fehlt": (", ".join(names[:-1]) + " und " + names[-1])
+            if len(names) > 1
+            else "".join(names),
+            "fokus": missing[0][0] if missing else None,
+        }
+
+    def tidy_staging() -> None:
+        """Old invoices nobody entered or discarded don't stay longer than a day."""
+        if not ws.staging.is_dir():
+            return
+        cutoff = time.time() - 24 * 3600
+        for folder in ws.staging.iterdir():
+            try:
+                if folder.is_dir() and not folder.is_symlink() and folder.stat().st_mtime < cutoff:
+                    shutil.rmtree(folder)
+                elif folder.stat().st_mtime < cutoff:
+                    folder.unlink()
+            except OSError:
+                continue
+
+    @app.post("/invoices/frueher/lesen", dependencies=guarded)
+    async def invoice_earlier_read(request: Request):
+        """An old invoice dropped, picked or pasted: read here on this computer (OCR for
+        photos, no AI) and shown in the form for checking. Nothing is entered yet."""
+        tidy_staging()
+        form = await request.form()
+        uploads = [u for u in form.getlist("files") if getattr(u, "filename", None)]
+        text = str(form.get("text") or "").strip()
+        if not uploads and not text:
+            flash("Es kam nichts an. Zieh die alte Rechnung auf das Feld oder füg sie ein.")
+            return back("/invoices#frueher")
+        token = secrets.token_urlsafe(16)
+        folder = ws.staging / token
+        folder.mkdir(parents=True)
+        original = None
+        try:
+            if uploads:
+                original = await _save_upload(uploads[0], folder)
+                if len(uploads) > 1:
+                    flash("Ich habe nur die erste Datei gelesen. Die anderen zieh bitte einzeln.")
+                text = extract_text(original).text
+            elif len(text) > MAX_PASTED_TEXT:
+                raise IngestError("Der eingefügte Text ist sehr lang. Bitte leg ihn als Datei ab.")
+        except IngestError as exc:
+            if original is None:
+                shutil.rmtree(folder, ignore_errors=True)
+                flash(f"{exc} Trag die Rechnung einfach unten selbst ein.", "error")
+                return back("/invoices#frueher")
+            text = ""  # kept as the original; Fritz types what's on it
+            flash(f"{exc} Trag die Angaben bitte selbst ein, das Original lege ich dazu.")
+        except RuntimeError as exc:  # e.g. the OCR program is missing
+            shutil.rmtree(folder, ignore_errors=True)
+            flash(str(exc), "error")
+            return back("/invoices#frueher")
+        current = settings()
+        fields = (
+            frueher.lesen(text, (current.name, current.company, current.address), today())
+            if text
+            else {}
+        )
+        data = {"datei": original.name if original else None, "felder": fields}
+        (folder / "gelesen.json").write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+        return back(f"/invoices?frueher={token}#frueher")
+
+    @app.get("/invoices/frueher/{token}/original")
+    def invoice_earlier_original(token: str):
+        folder = staged_folder(token)
+        path = staged_file(folder) if folder else None
+        if path is None or (
+            path.suffix.lower() != ".pdf" and path.suffix.lower() not in IMAGE_TYPES
+        ):
+            raise HTTPException(404)
+        return FileResponse(path, content_disposition_type="inline")
+
+    @app.post("/invoices/frueher/verwerfen", dependencies=guarded)
+    async def invoice_earlier_discard(request: Request):
+        form = await request.form()
+        folder = staged_folder(str(form.get("staged") or ""))
+        if folder is not None:
+            shutil.rmtree(folder, ignore_errors=True)
+        flash("Verworfen. Es wurde nichts eingetragen.")
+        return back("/invoices#frueher")
 
     @app.post("/invoices/frueher", dependencies=guarded)
     async def invoice_earlier(request: Request):
         """An invoice Fritz wrote before FRITS: entered with its own number and date."""
         form = await request.form()
+        token = str(form.get("staged") or "")
+        folder = staged_folder(token) if token else None
+        if token and folder is None:
+            flash(
+                "Das Dokument ist nicht mehr da. Zieh es bitte noch einmal auf das Feld.", "error"
+            )
+            return back("/invoices#frueher")
+        retry = f"/invoices?frueher={token}#frueher" if folder else "/invoices#frueher"
         try:
             issued = date.fromisoformat(str(form.get("issue_date", "")))
             served = str(form.get("service_date") or "")
@@ -1037,6 +1176,8 @@ def create_app(
             original = None
             if upload is not None and getattr(upload, "filename", ""):
                 original = await upload.read(MAX_UPLOAD) or None
+            elif folder and (kept := staged_file(folder)) and kept.suffix.lower() == ".pdf":
+                original = kept.read_bytes()
             number = add_earlier(
                 db(),
                 number=str(form.get("number", "")),
@@ -1054,13 +1195,15 @@ def create_app(
             )
         except BillingError as exc:
             flash(str(exc), "error")
-            return back("/invoices#frueher")
+            return back(retry)
         except ValueError:
             flash(
                 "Bitte die Daten prüfen: Rechnungsdatum und Betrag fehlen oder passen nicht.",
                 "error",
             )
-            return back("/invoices#frueher")
+            return back(retry)
+        if folder:
+            shutil.rmtree(folder, ignore_errors=True)  # filed with the invoices now, if a PDF
         row = db().execute("SELECT gross FROM invoices WHERE number = ?", (number,)).fetchone()
         flash(
             f"Rechnung {number} ist nachgetragen: {eur(Decimal(row['gross']))} brutto. Bitte kurz mit "
@@ -2453,6 +2596,16 @@ def settings_from_form(current: Settings, form) -> Settings:
 
 
 MAX_UPLOAD = 30 * 1024 * 1024
+# A waiting old invoice is named by secrets.token_urlsafe(16): exactly 22 of these characters.
+STAGED_TOKEN = re.compile(r"[A-Za-z0-9_-]{22}")
+# What the "Rechnung von früher" form needs, in its order, as named in "Nicht gefunden habe ich …".
+EARLIER_NEEDED = (
+    ("number", "die Rechnungsnummer"),
+    ("customer", "den Kunden"),
+    ("issue_date", "das Rechnungsdatum"),
+    ("net", "den Betrag"),
+    ("tax", "die Umsatzsteuer"),
+)
 MAX_PASTED_TEXT = 200_000
 
 

@@ -316,7 +316,7 @@ body:has(.feierabend-page) { background-image: var(--schleier, none), var(--feie
 .mock-invoice tfoot td { border-top: 1px solid var(--line); padding-top: 0.4rem; }
 tr.struck td { color: var(--muted); }
 .tag.bad { background: var(--terrakotta); color: #fff; border-radius: 999px; padding: 0 0.5rem; font-size: 0.8rem; }
-input.imported, textarea.imported { background: #fff7dc; border-color: var(--fry); }
+input.imported, textarea.imported, select.imported { background: #fff7dc; border-color: var(--fry); }
 details.lesson summary { cursor: pointer; }
 .checklist li { margin-bottom: 0.35rem; }
 fieldset.prices { border: 1px solid var(--line); border-radius: var(--radius); margin: 0.8rem 0; }
@@ -521,6 +521,10 @@ button.quiet:hover, .button.quiet:hover { color: var(--kopf, var(--ink)); }
 /* Fields: white paper slightly sunk into the card, so they stand out from it */
 .field input, .field select, .field textarea, .form input:not([type=checkbox]):not([type=radio]):not([type=file]), textarea {
   background: #fffefa; border-color: #cdb98f; box-shadow: inset 0 1px 2px rgba(60, 35, 10, .12); }
+/* What FRITS read from a document stays marked as read, so Fritz knows what to check */
+.form input.imported:not([type=checkbox]):not([type=radio]):not([type=file]), .field select.imported,
+.field textarea.imported {
+  background: #fff7dc; border-color: var(--fry); }
 .card { border-color: #e8d6ae; }
 @media (max-width: 600px) { main:not(:has(.sq-tisch)) { margin: 0.5rem 0.4rem 1rem; border-radius: 4px; } }
 

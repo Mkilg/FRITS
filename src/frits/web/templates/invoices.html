@@ -74,25 +74,54 @@
 </table></div>
 {% endif %}
 
-<details class="card spaced" id="frueher">
+{% macro gelesen(key, staged) %}{% if staged %}{% if staged.felder[key] %} class="imported"{% endif %}{% if staged.fokus == key %} autofocus{% endif %}{% endif %}{% endmacro %}
+<details class="card spaced" id="frueher"{{ " open" if staged }}>
   <summary>Rechnung von früher nachtragen</summary>
   <p class="hint">Für Rechnungen, die du <strong>vor FRITS</strong> geschrieben hast, z. B. mit Word. Trag sie mit Nummer und Datum ein, wie sie auf dem Papier stehen. Dann stimmen EÜR und Umsatzsteuer auch für die Monate davor.</p>
+  {% if not staged %}
+  {% with dz_action="/invoices/frueher/lesen", dz_back="/invoices#frueher", dz_class="form", dz_id="frueher", dz_icon="🗂️",
+          dz_title="Alte Rechnung hierher ziehen", dz_hint="Ich lese Nummer, Datum, Kunde und Betrag hier auf deinem Computer aus, ohne KI. Du prüfst und trägst nach. PDF, Foto oder Word-Datei.",
+          dz_send="Lesen", dz_busy="Ich lese die alte Rechnung. Einen Moment.",
+          dz_text_label="Text einer alten Rechnung einfügen", dz_primary=False %}{% include "_dropzone.html" %}{% endwith %}
+  <h3>Oder selbst eintragen</h3>
   <p class="hint">Neue Rechnungen bekommen ihr Datum immer am Tag, an dem du sie erstellst. Zurückdatieren ist nicht erlaubt, weil die Nummern lückenlos und in der richtigen Reihenfolge sein müssen.</p>
-  <form method="post" action="/invoices/frueher" enctype="multipart/form-data" class="form" data-merken="frueher">
-    <input type="hidden" name="token" value="{{ token }}">
-    <label class="field">Rechnungsnummer <input name="number" required maxlength="40" placeholder="z. B. 2026-0007"></label>
-    <label class="field">Kunde <input name="customer" required maxlength="120"></label>
-    <label class="field">Rechnungsdatum <input type="date" name="issue_date" required max="{{ today_iso }}"></label>
-    <label class="field">Leistungsdatum <small class="muted">(falls anders)</small> <input type="date" name="service_date" max="{{ today_iso }}"></label>
-    <label class="field">Wofür? <input name="description" maxlength="200" placeholder="z. B. Moderation Workshop"></label>
-    <label class="field">Betrag ohne Umsatzsteuer (netto) in € <input name="net" required inputmode="decimal" placeholder="z. B. 1.200,00"></label>
-    <label class="field">Umsatzsteuer
-      <select name="tax">{% for key, label in earlier_tax.items() %}<option value="{{ key }}"{% if key == earlier_default %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
-    </label>
-    <label class="field">Bezahlt am <small class="muted">(leer lassen, wenn noch offen)</small> <input type="date" name="paid" max="{{ today_iso }}"></label>
-    <label class="field">Original als PDF <small class="muted">(freiwillig, wird bei den Rechnungen abgelegt)</small> <input type="file" name="original" accept="application/pdf,.pdf"></label>
-    <div class="row actions"><button class="primary">Nachtragen</button></div>
-  </form>
+  {% endif %}
+  {% set f = staged.felder if staged else {} %}
+  <div class="review{{ ' single' if not (staged and staged.zeigen) }}">
+    {% if staged and staged.zeigen %}
+    <section class="source">
+      <h3>{{ staged.datei }} <small><a href="/invoices/frueher/{{ staged.token }}/original" target="_blank">Ansehen</a></small></h3>
+      {% if staged.zeigen == "pdf" %}<iframe class="receipt" src="/invoices/frueher/{{ staged.token }}/original" title="Alte Rechnung {{ staged.datei }}"></iframe>
+      {% else %}<img class="receipt" src="/invoices/frueher/{{ staged.token }}/original" alt="Alte Rechnung {{ staged.datei }}">{% endif %}
+    </section>
+    {% endif %}
+    <div>
+      {% if staged %}
+      <p class="flash flash-hier{{ ' error' if staged.fehlt }}">Vorausgefüllt aus dem Dokument, hier auf deinem Computer gelesen. {% if staged.fehlt %}Nicht gefunden habe ich {{ staged.fehlt }}: Bitte abtippen.{% else %}Bitte kurz mit dem Original vergleichen.{% endif %}</p>
+      {% if staged.ablegen %}<p class="hint">Das PDF lege ich als Original bei den Rechnungen ab.</p>
+      {% elif staged.datei %}<p class="hint">{{ staged.datei }} habe ich gelesen. Als Original lege ich nur PDFs ab. Hast du die Rechnung auch als PDF, kannst du sie unten dazulegen.</p>{% endif %}
+      {% endif %}
+      <form method="post" action="/invoices/frueher" enctype="multipart/form-data" class="form" data-merken="frueher">
+        <input type="hidden" name="token" value="{{ token }}">
+        {% if staged %}<input type="hidden" name="staged" value="{{ staged.token }}">{% endif %}
+        <label class="field">Rechnungsnummer <input name="number" required maxlength="40" placeholder="z. B. 2026-0007" value="{{ f.number or '' }}"{{ gelesen("number", staged) }}></label>
+        <label class="field">Kunde <input name="customer" required maxlength="120" value="{{ f.customer or '' }}"{{ gelesen("customer", staged) }}></label>
+        <label class="field">Rechnungsdatum <input type="date" name="issue_date" required max="{{ today_iso }}" value="{{ f.issue_date or '' }}"{{ gelesen("issue_date", staged) }}></label>
+        <label class="field">Leistungsdatum <small class="muted">(falls anders)</small> <input type="date" name="service_date" max="{{ today_iso }}" value="{{ f.service_date or '' }}"{{ gelesen("service_date", staged) }}></label>
+        <label class="field">Wofür? <input name="description" maxlength="200" placeholder="z. B. Moderation Workshop" value="{{ f.description or '' }}"{{ gelesen("description", staged) }}></label>
+        <label class="field">Betrag ohne Umsatzsteuer (netto) in € <input name="net" required inputmode="decimal" placeholder="z. B. 1.200,00" value="{{ f.net or '' }}"{{ gelesen("net", staged) }}></label>
+        <label class="field">Umsatzsteuer
+          <select name="tax"{{ gelesen("tax", staged) }}>{% for key, label in earlier_tax.items() %}<option value="{{ key }}"{% if key == (f.tax or earlier_default) %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+        </label>
+        <label class="field">Bezahlt am <small class="muted">(leer lassen, wenn noch offen)</small> <input type="date" name="paid" max="{{ today_iso }}"></label>
+        {% if not (staged and staged.ablegen) %}
+        <label class="field">Original als PDF <small class="muted">(freiwillig, wird bei den Rechnungen abgelegt)</small> <input type="file" name="original" accept="application/pdf,.pdf"></label>
+        {% endif %}
+        <div class="row actions"><button class="primary">Nachtragen</button>
+          {% if staged %}<button class="quiet" formaction="/invoices/frueher/verwerfen" formnovalidate>Verwerfen</button>{% endif %}</div>
+      </form>
+    </div>
+  </div>
 </details>
 {% if not invoices and not credits %}
 <p class="muted">Noch keine Rechnungen. Sie entstehen aus Entwürfen, wenn du auf „Rechnung erstellen“ drückst.</p>
