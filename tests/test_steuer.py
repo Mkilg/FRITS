@@ -2968,7 +2968,9 @@ def test_heute_nennt_den_naechsten_quest_schritt(client, ws):
         hourly_rate=Decimal(1),
         setup_done=True,
     ).save(ws.settings_file)
-    assert client.app.state.quest_auftrag(store.connect(ws.db)) is None  # noch keine Quest
+    # Noch keine Quest: Heute zeigt den Einstieg (Lena, Runde 41)
+    start = client.get("/").text
+    assert "Leg los" in start and 'class="button primary" href="/steuer"' in start
     fragebogen(client)
     page = client.get("/").text
     nxt = page[page.index('id="als-naechstes"') :]

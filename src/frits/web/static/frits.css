@@ -443,7 +443,7 @@ body:has(.sq-tisch) .bottom a { color: var(--gold); }
 .liste-kopf { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.2rem 1rem; }
 .liste-karten { font-size: 0.85rem; color: var(--muted); }
 .tagesziel { margin: -1rem 0 1.2rem; font-size: .9rem; color: var(--muted); }
-.tagesziel.geschafft { color: var(--ok); font-weight: 600; }
+.tagesziel.geschafft { color: var(--moos-hell); font-weight: 600; }  /* on the board: #a3c466, not the dark green (Lena: 2.3:1) */
 .tagesziel-punkte { display: inline-flex; gap: 3px; vertical-align: middle; }
 .tagesziel-punkte i { width: .6rem; height: .6rem; border-radius: 50%; border: 1.5px solid currentColor; opacity: .7; }
 .tagesziel-punkte i.voll { background: currentColor; opacity: 1; }

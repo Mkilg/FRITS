@@ -56,6 +56,8 @@ def test_drafts_and_quotes_live_under_rechnungen(client):
 
 
 def test_heute_puts_one_next_step_first(client):
+    assert "Leg los" in client.get("/").text  # no quest yet: Heute shows how to start it
+    client.app.state.quest_auftrag = lambda conn: None  # every Fundkiste packed
     calm = client.get("/").text
     assert "Nichts, was eilt" in calm
     assert "Keine offenen Entwürfe" not in calm and "Nichts offen" not in calm  # no empty boxes
@@ -196,3 +198,23 @@ def test_kassenbuch_keeps_one_quest_row_per_day_around_a_purchase(tmp_path):
         ("Steuer-Quest 2025: 2 Buchungen · Serie bis ×8", 24),
         ("Steuer-Quest 2025: Gekauft: Brieftaube", -3),
     ]
+
+
+def test_a_quest_bundle_counts_its_whole_day_even_past_the_page_limit(tmp_path):
+    from frits import store
+    from frits.spiel import stand
+
+    conn = store.connect(tmp_path / "frits.db")
+    stand.vorbereiten(conn)
+    tag = "2026-11-02"
+    for i in range(12):
+        stand.buche(conn, tag, 2, "quest", f"Steuer-Quest 2026: Zettel {i}")
+    stand.buche(conn, tag, 1, "kassensturz", "Kassensturz Nr. 1")
+    zeilen = stand.kassenbuch(conn, limit=2)  # the first window only sees 6 rows
+    assert [z["text"] for z in zeilen] == ["Kassensturz Nr. 1", "Steuer-Quest 2026: 12 Buchungen"]
+    assert zeilen[1]["betrag"] == 24 and len(zeilen[1]["teile"]) == 12
+
+
+def test_the_first_visit_does_not_speak_of_last_time(client):
+    page = client.get("/").text
+    assert "seit letztem Mal" not in page and "was als Nächstes dran ist" in page
