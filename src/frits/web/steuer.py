@@ -176,9 +176,10 @@ def textname(text: str) -> str:
 
 
 def umbruch(name: str) -> Markup:
-    """Ein Dateiname, der nach _ - . umbrechen darf statt mitten im Wort
-    („Steuerbescheid_202 / 4_Finanzamt.pdf“, Lena Runde 39)."""
-    teile = re.split(r"(?<=[_\-.])", name)
+    """Ein Dateiname, der nach _ und - umbrechen darf statt mitten im Wort
+    („Steuerbescheid_202 / 4_Finanzamt.pdf“, Lena Runde 39). Die Endung bleibt am Wort
+    (Runde 40: „Verlustvortrag_2022. / png“), lange Wörter trennt das CSS mit Bindestrich."""
+    teile = re.split(r"(?<=[_\-])", name)
     return Markup("<wbr>").join(escape(t) for t in teile)
 
 
@@ -633,6 +634,13 @@ def register_steuer(
         goldjahr = spiel.gold_jahr(jahr, today())
         basis, faktor, plus, minus, minus_siegel = 0, 1, 0, 0, 0
         wuensche = quest.wunsch_funde(c, jahr)
+        # Lena (Runde 40): Erst „Gibt's nicht“, dann doch eine Datei: Das Korn für „Gibt's
+        # nicht“ geht still zurück, die Karte zahlt wie ein direkter Fund
+        alt_status = {s["id"]: s for s in vorher["stuecke"]}
+        for s in nachher["stuecke"]:
+            war = alt_status.get(s["id"])
+            if war and war["status"] == "gibts_nicht" and s["status"] == "gesammelt":
+                quest.storniere(c, jahr, spiel.karten_grund(war, "antwort"), war["name"])
         frueher = quest.stornierte_gruende(c, jahr)  # zurückgelegt und neu: ohne Serie
         for v in spiel.verdienste(vorher["stuecke"], nachher["stuecke"], mult, helfer, frueher):
             if not goldjahr:
@@ -714,12 +722,14 @@ def register_steuer(
                 text = f"{'Silber' if p.silber else 'Gold'}-Siegel! {titel} ist komplett."
                 funde = sum(1 for x in p.stuecke if x["status"] == "gesammelt")
                 if goldjahr:
+                    # Lena (Runde 40): Ein neu verdientes Siegel zahlt höchstens wie damals,
+                    # sonst brachte Zurücklegen einen Nachschlag für spätere Funde
+                    wert = spiel.siegel_gold(funde)
+                    frueher_siegel = quest.stornierte_gruende(c, jahr).get(f"siegel:{p.gebiet.id}")
+                    if frueher_siegel is not None:
+                        wert = min(wert, frueher_siegel)
                     plus += quest.verdiene(
-                        c,
-                        jahr,
-                        f"siegel:{p.gebiet.id}",
-                        spiel.siegel_gold(funde),
-                        f"Siegel: {titel}",
+                        c, jahr, f"siegel:{p.gebiet.id}", wert, f"Siegel: {titel}"
                     )
                 if schon:
                     flash(f"{titel} ist wieder komplett.", "beute")  # kein zweites Fest
@@ -1247,7 +1257,10 @@ def register_steuer(
         if aktion == "offen":
             flash(f"Stempel zurückgenommen: {s['name']} ist wieder offen.")
         elif aktion == "gibts_nicht":
-            flash(f"Notiert: {s['name']} gibt es dieses Jahr nicht. Zählt trotzdem!", "beute")
+            if spiel.ist_bonus(s):
+                flash(f"Abgehakt: {s['name']} gibt es dieses Jahr nicht.", "beute")
+            else:
+                flash(f"Notiert: {s['name']} gibt es dieses Jahr nicht. Zählt trotzdem!", "beute")
         elif aktion == "fragen" and frage == MACHT_BERATERIN:
             flash(f"Notiert: {s['name']} macht deine Beraterin. Zählt als erledigt.", "beute")
         elif aktion == "fragen":
@@ -1908,6 +1921,23 @@ def register_steuer(
             if grund in frueher:
                 basis = spiel.gold_fuer(karte, "gesammelt", daten["helfer"])
                 combo["gewertet"] = min(basis, frueher[grund])
+                # Lena (Runde 40): Kommt mit dieser Karte das Siegel zurück, gehört es dazu
+                probe = [
+                    {**s, "status": "gesammelt"} if s["id"] == karte["id"] else s
+                    for s in daten["stuecke"]
+                ]
+                p = next(
+                    (
+                        p
+                        for p in spiel.provinzen(daten["gebiete"], probe)
+                        if p.gebiet.id == karte["gebiet"]
+                    ),
+                    None,
+                )
+                siegel = f"siegel:{karte['gebiet']}"
+                if p and p.stand.siegel and siegel in frueher:
+                    funde = sum(1 for x in p.stuecke if x["status"] == "gesammelt")
+                    combo["siegel_dazu"] = min(spiel.siegel_gold(funde), frueher[siegel])
         frisch = app.state.steuer_combo.get(jahr, {}).pop("frisch", False)
         wurf = app.state.steuer_wurf.pop(jahr, None) if frisch else None
         beute = app.state.steuer_combo.get(jahr, {}).pop("beute", None) if frisch else None
@@ -2017,9 +2047,8 @@ def register_steuer(
         # auch nur mit Belegen wachsen. Fragen und "Gibt's nicht" treffen, die Serie wartet.
         # Lena (Runde 38): Eine Karte, die schon einmal gewertet und zurückgelegt wurde, lässt
         # die Serie nicht wachsen und zahlt nur den Grundwert (sonst lohnt Umbuchen)
-        wieder = kritisch and spiel.karten_grund(s, "fund") in quest.stornierte_gruende(
-            conn(), jahr
-        )
+        gewertet = spiel.karten_grund(s, "fund") in quest.stornierte_gruende(conn(), jahr)
+        wieder = kritisch and gewertet
         combo, ruf = spiel.treffer(alt["combo"], kritisch, zaehlt=kritisch and not wieder)
         if wieder:
             ruf = spiel.SCHON_GEWERTET
@@ -2035,6 +2064,9 @@ def register_steuer(
         }
         if wieder and jahr in app.state.steuer_wurf:
             app.state.steuer_wurf[jahr]["wieder"] = True
+        if gewertet and not kritisch and jahr in app.state.steuer_wurf:
+            # Lena (Runde 40): Fragen auf eine schon gewertete Karte bringt 0, ohne ein Wort
+            app.state.steuer_wurf[jahr]["ohne_koerner"] = True
         if wieder and vorher["drache"].lp <= 1:
             # Lena (Runde 39): Bei der letzten Karte sah man den Satz der Serie nie
             flash(spiel.SCHON_GEWERTET, "hinweis")
