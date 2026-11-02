@@ -278,6 +278,23 @@ def register_steuer(
 ) -> None:
     app.state.steuer_combo = {}
 
+    def tagesstand(alle: list[dict]) -> dict:
+        """Ein Tagesziel für ganz FRITS: Mit Fritte zählt, was heute echt erledigt wurde
+        (Fritte-Karten, Liste und Quest-Funde zusammen, frits.spiel.tagesziel). Ohne Fritte
+        bleibt das Quest-Tagwerk. "tagwerk" ist immer (erledigt, ziel)."""
+        if settings().haustier:
+            try:
+                from frits.spiel.tagesziel import zaehlen
+
+                z = zaehlen(conn(), date.today())
+                return {
+                    "tagwerk": (int(z["erledigt"]), int(z["ziel"])),
+                    "tagesziel_info": {"text": z["text"], "erklaerung": z.get("erklaerung", "")},
+                }
+            except Exception:  # noqa: BLE001 — ohne Frittes Zählung gilt das alte Tagwerk
+                z = None
+        return {"tagwerk": spiel.tagwerk(alle, date.today()), "tagesziel_info": None}
+
     def gewuerze() -> int:
         """Wie viele Gewürze in Frittes Regal stehen (0, wenn Fritte ausgeschaltet ist)."""
         if not settings().haustier:
@@ -395,7 +412,7 @@ def register_steuer(
             "drache": drache,
             "drache_wach": wach,
             "auftrag": spiel.auftrag(jahr, staende, drache, zettel, alle, wach),
-            "tagwerk": spiel.tagwerk(alle, date.today()),
+            **tagesstand(alle),
             "zweifel": zweifel,
             "burg_fehlt": not any(g.provinz.key == "burg" for g in gebiete),
             "jahre": quest_jahre(),
@@ -574,15 +591,23 @@ def register_steuer(
             )
         heute, ziel = nachher["tagwerk"]
         tag = f"tagwerk:{date.today()}"
-        if vorher["tagwerk"][0] < ziel <= heute and not sieg and not quest.hat_gold(c, jahr, tag):
+        gemeinsam = nachher["tagesziel_info"] is not None
+        # Mit dem gemeinsamen Tagesziel kann es auch bei Fritte erreicht worden sein:
+        # Dann zahlt die Insel ihr Gold beim nächsten Quest-Schritt dieses Tages.
+        erreicht = ziel <= heute and (gemeinsam or vorher["tagwerk"][0] < ziel)
+        if erreicht and not sieg and not quest.hat_gold(c, jahr, tag):
             # Einmal am Tag: Wer zurücklegt und neu zuordnet, bekommt kein zweites Fest
             quest.notiere(c, jahr, "tagwerk", "Tagwerk geschafft")
             lohn = spiel.tagwerk_gold(helfer) if goldjahr else 0
             if lohn:
                 lohn = quest.verdiene(c, jahr, tag, lohn, "Tagwerk")
             plus += lohn
+            if gemeinsam:
+                text = f"Tagesziel geschafft: {ziel} echte Erledigungen heute"
+            else:
+                text = f"Tagwerk geschafft: {ziel} Karten heute"
             flash(
-                f"Tagwerk geschafft: {ziel} Karten heute"
+                text
                 + (f", +{lohn} Gold." if lohn else ".")
                 + " Mehr muss nicht sein, aber du darfst.",
                 "tagwerk",
@@ -633,7 +658,40 @@ def register_steuer(
                     "sieg",
                     link=("/fritte#truhen", "Zu Fritte"),
                 )
+            koerner = gold_zu_salz(c, jahr) if goldjahr else 0
+            if koerner:
+                flash(
+                    f"Dein übriges Gold ist zu {koerner} Salzkörnern bei Fritte geworden.",
+                    "sieg",
+                    link=("/fritte", "Zu Fritte"),
+                )
         return sieg
+
+    def salz_tausch():
+        """Frittes Kasse für das Restgold nach dem Sieg, oder None (Fritte aus oder noch nicht da)."""
+        if not settings().haustier:
+            return None
+        try:
+            from frits.haustier import salz_aus_quest
+        except ImportError:
+            return None
+        return salz_aus_quest
+
+    def gold_zu_salz(c, jahr: int) -> int:
+        """Eine Währung: Drachengold gilt nur im Kampf. Was beim Sieg übrig ist, wird zu
+        Salzkörnern bei Fritte (1 Gold = 1 Korn, einmal pro Jahr). Gibt die Körner zurück."""
+        tausch = salz_tausch()
+        rest = quest.gold(c, jahr)
+        if tausch is None or rest <= 0:
+            return 0
+        try:
+            koerner = int(tausch(c, jahr, rest, f"Restgold aus der Steuer-Quest {jahr}") or 0)
+        except Exception:  # noqa: BLE001 — der Sieg darf an Frittes Kasse nie scheitern
+            return 0
+        koerner = min(koerner, rest)
+        if koerner > 0:
+            quest.gold_ausgeben(c, jahr, koerner, f"Zu {koerner} Salzkörnern bei Fritte")
+        return koerner
 
     def fritte_truhe(c, jahr: int, silber: bool) -> bool:
         """Der Sieg zahlt in den Alltag zurück: eine Truhe bei Fritte, einmal pro Steuerjahr.
@@ -1666,6 +1724,7 @@ def register_steuer(
             regeln=spiel,
             goldjahr=spiel.gold_jahr(jahr, today()),
             serie_start=spiel.start_serie(gewuerze()),
+            zu_salz=salz_tausch() is not None,
             **daten,
         )
 

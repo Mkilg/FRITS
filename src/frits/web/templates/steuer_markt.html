@@ -23,7 +23,7 @@
 {% set angelegt = helfer | list %}
 <section class="sq-markt-teil" id="helfer" aria-labelledby="h-helfer">
   <h2 id="h-helfer">Helfer <small>{{ angelegt | length }} von {{ plaetze }} Plätzen am Tisch</small></h2>
-  <p class="sq-markt-hinweis">Nur {{ plaetze }} Helfer passen an deinen Tisch, und jeder hat einen Haken. Pause machen ist gratis, zurück an den Tisch kostet {{ regeln.TAUSCH_PREIS }} Gold. Helfer arbeiten ein Steuerjahr lang, darum sind sie günstig.</p>
+  <p class="sq-markt-hinweis">Nur {{ plaetze }} Helfer passen an deinen Tisch, und jeder hat einen Haken. Pause machen ist gratis, zurück an den Tisch kostet {{ regeln.TAUSCH_PREIS }} Gold. Helfer arbeiten ein Steuerjahr lang, darum sind sie günstig.{% if zu_salz %} Gold gilt nur bis zum Sieg über den Drachen: Was dann übrig ist, wird zu Salzkörnern bei Fritte.{% endif %}</p>
   <div class="sq-waren">
   {% for w in markt if w.art == "helfer" %}
     {% set hat = w.key in besitz %}{% set an = w.key in helfer %}
