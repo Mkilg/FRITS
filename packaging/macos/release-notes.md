@@ -15,6 +15,10 @@ Sagt der Mac stattdessen, die App sei „beschädigt“: Terminal öffnen, `xatt
 
 Läuft ohne Internet, auf Macs mit Apple-Chip und Intel, ab macOS 13. Deine Daten liegen in `Dokumente/FRITS`, nicht im App-Ordner.
 
+### Neu in 1.7.1
+- **Schnellerer Start mit Ladebild:** Beim Doppelklick erscheint sofort Fritte mit „FRITS startet …“, und das Fenster wird von selbst zu FRITS. Das Sprachmodell zum Schwärzen lädt danach im Hintergrund, so geht das erste „Jetzt lesen“ schneller.
+- Heute nennt den nächsten Schritt in der Steuer-Quest. Fritte steht am Computer unter „Mehr“.
+
 ### Neu in 1.7.0
 - **Einfacher:** Oben stehen nur noch fünf Orte (Heute, Rechnungen, Ausgaben, Kunden, Steuer-Quest). Entwürfe und Angebote sind Reiter unter Rechnungen, EÜR und Umsatzsteuer Reiter unter Ausgaben. Auf Heute sagt „Als Nächstes“, was jetzt dran ist. Die Einstellungen sind in Fächer sortiert.
 - **Ein Chat** statt Notfall-Chat und freiem Chat. Klappt das Schwärzen nicht ganz, wartet die Datei schon im Chat, und nichts geht raus. Die KI-Kosten stehen im Chat und unter Einstellungen › KI, bei lokaler KI mit „0 €“.
