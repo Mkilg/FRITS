@@ -754,6 +754,7 @@ def parse_amount(text: str | None) -> Decimal | None:
     typed = (text or "").strip()
     # "600,00 EUR", "€ 600", "600 Euro": the currency the way it is printed doesn't matter.
     text = re.sub(r"(?i)€|(?<![a-z])euro?(?![a-z])|[\s\u00a0\u202f]", "", typed)
+    text = re.sub(r",[-–—]+$", "", text)  # "600,-" is how a round amount is often printed
     if not text:
         return None
     if "," in text:
@@ -763,9 +764,11 @@ def parse_amount(text: str | None) -> Decimal | None:
     try:
         value = Decimal(text)
     except ArithmeticError:
-        raise BillingError(f"„{typed}“ ist keine Zahl.") from None
+        raise BillingError(
+            f"„{typed}“ ist keine Zahl. Schreib sie zum Beispiel so: 600,00"
+        ) from None
     if not value.is_finite():
-        raise BillingError(f"„{typed}“ ist keine Zahl.")
+        raise BillingError(f"„{typed}“ ist keine Zahl. Schreib sie zum Beispiel so: 600,00")
     return value
 
 
