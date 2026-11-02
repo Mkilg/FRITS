@@ -32,7 +32,7 @@
       <h3>{{ w.name }}</h3>
       <p>{{ w.text }}</p>
       {% if w.haken %}<p class="sq-haken"><b>Haken:</b> {{ w.haken }}</p>{% endif %}
-      {% if w.key == "sanduhr" and regeln.multiplikator(serie_start) > 3 %}<p class="sq-haken warnung"><b>Achtung:</b> Frittes Gewürze lassen dich gerade bei ×{{ regeln.multiplikator(serie_start) }} starten. Mit der Sanduhr sind es nur ×3.</p>{% endif %}
+      {% if w.key == "sanduhr" and regeln.multiplikator(serie_start) > 3 %}<p class="sq-haken warnung"><b>Achtung:</b> Frittes Gewürze lassen deine Gold-Serie gerade höher starten, als die Sanduhr erlaubt. Mit der Sanduhr verschenkst du das.</p>{% endif %}
       {% if an %}
       <form method="post" action="/steuer/{{ jahr }}/markt/helfer"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="ware" value="{{ w.key }}"><input type="hidden" name="an" value="0">
         <span class="sq-ware-stand">Spielt mit</span> <button class="quiet">Pause machen</button></form>
@@ -73,7 +73,7 @@
       <li><b>{{ regeln.GOLD_FUND }}</b> für jede Unterlage, die du sicherst. Im Drachenkampf zählt deine <b>Serie mal</b>: ×2, ×3 … bis ×{{ regeln.MAX_MULT }}.</li>
       <li><b>{{ regeln.GOLD_SCHATZ }}</b> für jeden Bonus-Schatz (der kann Steuern sparen)</li>
       <li><b>{{ regeln.GOLD_FRAGE }}</b> für jede Frage an die Beraterin, <b>{{ regeln.GOLD_GIBTS_NICHT }}</b> für „Gibt's nicht“ (bei wichtigen Unterlagen 0). Ohne Serie.</li>
-      <li>Ein <b>Siegel</b> bringt 2 und 2 je Fund darin, bis {{ regeln.GOLD_SIEGEL }}. Das <b>Tagwerk</b> bringt {{ regeln.GOLD_TAGWERK }}.</li>
+      <li>Ein <b>Siegel</b> bringt 2 und 2 je Fund darin, bis {{ regeln.GOLD_SIEGEL }}. Das <b>Tagesziel</b> bringt {{ regeln.GOLD_TAGWERK }}.</li>
       <li>Wünsche der Beraterin zahlen {{ regeln.GOLD_FUND }}, sobald eine Datei dranhängt, ohne Serie und für höchstens {{ regeln.WUNSCH_DECKEL }} Wünsche im Jahr.</li>
       <li>Gold gibt es für die letzten Steuerjahre. Ältere Jahre kannst du nachholen, sie füllen nur nicht den Beutel.</li>
     </ul>

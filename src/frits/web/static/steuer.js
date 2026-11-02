@@ -127,6 +127,9 @@
     setTimeout(p.remove.bind(p), ruhig ? 2500 : 1800);
   }
   var tonhoehe = 0;
+  // Kommt gleich der Belohnungsdialog mit seiner Ton-Leiter, schweigt das Zähler-Glissando:
+  // sonst klingen zwei Leitern übereinander.
+  var leiterKommt = document.querySelectorAll("dialog[data-belohnung] .sq-beute li").length > 1 && !ruhig;
   document.querySelectorAll("[data-zaehler]").forEach(function (el) {
     var name = el.getAttribute("data-zaehler");
     var ziel = parseInt(el.textContent, 10);
@@ -150,7 +153,7 @@
       if (wert !== letzter) {
         letzter = wert;
         el.textContent = wert;
-        if (steigt && name !== "lp" && schritte <= 24) ton(440 * Math.pow(2, tonhoehe++ / 12), 0.07, "square", 0.04);
+        if (steigt && name !== "lp" && schritte <= 24 && !leiterKommt) ton(440 * Math.pow(2, tonhoehe++ / 12), 0.07, "square", 0.04);
       }
       if (anteil < 1) requestAnimationFrame(rahmen);
       else {
@@ -322,7 +325,7 @@
   }
   if (tisch.hasAttribute("data-konfetti")) {
     konfetti();
-    fanfare();
+    if (!leiterKommt) fanfare();
   }
   // Der große Moment: Siegel, neues Zeitalter, Orden. Ein Dialog mit Licht, Konfetti und Fanfare,
   // und gleich darunter der nächste Auftrag (so weiß man immer, wie es weitergeht).
@@ -342,28 +345,32 @@
     belohnung.showModal();
     var los = belohnung.querySelector(".sq-siegelknopf");
     if (los) los.focus();
+    // Balatro-Trick: Belohnungen kommen einzeln, jede mit eigenem Ton, nie als Liste auf einmal.
+    // Dann trägt die Leiter den Klang allein: keine Fanfare und kein Stempel davor.
+    var beute = belohnung.querySelectorAll(".sq-beute li");
+    var leiter = beute.length > 1 && !ruhig;
     setTimeout(function () {
       var s = belohnung.querySelector(".sq-belohnung-siegel");
       if (s) { var w = mitte(s); funken(w[0], w[1], 34); }
-      stempelTon();
+      if (!leiter) stempelTon();
     }, 380);
     if (!ruhig) setTimeout(konfetti, 250);
-    fanfare();
-    // Balatro-Trick: Belohnungen kommen einzeln, jede mit eigenem Ton, nie als Liste auf einmal
-    var beute = belohnung.querySelectorAll(".sq-beute li");
-    if (beute.length > 1 && !ruhig) {
+    if (!leiter) fanfare();
+    if (leiter) {
       belohnung.classList.add("nacheinander");
-      Array.prototype.forEach.call(beute, function (li, i) {
-        var ab = 0.6 + i * 0.7;
+      var klingen = function (li, i) {
+        // Der Ton kommt genau dann, wenn die Zeile aufspringt (animationstart), nicht nach
+        // einer eigenen Uhr: So bleiben Bild und Klang zusammen, auch wenn der Browser trödelt.
         // Eine Leiter, die mit jeder Belohnung steigt: Der erste (tiefste) Ton jeder Gruppe ist
         // die nächste Stufe, darüber nur kurze Farbtöne. Jede Art klingt anders:
         // Siegel mit Stempel, Zeitalter als Aufstieg, Orden als Glocke, Gold und Salz klimpern.
         var grund = 392 * Math.pow(2, (i * 2) / 12);
         var art = li.className;
         var text = li.textContent;
-        ton(grund, 0.2, "triangle", 0.08, ab);
+        var ab = 0;
+        ton(grund, 0.2, "triangle", 0.08);
         if (art === "siegel") {
-          setTimeout(stempelTon, ab * 1000);
+          stempelTon();
         } else if (art === "zeitalter") {
           [1.25, 1.5, 2].forEach(function (f, n) { ton(grund * f, 0.12, "triangle", 0.05, ab + 0.07 * (n + 1)); });
         } else if (art === "orden") {
@@ -379,7 +386,18 @@
         setTimeout(function () {
           var w = mitte(li);
           funken(w[0], w[1], 10);
-        }, (ab + 0.15) * 1000);
+        }, 150);
+      };
+      Array.prototype.forEach.call(beute, function (li, i) {
+        var fertig = false;
+        function los() {
+          if (fertig) return;
+          fertig = true;
+          klingen(li, i);
+        }
+        li.addEventListener("animationstart", function (e) { if (e.animationName === "sq-beute-pop") los(); });
+        // Falls der Browser kein animationstart meldet: spätestens nach Plan
+        setTimeout(los, (0.6 + i * 0.7 + 0.5) * 1000);
       });
     }
     belohnung.addEventListener("click", function (e) { if (e.target === belohnung) belohnung.close(); });
@@ -629,10 +647,20 @@
     if (knopf.classList.contains("sq-handkarte") || knopf.closest(".sq-arena, .sq-schnell") || r.top < 8) blase.classList.add("unten");
     // Ragt sie unten aus dem Fenster, rollt die Seite so weit, dass alle Knöpfe zu sehen sind.
     // Gemessen wird die echte Höhe (offsetHeight), nicht die gerade noch wachsende Animation.
-    var oben = blase.getBoundingClientRect().top;
-    var fehlt = oben + blase.offsetHeight + 16 - window.innerHeight;
+    // Erst den Fokus setzen, ohne dass der Browser selbst rollt: Sein eigenes Rollen misst die
+    // noch wachsende Blase und bricht das sanfte Rollen nach wenigen Pixeln ab.
+    (reihe.querySelector(".sq-siegelknopf") || ja).focus({ preventScroll: true });
+    // Gemessen ohne die Anflug-Drehung: Lage im Ort plus Lage des Orts im Fenster.
+    function obenKante() { return blase.offsetParent.getBoundingClientRect().top + blase.offsetTop; }
+    var fehlt = obenKante() + blase.offsetHeight + 16 - window.innerHeight;
+    var platz = document.documentElement.scrollHeight - window.innerHeight - window.scrollY;
+    if (fehlt > platz && blase.classList.contains("unten")) {
+      // Unten reicht die Seite nicht: dann öffnet sie nach oben, wenn dort Platz ist.
+      blase.classList.remove("unten");
+      if (obenKante() >= 8) return;
+      blase.classList.add("unten");
+    }
     if (fehlt > 0) window.scrollBy({ top: fehlt, behavior: ruhigScroll() ? "auto" : "smooth" });
-    (reihe.querySelector(".sq-siegelknopf") || ja).focus();
   });
   document.addEventListener("keydown", function (e) { if (e.key === "Escape") schliessen(); });
 })();

@@ -924,7 +924,7 @@ def test_tagwerk_feiert_drei_karten_am_tag(client, ws, monkeypatch):
     fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
     conn = store.connect(ws.db)
     karte = client.get("/steuer/2025").text
-    assert "Tagwerk heute" in karte and "0/3" in karte
+    assert "Tagesziel heute" in karte and "0/3" in karte
     offen = [s for s in quest.stuecke(conn, 2025) if s["status"] == "offen"]
     seite = None
     # "Gibt's nicht" zählt nicht fürs Tagwerk, sonst wäre Wegstempeln der schnellste Weg
@@ -934,9 +934,10 @@ def test_tagwerk_feiert_drei_karten_am_tag(client, ws, monkeypatch):
     for s in [s for s in offen if s["id"] != nicht["id"]][:3]:
         seite = post(client, f"/steuer/2025/stueck/{s['id']}/status", status="fragen")
     # Ein kleiner Zettel statt eines Vollbilds, das einen hinausbittet
-    assert "Tagwerk geschafft: 3 Karten heute" in seite.text and "Für heute Schluss" in seite.text
-    assert "Tagwerk geschafft!" not in seite.text
-    assert "Tagwerk geschafft" in client.get("/steuer/2025").text
+    assert "Tagesziel geschafft: 3 Karten heute" in seite.text and "Für heute Schluss" in seite.text
+    assert "Tagesziel geschafft!" not in seite.text
+    assert "Tagesziel geschafft" in client.get("/steuer/2025").text
+    assert "Tagwerk" not in client.get("/steuer/2025/markt").text  # ein Name für ein Ziel
     heute, ziel = spiel.tagwerk(quest.stuecke(conn, 2025), date.today())
     assert heute == 3 and ziel == 3
 
@@ -2333,10 +2334,11 @@ def test_runde_19_sanduhr_warnt_vor_dem_gewuerz_deckel(client, ws, monkeypatch):
 
     fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
     seite = client.get("/steuer/2025/markt")
-    assert "Frittes Gewürze lassen dich" not in seite.text  # ein Gewürz: Start ×2, kein Problem
+    assert "höher starten, als die Sanduhr erlaubt" not in seite.text  # ein Gewürz: kein Problem
     monkeypatch.setattr(kassensturz, "regal", lambda conn: ["a", "b", "c"])
     seite = client.get("/steuer/2025/markt")
-    assert "Frittes Gewürze lassen dich gerade bei ×4 starten" in seite.text
+    assert "höher starten, als die Sanduhr erlaubt" in seite.text
+    assert "×4" not in seite.text  # nur eine Zahl: der Faktor steht im Kampf, nicht hier
 
 
 def test_runde_19_toene_laufen_ueber_den_klangrahmen():
@@ -2435,7 +2437,7 @@ def test_runde_20_ohne_fritte_bleibt_das_tagwerk(client, ws, monkeypatch):
     monkeypatch.setitem(sys.modules, "frits.spiel.tagesziel", None)  # Import schlägt fehl
     fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
     seite = client.get("/steuer/2025")
-    assert "Tagwerk heute" in seite.text and "Tagesziel" not in seite.text
+    assert "Tagesziel heute" in seite.text and "Tagwerk" not in seite.text
 
 
 def test_runde_20_alte_jahre_versprechen_kein_gold(client, ws):
@@ -2553,3 +2555,58 @@ def test_runde_21_restgold_alter_siege_und_frittes_kurs(client, ws, monkeypatch)
     assert f"Restgold aus dem gewonnenen Jahr 2025 ist zu {rest // 2} Salzkörnern" in seite.text
     assert quest.gold(conn, 2025) == 0  # das ganze Restgold ging hinüber
     assert "Restgold" not in client.get("/steuer/2025").text  # nur einmal
+
+
+def test_runde_22_zierde_nur_fuer_notierte_orden(client, ws):
+    # Lena (Runde 21): Der Brunnen stand auf der Insel, die Sammlung kannte den Orden nicht.
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    quest.zierde_freischalten(conn, "brunnen")  # wie der alte Fehler: aufgestellt, nie notiert
+    quest.zierde_freischalten(conn, "laternen")
+    conn.execute(
+        "INSERT INTO steuer_gold (jahr, zeit, betrag, grund, text) VALUES (2024, 'x', -10,"
+        " 'kauf:laternen', 'Gekauft: Laternen')"
+    )
+    conn.commit()
+    insel = client.get("/steuer/2025").text
+    assert 'class="sq-zier brunnen' not in insel  # kein Orden, kein Brunnen
+    assert 'class="sq-zier laternen' in insel  # früher mit Gold gekauft: bleibt
+    quest.notiere(conn, 2024, "erfolg", "Gutes Gedächtnis")
+    assert 'class="sq-zier brunnen' in client.get("/steuer/2025").text
+
+
+def test_runde_22_erreichte_orden_werden_nachgetragen(client, ws):
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    s = next(s for s in quest.stuecke(conn, 2025) if s["status"] == "offen")
+    conn.execute("UPDATE steuer_stuecke SET status = 'fragen' WHERE id = ?", (s["id"],))
+    conn.commit()  # erreicht, aber nie notiert (alter Spielstand)
+    seite = client.get("/steuer/2025").text
+    assert "Orden nachgetragen: Mutig gefragt." in seite
+    assert quest.hat_notiz(conn, 2025, "erfolg", "Mutig gefragt")
+    assert 'class="sq-zier kirschbaum' in client.get("/steuer/2025").text
+    assert "Orden nachgetragen" not in client.get("/steuer/2025").text  # nur einmal
+
+
+def test_runde_22_eine_zahl_und_ein_name():
+    trommel = spiel.ware("trommel")
+    assert "×" not in trommel.text
+    assert "Tagwerk" not in spiel.ware("sanduhr").text
+
+
+def test_runde_22_gewuerz_ruf_ohne_zweite_zahl(client, ws, monkeypatch):
+    from frits.spiel import kassensturz
+
+    monkeypatch.setattr(kassensturz, "regal", lambda conn: ["a", "b", "c"])
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    _bis_wach(quest.ensure_schema(store.connect(ws.db)))
+    seite = client.get("/steuer/2025/drache").text
+    assert "Gold-Serie startet schon warm" in seite
+    assert "startet bei ×" not in seite
+
+
+def test_runde_22_sammlung_als_marke_in_der_leiste(client, ws):
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    for pfad in ("/steuer/2025", "/steuer/2025/markt", "/steuer/2025/belege"):
+        seite = client.get(pfad).text
+        assert '<li class="sq-marke sammlung"><a href="/sammlung"' in seite, pfad
