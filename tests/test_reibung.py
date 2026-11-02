@@ -37,8 +37,11 @@ def test_first_setup_shows_no_menu_but_a_way_out(client, ws):  # noqa: F811
 
 def test_learning_steps_can_be_skipped(client):
     page = client.get("/setup/redaction_test").text
-    assert "Lern-Teil überspringen" in page
-    assert "Lern-Teil überspringen" not in client.get("/setup/business_details").text
+    # Oben im Bild, nicht grau unter „Weiter“ (Lena Runde 45)
+    assert page.index('value="skip_learning"') < page.index('value="next"')
+    assert "Jetzt 3 kurze Lern-Schritte" in page
+    assert "Lern-Teil, Schritt 2 von 3" in client.get("/setup/trick_document").text
+    assert "skip_learning" not in client.get("/setup/business_details").text
     after = post(client, "/setup/redaction_test", action="skip_learning")
     assert str(after.url).endswith("/setup/first_invoice")
 
