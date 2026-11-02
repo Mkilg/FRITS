@@ -15,6 +15,11 @@ Sagt der Mac stattdessen, die App sei „beschädigt“: Terminal öffnen, `xatt
 
 Läuft ohne Internet, auf Macs mit Apple-Chip und Intel, ab macOS 13. Deine Daten liegen in `Dokumente/FRITS`, nicht im App-Ordner.
 
+### Neu in 1.7.2
+- **Rechnungen von früher nachtragen geht glatter:** Eine Lücke in den Nummern ist erlaubt („Stimmt, trotzdem nachtragen“), Beträge wie „600,00 EUR“ oder „600,- €“ werden so angenommen, wie sie auf dem Papier stehen, und Fehlermeldungen stehen direkt am Feld. Eine schon nachgetragene Rechnung wird erkannt („Zur Rechnung“). Eine eigene alte Rechnung nur mit Briefkopf erkennt FRITS unter Ausgaben und fragt nach.
+- Einrichtung kürzer, am Handy keine Hinweise mehr auf Tastenkürzel oder den Finder.
+- Fritte und Steuer-Quest: gemalte Bilder für Laden, Gewürze, Zimmer und Truhen, ehrliche Truhen, kürzerer Laden am Handy, ein sinnvolles Gericht ist vorgewählt, Zurücklegen und Neuwerfen bringen keine geschenkten Körner mehr.
+
 ### Neu in 1.7.1
 - **Schnellerer Start mit Ladebild:** Beim Doppelklick erscheint sofort Fritte mit „FRITS startet …“, und das Fenster wird von selbst zu FRITS. Das Sprachmodell zum Schwärzen lädt danach im Hintergrund, so geht das erste „Jetzt lesen“ schneller.
 - Heute nennt den nächsten Schritt in der Steuer-Quest. Fritte steht am Computer unter „Mehr“.
