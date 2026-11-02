@@ -376,7 +376,9 @@ input[type=checkbox], input[type=radio] { width: 1.15rem; height: 1.15rem; verti
 @media (pointer: coarse) {
   button, .button, button.tiny, .button.tiny { min-height: 44px; }
   nav a, nav summary, nav details.mehr summary { min-height: 44px; display: inline-flex; align-items: center; gap: 0.25rem; }
-  .choice, label.choice { min-height: 44px; display: flex; align-items: center; gap: 0.3rem; }
+  .choice, label.choice { min-height: 44px; display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; }
+  /* the explanation under a choice gets its own line (flex ignores the <br>; Lena, 390 px) */
+  .choice > .muted, .choice > .hint { flex-basis: 100%; }
   input[type=checkbox], input[type=radio] { width: 1.4rem; height: 1.4rem; flex: 0 0 auto; }
   input:not([type=checkbox]):not([type=radio]), select { min-height: 44px; }
   .brand { min-height: 44px; }
