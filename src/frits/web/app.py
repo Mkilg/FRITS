@@ -19,7 +19,7 @@ import time
 from collections.abc import Callable
 from contextlib import ExitStack, asynccontextmanager
 from dataclasses import replace
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from importlib.resources import as_file, files
 from pathlib import Path
@@ -736,13 +736,21 @@ def create_app(
                 return back(target)
             flash(str(exc), "error")
             return back("/settings" if isinstance(exc, ProviderError) else target)
-        counts = {"drafted": 0, "check-me": 0, "receipt": 0, "skipped": 0}
+        counts = {"drafted": 0, "check-me": 0, "receipt": 0, "frueher": 0, "skipped": 0}
         drafted: list[int] = []
+        earlier: list[str] = []
         for path in files_waiting:
-            outcome = process_file(path, ws, current, provider, model)
+            outcome = process_file(path, ws, current, provider, model, today())
             counts[outcome.status] += 1
             if outcome.draft_id:
                 drafted.append(outcome.draft_id)
+            if outcome.staged:
+                earlier.append(outcome.staged)
+                flash(
+                    f"{_upload_name(path)}: Das ist deine eigene Rechnung von früher, keine "
+                    "Ausgabe. Ich habe sie ohne KI gelesen.",
+                    link=(f"/invoices?frueher={outcome.staged}#frueher", "Prüfen und nachtragen"),
+                )
             if outcome.status == "check-me" and path.exists():
                 flash(f"{path.name}: {outcome.message}", "error")
                 break  # e.g. the AI isn't reachable: the next files would fail the same way
@@ -762,15 +770,29 @@ def create_app(
             )
         if counts["receipt"]:
             parts.append("1 Beleg" if counts["receipt"] == 1 else f"{counts['receipt']} Belege")
+        if counts["frueher"]:
+            parts.append(
+                "1 Rechnung von früher"
+                if counts["frueher"] == 1
+                else f"{counts['frueher']} Rechnungen von früher"
+            )
         if counts["check-me"]:
             parts.append(f"{counts['check-me']} zum Prüfen")
         flash("Fertig gelesen: " + (", ".join(parts) or "nichts Neues") + ".", cue="done")
         if target == "/" and not counts["check-me"]:
             # Exactly one thing to do next? Then go there instead of making Fritz look for it.
-            if len(drafted) == 1 and not counts["receipt"]:
+            if len(drafted) == 1 and not counts["receipt"] and not earlier:
                 return back(f"/drafts/{drafted[0]}")
-            if counts["receipt"] and not drafted and (waiting := open_receipts(db())):
-                return back(f"/expenses?receipt={waiting[0]['id']}#neu")
+            if len(earlier) == 1 and not drafted and not counts["receipt"]:
+                return back(f"/invoices?frueher={earlier[0]}#frueher")
+            if (
+                counts["receipt"]
+                and not drafted
+                and not earlier
+                and (waiting := open_receipts(db()))
+            ):
+                # the one just read, not an older one still waiting
+                return back(f"/expenses?receipt={waiting[-1]['id']}#neu")
         return back(target)
 
     @app.post("/open/{folder}", dependencies=guarded)
@@ -1064,6 +1086,7 @@ def create_app(
             earlier_tax=EARLIER_TAX,
             earlier_default="klein" if settings().tax_mode != "regelbesteuerung" else "19",
             staged=staged,
+            waiting_earlier=waiting_earlier(frueher),
         )
 
     # An old invoice dropped on the page waits in ws.staging/<token>/ while Fritz checks
@@ -1100,7 +1123,11 @@ def create_app(
         suffix = original.suffix.lower() if original else ""
         missing = [(key, label) for key, label in EARLIER_NEEDED if not fields.get(key)]
         names = [label for _, label in missing]
+        bezahlt, paid = _earlier_paid_guess(fields)
         return {
+            "bezahlt": bezahlt,
+            "paid": paid,
+            "von_heute": found.get("job") is not None,
             "token": token,
             "datei": original.name if original else None,
             "zeigen": "pdf" if suffix == ".pdf" else "bild" if suffix in IMAGE_TYPES else None,
@@ -1112,14 +1139,63 @@ def create_app(
             "fokus": missing[0][0] if missing else None,
         }
 
+    def _earlier_paid_guess(fields: dict) -> tuple[str, str]:
+        """("ja"/"nein"/"", day) for "Schon bezahlt?": an old invoice past its due day was
+        almost surely paid long ago, so "Ja" is chosen, with the due day as a first guess.
+        The day is left empty where a wrong guess could matter: when it would fall into
+        another year than the invoice (EÜR counts the year the money came) or when VAT is due
+        when paid (Ist-Versteuerung)."""
+        try:
+            issued = date.fromisoformat(fields.get("issue_date") or "")
+        except ValueError:
+            return "", ""
+        current = settings()
+        try:
+            due = date.fromisoformat(fields.get("due_date") or "")
+        except ValueError:
+            due = issued + timedelta(days=current.payment_days)
+        if due >= today():
+            return "nein", ""
+        ist = current.vat_basis == "ist" and fields.get("tax") not in (None, "klein")
+        if due.year != issued.year or ist:
+            return "ja", ""
+        return "ja", due.isoformat()
+
+    def waiting_earlier(shown: str | None) -> list[dict]:
+        """Old invoices that came in through Heute and still wait to be entered."""
+        if not ws.staging.is_dir():
+            return []
+        found = []
+        for folder in sorted(ws.staging.iterdir(), key=lambda p: p.stat().st_mtime):
+            if folder.name == shown or not STAGED_TOKEN.fullmatch(folder.name):
+                continue
+            try:
+                data = json.loads((folder / "gelesen.json").read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            if data.get("job") is not None:
+                found.append({"token": folder.name, "datei": data.get("datei") or "Dokument"})
+        return found
+
+    def _from_heute(folder: Path) -> bool:
+        try:
+            data = json.loads((folder / "gelesen.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return False
+        return data.get("job") is not None
+
     def tidy_staging() -> None:
-        """Old invoices nobody entered or discarded don't stay longer than a day."""
+        """Old invoices dropped on Rechnungen and neither entered nor discarded don't stay
+        longer than a day. Those that came in through Heute wait until Fritz decides: he
+        handed them over once and shouldn't have to again."""
         if not ws.staging.is_dir():
             return
         cutoff = time.time() - 24 * 3600
         for folder in ws.staging.iterdir():
             try:
                 if folder.is_dir() and not folder.is_symlink() and folder.stat().st_mtime < cutoff:
+                    if _from_heute(folder):
+                        continue
                     shutil.rmtree(folder)
                 elif folder.stat().st_mtime < cutoff:
                     folder.unlink()
@@ -1166,8 +1242,7 @@ def create_app(
             if text
             else {}
         )
-        data = {"datei": original.name if original else None, "felder": fields}
-        (folder / "gelesen.json").write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+        frueher.merken(folder, original.name if original else None, fields)
         return back(f"/invoices?frueher={token}#frueher")
 
     @app.get("/invoices/frueher/{token}/original")
@@ -1205,6 +1280,14 @@ def create_app(
             issued = date.fromisoformat(str(form.get("issue_date", "")))
             served = str(form.get("service_date") or "")
             paid = str(form.get("paid") or "")
+            bezahlt = str(form.get("bezahlt") or "")
+            if bezahlt == "nein":
+                paid = ""
+            elif bezahlt == "ja" and not paid:
+                raise BillingError(
+                    "Wann kam das Geld? Trag bei „Schon bezahlt?“ den Tag vom Kontoauszug ein, "
+                    "er zählt für das Jahr in der EÜR."
+                )
             upload = form.get("original")
             original = None
             if upload is not None and getattr(upload, "filename", ""):
@@ -1752,6 +1835,14 @@ def create_app(
             return "Daraus gibt es schon einen Entwurf.", (f"/drafts/{draft['id']}", "Zum Entwurf")
         if job["status"] == "check-me":
             return "Die liegt schon bei „Bitte einmal ansehen“.", ("/check-me", "Ansehen")
+        if job["status"] == "frueher":
+            return (
+                (
+                    "Das ist deine eigene Rechnung von früher. Sie wartet unter Rechnungen aufs "
+                    "Nachtragen oder ist schon nachgetragen."
+                ),
+                ("/invoices#frueher", "Zu den Rechnungen"),
+            )
         if job["status"] == "steuer":
             return (
                 "Die liegt schon in der Steuer-Quest. Du musst nichts mehr tun.",
@@ -1775,7 +1866,7 @@ def create_app(
         conn = db()
         receipts = open_receipts(conn)
         chosen = next((r for r in receipts if r["id"] == receipt), None)
-        guessed = _receipt_guess(chosen["filename"]) if chosen else {}
+        guessed, own_invoice = _receipt_guess(chosen["filename"]) if chosen else ({}, False)
         items = expenses.list_expenses(ws.db, year=year)
         return page(
             request,
@@ -1789,17 +1880,46 @@ def create_app(
             categories=expenses.CATEGORIES,
             today=today().isoformat(),
             guessed=guessed,
+            own_invoice=own_invoice,
         )
 
-    def _receipt_guess(filename: str) -> dict[str, str]:
-        """Amount, date and shop read from the receipt here on this computer (OCR, no AI)."""
+    def _receipt_guess(filename: str) -> tuple[dict[str, str], bool]:
+        """Amount, date and shop read from the receipt here on this computer (OCR, no AI),
+        and whether it is really Fritz's own invoice from before FRITS."""
         from frits import beleg
 
         path = ws.done / Path(filename).name
         try:
-            return beleg.guess(extract_text(path).text, today()) if path.is_file() else {}
+            text = extract_text(path).text if path.is_file() else ""
         except IngestError:
-            return {}
+            return {}, False
+        if not text:
+            return {}, False
+        current = settings()
+        guessed = beleg.guess(text, today())
+        vendor = guessed.get("vendor", "").casefold()
+        own = [x.casefold() for x in (current.name, current.company) if len(x or "") >= 5]
+        if vendor and any(x in vendor for x in own):
+            guessed.pop("vendor")  # Fritz doesn't buy from himself
+        return guessed, frueher.eigene_rechnung(text, current)
+
+    @app.post("/expenses/als-rechnung/{job_id}", dependencies=guarded)
+    def receipt_is_own_invoice(job_id: int):
+        """Fritz's own old invoice that ended up as a receipt: off to "Rechnung von früher"."""
+        conn = db()
+        row = conn.execute(
+            "SELECT filename FROM jobs WHERE id = ? AND status = 'receipt'", (job_id,)
+        ).fetchone()
+        path = ws.done / Path(row["filename"]).name if row else None
+        if path is None or not path.is_file():
+            raise HTTPException(404)
+        try:
+            text = extract_text(path).text
+        except IngestError:
+            text = ""
+        token = frueher.vormerken(ws.staging, path, text, settings(), today(), job_id)
+        conn.execute("UPDATE jobs SET status = 'frueher' WHERE id = ?", (job_id,))
+        return back(f"/invoices?frueher={token}#frueher")
 
     @app.get("/receipts/{job_id}")
     def receipt_file(job_id: int):

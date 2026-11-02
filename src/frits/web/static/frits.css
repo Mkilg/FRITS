@@ -645,3 +645,10 @@ form:has(details.fach[open]) .speichern-leiste { position: sticky; bottom: 0.6re
   background: var(--papierkarte); border: 1px solid #e8d6ae; border-radius: var(--radius); box-shadow: var(--karten-schatten); }
 @media (max-width: 600px) { form:has(details.fach[open]) .speichern-leiste { bottom: calc(70px + env(safe-area-inset-bottom)); } }
 @media (max-width: 600px) { nav.reiter { gap: 0.3rem; } nav.reiter a { padding: 0.35rem 0.75rem; font-size: 0.88rem; } }
+/* "Schon bezahlt?" when entering an old invoice: two plain choices, the day next to "Ja" */
+fieldset.schon-bezahlt { border: 0; padding: 0; margin: 0 0 0.8rem; min-width: 0; }
+fieldset.schon-bezahlt legend { padding: 0; color: var(--muted); }
+fieldset.schon-bezahlt .choice { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; color: var(--ink); margin: 0.3rem 0; }
+fieldset.schon-bezahlt input[type=date] { flex: 0 1 12rem; }
+ul.wartet-frueher { list-style: none; padding-left: 0; }
+ul.wartet-frueher li { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }

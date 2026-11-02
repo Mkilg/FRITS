@@ -75,9 +75,14 @@
 {% endif %}
 
 {% macro gelesen(key, staged) %}{% if staged %}{% if staged.felder[key] %} class="imported"{% endif %}{% if staged.fokus == key %} autofocus{% endif %}{% endif %}{% endmacro %}
-<details class="card spaced" id="frueher"{{ " open" if staged }}>
+<details class="card spaced" id="frueher"{{ " open" if staged or waiting_earlier }}>
   <summary>Rechnung von früher nachtragen</summary>
   <p class="hint">Für Rechnungen, die du <strong>vor FRITS</strong> geschrieben hast, z. B. mit Word. Trag sie mit Nummer und Datum ein, wie sie auf dem Papier stehen. Dann stimmen EÜR und Umsatzsteuer auch für die Monate davor.</p>
+  {% if waiting_earlier %}
+  <ul class="plain wartet-frueher">{% for w in waiting_earlier %}
+    <li>Wartet noch: <strong>{{ w.datei }}</strong> <a class="button tiny" href="/invoices?frueher={{ w.token }}#frueher">Prüfen und nachtragen</a></li>
+  {% endfor %}</ul>
+  {% endif %}
   {% if not staged %}
   {% with dz_action="/invoices/frueher/lesen", dz_back="/invoices#frueher", dz_class="form", dz_id="frueher", dz_icon="🗂️",
           dz_title="Alte Rechnung hierher ziehen", dz_hint="Ich lese Nummer, Datum, Kunde und Betrag hier auf deinem Computer aus, ohne KI. Du prüfst und trägst nach. PDF, Foto oder Word-Datei.",
@@ -113,7 +118,13 @@
         <label class="field">Umsatzsteuer
           <select name="tax"{{ gelesen("tax", staged) }}>{% for key, label in earlier_tax.items() %}<option value="{{ key }}"{% if key == (f.tax or earlier_default) %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
         </label>
-        <label class="field">Bezahlt am <small class="muted">(leer lassen, wenn noch offen)</small> <input type="date" name="paid" max="{{ today_iso }}"></label>
+        <fieldset class="field schon-bezahlt">
+          <legend>Schon bezahlt?</legend>
+          <label class="choice"><input type="radio" name="bezahlt" value="ja" required{{ " checked" if staged and staged.bezahlt == "ja" }}> Ja, am
+            <input type="date" name="paid" max="{{ today_iso }}" value="{{ staged.paid if staged else '' }}" aria-label="Bezahlt am"{% if staged and staged.paid %} class="imported"{% endif %}></label>
+          <label class="choice"><input type="radio" name="bezahlt" value="nein"{{ " checked" if staged and staged.bezahlt == "nein" }}> Nein, das Geld fehlt noch</label>
+          {% if staged and staged.bezahlt == "ja" %}<small class="muted">{% if staged.paid %}Geschätzt: der Tag, an dem sie fällig war. Steht auf dem Kontoauszug ein anderer, trag ihn ein.{% else %}Die Rechnung ist lange fällig. Trag den Tag vom Kontoauszug ein, er zählt für das Jahr.{% endif %}</small>{% endif %}
+        </fieldset>
         {% if not (staged and staged.ablegen) %}
         <label class="field">Original als PDF <small class="muted">(freiwillig, wird bei den Rechnungen abgelegt)</small> <input type="file" name="original" accept="application/pdf,.pdf"></label>
         {% endif %}
