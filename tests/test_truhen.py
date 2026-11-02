@@ -181,21 +181,45 @@ def test_chest_treasures_are_not_for_sale(conn):
 
 def test_leftover_dragon_gold_becomes_salzkoerner_once_a_year(conn):
     vorher = stand.guthaben(conn)
-    assert (
-        haustier.salz_aus_quest(conn, 2025, 37, "Restgold aus der Steuer-Quest 2025", TODAY) == 37
-    )
-    assert stand.guthaben(conn) == vorher + 37
-    assert stand.kassenbuch(conn)[0]["text"] == "Restgold aus der Steuer-Quest 2025"
+    text = "Restgold aus der Steuer-Quest 2025"
+    assert haustier.salz_aus_quest(conn, 2025, 37, text, TODAY) == 18  # 2 gold, 1 Korn
+    assert stand.guthaben(conn) == vorher + 18
+    assert stand.kassenbuch(conn)[0]["text"] == text
     assert haustier.salz_aus_quest(conn, 2025, 37, "nochmal", TODAY) == 0  # once per year
-    assert haustier.salz_aus_quest(conn, 2024, 0, "nichts", TODAY) == 0
-    assert stand.guthaben(conn) == vorher + 37
-    assert haustier.salz_aus_quest(conn, 2024, 5, "", TODAY) == 5
+    assert haustier.salz_aus_quest(conn, 2024, 1, "zu wenig", TODAY) == 0
+    assert stand.guthaben(conn) == vorher + 18
+    # a victory helps with the house but doesn't buy it (Lena: the Stube costs 150)
+    assert haustier.salz_aus_quest(conn, 2023, 500, "", TODAY) == haustier.SALZ_PRO_SIEG == 60
+    assert haustier.salz_fuer_gold(37) == 18 and haustier.salz_fuer_gold(-3) == 0
 
 
 def test_salz_from_the_quest_works_before_fritte_was_ever_opened(tmp_path):
     conn = store.connect(tmp_path / "frits.db")
-    assert haustier.salz_aus_quest(conn, 2025, 12, "Restgold", TODAY) == 12
-    assert stand.guthaben(conn) == 12
+    assert haustier.salz_aus_quest(conn, 2025, 12, "Restgold", TODAY) == 6
+    assert stand.guthaben(conn) == 6
+
+
+def test_old_games_get_grains_for_jokers_and_jars_once(conn):
+    truhen.truhe_geben(conn, "alt")
+    t = truhen.oeffnen(conn, TODAY)
+    conn.execute(
+        "UPDATE spiel_truhen SET inhalt = ? WHERE id = ?",
+        ('{"art": "joker", "wert": 8, "seltenheit": "selten", "name": "Jokerkarte"}', t.id),
+    )
+    conn.execute(
+        "INSERT INTO spiel_karten (schluessel, art, gesehen) VALUES (?, 'joker', ?)",
+        (f"joker:{t.id}", TODAY.isoformat()),
+    )
+    stand.setze(conn, "truhen_wuerze", "1.5")
+    stand.setze(conn, "drachen_wuerze", "1")
+    vorher = stand.guthaben(conn)
+    assert haustier.altlasten(conn, TODAY) == 8 + 25
+    assert stand.guthaben(conn) == vorher + 33
+    assert "Ausgleich" in stand.kassenbuch(conn)[0]["text"]
+    assert not conn.execute("SELECT 1 FROM spiel_karten WHERE art = 'joker'").fetchone()
+    assert stand.einstellung(conn, "truhen_wuerze") == "0"
+    assert haustier.altlasten(conn, TODAY) == 0  # only once
+    assert stand.guthaben(conn) == vorher + 33
 
 
 def test_fritte_page_and_opening_in_the_browser(client, ws):  # noqa: F811

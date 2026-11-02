@@ -10,6 +10,7 @@ This module is about her: her mood, her room, her hats.
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from dataclasses import dataclass, field
 from datetime import date, timedelta
@@ -124,6 +125,7 @@ class Fritte:
 
 def ansehen(conn: sqlite3.Connection, heute: date, alte_datei: Path | None = None) -> Fritte:
     """How Fritte is today. Also turns new paperwork into waiting cards."""
+    altlasten(conn, heute)
     wartend = stand.abgleichen(conn, heute, alte_datei)
     bereit = kassensturz.vorschau(conn, heute, aufgeraeumt=False)[1]["summe"] if wartend else 0
     if wartend:  # the preview drops cards whose paperwork was deleted meanwhile
@@ -200,13 +202,15 @@ def aufsetzen(conn: sqlite3.Connection, ding_id: str) -> None:
 def salz_aus_quest(conn: sqlite3.Connection, jahr: int, gold: int, text: str,
                    heute: date | None = None) -> int:  # fmt: skip
     """One purse (Lena): Drachengold only counts inside its Steuer-Quest year. What is left
-    when the dragon is beaten becomes Salzkörner for Fritte, 1 gold = 1 Korn.
+    when the dragon is beaten becomes Salzkörner for Fritte: 2 gold = 1 Korn, at most 60
+    (a victory should help with the house, not buy it: the Stube costs 150).
 
-    Once per quest year: a second call, or no gold, books nothing and returns 0, so the
-    quest only takes off the gold that really arrived here. Opens its own transaction
-    (call it outside the quest's). Works even before Fritte was ever opened."""
-    gold = int(gold)
-    if gold <= 0:
+    Returns the Körner booked. Once per quest year: a second call, or too little gold,
+    books nothing and returns 0. When it returns more than 0, the whole rest of that
+    year's gold is used up. Opens its own transaction (call it outside the quest's).
+    Works even before Fritte was ever opened."""
+    koerner = salz_fuer_gold(gold)
+    if koerner <= 0:
         return 0
     tag = (heute or date.today()).isoformat()
     stand.vorbereiten(conn)
@@ -215,6 +219,55 @@ def salz_aus_quest(conn: sqlite3.Connection, jahr: int, gold: int, text: str,
             return 0
         stand.setze(conn, f"drachensieg_salz:{jahr}", tag)
         stand.buche(
-            conn, tag, gold, "drachensieg", text or f"Drachengold aus der Steuer-Quest {jahr}"
+            conn, tag, koerner, "drachensieg", text or f"Drachengold aus der Steuer-Quest {jahr}"
         )
-    return gold
+    return koerner
+
+
+GOLD_PRO_KORN = 2
+SALZ_PRO_SIEG = 60
+
+
+def salz_fuer_gold(gold: int) -> int:
+    """How many Salzkörner this much leftover dragon gold becomes (for the victory page)."""
+    return max(0, min(int(gold) // GOLD_PRO_KORN, SALZ_PRO_SIEG))
+
+
+# What the finds that were removed in round 10 are worth now (Lena: no find is lost).
+ALT_WUERZE_KORN = 10  # one Würze from a jar
+
+
+def altlasten(conn: sqlite3.Connection, heute: date) -> int:
+    """Once: older games still hold finds that no longer exist (Jokerkarten, jars of
+    Truhenwürze and Drachenwürze). They become Salzkörner, one line in the Kassenbuch
+    each, and the old jars and cards are cleared. Returns the Körner booked."""
+    stand.vorbereiten(conn)
+    if stand.einstellung(conn, "umstellung:runde10"):
+        return 0
+    with store.transaction(conn):
+        if stand.einstellung(conn, "umstellung:runde10"):
+            return 0
+        tag = heute.isoformat()
+        summe = 0
+        # A Jokerkarte still waiting would never be scored now: it is paid out instead.
+        # Scored ones were already paid at their Kassensturz.
+        for (schluessel,) in stand.rows(
+            conn, "SELECT schluessel FROM spiel_karten WHERE art = 'joker' AND kassensturz IS NULL"
+        ):
+            nummer = schluessel.split(":", 1)[1]
+            row = stand.rows(
+                conn, "SELECT inhalt FROM spiel_truhen WHERE id = ?", (int(nummer),)
+            ) if nummer.isdigit() else []  # fmt: skip
+            if row and row[0][0]:
+                summe += int(json.loads(row[0][0]).get("wert", 0))
+        conn.execute("DELETE FROM spiel_karten WHERE art = 'joker' AND kassensturz IS NULL")
+        wuerze = float(stand.einstellung(conn, "truhen_wuerze", "0") or 0)
+        wuerze += float(stand.einstellung(conn, "drachen_wuerze", "0") or 0)
+        summe += round(wuerze * ALT_WUERZE_KORN)
+        stand.setze(conn, "truhen_wuerze", "0")
+        stand.setze(conn, "drachen_wuerze", "0")
+        if summe > 0:
+            stand.buche(conn, tag, summe, "umstellung",
+                        "Ausgleich für Jokerkarten und Würzgläser, die es nicht mehr gibt")  # fmt: skip
+        stand.setze(conn, "umstellung:runde10", tag)
+    return summe
