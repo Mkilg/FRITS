@@ -54,6 +54,11 @@ CREATE TABLE IF NOT EXISTS spiel_korrektur (
     seit TEXT NOT NULL,            -- the day the game noticed (its own date, never typed)
     neu TEXT                       -- the card that became its correction, NULL while open
 );
+CREATE TABLE IF NOT EXISTS spiel_beutel (
+    grund TEXT PRIMARY KEY,        -- e.g. "quest:2025:fund:12": each reason books only once
+    tag TEXT NOT NULL,
+    betrag INTEGER NOT NULL        -- what was really booked (a minus never goes below zero)
+);
 CREATE TABLE IF NOT EXISTS spiel_markt (
     woche TEXT PRIMARY KEY,        -- ISO week, e.g. "2026-W44"
     wuerfe INTEGER NOT NULL DEFAULT 0
@@ -617,6 +622,52 @@ def bezahlen(conn, tag: str, preis: int, text: str) -> None:
         fehlen = preis - max(0, guthaben(conn))
         raise SpielFehler(f"Dafür fehlen noch {fehlen} Salzkörner. Die kommen ganz von allein.")
     buche(conn, tag, -preis, "kauf", text)
+
+
+# ---------- one purse for all of FRITS (Fritte and the Steuer-Quest) ----------
+# Marie (2026-11-02): one currency instead of Gold and Salzkörner. The Steuer-Quest keeps
+# its own journal (steuer_gold: reasons, years, the Goldbuch) but pays into and out of
+# this purse. None of these open a transaction: call them inside the caller's, so the
+# quest's journal line and the purse line land together or not at all.
+
+
+def beutel_gutschreiben(
+    conn, grund: str, betrag: int, text: str, tag: str | None = None, art: str = "quest"
+) -> int:
+    """Book Salzkörner for a reason from outside Fritte's own game, once per reason.
+
+    A minus takes grains back (a quest card put back), but the purse never goes below zero:
+    it takes at most what is there. Returns what was really booked: 0 when the reason was
+    booked before, otherwise the (possibly smaller) amount, negative for a take-back. The
+    caller decides what to do about a shortfall (the quest takes back its last purchase).
+    """
+    vorbereiten(conn)
+    if not grund or conn.execute("SELECT 1 FROM spiel_beutel WHERE grund = ?", (grund,)).fetchone():
+        return 0
+    betrag = int(betrag)
+    if betrag < 0:
+        betrag = -min(-betrag, max(0, guthaben(conn)))
+    tag = tag or date.today().isoformat()
+    conn.execute(
+        "INSERT INTO spiel_beutel (grund, tag, betrag) VALUES (?, ?, ?)", (grund, tag, betrag)
+    )
+    if betrag:
+        buche(conn, tag, betrag, art, text)
+    return betrag
+
+
+def beutel_gebucht(conn, grund: str) -> int | None:
+    """What a reason booked, or None if it never did."""
+    vorbereiten(conn)
+    row = conn.execute("SELECT betrag FROM spiel_beutel WHERE grund = ?", (grund,)).fetchone()
+    return None if row is None else int(row[0])
+
+
+def beutel_bezahlen(conn, preis: int, text: str, tag: str | None = None) -> None:
+    """Pay from the one purse, e.g. a helper for the Steuer-Quest. Raises SpielFehler with a
+    kind sentence when there aren't enough grains (nothing is booked then)."""
+    vorbereiten(conn)
+    bezahlen(conn, tag or date.today().isoformat(), int(preis), text)
 
 
 # ---------- what Fritte owns ----------

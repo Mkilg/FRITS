@@ -13,7 +13,9 @@ from frits.web.app import create_app
 
 @pytest.fixture
 def client(ws):  # noqa: F811
-    app = create_app(ws, provider_factory=Recorded(ws), nlp_loader=lambda: None, today=lambda: TODAY)
+    app = create_app(
+        ws, provider_factory=Recorded(ws), nlp_loader=lambda: None, today=lambda: TODAY
+    )
     with TestClient(app) as c:
         c.token = app.state.token
         yield c
@@ -47,7 +49,9 @@ def test_drafts_and_quotes_live_under_rechnungen(client):
     euer = client.get("/euer").text
     assert '<a href="/expenses" aria-current="page">Ausgaben</a>' in euer
     assert '<a href="/euer" aria-current="page">EÜR</a>' in euer
-    assert "/ustva" not in euer.split('<nav class="reiter"')[1].split("</nav>")[0]  # Kleinunternehmer
+    assert (
+        "/ustva" not in euer.split('<nav class="reiter"')[1].split("</nav>")[0]
+    )  # Kleinunternehmer
     assert 'class="reiter"' not in client.get("/customers").text
 
 
@@ -75,3 +79,37 @@ def test_settings_sit_in_folds(client, ws):  # noqa: F811
     saved = post(client, "/settings", name="Fritz Neu", address="Weg 2, 12345 Ort")
     assert saved.status_code == 200
     assert Settings.load(ws.settings_file).name == "Fritz Neu"
+
+
+# ---------- one purse for Fritte and the Steuer-Quest ----------
+
+
+def test_one_purse_books_each_reason_once_and_never_goes_below_zero(tmp_path):
+    from frits import store
+    from frits.spiel import stand
+
+    conn = store.connect(tmp_path / "frits.db")
+    assert stand.beutel_gutschreiben(conn, "quest:2025:fund:1", 3, "Fund: Kontoauszug") == 3
+    assert stand.beutel_gutschreiben(conn, "quest:2025:fund:1", 3, "noch einmal") == 0
+    assert stand.guthaben(conn) == 3
+    assert stand.beutel_gebucht(conn, "quest:2025:fund:1") == 3
+    assert stand.beutel_gebucht(conn, "quest:2025:fund:2") is None
+    stand.beutel_bezahlen(conn, 2, "Helfer: Spürnase")
+    assert stand.guthaben(conn) == 1
+    with pytest.raises(stand.SpielFehler, match="fehlen noch"):
+        stand.beutel_bezahlen(conn, 5, "zu teuer")
+    assert stand.guthaben(conn) == 1  # nothing booked
+    # A card put back takes its grains back, but at most what is still there
+    assert stand.beutel_gutschreiben(conn, "quest:2025:zurueck:1", -3, "Fund zurückgelegt") == -1
+    assert stand.guthaben(conn) == 0
+    arten = {z["art"] for z in stand.kassenbuch(conn)}
+    assert arten == {"quest", "kauf"}
+
+
+def test_the_shop_shows_the_quest_shelf_when_the_quest_offers_one(client):
+    assert 'id="insel"' not in client.get("/fritte/laden").text
+    client.app.state.helfer_regal = lambda conn: {"jahr": 2025, "helfer": []}
+    page = client.get("/fritte/laden").text
+    assert 'id="insel"' in page
+    client.app.state.helfer_regal = lambda conn: 1 / 0  # a hiccup in the quest
+    assert client.get("/fritte/laden").status_code == 200
