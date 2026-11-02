@@ -613,6 +613,11 @@ def _gruppe(z: dict) -> str | None:
     return q.group(1) if q else None
 
 
+def _teiltext(z: dict) -> str:
+    """A single booking inside a bundle, without the "Steuer-Quest 2025: " its head names."""
+    return z["text"].removeprefix(f"{z['gruppe']}: ")
+
+
 def _sammeltext(zeile: dict) -> str:
     """ "Steuer-Quest 2025: 11 Buchungen · Serie bis ×8" (the series if the texts name one)."""
     if zeile["gruppe"] == UMSTELLUNG:
@@ -648,8 +653,8 @@ def kassenbuch(conn, limit: int = 30) -> list[dict]:
                 sammel[(z["gruppe"], z["tag"])] = z
             continue
         if not zeile["teile"]:
-            zeile["teile"] = [{"text": zeile["text"], "betrag": zeile["betrag"]}]
-        zeile["teile"].append({"text": z["text"], "betrag": z["betrag"]})
+            zeile["teile"] = [{"text": _teiltext(zeile), "betrag": zeile["betrag"]}]
+        zeile["teile"].append({"text": _teiltext(z), "betrag": z["betrag"]})
         zeile["betrag"] += z["betrag"]
         zeile["text"] = _sammeltext(zeile)
     return zeilen[:limit]
