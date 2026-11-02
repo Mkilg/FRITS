@@ -619,6 +619,7 @@ nav.reiter a::before { content: none !important; }
 .card.als-naechstes.ruhig .kicker { color: var(--moos-dunkel); }
 .card.als-naechstes h2 { margin-top: 0.3rem; }
 .card.als-naechstes ul.plain { margin: 0 0 0.8rem; }
+.card.als-naechstes .fritte-wartet { margin: 0.6rem 0 0; font-size: 0.92rem; }
 /* Settings in folds: the title and the current value on one line, the fields inside */
 .einstellungen-intro { margin: -0.3rem 0 1rem; color: var(--muted); }
 h2.fach-gruppe { font-size: 1.05rem; margin: 1.4rem 0 0.5rem; color: var(--kopf); letter-spacing: 0.02em; }

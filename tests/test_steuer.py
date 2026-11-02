@@ -2827,3 +2827,23 @@ def test_runde_30_frits_karten_stehen_als_erledigt_da(client, ws):
     fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
     seite = client.get("/steuer/2025/gebiet/werkstatt-1").text
     assert "Hat FRITS schon dabei" in seite and "✓ Ausgangsrechnungen" in seite
+
+
+def test_heute_nennt_den_naechsten_quest_schritt(client, ws):
+    """Lena (11-02): „Als Nächstes“ schwieg, obwohl die Quest etwas zu tun hatte."""
+    Settings(
+        name="Kim Beispiel",
+        address="Weg 1, 12345 Ort",
+        iban="DE02120300000000202051",
+        hourly_rate=Decimal(1),
+        setup_done=True,
+    ).save(ws.settings_file)
+    assert client.app.state.quest_auftrag(store.connect(ws.db)) is None  # noch keine Quest
+    fragebogen(client)
+    page = client.get("/").text
+    nxt = page[page.index('id="als-naechstes"') :]
+    nxt = nxt[: nxt.index("</section>")]
+    assert "Steuer 2025:" in nxt and 'class="button primary" href="/steuer/2025' in nxt
+    # Ist die Fundkiste gepackt, ist das Jahr fertig und Heute wieder ruhig
+    quest.notiere(store.connect(ws.db), 2025, "truhe", "fundkiste.zip")
+    assert "Nichts, was eilt" in client.get("/").text

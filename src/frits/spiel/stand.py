@@ -602,12 +602,24 @@ def guthaben(conn) -> int:
     return int(conn.execute("SELECT COALESCE(SUM(betrag), 0) FROM spiel_kasse").fetchone()[0])
 
 
+UMSTELLUNG = "Umstellung auf eine Währung"
+
+
+def _gruppe(z: dict) -> str | None:
+    """Which Kassenbuch rows of one day fold into one: a quest year, or the currency move."""
+    if z["art"] == "drachensieg" or (z["art"] == "quest" and "Gold von früher" in z["text"]):
+        return UMSTELLUNG
+    q = re.match(r"(Steuer-Quest \d{4})", z["text"]) if z["art"] == "quest" else None
+    return q.group(1) if q else None
+
+
 def kassenbuch(conn, limit: int = 30) -> list[dict]:
     """Every grain in or out, newest first. A Kassensturz row knows its number, so the
     Kassenbuch is also the chronicle: each one can be replayed from there.
 
     The Steuer-Quest books many small amounts (one per Zettel). Those of one quest year
-    on one day become one row with a sum; the single bookings stay in "teile"."""
+    on one day become one row with a sum; the single bookings stay in "teile". The same
+    goes for the one-time move from the old quest gold to Salzkörner (Lena: one row)."""
     zeilen: list[dict] = []
     for r in conn.execute(
         "SELECT tag, betrag, art, text FROM spiel_kasse ORDER BY id DESC LIMIT ?", (limit * 3,)
@@ -616,15 +628,18 @@ def kassenbuch(conn, limit: int = 30) -> list[dict]:
         m = re.match(r"Kassensturz Nr\. (\d+)", z["text"]) if z["art"] == "kassensturz" else None
         z["nummer"] = int(m.group(1)) if m else None
         z["teile"] = []
-        q = re.match(r"(Steuer-Quest \d{4})", z["text"]) if z["art"] == "quest" else None
-        z["gruppe"] = q.group(1) if q else None
+        z["gruppe"] = _gruppe(z)
         vorige = zeilen[-1] if zeilen else None
         if z["gruppe"] and vorige and (vorige["gruppe"], vorige["tag"]) == (z["gruppe"], z["tag"]):
             if not vorige["teile"]:
                 vorige["teile"] = [{"text": vorige["text"], "betrag": vorige["betrag"]}]
             vorige["teile"].append({"text": z["text"], "betrag": z["betrag"]})
             vorige["betrag"] += z["betrag"]
-            vorige["text"] = f"{z['gruppe']}: {len(vorige['teile'])} Buchungen"
+            vorige["text"] = (
+                z["gruppe"]
+                if z["gruppe"] == UMSTELLUNG
+                else f"{z['gruppe']}: {len(vorige['teile'])} Buchungen"
+            )
             continue
         zeilen.append(z)
     return zeilen[:limit]

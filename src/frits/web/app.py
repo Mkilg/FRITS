@@ -553,10 +553,23 @@ def create_app(
                 )
         else:
             moment = mascot_line("welcome_back")
+        naechstes = _naechstes(current, check_me, waiting, drafts, overdue, receipts)
+        quest_auftrag = None
+        if not naechstes:
+            # Nothing on the work desk: the Steuer-Quest may have the next real step (it is
+            # tax paperwork too). A hiccup in the quest never breaks Heute.
+            frage = getattr(app.state, "quest_auftrag", None)
+            try:
+                quest_auftrag = frage(conn) if frage else None
+            except Exception:  # noqa: BLE001
+                quest_auftrag = None
+            if quest_auftrag:
+                naechstes = "quest"
         return page(
             request,
             "home.html",
-            naechstes=_naechstes(current, check_me, waiting, drafts, overdue, receipts),
+            naechstes=naechstes,
+            quest_auftrag=quest_auftrag,
             drafts=drafts,
             overdue=overdue,
             open_count=sum(1 for i in invoices if i["status"] in ("offen", "überfällig")),
