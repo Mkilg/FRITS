@@ -220,7 +220,7 @@ button.gross { font-size: 1.1rem; padding: .7rem 1.6rem; }
   hyphens: auto; overflow-wrap: anywhere; /* Lena: was the smallest text in the app */
 }
 .selten-gewoehnlich { --etikett: var(--moos); }
-.selten-selten { --etikett: var(--tinte-hell); }
+.selten-selten { --etikett: var(--wachs); } /* sealing-wax red, the last big blue went (Lena R43) */
 .selten-legendaer { --etikett: var(--gold); }
 .selten-legendaer .glas-koerper { box-shadow: 0 0 0 2px rgba(233, 189, 79, .55), 0 4px 10px rgba(156, 111, 31, .35); }
 .gewuerzglas.klein { width: 3.6rem; }
@@ -287,7 +287,8 @@ details[open] > summary::before { content: "▾ "; }
   background-image: linear-gradient(160deg, rgba(255, 246, 216, .18), transparent 45%, rgba(40, 20, 5, .14)),
     repeating-linear-gradient(90deg, rgba(255, 255, 255, .03) 0 2px, transparent 2px 5px);
   box-shadow: inset 0 0 0 3px rgba(255, 246, 216, .12), 0 2px 0 rgba(0, 0, 0, .2), 0 10px 18px rgba(30, 15, 5, .4); }
-.ks-box.koerner { background-color: var(--tinte-hell); --dreh: -1.2deg; transform: rotate(var(--dreh)); }
+/* Körner in the green of the Körner chips on the cards, so the eye links them (Lena R43: the blue box stood out) */
+.ks-box.koerner { background-color: var(--moos-dunkel); --dreh: -1.2deg; transform: rotate(var(--dreh)); }
 .ks-box.wuerze { background-color: var(--terrakotta); --dreh: 1deg; transform: rotate(var(--dreh)); }
 .ks-box strong { display: block; font-family: var(--schrift); font-size: 2rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .ks-label { font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; opacity: .9; }
@@ -311,10 +312,10 @@ details[open] > summary::before { content: "▾ "; }
 .ks-plus {
   position: absolute; left: 50%; top: 30%; z-index: 5; pointer-events: none; white-space: nowrap;
   transform: translateX(-50%); padding: .1rem .5rem; border-radius: 999px;
-  font-family: var(--schrift); font-weight: 800; font-size: 1.15rem; color: #fff; background: var(--tinte-hell);
+  font-family: var(--schrift); font-weight: 800; font-size: 1.15rem; color: #fff; background: var(--moos-dunkel);
   animation: aufsteigen 1s ease-out forwards;
 }
-.ks-plus.gewuerz { background: var(--moos-dunkel); }
+.ks-plus.gewuerz { background: var(--gold); color: var(--eiche-tief); }
 .ks-plus.wuerze { background: var(--terrakotta); top: -10%; }
 .ks-plus.mal { background: var(--wachs); font-size: 1.8rem; top: -30%; }
 @keyframes aufsteigen { 0% { opacity: 0; transform: translate(-50%, 8px) scale(.6); } 20% { opacity: 1; transform: translate(-50%, 0) scale(1.1); } 100% { opacity: 0; transform: translate(-50%, -34px) scale(1); } }
@@ -536,7 +537,7 @@ details[open] > summary::before { content: "▾ "; }
 @media (max-height: 820px) {
   .kassensturz-show .ks-aktionen { position: sticky; bottom: 0; z-index: 5; padding: .5rem 0;
     background: linear-gradient(180deg, transparent, var(--bg) 35%); }
-  .kassensturz-show .ks-ausbau { scroll-margin-bottom: 8rem; } /* not under the buttons and the tab bar */
+  .kassensturz-show .ks-ausbau, .kassensturz-show .ks-ergebnis { scroll-margin-bottom: 8rem; } /* not under the buttons and the tab bar */
   .kassensturz-show .ks-karten .spielkarte { width: 5.9rem; min-height: 7.6rem; }
   .kassensturz-show .ks-karten .karte-detail { display: none; }
 }
@@ -547,14 +548,14 @@ details[open] > summary::before { content: "▾ "; }
   background:
     conic-gradient(from 150deg at 50% 0, var(--moos) 0 60deg, transparent 0) 0 0 / 9% 100%,
     conic-gradient(from 150deg at 50% 0, var(--gold) 0 60deg, transparent 0) 3% 0 / 9% 100%,
-    conic-gradient(from 150deg at 50% 0, var(--tinte-hell, #4a6896) 0 60deg, transparent 0) 6% 0 / 9% 100%; }
+    conic-gradient(from 150deg at 50% 0, var(--wachs) 0 60deg, transparent 0) 6% 0 / 9% 100%; }
 /* The Frittenbude has its garland already: on a festival it gets more colours. */
 .zimmer.stufe-5 .wimpel { display: none; }
 .zimmer.stufe-5.fest .girlande { background:
     conic-gradient(from 150deg at 50% 0, var(--terrakotta) 0 60deg, transparent 0) 0 0 / 8% 100%,
     conic-gradient(from 150deg at 50% 0, var(--moos) 0 60deg, transparent 0) 2% 0 / 8% 100%,
     conic-gradient(from 150deg at 50% 0, var(--gold) 0 60deg, transparent 0) 4% 0 / 8% 100%,
-    conic-gradient(from 150deg at 50% 0, var(--tinte-hell, #4a6896) 0 60deg, transparent 0) 6% 0 / 8% 100%; }
+    conic-gradient(from 150deg at 50% 0, var(--wachs) 0 60deg, transparent 0) 6% 0 / 8% 100%; }
 .feste { display: grid; gap: .4rem; padding: 0; list-style: none; }
 .feste li { display: flex; gap: .6rem; align-items: baseline; flex-wrap: wrap; }
 .pokal-jahre { display: grid; gap: .5rem; }
@@ -598,6 +599,7 @@ details[open] > summary::before { content: "▾ "; }
 .gericht:has(input:checked) { border-color: var(--moos-dunkel); background: #eef3df; transform: translateY(-3px); }
 .gericht:has(input:checked)::after { content: "✓"; position: absolute; top: .35rem; right: .55rem; color: var(--moos-dunkel); font-weight: 700; }
 .gericht-zeichen { grid-row: 1 / span 3; font-size: 2rem; line-height: 1; align-self: center; }
+.gericht-zeichen img.zeichen-bild { width: 2.6rem; height: 2.6rem; vertical-align: middle; display: block; }
 .gericht strong { font-family: var(--schrift); }
 .gericht-text { font-size: .85rem; color: var(--ink); }
 .gericht-summe { font-size: .85rem; color: var(--muted); margin-top: .2rem; }
@@ -635,7 +637,7 @@ details[open] > summary::before { content: "▾ "; }
 .truhe-klein.leer { opacity: .45; filter: grayscale(.6); }
 .truhe-klein.voll .truhe-deckel { box-shadow: 0 -.2em .6em rgba(233, 189, 79, .7); }
 /* a scrolled-to banner never ends under the phone's tab bar (Lena) */
-.kassensturz-show .ks-ausbau { scroll-margin-bottom: 6rem; }
+.kassensturz-show .ks-ausbau, .kassensturz-show .ks-ergebnis { scroll-margin-bottom: 6rem; }
 /* the pill keeps its own size: the tall phone hit area of ".salz a" goes to an invisible frame (Lena:
    it covered "Salzkörner") */
 .salz a.truhe-wartet { position: relative; padding: .05rem .5rem; margin: 0 0 0 .4rem; }
@@ -743,7 +745,7 @@ details[open] > summary::before { content: "▾ "; }
 
 /* One warm look for the signs that are still emoji, until Marie paints them (Lena: the blue
    wave of Meersalz stood out). Painted pictures are left as they are. */
-.warm-zeichen, .zeichen-emoji, .glas-zeichen:not(:has(img)), .fund-chip > span, .gericht-zeichen, .za-zeichen,
+.warm-zeichen, .zeichen-emoji, .glas-zeichen:not(:has(img)), .fund-chip > span:not(:has(img)), .gericht-zeichen:not(:has(img)), .za-zeichen,
 .zimmer .werkbank i { filter: sepia(.35) saturate(.7) contrast(.95); }
 
 /* Painted views of the five places: a postcard for the next Bude, small pictures on the map */
@@ -751,3 +753,6 @@ details[open] > summary::before { content: "▾ "; }
   border: 6px solid #fffaf0; border-radius: 2px; box-shadow: 0 2px 0 var(--papier-schatten), 0 8px 18px rgba(60, 35, 10, .22); transform: rotate(-1.2deg); }
 .landkarte .aussicht-mini { width: 48px; height: 32px; object-fit: cover; border-radius: 2px; vertical-align: middle; margin-right: .35rem;
   border: 2px solid #fffaf0; box-shadow: 0 1px 3px rgba(60, 35, 10, .25); }
+/* the place of the house as a tiny postcard next to its name, not as an emoji (Lena R43) */
+h2 .hint .aussicht-mini { width: 36px; height: 24px; object-fit: cover; border-radius: 2px; vertical-align: -0.35em; margin-right: .2rem;
+  border: 2px solid #fffaf0; box-shadow: 0 1px 2px rgba(60, 35, 10, .25); }

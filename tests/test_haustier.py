@@ -9,7 +9,7 @@ from test_web import TODAY, client, mails, post, provider, ws  # noqa: F401
 from frits import haustier, store
 from frits.settings import Settings
 from frits.spiel import kassensturz, stand
-from frits.spiel.gewuerze import NACH_ID
+from frits.spiel.gewuerze import NACH_ID, REZEPT_NACH_ID
 from frits.web.haustier import markt
 
 
@@ -1027,3 +1027,27 @@ def test_the_card_note_counts_only_cards_that_really_wait(client, ws):  # noqa: 
     add_invoice(conn, "2026-0002", TODAY, came=TODAY)
     note = client.get("/invoices").text
     assert "Fritte hat eine neue Karte für den Kassensturz: 1 wartet" in note
+
+
+def test_hats_and_dishes_show_painted_pictures_not_emoji(client, ws):  # noqa: F811
+    """Lena R43: emoji hats in the cupboard and an emoji pot next to painted pepper."""
+    from pathlib import Path
+
+    from frits.web import app as web_app
+
+    conn = store.connect(ws.db)
+    client.get("/")
+    stand.nimm(conn, "zylinder", "ding", TODAY.isoformat(), 0)
+    conn.commit()
+    laden = client.get("/fritte/laden").text
+    assert '<img class="zeichen-bild" src="/static/bilder/ding-zylinder.webp"' in laden
+
+    # a dish without its own picture sits on the shelf as a preserving jar
+    env = web_app._templates().env
+    env.globals["picture"] = web_app.painted_pictures(Path(web_app.__file__).parent / "static").get
+    spiel = env.get_template("_spiel.html").module
+    glas = str(spiel.glas(REZEPT_NACH_ID["belegsuppe"]))
+    assert "symbol-einkochen.webp" in glas and "🍲" not in glas
+    assert "gewuerz-pfeffer.webp" in str(spiel.glas(NACH_ID["pfeffer"]))
+    assert "ding-postkarte.webp" in str(spiel.bild_zeichen("ding", "postkarte", "💌"))
+    assert str(spiel.bild_zeichen("salz", "", "🧂")) == "🧂"
