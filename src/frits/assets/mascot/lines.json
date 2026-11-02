@@ -44,7 +44,7 @@
     "first_invoice": {
       "mood": "thinking",
       "title": "Deine erste Rechnung",
-      "text": "Zieh eine Notiz, eine E-Mail oder ein Foto auf das Feld, oder kopier sie und drück ⌘V. Ich mache daraus einen Entwurf, den du in Ruhe prüfen kannst."
+      "text": "Gib mir über das Feld unten eine Notiz, eine E-Mail oder ein Foto. Ich mache daraus einen Entwurf, den du in Ruhe prüfen kannst."
     },
     "done": {
       "mood": "done",

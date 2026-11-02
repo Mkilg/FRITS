@@ -1769,3 +1769,19 @@ details.sq-mehr-marken .kurz { display: none; }
   /* Meldungen sitzen über der unteren Leiste, nicht auf ihr */
   .sq-zettelchen { bottom: calc(76px + env(safe-area-inset-bottom)); }
 }
+/* Runde 38 (Lena, Runde 37): Papier hat dunkle Tinte, auch für leise Links und Knöpfe */
+.sq :is(.sq-papier, .sq-pergament) { --muted: var(--muted-papier, #6b5a48); --link: var(--tinte); --ink: var(--ink-papier, #2b2118); }
+.sq-rand-klappe > summary { list-style: none; cursor: pointer; }
+.sq-rand-klappe > summary::-webkit-details-marker { display: none; }
+.sq-rand-klappe > summary h2 { display: inline; }
+.sq-rand-klappe > summary h2::after { content: " ▾"; font-size: .8em; color: var(--muted-papier, #6b5a48); }
+/* Tippflächen am Handy mindestens 44 px */
+@media (pointer: coarse) {
+  .sq :is(.sq-plus, .sq-minus) { min-width: 44px; min-height: 44px; }
+  .sq .sq-ahnung button, .sq .sq-stutzt button { min-height: 44px; }
+  .sq .sq-mehr > summary, .sq .sq-stempelknopf { min-height: 44px; }
+  /* Lena (Runde 38): summary ist inline, min-height griff nicht ("Mehr" 42 × 40) */
+  .sq .sq-mehr > summary { display: inline-flex; align-items: center; min-width: 44px; }
+  .sq .sq-noch-liste a { display: inline-flex; align-items: center; min-height: 44px; }
+}
+.sq-anderes-jahr { display: inline-block; font: 700 .72rem system-ui, sans-serif; color: #8a2b16; background: #fbe3d6; border-radius: 999px; padding: .05rem .4rem; margin-right: .3rem; }

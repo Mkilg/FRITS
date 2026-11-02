@@ -3,7 +3,7 @@
 {% block content %}
 <div class="head-row">
   <h1>Rechnungen</h1>
-  {% if not im_browser() %}<form method="post" action="/open/invoices"><input type="hidden" name="token" value="{{ token }}"><button class="quiet">Ordner öffnen</button></form>{% endif %}
+  {% if not im_browser() %}<form method="post" action="/open/invoices" class="nur-maus"><input type="hidden" name="token" value="{{ token }}"><button class="quiet">Ordner öffnen</button></form>{% endif %}
 </div>
 {% if invoices %}
 <div class="table-wrap"><table class="table">
@@ -123,7 +123,7 @@
         <fieldset class="field schon-bezahlt">
           <legend>Schon bezahlt?</legend>
           <label class="choice"><input type="radio" name="bezahlt" value="ja" required{{ " checked" if staged and staged.bezahlt == "ja" }}> Ja, am
-            <input type="date" name="paid" max="{{ today_iso }}" value="{{ staged.paid if staged else '' }}" aria-label="Bezahlt am"{% if staged and staged.paid %} class="imported"{% endif %}></label>
+            <input type="date" name="paid" max="{{ today_iso }}" value="{{ staged.paid if staged else '' }}" aria-label="Bezahlt am"{% if staged and staged.paid %} class="imported"{% endif %}{% if staged and staged.fokus == "paid" %} autofocus{% endif %}></label>
           <label class="choice"><input type="radio" name="bezahlt" value="nein"{{ " checked" if staged and staged.bezahlt == "nein" }}> Nein, das Geld fehlt noch</label>
           {% if staged and staged.bezahlt == "ja" %}<small class="muted">{% if staged.paid %}Geschätzt: der Tag, an dem sie fällig war. Steht auf dem Kontoauszug ein anderer, trag ihn ein.{% else %}Die Rechnung ist lange fällig. Trag den Tag vom Kontoauszug ein, er zählt für das Jahr.{% endif %}</small>{% endif %}
         </fieldset>

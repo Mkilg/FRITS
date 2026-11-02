@@ -229,6 +229,7 @@ RUFE = (
     "Legendäre Serie!",
 )
 SERIE_WARTET = "Treffer! Die Serie wartet auf den nächsten Beleg."
+SCHON_GEWERTET = "Wieder abgelegt. Diese Karte war schon gewertet, darum ohne Serie."
 VOLLTREFFER = "Volltreffer mit Beleg! "
 
 
@@ -502,9 +503,9 @@ def auftrag(
             "korb",
             "Sortiere den Eingangskorb",
             (
-                "Ein Zettel wartet. Zieh ihn auf seine Provinz."
+                "Ein Zettel wartet. Leg ihn auf seine Provinz."
                 if zettel == 1
-                else f"{zettel} Zettel warten. Zieh jeden auf seine Provinz."
+                else f"{zettel} Zettel warten. Leg jeden auf seine Provinz."
             ),
             "Ersten Zettel ansehen",
             "#sq-korb",
@@ -862,9 +863,13 @@ def verdienste(
     nachher: list[dict],
     mult: int = 1,
     helfer: frozenset[str] | set[str] = frozenset(),
+    ohne_serie: frozenset[str] | set[str] = frozenset(),
 ) -> list[Verdienst]:
     """Was diese Änderung an Gold bringen kann. Ob es schon einmal ausgezahlt wurde,
-    entscheidet das Goldbuch (gleicher Grund zahlt nie zweimal)."""
+    entscheidet das Goldbuch (gleicher Grund zahlt nie zweimal).
+
+    ohne_serie: Gründe, die schon einmal zurückgebucht wurden. Sie zahlen nur den Grundwert,
+    auch im Kampf (Lena, Runde 38: sonst bringt Zurücklegen und Neuwerfen mehr als vorher)."""
     alt = {s["id"]: s["status"] for s in vorher}
     neu = []
     for s in nachher:
@@ -877,10 +882,12 @@ def verdienste(
         # Finden zahlt extra aus, auch wenn die Karte vorher als Frage erledigt war
         art = "fund" if status == "gesammelt" else "antwort"
         # Fragen und Wünsche füttern keine Gold-Serie (Wünsche kann man selbst erfinden)
-        faktor = mult if status == "gesammelt" and not ist_wunsch(s) else 1
+        grund = karten_grund(s, art)
+        frisch = grund not in ohne_serie
+        faktor = mult if status == "gesammelt" and not ist_wunsch(s) and frisch else 1
         # „(×4)“ im Text: Frittes Kassenbuch nennt damit die Serie des Kampfes
         text = s["name"] + (f" (×{faktor})" if faktor > 1 else "")
-        neu.append(Verdienst(karten_grund(s, art), basis, faktor, text))
+        neu.append(Verdienst(grund, basis, faktor, text))
     return neu
 
 

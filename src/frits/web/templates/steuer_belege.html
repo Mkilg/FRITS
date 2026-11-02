@@ -11,7 +11,7 @@
   <div class="sq-buch">
     <section class="sq-papier sq-buchkopf">
       <h1>Belegbuch {{ jahr }}</h1>
-      <p class="muted">Alles, was schon bei deinen Karten liegt, an einem Ort. Klick auf einen Beleg, um ihn anzusehen.</p>
+      <p class="muted">Alles, was schon bei deinen Karten liegt, an einem Ort. Tipp auf einen Beleg, um ihn anzusehen.</p>
       <ul class="sq-buch-summen">
         <li><b>{{ summen.belege }}</b> Beleg{{ "e" if summen.belege != 1 }}</li>
         <li><b>{{ summen.angaben }}</b> eingetippte Angabe{{ "n" if summen.angaben != 1 }}</li>
@@ -80,7 +80,7 @@
               <div class="reihe">
                 <a class="button quiet" href="/steuer/{{ jahr }}/datei/{{ d.id }}" target="_blank" rel="noopener">{{ "Ansehen" if d.zeigbar else "Herunterladen" }}</a>
                 <form method="post" action="/steuer/{{ jahr }}/datei/{{ d.id }}/entfernen">
-                  <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back" value="{{ zurueck }}">
+                  <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back" value="{{ zurueck }}#provinz-{{ p.g.id }}">
                   <button class="quiet" title="Falsch abgelegt? Zurück in den Eingangskorb, dann neu zuordnen">Zurücklegen</button>
                 </form>
                 <form method="post" action="/steuer/{{ jahr }}/datei/{{ d.id }}/ki">
@@ -111,7 +111,7 @@
       {% endfor %}
       {% set gibts_nicht = p.karten | selectattr("status", "equalto", "gibts_nicht") | list %}
       {% if gibts_nicht %}
-      <p class="sq-buch-leer">Steht als „gibt es nicht“ in der Mail: {% for k in gibts_nicht %}<a href="/steuer/{{ jahr }}/gebiet/{{ p.g.id }}" title="Doch vorhanden? Auf der Karte den Stempel zurücknehmen">{{ k.name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}. Doch vorhanden? Klick drauf und nimm den Stempel zurück.</p>
+      <p class="sq-buch-leer">Steht als „gibt es nicht“ in der Mail: {% for k in gibts_nicht %}<a href="/steuer/{{ jahr }}/gebiet/{{ p.g.id }}" title="Doch vorhanden? Auf der Karte den Stempel zurücknehmen">{{ k.name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}. Doch vorhanden? Tipp drauf und nimm den Stempel zurück.</p>
       {% endif %}
       {% if p.leer %}
       <p class="sq-buch-leer">Noch leer: {% for k in p.leer %}<a href="/steuer/{{ jahr }}/gebiet/{{ p.g.id }}">{{ k.name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</p>
@@ -126,7 +126,7 @@
     <a class="sq-zurueck" href="/steuer/{{ jahr }}">← Zur Insel</a>
     <div class="sq-fritte-platz">
       {% set stimmung = "done" if summen.leer == 0 else "thinking" %}{% include "_steuer_fritte.html" %}
-      <p class="sq-sprechblase">{% if summen.belege + summen.angaben == 0 %}Noch leer hier. Zieh deinen ersten Beleg auf eine Karte, dann taucht er hier auf.{% elif summen.leer %}Schon {{ summen.belege + summen.angaben }} Stück gesichert. Unten in jeder Provinz steht, was noch fehlt.{% elif drache.besiegt %}Der Drache ist besiegt! Hier siehst du noch einmal alles, bevor du die Fundkiste packst.{% else %}Alle Pflichtkarten haben etwas. Jetzt nur noch den Drachen besiegen!{% endif %}</p>
+      <p class="sq-sprechblase">{% if summen.belege + summen.angaben == 0 %}Noch leer hier. Leg deinen ersten Beleg auf eine Karte, dann taucht er hier auf.{% elif summen.leer %}Schon {{ summen.belege + summen.angaben }} Stück gesichert. Unten in jeder Provinz steht, was noch fehlt.{% elif drache.besiegt %}Der Drache ist besiegt! Hier siehst du noch einmal alles, bevor du die Fundkiste packst.{% else %}Alle Pflichtkarten haben etwas. Jetzt nur noch den Drachen besiegen!{% endif %}</p>
     </div>
     {# Vom Tisch hierher: der Lager-Ordner und alles, was man selten braucht (Marie, 2.11.) #}
     <form method="post" action="/steuer/{{ jahr }}/lager/oeffnen">
@@ -135,7 +135,7 @@
     </form>
     <details class="sq-papier sq-wohin">
       <summary>Was gehört wohin?</summary>
-      <p class="muted">Zieh ein Dokument auf die Provinz, zu der es gehört. Unsicher? Dann leg es im Rathaus unter „Sonstiges für die Beraterin“ ab.</p>
+      <p class="muted">Leg ein Dokument auf die Provinz, zu der es gehört. Unsicher? Dann leg es im Rathaus unter „Sonstiges für die Beraterin“ ab.</p>
       <ul>
         {% for p in provinzen %}
         <li><a href="/steuer/{{ jahr }}/gebiet/{{ p.gebiet.id }}"><strong>{{ p.gebiet.titel }}</strong></a>
@@ -166,17 +166,17 @@
     {% endif %}
 
     {% if chronik %}
-    <section class="sq-papier sq-schief sq-notiz" style="--r: -0.8deg">
-      <h2>Chronik</h2>
-      <ul>{% for e in chronik[:6] %}<li>{{ e.text }}</li>{% endfor %}</ul>
-    </section>
+    <details class="sq-papier sq-schief sq-notiz sq-rand-klappe" style="--r: -0.8deg" open>
+      <summary><h2>Chronik</h2></summary>
+      <ul>{% for e in (chronik | unique(attribute="text") | list)[:6] %}<li>{{ e.text }}</li>{% endfor %}</ul>
+    </details>
     {% endif %}
-    <div class="sq-papier sq-schief sq-wer-sieht" style="--r: 0.8deg">
-      <h2>Wer sieht deine Belege?</h2>
+    <details class="sq-papier sq-schief sq-wer-sieht sq-rand-klappe" style="--r: 0.8deg" open>
+      <summary><h2>Wer sieht deine Belege?</h2></summary>
       <p>Nur du. Die Steuer-Quest schickt nichts an eine KI. Die Vorschläge im Eingangskorb rät FRITS aus dem Dateinamen, hier auf deinem Computer.</p>
       <p>Bei „Mit KI besprechen“ liest FRITS den Beleg hier, schwärzt Namen, Adressen und Nummern, und zeigt dir genau, was rausgehen würde. Raus geht erst etwas, wenn du dort eine Frage stellst.</p>
       <p>Deine Beraterin bekommt die Belege erst, wenn du am Ende die Fundkiste packst und selbst verschickst.</p>
-    </div>
+    </details>
   </aside>
 </div>
 </div>
