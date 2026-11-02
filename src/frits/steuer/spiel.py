@@ -230,7 +230,7 @@ RUFE = (
     "Legendäre Serie!",
 )
 SERIE_WARTET = "Treffer! Die Serie wartet auf den nächsten Beleg."
-SCHON_GEWERTET = "Wieder abgelegt. Diese Karte war schon gewertet, darum ohne Serie."
+SCHON_GEWERTET = "Wieder abgelegt, schon gewertet: ohne Serie."
 VOLLTREFFER = "Volltreffer mit Beleg! "
 
 
@@ -823,7 +823,10 @@ def gold_fuer(stueck: dict, status: str, helfer: frozenset[str] | set[str] = fro
         wert = GOLD_FRAGE + (1 if "brieftaube" in helfer else 0)
         return 0 if "goldwaage" in helfer else wert
     if status == "gibts_nicht":
+        # Lena (Runde 40): Bei freiwilligen Schätzen zahlte Wegstempeln (+1 je Tippen)
         if ist_kern(stueck["gebiet"], stueck["key"]) or "brieftaube" in helfer:
+            return 0
+        if ist_bonus(stueck):
             return 0
         return GOLD_GIBTS_NICHT
     return 0

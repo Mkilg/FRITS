@@ -15,7 +15,15 @@ from frits import store, system
 from frits.expenses import Expense, add_expense
 from frits.settings import Settings, Workspace
 from frits.steuer import beraterin, ernte, pruefung, quest, spiel, truhe
-from frits.steuer.katalog import HAKEN, MACHT_BERATERIN, Profil, ist_kern, katalog, reich
+from frits.steuer.katalog import (
+    HAKEN,
+    MACHT_BERATERIN,
+    Profil,
+    fehlt_nie,
+    ist_kern,
+    katalog,
+    reich,
+)
 from frits.web.app import create_app
 from frits.web.steuer import inselplan
 
@@ -3313,7 +3321,7 @@ def test_runde_40_serie_bleibt_und_drache_verspricht_ehrlich(client, ws):
     assert client.app.state.steuer_combo[2025]["combo"] == serie  # die Serie bleibt stehen
     drache = client.get("/steuer/2025/drache").text
     assert spiel.drache(quest.stuecke(conn, 2025)).karte["id"] == erste["id"]
-    assert "Diese Karte war schon gewertet: +2" in drache
+    assert "Die Karte vorn war schon gewertet: +2" in drache
     assert "schon gewertet, +2" in drache and "Nächster Beleg:" not in drache
     name = quest.lager_dateien(ws.root)[0].name
     seite = post(client, "/steuer/2025/drache/schlag", stueck_id=str(erste["id"]),
@@ -3325,6 +3333,59 @@ def test_runde_40_dateinamen_brechen_an_trennzeichen():
     from frits.web.steuer import umbruch
 
     assert str(umbruch("Steuerbescheid_2024_Finanzamt.pdf")) == (
-        "Steuerbescheid_<wbr>2024_<wbr>Finanzamt.<wbr>pdf"
+        "Steuerbescheid_<wbr>2024_<wbr>Finanzamt.pdf"
     )
     assert "&lt;b&gt;" in str(umbruch("<b>_x"))
+
+
+def test_runde_41_letzte_kanten_beim_umbuchen(client, ws):
+    """Lena (Runde 40): Gibt's nicht auf Schätzen zahlte, Gibt's nicht und dann Datei +1,
+    und ein neu verdientes Siegel zahlte einen Nachschlag."""
+    fragebogen(
+        client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"}, teil3={"haken": "vorsorge"}
+    )
+    conn = quest.ensure_schema(store.connect(ws.db))
+    schatz = quest.stuecke(conn, 2025, "burg")[0]
+    start = quest.gold(conn, 2025)
+    seite = post(client, f"/steuer/2025/stueck/{schatz['id']}/status", status="gibts_nicht").text
+    assert quest.gold(conn, 2025) == start and "Abgehakt" in seite and "Zählt trotzdem" not in seite
+
+    # Gibt's nicht, dann doch eine Datei: wie ein direkter Fund
+    karte = next(
+        s
+        for s in spiel.pflicht(quest.stuecke(conn, 2025))
+        if not ist_kern(s["gebiet"], s["key"]) and not fehlt_nie(s["gebiet"], s["key"])
+    )
+    vorher = quest.gold(conn, 2025)
+    post(client, f"/steuer/2025/stueck/{karte['id']}/status", status="gibts_nicht")
+    assert quest.gold(conn, 2025) == vorher + spiel.GOLD_GIBTS_NICHT
+    post(
+        client,
+        f"/steuer/2025/stueck/{karte['id']}/datei",
+        files=[("datei", ("doku.pdf", b"%PDF doku"))],
+    )
+    assert quest.stueck(conn, karte["id"])["status"] == "gesammelt"
+    assert quest.gold(conn, 2025) == vorher + spiel.gold_fuer(karte, "gesammelt")
+
+
+def test_runde_41_siegel_zahlt_nach_dem_zuruecklegen_nicht_mehr(client, ws):
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    rathaus = [s for s in spiel.pflicht(quest.stuecke(conn, 2025)) if s["gebiet"] == "rathaus"]
+    for s in rathaus:  # alles als Frage: Das Siegel zahlt wenig (keine Funde)
+        post(client, f"/steuer/2025/stueck/{s['id']}/status", status="fragen")
+    sql = "SELECT betrag FROM steuer_gold WHERE jahr = 2025 AND grund = 'siegel:rathaus'"
+    assert conn.execute(sql).fetchone()[0] == spiel.siegel_gold(0)
+    erste = rathaus[0]
+    post(client, f"/steuer/2025/stueck/{erste['id']}/datei",
+         files=[("datei", ("id.pdf", b"%PDF id"))])  # fmt: skip
+    vorher = quest.gold(conn, 2025)
+    d = quest.dateien(conn, 2025, erste["id"])[0]
+    post(client, f"/steuer/2025/datei/{d['id']}/entfernen")
+    name = next(f.name for f in quest.lager_dateien(ws.root) if f.name.startswith("id"))
+    post(client, "/steuer/2025/lager/zuordnen", name=name, stueck_id=str(erste["id"]),
+         trotzdem="1")  # fmt: skip
+    assert quest.stueck(conn, erste["id"])["status"] == "gesammelt"
+    assert conn.execute(sql).fetchone()[0] == spiel.siegel_gold(0)  # kein Nachschlag
+    # Das Korn für die Frage von vorhin bleibt weg (der Satz sagte „etwa 2“), nie mehr als vorher
+    assert quest.gold(conn, 2025) == vorher - spiel.GOLD_FRAGE

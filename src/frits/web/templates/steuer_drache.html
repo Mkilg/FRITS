@@ -54,7 +54,7 @@
   {% if goldjahr %}
   <div class="sq-combo{% if combo.wartet %} wartet{% endif %}" aria-live="polite"><span class="mult" title="Serie: So oft zählen die Salzkörner für deinen nächsten Beleg">Serie ×{{ combo.naechster }}</span><span class="ruf">{{ combo.ruf }}</span>
     {% if combo.gewertet is defined %}
-    <small class="sq-combo-regel">Diese Karte war schon gewertet: +{{ koerner(combo.gewertet) }}, ohne Serie. Deine Serie wartet auf die nächste neue Karte.</small>
+    <small class="sq-combo-regel">Die Karte vorn war schon gewertet: +{{ koerner(combo.gewertet) }}{% if combo.siegel_dazu %}, dazu das Siegel +{{ combo.siegel_dazu }}{% endif %}, ohne Serie. Deine Serie wartet auf die nächste neue Karte.</small>
     {% else %}
     <small class="sq-combo-regel">Nächster Beleg: {{ combo.basis }} × {{ combo.naechster }} = {{ koerner(combo.basis * combo.naechster) }}. Jeder Beleg lässt die Serie wachsen, Fragen treffen auch, aber die Serie wartet dann.</small>
     {% endif %}
@@ -79,7 +79,7 @@
         <button class="quiet">Falsch? Zurücklegen</button>
       </form>
       {% else %}
-      <span><b>{{ "Treffer" if wurf.wieder else "Volltreffer" if wurf.wie == "datei" else ("Notiert" if wurf.wie == "gibts_nicht" else "Treffer") }}:</b> {{ {"datei": "„" ~ wurf.karte ~ "“ ist gesichert.", "fragen": "„" ~ wurf.karte ~ "“ kommt als Frage in die Mail.", "gibts_nicht": "„" ~ wurf.karte ~ "“ gibt es nicht.", "verweis": "„" ~ wurf.karte ~ "“ benutzt dieselbe Datei mit."}.get(wurf.wie, "") }}</span>
+      <span><b>{{ "Treffer" if wurf.wieder else "Volltreffer" if wurf.wie == "datei" else ("Notiert" if wurf.wie == "gibts_nicht" else "Treffer") }}:</b> {{ {"datei": "„" ~ wurf.karte ~ "“ ist gesichert.", "fragen": "„" ~ wurf.karte ~ "“ kommt als Frage in die Mail.", "gibts_nicht": "„" ~ wurf.karte ~ "“ gibt es nicht.", "verweis": "„" ~ wurf.karte ~ "“ benutzt dieselbe Datei mit."}.get(wurf.wie, "") }}{% if wurf.ohne_koerner %} Die Karte war schon gewertet, darum bringt das keine Salzkörner.{% endif %}</span>
       {% if wurf.zurueck and not drache.besiegt %}
       <form method="post" action="/steuer/{{ jahr }}/drache/zuruecknehmen">
         <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="stueck_id" value="{{ wurf.zurueck }}">
@@ -110,7 +110,7 @@
         <input type="hidden" name="token" value="{{ token }}">
         <input type="hidden" name="stueck_id" value="{{ k.id }}">
         <div class="sq-ablage">
-          <label class="fach">{% if goldjahr and combo.gewertet is defined %}Datei geben: schon gewertet, +{{ koerner(combo.gewertet) }} ohne Serie{% else %}Datei geben: Volltreffer, die Serie wächst doppelt!{% endif %}<input type="file" name="datei" multiple></label>
+          <label class="fach">{% if goldjahr and combo.gewertet is defined %}Datei geben: schon gewertet, +{{ koerner(combo.gewertet) }}{% if combo.siegel_dazu %} und das Siegel +{{ combo.siegel_dazu }}{% endif %}, ohne Serie{% else %}Datei geben: Volltreffer, die Serie wächst doppelt!{% endif %}<input type="file" name="datei" multiple></label>
         </div>
         <div class="reihe">
           <button class="sq-siegelknopf" name="aktion" value="datei" data-datei-waehlen>Datei geben</button>
