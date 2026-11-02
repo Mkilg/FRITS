@@ -231,6 +231,17 @@ def einbringen(
     return neu
 
 
+def fruehere_wahl(conn: sqlite3.Connection, jahr: int) -> str | None:
+    """Wohin die Ernte zuletzt kam (gemerkt an der EÜR), damit sie danach von selbst kommt."""
+    quest.ensure_schema(conn)
+    row = conn.execute(
+        "SELECT s.gebiet FROM steuer_dateien d JOIN steuer_stuecke s ON s.id = d.stueck_id"
+        " WHERE d.jahr = ? AND d.original LIKE ? ORDER BY d.id DESC",
+        (jahr, EUER_PRAEFIX + "%"),
+    ).fetchone()
+    return row[0] if row else None
+
+
 def hat_rechnungen(ws: Workspace, jahr: int) -> bool:
     """Für den Fragebogen: Hat FRITS in diesem Jahr Rechnungen geschrieben?"""
     return bool(_rechnungen(ws, jahr))

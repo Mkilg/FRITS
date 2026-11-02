@@ -38,11 +38,12 @@
       <p class="muted">Im Fragebogen fehlt noch dein Betrieb. <a href="/steuer/{{ jahr }}/fragebogen?teil=2">Ergänzen</a></p>
       {% elif ernte.neu_gesamt %}
       {% if ernte_ziele | length > 1 %}
+      <p class="muted">Sag einmal, zu welchem Betrieb das gehört. Danach kommt alles Neue von selbst.</p>
       <label>Gehört zu <select name="gebiet">{% for g in ernte_ziele %}<option value="{{ g.id }}">{{ g.titel }}</option>{% endfor %}</select></label>
       {% else %}<input type="hidden" name="gebiet" value="{{ ernte_ziele[0].id }}"><p class="muted">Kommt in: {{ ernte_ziele[0].titel }}</p>{% endif %}
       <button class="sq-siegelknopf">Einbringen</button>
       {% else %}
-      <p class="muted">Alles aus FRITS ist schon auf der Insel. ✓</p>
+      <p class="muted">Alles aus FRITS ist schon auf der Insel. ✓ Neue Rechnungen und Belege kommen von selbst.</p>
       {% endif %}
     </form>
     {% endif %}
@@ -82,8 +83,8 @@
     </div>
     <div class="sq-insel-schatten"></div>
     <a class="sq-hafen" href="/steuer/{{ jahr }}/markt" title="Hafenmarkt: Gold für Helfer im Kampf">
-      <span class="sq-hafen-muenze" aria-hidden="true"></span>
-      <span class="sq-schild"><strong>Hafenmarkt</strong><small>{{ ressourcen.gold }} Gold{% if helfer %} · {{ helfer | length }} Helfer{% endif %}</small></span>
+      <span class="sq-hafen-stand" aria-hidden="true"><i class="dach"></i><i class="theke"></i><i class="muenze"></i></span>
+      <span class="sq-schild holz"><strong>Hafenmarkt</strong><small>{{ ressourcen.gold }} Gold{% if helfer %} · {{ helfer | length }} Helfer{% endif %}</small></span>
     </a>
     {% set hort_wach = drache_wach and not drache.besiegt %}
     <a class="sq-hort sq-hort-insel{% if not drache_wach %} schlaeft{% elif hort_wach %} wach{% endif %}{% if auftrag.art == 'drache' %} auftragsziel{% endif %}" href="/steuer/{{ jahr }}/drache">

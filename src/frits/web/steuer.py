@@ -911,6 +911,11 @@ def register_steuer(
         nachtrag = orden_nachtragen(jahr, daten["erfolge"])
         if nachtrag:
             daten = lage(jahr)
+        geerntet = ernte_von_selbst(jahr, daten)
+        if geerntet:
+            return back(f"/steuer/{jahr}/drache")
+        if geerntet is not None:
+            daten = lage(jahr)
         lager = quest.lager_dateien(ws.root)
         stimmung, tipp = fritte_tipp(daten, lager)
         return seite(
@@ -1605,15 +1610,8 @@ def register_steuer(
 
     # ----- FRITS-Ernte: Rechnungen, Belege und EÜR aus dem normalen FRITS -----
 
-    @app.post("/steuer/{jahr}/ernte", dependencies=guarded)
-    async def ernte_einbringen(request: Request, jahr: int):
-        form = await request.form()
-        daten = lage(jahr)
-        ziele = {g.id: g for g in ernte.ziele(daten["gebiete"])}
-        gebiet_id = str(form.get("gebiet") or "")
-        if gebiet_id not in ziele:
-            flash("Wähle aus, zu welchem Betrieb die Rechnungen gehören.")
-            return back(f"/steuer/{jahr}")
+    def ernte_holen(jahr: int, gebiet_id: str, titel: str) -> str | None:
+        """Kopiert alles Neue aus FRITS in die Provinz und meldet es. None: war schon alles da."""
         c = conn()
         neu = ernte.einbringen(c, ws, jahr, gebiet_id, settings().tax_mode)
         teile = []
@@ -1630,11 +1628,39 @@ def register_steuer(
             teile.append("die EÜR" + (f" mit {extra}" if extra else ""))
         elif extra:
             teile.append(f"die {extra}")
-        if teile:
-            text = f"FRITS-Ernte eingebracht: {', '.join(teile)} → {ziele[gebiet_id].titel}"
-            quest.notiere(c, jahr, "fund", text)
-            flash(text + "!", "beute", "done")
-        else:
+        if not teile:
+            return None
+        text = f"FRITS-Ernte eingebracht: {', '.join(teile)} → {titel}"
+        quest.notiere(c, jahr, "fund", text)
+        flash(text + "!", "beute", "done")
+        return text
+
+    def ernte_von_selbst(jahr: int, daten: dict) -> bool | None:
+        """Schreibst du mit FRITS, kommt die Ernte von selbst auf die Insel, ohne Knopf.
+        Nur wenn klar ist, wohin: ein Betrieb, oder der, den du beim letzten Mal gewählt hast.
+        Gibt None zurück, wenn nichts kam; sonst, ob der Drache dabei gefallen ist."""
+        ziele = {g.id: g for g in ernte.ziele(daten["gebiete"])}
+        if not ziele:
+            return None
+        gebiet_id = next(iter(ziele)) if len(ziele) == 1 else ernte.fruehere_wahl(conn(), jahr)
+        if gebiet_id not in ziele:
+            return None
+        if not ernte.finden(conn(), ws, jahr, settings().tax_mode).neu_gesamt:
+            return None
+        if ernte_holen(jahr, gebiet_id, ziele[gebiet_id].titel) is None:
+            return None
+        return belohnen(jahr, daten)
+
+    @app.post("/steuer/{jahr}/ernte", dependencies=guarded)
+    async def ernte_einbringen(request: Request, jahr: int):
+        form = await request.form()
+        daten = lage(jahr)
+        ziele = {g.id: g for g in ernte.ziele(daten["gebiete"])}
+        gebiet_id = str(form.get("gebiet") or "")
+        if gebiet_id not in ziele:
+            flash("Wähle aus, zu welchem Betrieb die Rechnungen gehören.")
+            return back(f"/steuer/{jahr}")
+        if ernte_holen(jahr, gebiet_id, ziele[gebiet_id].titel) is None:
             flash("Aus FRITS ist schon alles da. Nichts doppelt.")
         if belohnen(jahr, daten):
             return back(f"/steuer/{jahr}/drache")
