@@ -716,6 +716,20 @@ def vor_dem_sieg_gepackt(conn: sqlite3.Connection, jahr: int) -> bool:
     return erste["truhe"] is not None and (erste["sieg"] is None or erste["truhe"] < erste["sieg"])
 
 
+def nachtrag_seit(conn: sqlite3.Connection, jahr: int) -> str | None:
+    """Ist die Fundkiste ein Nachtrag? Dann das Datum (JJJJ-MM-TT) der ersten, halben Kiste
+    aus dem Notausgang. Erst ab dem Finale nach dem Sieg (Lena, Runde 47: Die zweite Mail
+    las sich wie die erste, die Beraterin wusste nicht, welche Kiste die vollständige ist)."""
+    if not (vor_dem_sieg_gepackt(conn, jahr) and hat_notiz(conn, jahr, "sieg")):
+        return None
+    if not hat_notiz(conn, jahr, "kiste_finale"):
+        return None
+    zeit = conn.execute(
+        "SELECT MIN(zeit) FROM steuer_chronik WHERE jahr = ? AND art = 'truhe'", (jahr,)
+    ).fetchone()[0]
+    return str(zeit)[:10] if zeit else None
+
+
 def hat_notiz(
     conn: sqlite3.Connection, jahr: int | None, art: str, text: str | None = None
 ) -> bool:

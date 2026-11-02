@@ -1833,7 +1833,8 @@ details.sq-mehr-marken .kurz { display: none; }
 /* Unter dem Notausgang-Titel: ehrlich, wie weit das Jahr ist */
 .sq .sq-sieg-unter { text-align: center; margin: -.6rem auto 1rem; max-width: 40rem; color: var(--creme, #f6ecd2); font-weight: 600; text-shadow: 0 1px 2px rgba(0, 0, 0, .8); }
 /* Knöpfe unter dem Satz: eigener Block mit Luft, am Handy untereinander */
-.sq-kiste-finale p.sq-kiste-wege, .sq-kiste-halb p:has(> .sq-stempelknopf) { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: center; margin-top: 1rem; }
+.sq-kiste-finale p.sq-kiste-wege, .sq-kiste-halb p:has(> .sq-stempelknopf) { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: center; align-items: center; margin-top: 1rem; }
+.sq-kiste-wege a { margin: 0; }
 .sq-kiste-halb p:has(> .sq-stempelknopf) { justify-content: flex-start; }
 .sq-kiste-wege a { display: inline-block; }
 /* Am Handy deckte das Siegel die halbe Kiste: Kiste größer, Siegel daneben */

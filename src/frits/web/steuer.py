@@ -2227,9 +2227,14 @@ def register_steuer(
 
     # ----- Sieg, Fundkiste und Mail -----
 
-    def truhe_pfad(jahr: int, p: Profil) -> Path:
+    def truhe_pfad(jahr: int, p: Profil, vollstaendig: bool | None = None) -> Path:
+        """Die Zip für die Beraterin. Ein Nachtrag nach dem Notausgang heißt anders, damit
+        die vollständige Kiste nicht wie die erste aussieht (Lena, Runde 47)."""
+        if vollstaendig is None:
+            vollstaendig = quest.nachtrag_seit(conn(), jahr) is not None
         name = f"-{quest._slug(p.name)}" if p.name else ""
-        return quest.ordner(ws.root, jahr) / f"Steuer-{jahr}{name}.zip"
+        zusatz = "-vollstaendig" if vollstaendig else ""
+        return quest.ordner(ws.root, jahr) / f"Steuer-{jahr}{name}{zusatz}.zip"
 
     @app.get("/steuer/{jahr}/sieg", response_class=HTMLResponse)
     def sieg(request: Request, jahr: int):
@@ -2249,8 +2254,13 @@ def register_steuer(
             except Exception:  # noqa: BLE001 - der Hinweis auf Fritte ist ein Extra
                 fritte_warten = 0
         mit_passwort = truhe.verschluesselt(zip_pfad) if zip_pfad.exists() else True
+        seit = quest.nachtrag_seit(conn(), jahr)
         betreff, text = truhe.mail(
-            daten["profil"], daten["gebiete"], daten["stuecke"], mit_passwort=mit_passwort
+            daten["profil"],
+            daten["gebiete"],
+            daten["stuecke"],
+            mit_passwort=mit_passwort,
+            nachtrag=schoenes_datum(seit) if seit else "",
         )
         return seite(
             request,
@@ -2317,8 +2327,12 @@ def register_steuer(
             and not quest.hat_notiz(conn(), jahr, "kiste_finale")
             and (not schon or quest.vor_dem_sieg_gepackt(conn(), jahr))
         )
+        # Das Finale nach einem Notausgang ist ein Nachtrag: eigener Name für die Zip
+        nachtrag = (
+            finale and schon and quest.hat_notiz(conn(), jahr, "sieg")
+        ) or quest.nachtrag_seit(conn(), jahr) is not None
         ziel = truhe.packen(
-            truhe_pfad(jahr, daten["profil"]),
+            truhe_pfad(jahr, daten["profil"], vollstaendig=nachtrag),
             daten["profil"],
             daten["gebiete"],
             daten["stuecke"],
@@ -2333,7 +2347,7 @@ def register_steuer(
                 "Neu gepackt, mit neuem Passwort. Schick es deiner Beraterin noch einmal,"
                 " das alte passt nicht mehr.",
                 "erfolg",
-                "done",
+                None if finale else "done",  # Lena (Runde 47): im Finale klingt nur das Siegel
             )
         elif kennwort:
             app.state.steuer_passwort[jahr] = kennwort

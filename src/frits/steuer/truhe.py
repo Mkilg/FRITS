@@ -305,7 +305,11 @@ def _nach_bereich(eintraege: list[tuple[str, str]]) -> list[str]:
 
 
 def mail(
-    profil: Profil, gebiete: list[Gebiet], stuecke: list[dict], mit_passwort: bool = True
+    profil: Profil,
+    gebiete: list[Gebiet],
+    stuecke: list[dict],
+    mit_passwort: bool = True,
+    nachtrag: str = "",
 ) -> tuple[str, str]:
     """Betreff und Text der Mail an die Beraterin. Du kannst alles ändern, bevor du sendest.
 
@@ -360,6 +364,13 @@ def mail(
     ]
 
     zeilen = [gruss, "", f"anbei meine Unterlagen für {profil.jahr} als Zip-Datei."]
+    if nachtrag:
+        # nachtrag: wann die erste, halbe Kiste kam ("2. November 2026")
+        brauchst = "brauchen Sie" if sie else "brauchst du"
+        zeilen[-1] = (
+            f"anbei der vollständige Stand meiner Unterlagen für {profil.jahr} als Zip-Datei."
+            f" Er ersetzt meine Sendung vom {nachtrag}, die erste Zip-Datei {brauchst} nicht mehr."
+        )
     if mit_passwort:
         zeilen[-1] += f" Das Passwort schicke ich {dir_} getrennt."
         zeilen.append(
@@ -405,4 +416,7 @@ def mail(
     if offen:
         zeilen += ["Noch nicht gefunden habe ich:", *_nach_bereich(offen), ""]
     zeilen += ["Viele Grüße", profil.name or ""]
-    return f"Steuerunterlagen {profil.jahr}", "\n".join(zeilen).rstrip() + "\n"
+    betreff = f"Steuerunterlagen {profil.jahr}"
+    if nachtrag:
+        betreff += " (vollständig, ersetzt die erste Sendung)"
+    return betreff, "\n".join(zeilen).rstrip() + "\n"

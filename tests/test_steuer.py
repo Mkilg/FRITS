@@ -3074,9 +3074,12 @@ def test_runde_36_neu_packen_nennt_das_neue_passwort(client, ws):
     assert r.headers["location"].endswith("/sieg#kiste")
     seite = client.get("/steuer/2025/sieg").text
     assert "Neu gepackt" not in seite and "data-konfetti" not in seite
-    assert "Weiter zu 2. Brief" in seite and 'id="brief"' in seite
+    # Im Finale führt „Weiter zum Brief“, der zweite Brief-Knopf bleibt weg (Lena, Runde 47)
+    assert (
+        "Weiter zum Brief" in seite and "Weiter zu 2. Brief" not in seite and 'id="brief"' in seite
+    )
     seite = post(client, "/steuer/2025/truhe", schloss="passwort").text
-    assert "Neu gepackt, mit neuem Passwort" in seite
+    assert "Neu gepackt, mit neuem Passwort" in seite and "Weiter zu 2. Brief" in seite
 
 
 def test_runde_36_nur_was_spart_ist_ein_koeder(client, ws):
@@ -3562,3 +3565,49 @@ def test_runde_45_steuer_id_im_dateinamen():
     for name in ("steuer-id-brief.png", "Steuer-ID.pdf", "Steuer_ID_2025.pdf", "SteuerID.jpg"):
         assert spiel.ahnung(name, alle).stueck["id"] == 1, name
     assert spiel.ahnung("finanzamt-brief.png", alle).stueck["id"] == 2
+
+
+def test_runde_46_nachtrag_mail_nach_dem_notausgang(client, ws):
+    """Lena (Runde 47): Die Mail nach dem Sieg war wortgleich mit der Notausgang-Mail. Die
+    Beraterin wusste nicht, welche Kiste die vollständige ist."""
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    post(client, "/steuer/2025/drache/notausgang")
+    post(client, "/steuer/2025/truhe", schloss="ohne")
+    erste_zip = quest.ordner(ws.root, 2025) / "Steuer-2025-Kim.zip"
+    assert erste_zip.exists()
+    seite = client.get("/steuer/2025/sieg").text
+    assert "vollständige Stand" not in seite
+    for s in spiel.pflicht(quest.stuecke(conn, 2025)):
+        quest.setze_status(conn, s["id"], "fragen")
+    erste = spiel.pflicht(quest.stuecke(conn, 2025))[0]
+    (ws.root / "beleg.pdf").write_bytes(b"%PDF beleg")
+    quest.sammeln(conn, ws.root, erste["id"], ws.root / "beleg.pdf")
+    quest.notiere(conn, 2025, "sieg", "Der Papierdrache ist besiegt")
+    seite = post(client, "/steuer/2025/truhe", schloss="passwort").text
+    assert 'class="sq-kiste-finale"' in seite
+    assert "Steuer-2025-Kim-vollstaendig.zip" in seite
+    assert (quest.ordner(ws.root, 2025) / "Steuer-2025-Kim-vollstaendig.zip").exists()
+    assert "vollständige Stand meiner Unterlagen" in seite and "ersetzt meine Sendung vom" in seite
+    assert "ersetzt die erste Sendung" in seite  # im Betreff
+    # Neu packen bleibt beim neuen Namen, ohne zweites Finale
+    seite = post(client, "/steuer/2025/truhe", schloss="ohne").text
+    assert "Steuer-2025-Kim-vollstaendig.zip" in seite and 'class="sq-kiste-finale"' not in seite
+
+
+def test_runde_46_normales_jahr_ist_kein_nachtrag(client, ws):
+    conn, _bonus = _besiegt_mit_bonus(client, ws)
+    quest.notiere(conn, 2025, "sieg", "Der Papierdrache ist besiegt")
+    seite = post(client, "/steuer/2025/truhe", schloss="ohne").text
+    assert 'class="sq-kiste-finale"' in seite
+    assert "vollstaendig" not in seite and "vollständige Stand" not in seite
+
+
+def test_runde_46_steuer_id_mehr_schreibweisen():
+    alle = [
+        {"id": 1, "gebiet": "rathaus", "key": "steuer-id", "name": "Steuer-ID", "status": "offen"},
+        {"id": 2, "gebiet": "rathaus", "key": "briefe", "status": "offen",
+         "name": "Weitere Briefe vom Finanzamt"},
+    ]  # fmt: skip
+    for name in ("Steuer-IDs_Familie.pdf", "BZSt-Brief.pdf"):
+        assert spiel.ahnung(name, alle).stueck["id"] == 1, name
