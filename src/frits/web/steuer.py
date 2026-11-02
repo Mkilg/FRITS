@@ -596,7 +596,11 @@ def register_steuer(
         """Ehrlich sagen, warum eine Datei nicht (noch einmal) zählt, und einen Weg weiter
         zeigen: zum Beleg, und wenn es passt, "Steht da mit drin, hier auch zählen"."""
         if fund is None or fund.stueck["id"] == karte["id"]:
-            flash("Diese Datei hattest du schon gesammelt. Doppelt zählt nicht, aber gut gemerkt!")
+            # Lena (Runde 46): Hier fehlte der Weg zum Beleg, den es bei anderen Karten gibt
+            flash(
+                "Diese Datei hattest du schon gesammelt. Doppelt zählt nicht, aber gut gemerkt!",
+                link=(f"/steuer/{jahr}/belege#karte-{karte['id']}", "Zum Beleg") if fund else None,
+            )
             return
         bei = fund.stueck
         wo = f"„{bei['name']}“ ({titel_von(jahr, bei['gebiet'])})"
@@ -2306,6 +2310,13 @@ def register_steuer(
         form = await request.form()
         kennwort = None if form.get("schloss") == "ohne" else truhe.passwort()
         schon = quest.kiste_stand(conn(), jahr) is not None
+        # Lena (Runde 46): Wer erst über den Notausgang packte, bekam nach dem Sieg nie ein
+        # Finale. Das erste Packen nach dem Sieg ist das Finale, auch wenn es ein Neu-Packen ist.
+        finale = (
+            daten["drache"].besiegt
+            and not quest.hat_notiz(conn(), jahr, "kiste_finale")
+            and (not schon or quest.vor_dem_sieg_gepackt(conn(), jahr))
+        )
         ziel = truhe.packen(
             truhe_pfad(jahr, daten["profil"]),
             daten["profil"],
@@ -2326,16 +2337,18 @@ def register_steuer(
             )
         elif kennwort:
             app.state.steuer_passwort[jahr] = kennwort
-            if schon:  # beim ersten Mal sagt es das Finale, mit Ton auf dem Siegel
+            if schon and not finale:  # sonst sagt es das Finale, mit Ton auf dem Siegel
                 flash("Die Fundkiste ist gepackt und mit Passwort verschlossen.", "erfolg", "done")
         else:
             app.state.steuer_passwort.pop(jahr, None)
-            if schon:
+            if schon and not finale:
                 flash("Die Fundkiste ist gepackt, ohne Passwort.", "erfolg", "done")
         quest.notiere(conn(), jahr, "truhe", ziel.name)
         quest.kiste_gepackt(conn(), jahr)
-        if not schon:
+        if not schon or finale:
             app.state.steuer_gepackt.add(jahr)
+        if finale:
+            quest.notiere(conn(), jahr, "kiste_finale", ziel.name)
         return back(f"/steuer/{jahr}/sieg#kiste")
 
     @app.post("/steuer/{jahr}/beraterin/daten", dependencies=guarded)

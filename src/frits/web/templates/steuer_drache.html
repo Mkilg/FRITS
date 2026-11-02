@@ -69,7 +69,7 @@
   {% if drache.karte %}
   {% set k = drache.karte %}
   {# Lena (Runde 41): Am Handy lagen Lebenspunkte und Serie unter der Leiste #}
-  <p class="sq-kampf-kurz" aria-hidden="true"><b>{{ drache.lp }}</b> Lebenspunkt{{ "e" if drache.lp != 1 }}{% if goldjahr %} · Serie <b>×{{ combo.naechster }}</b>{% endif %}</p>
+  <p class="sq-kampf-kurz{% if combo.gewertet is defined %} gewertet{% endif %}" aria-hidden="true"><b>{{ drache.lp }}</b> Lebenspunkt{{ "e" if drache.lp != 1 }}{% if goldjahr %} · Serie <b>×{{ combo.naechster }}</b>{% endif %}</p>
   <div class="sq-wurf" id="karte">
     {% if wurf %}
     {# Erst der Treffer (mit der Gold-Rechnung), dann die nächste Karte: so ist klar, was wohin ging #}
@@ -112,7 +112,7 @@
         <input type="hidden" name="token" value="{{ token }}">
         <input type="hidden" name="stueck_id" value="{{ k.id }}">
         <div class="sq-ablage">
-          <label class="fach">{% if goldjahr and combo.gewertet is defined %}Datei geben: schon gewertet, +{{ koerner(combo.gewertet) }}{% if combo.siegel_dazu %} und das Siegel +{{ combo.siegel_dazu }}{% endif %}, ohne Serie{% else %}Datei geben: Volltreffer, die Serie wächst doppelt!{% endif %}<input type="file" name="datei" multiple></label>
+          <label class="fach">{% if goldjahr and combo.gewertet is defined %}Datei geben: schon gewertet, +{{ koerner(combo.gewertet) }}{% if combo.siegel_dazu %} und das Siegel +{{ combo.siegel_dazu }}{% endif %}, ohne Serie{% elif goldjahr %}Datei geben: Volltreffer, die Serie wächst doppelt!{% else %}Datei geben: Volltreffer!{% endif %}<input type="file" name="datei" multiple></label>
         </div>
         <div class="reihe">
           <button class="sq-siegelknopf" name="aktion" value="datei" data-datei-waehlen>Datei geben</button>
