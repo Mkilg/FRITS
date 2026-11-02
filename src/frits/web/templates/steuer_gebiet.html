@@ -31,7 +31,7 @@
       {% set fehlt = vorjahr | rejectattr("jetzt", "in", ["gesammelt", "gibts_nicht", "fragen"]) | list %}
       {% set stimmung = "done" if provinzstand.stand.siegel else ("thinking" if fehlt else "welcome") %}
       {% include "_steuer_fritte.html" %}
-      <p class="sq-sprechblase">{% if provinzstand.stand.siegel %}Komplett! Diese Provinz trägt ihr Siegel.{% elif fehlt %}Letztes Jahr lagen hier {{ vorjahr | length }} Schriftstücke. Bis zum Vorjahr fehl{{ "t" if fehlt | length == 1 else "en" }} noch {{ fehlt | length }}.{% elif vorjahr %}Alles vom letzten Jahr ist wieder da. Stark!{% elif stapel %}Ein Zettel nach dem anderen. Was du nicht hast, stempelst du einfach ab.{% else %}Zieh Dateien direkt auf eine Karte. Was es nicht gibt, stempelst du einfach ab.{% endif %}</p>
+      <p class="sq-sprechblase">{% if provinzstand.stand.siegel %}Komplett! Diese Provinz trägt ihr Siegel.{% elif fehlt %}Letztes Jahr lagen hier {{ vorjahr | length }} Schriftstücke. Bis zum Vorjahr fehl{{ "t" if fehlt | length == 1 else "en" }} noch {{ fehlt | length }}.{% elif vorjahr %}Alles vom letzten Jahr ist wieder da. Stark!{% elif stapel %}Ein Zettel nach dem anderen. Was du nicht hast, stempelst du einfach ab.{% else %}Leg Dateien direkt auf eine Karte. Was es nicht gibt, stempelst du einfach ab.{% endif %}</p>
     </div>
   </aside>
 
@@ -198,7 +198,7 @@ Steuer-ID: {% endif %}</textarea></label>
     {% endif %}
     {% if lager %}
     <h2 class="sq-rand-titel">Eingangskorb</h2>
-    <p>Zieh einen Zettel auf die passende Karte.</p>
+    <p>Leg einen Zettel auf die passende Karte.</p>
     {% include "_steuer_zettel.html" %}
     {% endif %}
   </aside>

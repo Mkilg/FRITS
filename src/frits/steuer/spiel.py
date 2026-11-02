@@ -502,9 +502,9 @@ def auftrag(
             "korb",
             "Sortiere den Eingangskorb",
             (
-                "Ein Zettel wartet. Zieh ihn auf seine Provinz."
+                "Ein Zettel wartet. Leg ihn auf seine Provinz."
                 if zettel == 1
-                else f"{zettel} Zettel warten. Zieh jeden auf seine Provinz."
+                else f"{zettel} Zettel warten. Leg jeden auf seine Provinz."
             ),
             "Ersten Zettel ansehen",
             "#sq-korb",

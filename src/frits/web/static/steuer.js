@@ -411,7 +411,7 @@
     if (!m) return;
     m.classList.remove("wartet");
     var rest = meldungen.length - i - 1;
-    if (rest > 0) m.setAttribute("data-mehr", "+" + rest);
+    if (rest > 0) m.setAttribute("data-mehr", "noch " + rest);
     var fort = false;
     function weg() {
       if (fort) return;
@@ -975,10 +975,15 @@
     var klappen = document.querySelectorAll("details.sq-buch-klappe");
     if (!klappen.length || !window.matchMedia || !window.matchMedia("(max-width: 600px)").matches) return;
     var ziel = location.hash ? document.getElementById(location.hash.slice(1)) : null;
-    var zielKlappe = ziel && ziel.closest ? ziel.closest("details.sq-buch-klappe") : null;
+    // #karte-… liegt in der Klappe, #provinz-… ist die Section um sie herum (Zurücklegen)
+    var zielKlappe = ziel && ziel.closest
+      ? ziel.closest("details.sq-buch-klappe") || ziel.querySelector("details.sq-buch-klappe")
+      : null;
     klappen.forEach(function (d, i) {
       d.open = zielKlappe ? d === zielKlappe : i === 0;
     });
     if (ziel) ziel.scrollIntoView();
+    // Rand (Chronik, „Wer sieht …“) am Handy zu: Lena (Runde 37), 1300 px unter den Provinzen
+    document.querySelectorAll("details.sq-rand-klappe").forEach(function (d) { d.open = false; });
   })();
 })();

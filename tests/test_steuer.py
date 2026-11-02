@@ -3114,3 +3114,65 @@ def test_runde_37_belegbuch_klappt_nach_provinz(client, ws):
     seite = client.get("/steuer/2025/belege").text
     assert seite.count('<details class="sq-buch-klappe" open>') >= 1
     assert "1 Datei" in seite and "Zur Provinz" in seite
+
+
+def test_runde_38_rueckbuchung_rechnet_ehrlich(client, ws):
+    """Lena (Runde 37): Nach −20 aus dem Kampf versprach der Satz alles zurück, es kamen 6."""
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    karte = spiel.pflicht(quest.stuecke(conn, 2025))[0]
+    seite = post(
+        client,
+        f"/steuer/2025/stueck/{karte['id']}/datei",
+        files=[("datei", ("beleg.pdf", b"%PDF beleg"))],
+    )
+    assert seite.status_code == 200
+    # So als wäre der Treffer im Kampf mit Serie gefallen
+    conn.execute(
+        "UPDATE spiel_beutel SET betrag = 16 WHERE grund = (SELECT 'quest:2025:gold:' || id"
+        " FROM steuer_gold WHERE grund = ?)",
+        (spiel.karten_grund(karte, "fund"),),
+    )
+    conn.execute("UPDATE steuer_gold SET betrag = 16 WHERE grund = ?",
+                 (spiel.karten_grund(karte, "fund"),))  # fmt: skip
+    conn.commit()
+    d = quest.dateien(conn, 2025, karte["id"])[0]
+    seite = post(client, f"/steuer/2025/datei/{d['id']}/entfernen").text
+    assert "−16 Salzkörner zurückgebucht" in seite
+    assert "etwa 2 Salzkörner zurück" in seite and "Serie aus dem Kampf" in seite
+    assert "bekommst du sie zurück" not in seite
+
+
+def test_runde_38_doppelte_datei_ohne_fehlermeldung(client, ws):
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    post(client, "/steuer/2025/lager/hochladen", files=[("datei", ("a.pdf", b"%PDF a"))])
+    seite = post(
+        client, "/steuer/2025/lager/hochladen", files=[("datei", ("a.pdf", b"%PDF a"))]
+    ).text
+    assert "liegt schon im Eingangskorb" in seite
+    assert "keine Datei mitgeschickt" not in seite
+
+
+def test_runde_38_wieder_besiegt_ohne_zweites_fest(client, ws):
+    conn, _bonus = _besiegt_mit_bonus(client, ws)
+    quest.notiere(conn, 2025, "sieg", "Der Papierdrache ist besiegt")
+    erste = spiel.pflicht(quest.stuecke(conn, 2025))[0]
+    d = quest.dateien(conn, 2025, erste["id"])[0]
+    post(client, f"/steuer/2025/datei/{d['id']}/entfernen")
+    assert not spiel.drache(quest.stuecke(conn, 2025)).besiegt
+    seite = post(
+        client,
+        f"/steuer/2025/stueck/{erste['id']}/datei",
+        files=[("datei", ("neu.pdf", b"%PDF neu"))],
+    ).text
+    assert "Der Drache ist wieder besiegt" in seite
+    assert "faltet sich" not in seite
+
+
+def test_runde_38_zurueckgelegt_bleibt_in_der_provinz_und_fremdes_jahr(client, ws):
+    _conn, _bonus = _besiegt_mit_bonus(client, ws)
+    belege = client.get("/steuer/2025/belege").text
+    assert re.search(r'name="back" value="/steuer/2025/belege#provinz-[\w-]+"', belege)
+    quest.lager(ws.root).mkdir(parents=True, exist_ok=True)
+    (quest.lager(ws.root) / "krankenversicherung-2024.pdf").write_bytes(b"%PDF kv")
+    assert "aus 2024?" in client.get("/steuer/2025").text
