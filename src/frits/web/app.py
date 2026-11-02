@@ -191,6 +191,16 @@ SALZ = Markup(
 )
 
 
+def salz_oder_bild(pictures: dict[str, str]) -> Markup:
+    """The painted salt shaker once it exists, until then the drawn one."""
+    url = pictures.get("symbol-salz")
+    if url:
+        return Markup(
+            '<img class="salz-zeichen salz-bild" src="{}" alt="" width="18" height="18">'
+        ).format(url)
+    return SALZ
+
+
 def zeichen_oder_bild(pictures: dict[str, str]):
     """A painted symbol-<name> picture once Marie has painted it, until then the emoji."""
 
@@ -461,7 +471,7 @@ def create_app(
         mascot=mascot_or_picture(pictures),
         picture=pictures.get,
         picture_tag=picture_tag(static, pictures),
-        salz=SALZ,
+        salz=salz_oder_bild(pictures),
         zeichen=zeichen_oder_bild(pictures),
         picture_css=picture_css(pictures),
     )

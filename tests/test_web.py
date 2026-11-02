@@ -790,6 +790,23 @@ def test_painted_pictures_keep_their_space_while_loading(tmp_path):
     assert tag("gibts-nicht", "x") == ""
 
 
+def test_painted_icons_replace_the_emojis(client):
+    # Marie's painted icons: bell in the header, paper tray on the drop field, salt,
+    # course stages. Without the pictures FRITS falls back to the drawn/emoji versions.
+    from frits.web.app import SALZ, salz_oder_bild
+
+    home = client.get("/").text
+    assert "/static/bilder/symbol-klang.webp" in home
+    assert "/static/bilder/symbol-ablage.webp" in home and "📥" not in home
+    assert "/static/bilder/symbol-salz.webp" in client.get("/fritte/laden").text
+    course = client.get("/lernen").text
+    assert (
+        "/static/bilder/etappe-start.webp" in course
+        and "/static/bilder/etappe-agent.webp" in course
+    )
+    assert salz_oder_bild({}) == SALZ
+
+
 def test_check_me_file_can_be_seen_and_becomes_a_receipt(client, ws):
     drop_and_read(client, ws, "20_kaputt.pdf")
     page = client.get("/check-me").text
