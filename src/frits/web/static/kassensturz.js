@@ -30,13 +30,20 @@
   function soundOn() { return window.FritsSound && window.FritsSound.enabled && window.FritsSound.enabled(); }
   function blip(step, kind) {
     if (!soundOn()) return;
+    var base = kind === "mal" ? 220 : kind === "plus" ? 294 : 392;
+    var f = base * Math.pow(2, Math.min(step, 24) / 12);
+    // Inside the Klangrahmen the frame plays it: a sound made on this page itself would
+    // stay silent until one clicks here once more.
+    if (window.FritsSound.tone) {
+      window.FritsSound.tone(f, kind === "mal" ? 0.35 : 0.12, kind === "mal" ? "triangle" : "sine", kind === "mal" ? 0.22 : 0.12);
+      return;
+    }
     var Ctx = window.AudioContext || window.webkitAudioContext;
     if (!Ctx) return;
     try { audio = audio || new Ctx(); } catch (e) { return; }
     var t = audio.currentTime, osc = audio.createOscillator(), gain = audio.createGain();
-    var base = kind === "mal" ? 220 : kind === "plus" ? 294 : 392;
     osc.type = kind === "mal" ? "triangle" : "sine";
-    osc.frequency.setValueAtTime(base * Math.pow(2, Math.min(step, 24) / 12), t);
+    osc.frequency.setValueAtTime(f, t);
     gain.gain.setValueAtTime(kind === "mal" ? 0.22 : 0.12, t);
     gain.gain.exponentialRampToValueAtTime(0.0001, t + (kind === "mal" ? 0.35 : 0.12));
     osc.connect(gain).connect(audio.destination);
