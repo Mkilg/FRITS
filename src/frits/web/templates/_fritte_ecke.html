@@ -4,7 +4,7 @@
   <div class="ecke-text">
     <h2>Fritte zuhause</h2>
     <p>{{ f.satz }}</p>
-    <p class="salz"><span aria-hidden="true">🧂</span> <strong data-zaehlen>{{ f.guthaben }}</strong> Salzkörner</p>
+    <p class="salz">{{ salz }} <strong data-zaehlen>{{ f.guthaben }}</strong> Salzkörner</p>
     {% if f.wartend %}
     <p>{{ f.wartend }} {{ "Karte wartet" if f.wartend == 1 else "Karten warten" }} auf den Kassensturz. Das {{ "ist" if f.bereit == 1 else "sind" }} gerade etwa <strong>+{{ f.bereit }} {{ "Salzkorn" if f.bereit == 1 else "Salzkörner" }}</strong>.</p>
     {% endif %}

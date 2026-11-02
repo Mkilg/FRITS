@@ -173,6 +173,31 @@ def picture_tag(static: Path, pictures: dict[str, str]):
     return tag
 
 
+# A small drawn salt shaker instead of the 🧂 emoji (sits in the text like a letter)
+SALZ = Markup(
+    '<svg class="salz-zeichen" viewBox="0 0 16 20" width="13" height="16" aria-hidden="true">'
+    '<path d="M4.2 7.5h7.6l1 9.3a2 2 0 0 1-2 2.2H5.2a2 2 0 0 1-2-2.2z" fill="#f6ecd2" stroke="currentColor" '
+    'stroke-width="1.3"/><path d="M4.4 7.5 5 3.6a1.5 1.5 0 0 1 1.5-1.3h3a1.5 1.5 0 0 1 1.5 1.3l.6 3.9" '
+    'fill="#b9b2a6" stroke="currentColor" stroke-width="1.3"/>'
+    '<circle cx="7" cy="4.6" r=".55" fill="currentColor"/><circle cx="9" cy="4.6" r=".55" fill="currentColor"/>'
+    '<path d="M5 12.5c2 .8 4 .8 6 0" fill="none" stroke="#d9c9a2" stroke-width="1.1"/></svg>'
+)
+
+
+def zeichen_oder_bild(pictures: dict[str, str]):
+    """A painted symbol-<name> picture once Marie has painted it, until then the emoji."""
+
+    def zeichen(name: str, emoji: str) -> Markup:
+        url = pictures.get(f"symbol-{name}")
+        if url:
+            return Markup(
+                '<img class="zeichen-bild" src="{}" alt="" width="22" height="22">'
+            ).format(url)
+        return Markup('<span aria-hidden="true">{}</span>').format(emoji)
+
+    return zeichen
+
+
 NAV_SYMBOLS = {
     "/": "symbol-eingang",
     "/drafts": "symbol-entwuerfe",
@@ -429,6 +454,8 @@ def create_app(
         mascot=mascot_or_picture(pictures),
         picture=pictures.get,
         picture_tag=picture_tag(static, pictures),
+        salz=SALZ,
+        zeichen=zeichen_oder_bild(pictures),
         picture_css=picture_css(pictures),
     )
 
