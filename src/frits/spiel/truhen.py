@@ -138,7 +138,7 @@ def fuellen(conn, heute: date, nummer: int, karten: list, willkommen: bool) -> d
     if willkommen:  # old paperwork is a present already, it doesn't fill chests
         return {
             "vorher": vorher, "dazu": 0, "jetzt": vorher, "neu": neu, "anzahl": len(neu),
-            "glueck": [],
+            "glueck": [], "willkommen": True,
         }  # fmt: skip
     zaehlt = [k for k in karten if k.art in ZAEHLT]
     glueck = []

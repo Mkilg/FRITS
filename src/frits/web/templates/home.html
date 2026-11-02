@@ -58,7 +58,7 @@
   <p class="muted">Zeit für deine eigentliche Arbeit. Kommt etwas rein, leg es einfach unten ab.</p>
   {% if f and f.wartend %}
   {# Calm, but not silent: Fritte's reward is waiting. A quiet link, no second primary button. #}
-  <p class="fritte-wartet">Bei Fritte {{ "wartet 1 Karte" if f.wartend == 1 else "warten " ~ f.wartend ~ " Karten" }} auf den Kassensturz, etwa +{{ f.bereit }} Salzkörner. <a href="/fritte#kassensturz">Zum Kassensturz</a></p>
+  <p class="fritte-wartet">Bei Fritte {{ "wartet 1 Karte" if f.wartend == 1 else "warten " ~ f.wartend ~ " Karten" }} auf den Kassensturz, etwa +{{ f.bereit }} {{ "Salzkorn" if f.bereit == 1 else "Salzkörner" }}. <a href="/fritte#kassensturz">Zum Kassensturz</a></p>
   {% endif %}
   {% endif %}
 </section>

@@ -213,7 +213,8 @@ button.gross { font-size: 1.1rem; padding: .7rem 1.6rem; }
 .glas-zeichen img { height: 2.2rem; width: auto; display: block; }
 .glas-etikett {
   width: 100%; text-align: center; padding: .1rem .15rem; border-radius: 2px;
-  background: var(--papier); border-top: 3px solid var(--etikett, var(--moos)); font-family: var(--schrift); font-size: .72rem; line-height: 1.15; color: var(--eiche-tief);
+  background: var(--papier); border-top: 3px solid var(--etikett, var(--moos)); font-family: var(--schrift); font-size: .82rem; line-height: 1.15; color: var(--eiche-tief);
+  hyphens: auto; overflow-wrap: anywhere; /* Lena: was the smallest text in the app */
 }
 .selten-gewoehnlich { --etikett: var(--moos); }
 .selten-selten { --etikett: var(--tinte-hell); }
@@ -222,7 +223,7 @@ button.gross { font-size: 1.1rem; padding: .7rem 1.6rem; }
 .gewuerzglas.klein { width: 3.6rem; }
 .gewuerzglas.klein .glas-koerper { height: 3.8rem; }
 .gewuerzglas.klein .glas-zeichen { font-size: 1.25rem; }
-.gewuerzglas.klein .glas-etikett { font-size: .58rem; }
+.gewuerzglas.klein .glas-etikett { font-size: .7rem; }
 .regal-vorschau { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .5rem; margin-bottom: .9rem; }
 
 /* ---------- the shelf and the market ---------- */

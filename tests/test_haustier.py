@@ -366,6 +366,8 @@ def test_pages_and_a_whole_round(client, ws):  # noqa: F811
     assert "Vorschau:" in fritte and "Herbst 2026" in fritte
     page = post(client, "/fritte/kassensturz")
     assert "Kassensturz Nr. 1" in page.text and 'id="ks-daten"' in page.text
+    # Lena: old paperwork does not fill the chest, so the first round says it is a present
+    assert "Dein erster Kassensturz ist ein Geschenk" in page.text
     # An old invoice plus moving in, and moving in brings +1 Würze.
     assert stand.guthaben(conn) == (3 + 3) * 2
     assert "Willkommen bei Fritte" not in client.get("/fritte").text
@@ -384,6 +386,9 @@ def test_pages_and_a_whole_round(client, ws):  # noqa: F811
 
     laden = client.get("/fritte/laden").text
     assert "Gewürzregal" in laden and "Markttag" in laden
+    # Lena (phone): ten screens of shop. Shelves fold; without the quest only the market is open.
+    assert '<details class="card laden-fach" id="markt" open>' in laden
+    assert '<details class="card laden-fach" id="regal">' in laden
     assert "Beim letzten Kassensturz" in laden  # what a spice would have brought
     g = min(markt(conn, TODAY), key=lambda g: g.preis)
     assert g.id != "pfeffer"  # what is on the shelf is not offered again
