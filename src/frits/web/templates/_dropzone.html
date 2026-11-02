@@ -11,7 +11,7 @@
   <input type="hidden" name="back" value="{{ dz_back or back_to or '' }}">
   <label class="dropzone" data-dropzone>
     <input type="file" name="files" multiple accept="{{ dz_accept or supported }}" data-autosubmit aria-describedby="einwurf-hilfe-{{ dz_id or 'eingang' }}">
-    <span class="dz-titel">{{ dz_icon or "📥" }} {{ dz_title or "Hierher ziehen oder einfügen" }}</span>
+    <span class="dz-titel">{{ dz_icon or zeichen("ablage", "📥") }} {{ dz_title or "Hierher ziehen oder einfügen" }}</span>
     <small class="muted" id="einwurf-hilfe-{{ dz_id or 'eingang' }}">{{ dz_hint or "Notizen, E-Mails, PDFs, Fotos." }}
       Kopiert? Dann einfach <kbd data-taste-cmd>⌘</kbd><kbd>V</kbd> drücken. Oder <u>Datei auswählen</u>.</small>
   </label>

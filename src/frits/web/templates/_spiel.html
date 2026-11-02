@@ -18,7 +18,7 @@
     {% if k.zeitnah %}<span class="marke" title="Innerhalb von 10 Tagen nach dem Eingang in FRITS eingetragen">zeitnah</span>{% endif %}
     {% if k.nach_erinnerung %}<span class="marke" title="Kam nach einer freundlichen Erinnerung">nachgehakt</span>{% endif %}
     {% if k.saison %}<span class="marke saison-marke" title="Thema dieser Saison: doppelte Körner">Saison ×2</span>{% endif %}
-    {% if k.glueck %}<span class="marke glueck-marke" title="Diese Karte bringt eine Truhe mit">🎁 Glückskarte</span>{% endif %}
+    {% if k.glueck %}<span class="marke glueck-marke" title="Diese Karte bringt eine Truhe mit">{{ zeichen("truhe", "🎁") }} Glückskarte</span>{% endif %}
   </span>
   {% endif %}
   <span class="karte-koerner" data-koerner="{{ summe if summe is not none else k.koerner }}">+{{ summe if summe is not none else k.koerner }}</span>

@@ -6,7 +6,7 @@
 <div class="kurs" data-kurs data-token="{{ token }}" data-happen="{{ e.slug }}/{{ h.slug }}"{% if h.uebung %} data-uebung data-salz="{{ 1 if settings.haustier else 0 }}"{% endif %} data-offen="{{ offen | tojson | forceescape }}">
 <div class="kurs-kopf">
   <a class="kurs-heim" href="/lernen">← {{ titel }}</a>
-  <span class="kurs-etappe"><span aria-hidden="true">{{ e.symbol }}</span> Etappe {{ etappe_nr }} von {{ etappen | length }} · {{ e.title }}</span>
+  <span class="kurs-etappe">{% if picture("etappe-" ~ e.slug) %}<img class="zeichen-bild" src="{{ picture("etappe-" ~ e.slug) }}" alt="" width="22" height="22">{% else %}<span aria-hidden="true">{{ e.symbol }}</span>{% endif %} Etappe {{ etappe_nr }} von {{ etappen | length }} · {{ e.title }}</span>
   <a class="werkzeug-chip" href="/lernen/start/werkzeug?zurueck={{ request.url.path | urlencode }}" title="Anderes Werkzeug wählen">Du lernst mit: <strong>{{ werkzeug.name if gewaehlt else "noch keinem Werkzeug" }}</strong> <span class="aendern">ändern</span></a>
 </div>
 

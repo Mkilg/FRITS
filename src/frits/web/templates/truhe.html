@@ -37,7 +37,7 @@
     {% if weitere %}
     <form method="post" action="/fritte/truhe/oeffnen">
       <input type="hidden" name="token" value="{{ token }}">
-      <button class="primary">🎁 Nächste Truhe öffnen ({{ weitere }})</button>
+      <button class="primary">{{ zeichen("truhe", "🎁") }} Nächste Truhe öffnen ({{ weitere }})</button>
     </form>
     {% if weitere > 1 %}
     <form method="post" action="/fritte/truhe/alle">
