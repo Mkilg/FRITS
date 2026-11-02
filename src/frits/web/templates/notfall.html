@@ -32,7 +32,7 @@
   </form>
 </section>
 
-{% with dz_action="/chat/neu", dz_back="/chat", dz_id="chat", dz_icon="📄", dz_title="Oder ein Dokument hierher ziehen", dz_hint="Briefe, Verträge, Mahnungen, E-Mails, PDFs, Word, Fotos. Ich zeige dir zuerst, was geschwärzt ist.", dz_send="Schwärzen und ansehen", dz_busy="Ich lese und schwärze. Das dauert einen Moment.", dz_text_label="Text einfügen, z. B. aus einer E-Mail oder einem Brief" %}{% include "_dropzone.html" %}{% endwith %}
+{% with dz_action="/chat/neu", dz_back="/chat", dz_id="chat", dz_title="Oder ein Dokument hierher ziehen", dz_hint="Briefe, Verträge, Mahnungen, E-Mails, PDFs, Word, Fotos. Ich zeige dir zuerst, was geschwärzt ist.", dz_send="Schwärzen und ansehen", dz_busy="Ich lese und schwärze. Das dauert einen Moment.", dz_text_label="Text einfügen, z. B. aus einer E-Mail oder einem Brief" %}{% include "_dropzone.html" %}{% endwith %}
 
 {% if chats %}
 <section class="card">
@@ -69,7 +69,7 @@
   </div>
   <details class="noch-eins">
     <summary>Ein Dokument dazulegen</summary>
-    {% with dz_action="/chat/" ~ g.key ~ "/dokument", dz_back="/chat/" ~ g.key, dz_id="noch-eins", dz_class="form", dz_icon="➕", dz_title="Hierher ziehen oder einfügen", dz_hint="Ich schwärze es und zeige es dir, bevor es mit deiner nächsten Frage rausgeht.", dz_send="Dazulegen", dz_busy="Ich lese und schwärze." %}{% include "_dropzone.html" %}{% endwith %}
+    {% with dz_action="/chat/" ~ g.key ~ "/dokument", dz_back="/chat/" ~ g.key, dz_id="noch-eins", dz_class="form", dz_title="Hierher ziehen oder einfügen", dz_hint="Ich schwärze es und zeige es dir, bevor es mit deiner nächsten Frage rausgeht.", dz_send="Dazulegen", dz_busy="Ich lese und schwärze." %}{% include "_dropzone.html" %}{% endwith %}
   </details>
 </section>
 {% else %}
@@ -156,7 +156,7 @@
     {% if g.docs | length < max_docs %}
     <details class="noch-eins">
       <summary>Noch ein Dokument dazu</summary>
-      {% with dz_action="/chat/" ~ g.key ~ "/dokument", dz_back="/chat/" ~ g.key, dz_id="noch-eins", dz_class="form", dz_icon="➕", dz_title="Hierher ziehen oder einfügen", dz_hint="Es kommt in denselben Chat, mit denselben Platzhaltern.", dz_send="Dazulegen", dz_busy="Ich lese und schwärze." %}{% include "_dropzone.html" %}{% endwith %}
+      {% with dz_action="/chat/" ~ g.key ~ "/dokument", dz_back="/chat/" ~ g.key, dz_id="noch-eins", dz_class="form", dz_title="Hierher ziehen oder einfügen", dz_hint="Es kommt in denselben Chat, mit denselben Platzhaltern.", dz_send="Dazulegen", dz_busy="Ich lese und schwärze." %}{% include "_dropzone.html" %}{% endwith %}
     </details>
     {% endif %}
   </div>

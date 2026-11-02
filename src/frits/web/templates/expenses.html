@@ -11,7 +11,7 @@
 </div>
 
 {% if not chosen %}
-{% with dz_action="/expenses/beleg", dz_class="card form", dz_id="beleg", dz_icon="🧾",
+{% with dz_action="/expenses/beleg", dz_class="card form", dz_id="beleg",
         dz_title="Beleg hierher ziehen oder einfügen", dz_hint="Foto, Scan, PDF oder die Bestellbestätigung aus einer Mail.",
         dz_send="Als Beleg eintragen", dz_busy="Ich lese den Beleg. Einen Moment.",
         dz_text_label="Text eines Belegs einfügen, z. B. eine Bestellbestätigung", dz_primary=False %}{% include "_dropzone.html" %}{% endwith %}

@@ -84,7 +84,7 @@
   {% endfor %}</ul>
   {% endif %}
   {% if not staged %}
-  {% with dz_action="/invoices/frueher/lesen", dz_back="/invoices#frueher", dz_class="form", dz_id="frueher", dz_icon="🗂️",
+  {% with dz_action="/invoices/frueher/lesen", dz_back="/invoices#frueher", dz_class="form", dz_id="frueher",
           dz_title="Alte Rechnung hierher ziehen", dz_hint="Ich lese Nummer, Datum, Kunde und Betrag hier auf deinem Computer aus, ohne KI. Du prüfst und trägst nach. PDF, Foto oder Word-Datei.",
           dz_send="Lesen", dz_busy="Ich lese die alte Rechnung. Einen Moment.",
           dz_text_label="Text einer alten Rechnung einfügen", dz_primary=False %}{% include "_dropzone.html" %}{% endwith %}

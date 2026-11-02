@@ -18,7 +18,7 @@
 <section class="card">
   <p><strong>Abkürzung:</strong> Du hast schon einmal eine Rechnung geschrieben? Gib sie mir, dann trage ich deine Angaben unten ein.
     Das passiert <strong>nur auf diesem Computer</strong>, ohne KI und ohne Internet. Die Datei wird danach nicht aufbewahrt.</p>
-  {% with dz_action="/setup/business_details/import", dz_class="form", dz_id="alte-rechnung", dz_icon="📄",
+  {% with dz_action="/setup/business_details/import", dz_class="form", dz_id="alte-rechnung",
           dz_title="Alte Rechnung hierher ziehen oder einfügen", dz_hint="PDF, Word, Foto oder Text.",
           dz_accept=".pdf,.docx,.txt,.md,.eml,.jpg,.jpeg,.png,.heic", dz_send="Angaben herauslesen",
           dz_busy="Ich lese deine Rechnung. Einen Moment.", dz_text_label="Text einer alten Rechnung einfügen" %}{% include "_dropzone.html" %}{% endwith %}
