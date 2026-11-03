@@ -95,6 +95,10 @@ CREATE TABLE IF NOT EXISTS steuer_halb (
     jahr INTEGER PRIMARY KEY,      -- Inhalt der letzten Kiste vor dem Sieg (Notausgang), damit
     inhalt TEXT NOT NULL           -- die vollständige Mail ehrlich sagt, was neu ist (Lena, R54)
 );
+CREATE TABLE IF NOT EXISTS steuer_korb_herkunft (
+    sha256 TEXT PRIMARY KEY,       -- Belege, die „Neu beginnen“ in den Korb gelegt hat: aus
+    jahr INTEGER NOT NULL          -- welchem Jahr sie kamen (Lena, Runde 61)
+);
 CREATE TABLE IF NOT EXISTS steuer_besitz (
     jahr INTEGER NOT NULL,
     ware TEXT NOT NULL,            -- siehe spiel.MARKT
@@ -900,6 +904,15 @@ def jahres_salz(conn: sqlite3.Connection, jahr: int) -> int:
     return int(row[0])
 
 
+def schon_bezahlt(conn: sqlite3.Connection, jahr: int, grund: str) -> bool:
+    ensure_schema(conn)
+    return bool(
+        conn.execute(
+            "SELECT 1 FROM steuer_gold WHERE jahr = ? AND grund = ?", (jahr, grund)
+        ).fetchone()
+    )
+
+
 def verdiene(conn: sqlite3.Connection, jahr: int, grund: str, betrag: int, text: str) -> int:
     """Bucht Salzkörner in Frittes Beutel, wenn es für diesen Grund noch keine gab.
 
@@ -1316,6 +1329,127 @@ def sicherungen(root: Path) -> Path:
     return Path(root) / "steuer" / "sicherungen"
 
 
+def _sichern(conn: sqlite3.Connection, root: Path, jahr: int) -> Path:
+    """Kopiert den Jahres-Ordner und die ganze Datenbank nach steuer/sicherungen/<jahr>-<Zeit>."""
+    quelle = ordner(root, jahr)
+    ziel = sicherungen(root) / f"{jahr}-{datetime.now():%Y-%m-%d-%H%M%S}"
+    n = 2
+    while ziel.exists():
+        ziel = ziel.with_name(f"{ziel.name.split('_')[0]}_{n}")
+        n += 1
+    ziel.mkdir(parents=True)
+    if quelle.is_dir():
+        shutil.copytree(quelle, ziel / str(jahr))
+    with sqlite3.connect(ziel / "frits.db") as kopie:
+        conn.backup(kopie)
+    return ziel
+
+
+def sicherung_jahr(name: str) -> int | None:
+    """Das Jahr aus dem Namen eines Sicherungs-Ordners („2025-2026-11-03-091500“)."""
+    treffer = re.fullmatch(r"(\d{4})-\d{4}-\d{2}-\d{2}-\d{6}(_\d+)?", name)
+    return int(treffer[1]) if treffer else None
+
+
+def sicherungs_liste(root: Path) -> list[dict]:
+    """Die Sicherungen, neueste zuerst: Name, Jahr, wann."""
+    basis = sicherungen(root)
+    if not basis.is_dir():
+        return []
+    liste = []
+    for d in basis.iterdir():
+        jahr = sicherung_jahr(d.name)
+        if d.is_dir() and jahr and (d / "frits.db").is_file():
+            wann = datetime.strptime(d.name[5:22], "%Y-%m-%d-%H%M%S")
+            liste.append({"name": d.name, "jahr": jahr, "wann": wann})
+    return sorted(liste, key=lambda x: (x["wann"], x["name"]), reverse=True)
+
+
+_JAHRES_TABELLEN = (
+    "steuer_verweise",
+    "steuer_dateien",
+    "steuer_chronik",
+    "steuer_kiste",
+    "steuer_halb",
+    "steuer_stuecke",
+)
+
+
+def zurueckholen(conn: sqlite3.Connection, root: Path, name: str) -> tuple[int, Path]:
+    """Holt ein Steuerjahr aus einer Sicherung zurück (Lena, Runde 61). Der Stand davor wird
+    selbst erst gesichert, so lässt sich auch das Zurückholen zurücknehmen. Salzkörner und
+    Gekauftes bleiben wie sie sind: Die Karten behalten ihre Nummern und zahlen nicht noch
+    einmal. Belege, die beim Neu-Beginnen in den Korb kamen, verschwinden dort, weil sie
+    wieder an ihrer Karte liegen (nur wenn die Prüfsumme gleich ist).
+    Gibt (Jahr, Sicherung des Stands davor) zurück."""
+    ensure_schema(conn)
+    quelle = sicherungen(root) / Path(name).name
+    jahr = sicherung_jahr(quelle.name)
+    if jahr is None or not (quelle / "frits.db").is_file():
+        raise ValueError(f"Keine Sicherung: {name}")
+    davor = _sichern(conn, root, jahr)
+    alt = sqlite3.connect(quelle / "frits.db")
+    alt.row_factory = sqlite3.Row
+    try:
+        with transaction(conn):
+            for tabelle in _JAHRES_TABELLEN:
+                conn.execute(f"DELETE FROM {tabelle} WHERE jahr = ?", (jahr,))
+            for tabelle in reversed(_JAHRES_TABELLEN):  # Karten zuerst, dann was auf sie zeigt
+                spalten = [r[1] for r in conn.execute(f"PRAGMA table_info({tabelle})")]
+                da = {r[1] for r in alt.execute(f"PRAGMA table_info({tabelle})")}
+                gemeinsam = [sp for sp in spalten if sp in da]
+                if not gemeinsam:
+                    continue
+                liste = ", ".join(gemeinsam)
+                zeilen = alt.execute(
+                    f"SELECT {liste} FROM {tabelle} WHERE jahr = ?", (jahr,)
+                ).fetchall()
+                fragen = ", ".join("?" for _ in gemeinsam)
+                conn.executemany(
+                    f"INSERT INTO {tabelle} ({liste}) VALUES ({fragen})",
+                    [tuple(z) for z in zeilen],
+                )
+    finally:
+        alt.close()
+    zurueck = {r["sha256"] for r in conn.execute(
+        "SELECT sha256 FROM steuer_dateien WHERE jahr = ?", (jahr,)
+    )}  # fmt: skip
+    jetzt = ordner(root, jahr)
+    if jetzt.is_dir():
+        shutil.rmtree(jetzt)
+    if (quelle / str(jahr)).is_dir():
+        shutil.copytree(quelle / str(jahr), jetzt)
+    korb = lager(root)
+    if korb.is_dir():
+        for datei in korb.iterdir():
+            if datei.is_file() and not datei.name.startswith(".") and _sha(datei) in zurueck:
+                datei.unlink()
+    with transaction(conn):
+        conn.execute("DELETE FROM steuer_korb_herkunft WHERE jahr = ?", (jahr,))
+    return jahr, davor
+
+
+def _sha(pfad: Path) -> str:
+    h = hashlib.sha256()
+    with open(pfad, "rb") as f:
+        for stueck in iter(lambda: f.read(1 << 20), b""):
+            h.update(stueck)
+    return h.hexdigest()
+
+
+def korb_jahr(conn: sqlite3.Connection, datei: Path) -> int | None:
+    """Aus welchem Jahr ein Zettel im Korb stammt, wenn „Neu beginnen“ ihn dort hingelegt hat."""
+    ensure_schema(conn)
+    if not conn.execute("SELECT 1 FROM steuer_korb_herkunft LIMIT 1").fetchone():
+        return None
+    try:
+        sha = _sha(datei)
+    except OSError:
+        return None
+    row = conn.execute("SELECT jahr FROM steuer_korb_herkunft WHERE sha256 = ?", (sha,)).fetchone()
+    return row[0] if row else None
+
+
 def neu_beginnen(conn: sqlite3.Connection, root: Path, jahr: int) -> Path:
     """Beginnt die Quest eines Jahres von vorn, ohne etwas zu verlieren (Marie, 2026-11-03).
 
@@ -1323,23 +1457,16 @@ def neu_beginnen(conn: sqlite3.Connection, root: Path, jahr: int) -> Path:
        Datenbank nach steuer/sicherungen/<jahr>-<Zeit>/.
     2. Jeder Beleg wandert zurück in den Eingangskorb. Eingetippte Angaben bleiben nur in der
        Sicherung; die fragt die Quest neu ab.
-    3. Fragebogen, Stempel, Chronik und Fundkiste des Jahres sind weg, die Karten wieder offen.
+    3. Fragebogen, Stempel, Chronik (bis auf die Orden) und Fundkiste des Jahres sind weg,
+       die Karten wieder offen.
        Die Karten behalten ihre Nummer: Salzkörner gibt es für dieselbe Karte nicht zweimal.
     Gibt den Sicherungs-Ordner zurück."""
     ensure_schema(conn)
     quelle = ordner(root, jahr)
-    ziel = sicherungen(root) / f"{jahr}-{datetime.now():%Y-%m-%d-%H%M%S}"
-    n = 2
-    while ziel.exists():
-        ziel = ziel.with_name(f"{ziel.name}-{n}")
-        n += 1
-    ziel.mkdir(parents=True)
-    if quelle.is_dir():
-        shutil.copytree(quelle, ziel / str(jahr))
-    with sqlite3.connect(ziel / "frits.db") as kopie:
-        conn.backup(kopie)
+    ziel = _sichern(conn, root, jahr)
     korb = lager(root)
     korb.mkdir(parents=True, exist_ok=True)
+    herkunft = []
     for row in conn.execute("SELECT * FROM steuer_dateien WHERE jahr = ?", (jahr,)).fetchall():
         pfad = Path(heile_pfad(conn, row["pfad"]))
         if ist_angabe(row["original"]) or not pfad.is_file():
@@ -1348,10 +1475,16 @@ def neu_beginnen(conn: sqlite3.Connection, root: Path, jahr: int) -> Path:
         if neu.exists():
             neu = neu.with_name(f"{neu.stem}_{row['id']}{neu.suffix}")
         shutil.move(str(pfad), neu)
+        herkunft.append((row["sha256"], jahr))
     with transaction(conn):
-        for tabelle in ("steuer_verweise", "steuer_dateien", "steuer_chronik", "steuer_kiste",
-                        "steuer_halb"):  # fmt: skip
-            conn.execute(f"DELETE FROM {tabelle} WHERE jahr = ?", (jahr,))
+        conn.executemany(
+            "INSERT OR REPLACE INTO steuer_korb_herkunft (sha256, jahr) VALUES (?, ?)", herkunft
+        )
+        for tabelle in _JAHRES_TABELLEN[:-1]:
+            # Lena (Runde 61): Orden bleiben verdient (sonst kamen sie als „Neuer Orden“ wieder,
+            # und ihre Zierden hätten beim Abgleich verschwinden können)
+            nur = " AND art != 'erfolg'" if tabelle == "steuer_chronik" else ""
+            conn.execute(f"DELETE FROM {tabelle} WHERE jahr = ?{nur}", (jahr,))
         conn.execute("DELETE FROM steuer_stuecke WHERE jahr = ? AND herkunft != 'katalog'", (jahr,))
         conn.execute(
             "UPDATE steuer_stuecke SET status = 'offen', frage = '', wunsch = 0, geaendert = ?"

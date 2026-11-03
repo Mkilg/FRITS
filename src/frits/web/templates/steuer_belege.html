@@ -17,7 +17,7 @@
         <li><b>{{ summen.fragen }}</b> Frage{{ "n" if summen.fragen != 1 }} für die Mail</li>
         <li><b>{{ summen.leer }}</b> Karte{{ "n" if summen.leer != 1 }} noch leer</li>
       </ul>
-      <p class="muted">{% if korb %}{% if korb | length == 1 %}Im Eingangskorb wartet noch <a href="/steuer/{{ jahr }}#sq-korb">ein Zettel</a>, der zu noch keiner Karte gehört.{% else %}Im Eingangskorb warten noch <a href="/steuer/{{ jahr }}#sq-korb">{{ korb | length }} Zettel</a>, die zu noch keiner Karte gehören.{% endif %}{% endif %}</p>
+      <p class="muted">{% if korb %}{% if korb | length == 1 %}Im Korb wartet noch <a href="/steuer/{{ jahr }}#sq-korb">ein Zettel</a>.{% else %}Im Korb warten noch <a href="/steuer/{{ jahr }}#sq-korb">{{ korb | length }} Zettel</a>.{% endif %}{% endif %}</p>
       {% if zahlen %}
       <div class="sq-buch-zahlen">
         <h2>Deine Zahlen {{ jahr }} laut FRITS</h2>
@@ -62,8 +62,9 @@
             <div class="sq-beleg-vorschau"><span class="sq-beleg-icon">fehlt</span></div>
             {% endif %}
             <div class="sq-beleg-info">
-              <strong>{{ "Eingetippt" if d.art == "angabe" else d.original }}</strong>
-              <small>{% if d.art != "angabe" %}{{ d.groesse_text }} · {% endif %}seit {{ datum(d.hinzugefuegt[:10]) }}</small>
+              {# Lena (Runde 61): das textlastigste Blatt. Der Name öffnet den Beleg, das Datum fällt weg #}
+              {% if d.da and d.art != "angabe" %}<a class="sq-beleg-name" href="/steuer/{{ jahr }}/datei/{{ d.id }}" target="_blank" rel="noopener" title="{{ 'Ansehen' if d.zeigbar else 'Herunterladen' }}"><strong>{{ d.original }}</strong></a>{% else %}<strong>{{ "Eingetippt" if d.art == "angabe" else d.original }}</strong>{% endif %}
+              {% if d.art != "angabe" %}<small>{{ d.groesse_text }}</small>{% endif %}
               {% if not d.da %}<small class="sq-warnung">Die Datei ist nicht mehr im Ordner. Leg sie bitte noch einmal auf die Karte.</small>{% endif %}
               {% if d.art == "angabe" %}
               <details class="sq-angabe-aendern"><summary>Ändern</summary>
@@ -77,7 +78,6 @@
               {% endif %}
               {% if d.da and d.art != "angabe" %}
               <div class="reihe">
-                <a class="button quiet" href="/steuer/{{ jahr }}/datei/{{ d.id }}" target="_blank" rel="noopener">{{ "Ansehen" if d.zeigbar else "Herunterladen" }}</a>
                 <form method="post" action="/steuer/{{ jahr }}/datei/{{ d.id }}/entfernen">
                   <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back" value="{{ zurueck }}#provinz-{{ p.g.id }}">
                   <button class="quiet" title="Falsch abgelegt? Zurück in den Eingangskorb, dann neu zuordnen">Zurücklegen</button>
