@@ -19,7 +19,7 @@ import time
 from collections.abc import Callable
 from contextlib import ExitStack, asynccontextmanager
 from dataclasses import replace
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from importlib.resources import as_file, files
 from pathlib import Path
@@ -628,7 +628,9 @@ def create_app(
             mood=moment[0],
             moment=moment[1],
             ai_ready=ai_ready(current),
-            f=haustier.ansehen(conn, today(), fritte_datei(ws.root)) if current.haustier else None,
+            f=haustier.ansehen(conn, today(), fritte_datei(ws.root), current.vorsatz)
+            if current.haustier
+            else None,
             liste=aufgaben.liste(conn, today()),
             liste_rest=_liste_rest(),
             heute=today().isoformat(),
@@ -874,13 +876,9 @@ def create_app(
         form = await request.form()
         target = _local(form.get("back"))
         saved, problems = await _saved_uploads(form, ws.inbox)
-        if saved and "lesen_merken" in form:
-            # The "gleich lesen" box on Heute: whatever Fritz chose last time stays chosen.
-            wants = form.get("lesen") == "on"
-            if wants != settings().auto_read:
-                replace(settings(), auto_read=wants).save(ws.settings_file)
-            if wants and not problems:
-                return read_inbox(target, after_upload=True)
+        if saved and "lesen_lassen" in form and settings().auto_read and not problems:
+            # Dropped on Heute: read right away (Einstellungen › KI can switch that off).
+            return read_inbox(target, after_upload=True)
         if saved:
             names = ", ".join(p.name for p in saved)
             if ai_ready(settings()):
@@ -1829,7 +1827,30 @@ def create_app(
             folder=ws.root,
             next_invoice_number=upcoming,
             ki_kosten=store.ki_kosten(db()),
+            vorsaetze=haustier.VORSATZ,
+            neustart_ziel=sicherung.neustart_ziel(ws.root, datetime.now()).name,
         )
+
+    @app.post("/neu-anfangen", dependencies=guarded)
+    def neu_anfangen():
+        """Start over with an empty FRITS. The old folder is only renamed, never deleted."""
+        if umgebung.IM_BROWSER:
+            raise HTTPException(404)
+        try:
+            alt = sicherung.neu_anfangen(ws, datetime.now())
+        except OSError as exc:
+            flash(
+                f"Das hat nicht geklappt, es ist nichts verändert: {exc.strerror or exc}. "
+                "Schließ Programme, die Dateien aus dem FRITS-Ordner offen haben, und versuch "
+                "es noch einmal.",
+                "error",
+            )
+            return back("/settings#neustart")
+        flash(
+            f"Neu angefangen. Dein bisheriger Ordner liegt sicher als {alt.name} in "
+            f"{kurzer_pfad(alt.parent)}."
+        )
+        return back("/setup/welcome")
 
     def stil_gewaehlt(form) -> None:
         """Calm or playful was chosen here: Fritte's welcome then does not ask again (Lena)."""
@@ -2396,6 +2417,8 @@ def create_app(
             "sample": setup.sample_note(current),
             "learning": step in setup.LEARNING_STEPS,
             "lern_nr": setup.LEARNING_STEPS.index(step) + 1 if step in setup.LEARNING_STEPS else 0,
+            "bibliotheken": setup.bibliotheken() if step == "redaction_test" else [],
+            "vorsaetze": haustier.VORSATZ,
         }
         if step == "trick_document" and "demo" not in extra:
             try:  # no AI involved: show the result right away
@@ -2897,6 +2920,8 @@ def settings_from_form(current: Settings, form) -> Settings:
         changes["provider"] = form.get("provider")
     if form.get("effects") in EFFECTS:
         changes["effects"] = form.get("effects")
+    if form.get("vorsatz") in haustier.VORSATZ:
+        changes["vorsatz"] = form.get("vorsatz")
     if form.get("music") in _music_moods():
         changes["music"] = form.get("music")
     for key in form.getlist("checkboxes"):

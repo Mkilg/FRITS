@@ -15,7 +15,7 @@ from decimal import Decimal
 from frits.billing import Draft, Totals, build_draft, totals
 from frits.customers import Customer
 from frits.extract import check
-from frits.redact import Mapping, redact
+from frits.redact import NER_MODELS, Mapping, redact
 from frits.schema import ExtractionResult, Item
 from frits.settings import Settings
 
@@ -41,7 +41,7 @@ FALLBACK_STEPS = {
         "welcome",
         "Hallo, ich bin FRITS!",
         (
-            "Ich kümmere mich um den Papierkram. Die "
+            "Ich kümmere mich um den Papierkram. "
             "Das Wichtigste dauert etwa fünf Minuten, den Lern-Teil kannst du überspringen."
         ),
     ),
@@ -111,6 +111,37 @@ BILLING_LINKS = {
     "openai": "https://platform.openai.com/settings/organization/billing/overview",
     "openrouter": "https://openrouter.ai/settings/credits",
 }
+
+
+# Für Techies (Marie, 3.11.): which libraries do the redaction and the reading before it.
+# (package, what it does here). Versions are looked up on this computer.
+BIBLIOTHEKEN = (
+    ("spacy", "Erkennt Namen, Firmen und Orte (Named Entity Recognition) mit dem deutschen Modell"),
+    ("pytesseract", "Liest Text aus Fotos, mit Tesseract OCR"),
+    ("pypdf", "Liest Text aus PDFs"),
+    ("python-docx", "Liest Word-Dateien"),
+    ("pillow", "Öffnet Bilder"),
+    ("pi-heif", "Öffnet iPhone-Fotos (HEIC)"),
+)
+
+
+def bibliotheken() -> list[tuple[str, str, str]]:
+    """(name, version, what it does). The NER model is listed with its own version."""
+    from importlib.metadata import PackageNotFoundError, version
+
+    def v(name: str) -> str:
+        try:
+            return version(name)
+        except PackageNotFoundError:
+            return ""
+
+    zeilen = []
+    for name, wozu in BIBLIOTHEKEN:
+        if name == "spacy":
+            modell = next((m for m in NER_MODELS if v(m)), "")
+            wozu = f"{wozu} {modell} {v(modell)}".rstrip() if modell else wozu
+        zeilen.append((name, v(name), wozu))
+    return zeilen
 
 
 def step_info(key: str) -> dict:

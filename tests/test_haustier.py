@@ -1054,3 +1054,20 @@ def test_hats_and_dishes_show_painted_pictures_not_emoji(client, ws):  # noqa: F
         spiel.bild_zeichen("koerner", None, "🧂")
     )  # Lena: 🧂 next to painted pictures
     assert str(spiel.bild_zeichen("etwas", "", "★")) == "★"
+
+
+def test_serie_counts_kept_vorsaetze_in_a_row():
+    from datetime import date, timedelta
+
+    from frits.haustier import serie, serie_text
+
+    mi = date(2026, 11, 4)  # a Wednesday
+    wochen = {mi - timedelta(weeks=n) for n in (1, 2, 3)}
+    assert serie(wochen, mi) == 3  # this week isn't over: the streak still stands
+    assert serie(wochen | {mi}, mi) == 4
+    assert serie(wochen - {mi - timedelta(weeks=2)}, mi) == 1  # a gap: calmly from the start
+    assert serie(wochen, mi, "zweimal") == 0  # once a week isn't twice
+    tage = {mi - timedelta(days=n) for n in range(5)}
+    assert serie(tage, mi, "taeglich") == 5
+    assert serie_text(1, "taeglich") == "1 Tag in Folge"
+    assert serie_text(3) == "3 Wochen in Folge"

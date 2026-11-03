@@ -3,6 +3,7 @@ right in the browser, without a folder."""
 
 import re
 import shutil
+from dataclasses import replace
 from datetime import date
 
 import pytest
@@ -58,21 +59,24 @@ def test_gleich_lesen_reads_right_away_and_opens_the_new_draft(client, ws):  # n
         "/inbox/upload",
         files=[("files", ("01_notiz_meier.txt", note, "text/plain"))],
         back="/",
-        lesen="on",
-        lesen_merken="1",
+        lesen_lassen="1",
     )
     assert "Fertig gelesen: 1 neuer Entwurf" in page.text
     assert str(page.url).endswith(f"/drafts/{latest_draft(ws)}")
     assert not list(ws.inbox.iterdir())
 
 
-def test_unticking_gleich_lesen_is_remembered(client, ws):  # noqa: F811
-    send(client, "/inbox/upload", text="Notiz", back="/", lesen_merken="1")
-    assert Settings.load(ws.settings_file).auto_read is False
+def test_no_checkbox_and_reading_can_wait_via_the_settings(client, ws):  # noqa: F811
+    # Marie (3.11.): "Was macht diese Checkbox? Braucht man sie?" Dropping is the click now;
+    # who wants to collect first switches it off under Einstellungen › KI.
+    home = client.get("/").text
+    assert 'name="lesen"' not in home and "Ich lese es gleich." in home
+    assert "schwärze ich vorher" in home.split("Ich lese es gleich.")[1].split("</p>")[0]
+    replace(Settings.load(ws.settings_file), auto_read=False).save(ws.settings_file)
+    send(client, "/inbox/upload", text="Notiz", back="/", lesen_lassen="1")
     assert len(list(ws.inbox.iterdir())) == 1  # only put down, not read
-    assert "checked" not in re.search(
-        r'<input type="checkbox" name="lesen"[^>]*>', client.get("/").text
-    ).group(0)
+    assert "Ich lege es erst in den Eingang." in client.get("/").text
+    assert 'name="auto_read"' in client.get("/settings").text
 
 
 def test_home_says_plainly_when_no_ai_is_connected(ws, nlp, monkeypatch):  # noqa: F811
@@ -97,8 +101,7 @@ def test_reading_after_a_drop_without_ai_keeps_fritz_on_the_page(ws, nlp, monkey
                 "token": app.state.token,
                 "text": "2 Std",
                 "back": "/",
-                "lesen": "on",
-                "lesen_merken": "1",
+                "lesen_lassen": "1",
             },
             follow_redirects=True,
         )

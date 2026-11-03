@@ -291,3 +291,42 @@ def test_inbox_path_is_shown_as_it_really_is(client, ws):
     page = client.get("/setup/first_invoice").text
     assert "Dokumente › FRITS › inbox" not in page  # tmp_path, not ~/Documents/FRITS
     assert str(ws.inbox) in page
+
+
+def test_techies_find_the_exact_libraries_and_the_code(client):
+    """Marie 3.11.: step 6 lists the libraries, step 7 shows the protection as code."""
+    page = client.get("/setup/redaction_test").text
+    techie = page.split("Für Techies: die genauen Bibliotheken")[1].split("</details>")[0]
+    assert "de_core_news_lg" in techie and "pytesseract" in techie and "pypdf" in techie
+    assert "<code>spacy</code> 3." in techie  # the version installed on this computer
+    trick = client.get("/setup/trick_document").text
+    techie = trick.split("Für Techies: so ist der Schutz gebaut")[1].split("</details>")[0]
+    assert "&lt;dokument&gt;" in techie and "source_quote" in techie
+
+
+def test_first_invoice_says_nothing_gets_lost(client):
+    page = client.get("/setup/first_invoice").text
+    assert "Hier geht nichts verloren." in page and "als PDF" in page and "frits.db" in page
+
+
+def test_last_step_asks_for_a_vorsatz(client, ws):
+    page = client.get("/setup/done").text
+    assert "Wie oft willst du dich um den Papierkram kümmern?" in page
+    assert 'value="woechentlich" checked' in page
+    post(client, "done", action="next", vorsatz="zweimal")
+    assert Settings.load(ws.settings_file).vorsatz == "zweimal"
+    post(client, "done", action="next", vorsatz="jede Stunde")  # unknown: kept as it was
+    assert Settings.load(ws.settings_file).vorsatz == "zweimal"
+
+
+def test_starting_over_keeps_the_old_folder(client, ws):
+    (ws.customers / "meier.md").write_text("# Erika Meier\n", encoding="utf-8")
+    page = client.get("/settings").text
+    assert "Mit leerem FRITS neu anfangen" in page and "/steuer/neu-beginnen" in page
+    done = client.post("/neu-anfangen", data={"token": client.token}, follow_redirects=True)
+    assert str(done.url).endswith("/setup/welcome")
+    alt = [p for p in ws.root.parent.iterdir() if p.name.startswith("FRITS-alt-")]
+    assert len(alt) == 1 and (alt[0] / "customers" / "meier.md").is_file()
+    assert ws.customers.is_dir() and not list(ws.customers.iterdir())
+    assert alt[0].name in done.text
+    assert client.post("/neu-anfangen", data={}).status_code in (400, 403)  # needs the token

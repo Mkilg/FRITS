@@ -187,7 +187,7 @@ def register_haustier(
         return inbox_und_entwuerfe_leer() and not stand.kuerzlich_verworfen(db(), today())
 
     def fritte(conn) -> haustier.Fritte:
-        return haustier.ansehen(conn, today(), datei)
+        return haustier.ansehen(conn, today(), datei, settings().vorsatz)
 
     def album_pruefen(conn) -> None:
         neu = album.neue(conn, today())

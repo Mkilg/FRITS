@@ -3,7 +3,7 @@
    a file. Works without JavaScript too: the file field and the text box are plain form fields.
 
    Options (all optional): dz_action, dz_back (alias back_to), dz_class, dz_title, dz_hint,
-   dz_icon, dz_accept, dz_send, dz_busy, dz_read (show "gleich lesen lassen"), dz_text_label. #}
+   dz_icon, dz_accept, dz_send, dz_busy, dz_read (drop = read right away, see settings.auto_read), dz_text_label. #}
 <form method="post" action="{{ dz_action or '/inbox/upload' }}" enctype="multipart/form-data"
       class="einwurf {{ dz_class or 'card form' }}" data-einwurf
       data-busy="{{ dz_busy or ('Ich lese gerade. Das dauert einen Moment.' if dz_read and settings.auto_read else 'Ich lege es in den Eingang.') }}">
@@ -23,8 +23,10 @@
       <span class="muted dz-tipp nur-maus"><kbd data-taste-cmd>⌘</kbd><kbd>↩</kbd> schickt ab</span></div>
   </details>
   {% if dz_read %}
-  <input type="hidden" name="lesen_merken" value="1">
-  <label class="dz-lesen"><input type="checkbox" name="lesen" {{ "checked" if settings.auto_read }}> gleich lesen lassen
-    <span class="muted">(Namen und Adressen schwärze ich vorher hier auf deinem Computer)</span></label>
+  {# Marie (3.11.): the "gleich lesen lassen" box raised more questions than it answered. Dropping
+     is the click: FRITS reads right away (names are blacked out here first). Who wants to collect
+     first switches it off in the settings. #}
+  <input type="hidden" name="lesen_lassen" value="1">
+  <p class="dz-lesen muted">{{ "Ich lese es gleich." if settings.auto_read else "Ich lege es erst in den Eingang." }} {{ info_i(("Namen und Adressen schwärze ich vorher hier auf diesem Computer. Erst dann sieht die KI den Text." if settings.auto_read else "Gelesen wird erst, wenn du auf „Jetzt lesen lassen“ drückst.") ~ " Umstellen kannst du das in den Einstellungen unter KI.") }}</p>
   {% endif %}
 </form>

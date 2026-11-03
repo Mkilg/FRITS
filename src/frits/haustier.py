@@ -20,6 +20,15 @@ from frits import store
 from frits.spiel import ausbau, kassensturz, saison, stand
 from frits.spiel.stand import SpielFehler as LadenFehler
 
+# Vorsatz (Marie, 3.11.): Fritz says once how often he wants to do his paperwork, and the
+# streak counts how often in a row he did. (key: label, days per period, days needed)
+VORSATZ = {
+    "taeglich": ("Jeden Tag ein paar Minuten", 1, 1),
+    "zweimal": ("Zweimal pro Woche", 7, 2),
+    "woechentlich": ("Einmal pro Woche", 7, 1),
+    "zweiwoechentlich": ("Alle zwei Wochen", 14, 1),
+}
+VORSATZ_STANDARD = "woechentlich"
 MUNTER_BIS = 4  # days since the last paperwork: up to here she's lively
 GEMUETLICH_BIS = 11  # then cosy; after that she dozes
 WOCHEN = 4  # how many weeks the rhythm dots show
@@ -142,13 +151,56 @@ class Fritte:
     ort: int = 1  # which of her places (1 = am Markt)
     pokale: list[str] = field(default_factory=list)  # seasons whose goal was reached
     fest: str = ""  # where this season's festival was held, if it was
+    serie: int = 0  # how many times in a row the Vorsatz was kept
+    vorsatz: str = VORSATZ_STANDARD
 
     @property
     def laune_name(self) -> str:
         return LAUNE_NAME[self.laune]
 
 
-def ansehen(conn: sqlite3.Connection, heute: date, alte_datei: Path | None = None) -> Fritte:
+def _periode(tag: date, laenge: int) -> int:
+    """Number of the day (laenge 1) or of the week / fortnight starting on a Monday."""
+    if laenge == 1:
+        return tag.toordinal()
+    return (tag.toordinal() - 1) // laenge  # date(1, 1, 1) was a Monday
+
+
+def serie(tage: set[date], heute: date, vorsatz: str = VORSATZ_STANDARD) -> int:
+    """How many periods in a row (day, week or fortnight) had enough paperwork days.
+    The running period only counts once it is kept, it never breaks the streak early:
+    on a Wednesday last week's streak still stands. Calm on purpose: it just starts again."""
+    _, laenge, noetig = VORSATZ.get(vorsatz, VORSATZ[VORSATZ_STANDARD])
+    zaehler: dict[int, int] = {}
+    for tag in tage:
+        if tag <= heute:
+            zaehler[_periode(tag, laenge)] = zaehler.get(_periode(tag, laenge), 0) + 1
+    jetzt = _periode(heute, laenge)
+    n = 1 if zaehler.get(jetzt, 0) >= noetig else 0
+    p = jetzt - 1
+    while zaehler.get(p, 0) >= noetig:
+        n += 1
+        p -= 1
+    return n
+
+
+def serie_text(n: int, vorsatz: str = VORSATZ_STANDARD) -> str:
+    """ "3 Wochen in Folge" for the little flame next to Fritte."""
+    einheit = {
+        "taeglich": ("Tag", "Tage"),
+        "zweimal": ("Woche", "Wochen"),
+        "woechentlich": ("Woche", "Wochen"),
+        "zweiwoechentlich": ("Runde", "Runden"),
+    }.get(vorsatz, ("Woche", "Wochen"))
+    return f"{n} {einheit[0] if n == 1 else einheit[1]} in Folge"
+
+
+def ansehen(
+    conn: sqlite3.Connection,
+    heute: date,
+    alte_datei: Path | None = None,
+    vorsatz: str = VORSATZ_STANDARD,
+) -> Fritte:
     """How Fritte is today. Also turns new paperwork into waiting cards."""
     altlasten(conn, heute)
     wartend = stand.abgleichen(conn, heute, alte_datei)
@@ -192,6 +244,8 @@ def ansehen(conn: sqlite3.Connection, heute: date, alte_datei: Path | None = Non
         ort=ausbau.ort(conn).nummer,
         pokale=saison.pokale(conn),
         fest=stand.einstellung(conn, f"fest:{heute.year}-Q{saison.quartal(heute)[0]}"),
+        serie=serie(tage, heute, vorsatz),
+        vorsatz=vorsatz if vorsatz in VORSATZ else VORSATZ_STANDARD,
     )
 
 
