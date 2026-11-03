@@ -345,8 +345,19 @@ def _templates() -> Jinja2Templates:
         providers=PROVIDERS,
         supported=",".join(sorted(SUPPORTED)),
         im_browser=lambda: umgebung.IM_BROWSER,
+        info_i=info_i,
     )
     return Jinja2Templates(env=env)
+
+
+def info_i(text, titel: str = "Mehr dazu") -> Markup:
+    """Marie (3.11.): what must be said but isn't needed every time hides behind a small
+    "i". A <details>, so it opens with a tap, without JavaScript and on the phone.
+    text is escaped unless it is Markup (``info_i("<b>…</b>" | safe)``)."""
+    return Markup(
+        '<details class="info-i"><summary title="{0}" aria-label="{0}">i</summary>'
+        '<div class="info-i-text">{1}</div></details>'
+    ).format(titel, text)
 
 
 # ---------- the app ----------
