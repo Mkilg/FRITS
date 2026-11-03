@@ -1532,7 +1532,7 @@ a.sq-beleg-vorschau:hover, a.sq-beleg-vorschau:focus-visible { transform: rotate
 @media (pointer: coarse) { .sq-marke.sammlung a { display: inline-flex; min-height: 44px; } }
 
 /* Runde 24: Herkunft einer Zierde auf Touch (erstes Antippen) */
-.sq-zier-zettel { position: absolute; transform: rotate(-1deg); z-index: 400; width: max-content; max-width: min(220px, 70vw); padding: 0.4rem 0.6rem; background: #fffaf0; color: var(--tinte, #2a2016); border: 1px solid #d9c9a3; border-radius: 3px; box-shadow: 0 6px 14px rgba(20, 10, 2, .35); font: 600 var(--fs-klein)/1.3 system-ui, sans-serif; text-align: left; white-space: normal; animation: sq-treffer-rein .25s ease-out both; }
+.sq-zier-zettel { position: absolute; transform: rotate(-1deg); z-index: 95; width: max-content; max-width: min(220px, 70vw); padding: 0.4rem 0.6rem; background: #fffaf0; color: var(--tinte, #2a2016); border: 1px solid #d9c9a3; border-radius: 3px; box-shadow: 0 6px 14px rgba(20, 10, 2, .35); font: 600 var(--fs-klein)/1.3 system-ui, sans-serif; text-align: left; white-space: normal; animation: sq-treffer-rein .25s ease-out both; }
 .sq-zier-zettel small { display: block; font-weight: 400; color: #7a6e5c; margin-top: 0.2rem; }
 
 /* Runde 25: Am Handy mit gemalter Insel ist das Zierden-Feld ein Stück derselben gemalten Wiese,
@@ -1952,7 +1952,9 @@ details.sq-mehr-marken .kurz { display: none; }
 
 /* Lena (Runde 64): Am Handy waren 30 von 304 Tippzielen kleiner als 44 px */
 @media (max-width: 600px), (pointer: coarse) {
-  .sq-zettel-punkte { gap: 12px; padding: 6px 0; }
+  /* Lena (Runde 66): Ringe dürfen den Nachbarn nicht überdecken. 16 + 28 = 44 px je Punkt */
+  .sq-zettel-punkte { gap: 28px; padding: 14px; }
+  .sq-zettel-punkte li:has(> a:not(.bonus)) + li:has(> a.bonus) { margin-left: 0; }
   .sq-zettel-punkte a { position: relative; width: 16px; height: 16px; }
   .sq-zettel-punkte a::before { content: ""; position: absolute; inset: -14px; border-radius: 50%; }
   .sq-erledigt li { padding: 0; }
@@ -1964,5 +1966,23 @@ details.sq-mehr-marken .kurz { display: none; }
   .sq .sq-fb-ausweg { display: inline-flex; align-items: center; min-height: 44px; }
   .sq-buch a[href*="/gebiet/"] { display: inline-flex; align-items: center; min-height: 44px; }
   .sq details > summary { min-height: 44px; }
+  /* Lena (Runde 66): die restlichen kleinen Ziele */
+  .sq-fb-fuss a.quiet, .sq-pruefen li a { display: inline-flex; align-items: center; min-height: 44px; }
+  .sq label.sq-wahl { min-height: 44px; min-width: 44px; }
+  .sq-anrede label { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; }
+  .sq-orden > li { min-width: 44px; min-height: 44px; }
+
   .sq .sq-beleg-name { display: inline-block; padding: 9px 0; }
 }
+
+/* Lena (Runde 66, P1): Insel-Ebenen lagen über der Tab-Leiste. Die Leiste hat jetzt z 100
+   (frits.css, #226); alle Insel-Ebenen bleiben darunter. Was man anspringt, endet über ihr. */
+@media (max-width: 600px) {
+  html { scroll-padding-bottom: 88px; }
+}
+/* Lena (Runde 66): Ein umbrechender Link mit Tipp-Polster lag über seinem Nachbarn
+   („Zur Insel“ im Laden öffnete den Markt; „Text einfügen“ unten die Beraterin-Seite) */
+.sq .hint a, .sq-unten-brief a { display: inline-block; }
+.sq-neu a.sq-stempelknopf { display: inline-block; white-space: nowrap; }
+/* Lena (Runde 66): Am Mac lag das Werkstatt-Dach über dem „l“ von „Zur Insel“ */
+.sq .sq-nah-insel .sq-zurueck { z-index: 75; }

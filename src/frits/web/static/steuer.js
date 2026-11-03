@@ -410,11 +410,18 @@
         setTimeout(los, (0.6 + i * 0.7 + 0.5) * 1000);
       });
     }
-    belohnung.addEventListener("click", function (e) { if (e.target === belohnung) belohnung.close(); });
+    // Lena (Runde 66): Ein Tipp auf den Papierrand schloss den Dialog. Nur außerhalb schließen.
+    belohnung.addEventListener("click", function (e) {
+      if (e.target !== belohnung) return;
+      var r = belohnung.getBoundingClientRect();
+      var drin = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+      if (!drin) belohnung.close();
+    });
   }
 
   // Kleine Meldungen: immer nur eine auf einmal, die nächste kommt, wenn die vorige geht.
-  // Warnungen bleiben stehen, bis man sie wegklickt.
+  // Warnungen bleiben stehen, bis man sie wegklickt. Lena (Runde 66): Lange Meldungen
+  // bleiben länger (etwa 280 ms je Wort, mindestens 4,2 s).
   var meldungen = Array.prototype.slice.call(document.querySelectorAll(".sq-zettelchen .sq-meldung"));
   function zeigeMeldung(i) {
     var m = meldungen[i];
@@ -431,7 +438,7 @@
     }
     var knopf = m.querySelector(".sq-weg");
     if (knopf) knopf.addEventListener("click", weg);
-    if (!m.classList.contains("warn") && !m.classList.contains("fehler") && !m.querySelector(".sq-meldung-aktion")) setTimeout(weg, 4200);
+    if (!m.classList.contains("warn") && !m.classList.contains("fehler") && !m.querySelector(".sq-meldung-aktion")) setTimeout(weg, Math.max(4200, m.textContent.trim().split(/\s+/).length * 280));
   }
   meldungen.forEach(function (m, i) { if (i > 0) m.classList.add("wartet"); });
   zeigeMeldung(0);

@@ -4616,3 +4616,17 @@ def test_runde_65_beleg_mit_anderem_jahr_im_namen_bekommt_kein_herkunftsjahr(cli
     korb = {p.name: p for p in quest.lager_dateien(ws.root)}
     assert quest.korb_jahr(conn, korb["Riester_Bescheinigung_2024.pdf"]) is None
     assert quest.korb_jahr(conn, korb["beleg-b.pdf"]) == 2025
+
+
+def test_runde_66_tab_leiste_liegt_ueber_der_insel(client):
+    """Lena (Runde 66, P1): Hafen, Hort und Ablagefeld (z 60–80) lagen über der Tab-Leiste;
+    „Heute“ öffnete die Dateiauswahl. Die Kartenpunkt-Ringe überdeckten den Nachbarn."""
+    css = client.get("/static/steuer.css").text
+    # Die Tab-Leiste hat z 100 (frits.css): Was auf der Insel liegt und nicht fest steht, darunter
+    for regel in re.findall(r"[^{}]+\{[^}]*\}", css):
+        z = re.search(r"z-index: (\d+)", regel)
+        if z and "position: fixed" not in regel and ".sq-" in regel.split("{")[0]:
+            assert int(z[1]) < 100, regel[:80]
+    assert "scroll-padding-bottom" in css
+    punkte = css[css.index("Lena (Runde 66): Ringe") :]
+    assert "gap: 28px" in punkte[:300] and "inset: -14px" in punkte[:500]
