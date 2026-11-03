@@ -19,7 +19,7 @@ Läuft ohne Internet, auf Macs mit Apple-Chip und Intel, ab macOS 13. Deine Date
 
 - **Steuer-Quest: Sicherung zurückholen.** Unter „Neu beginnen“ holst du eine frühere Sicherung zurück. Dabei gehen keine Belege verloren. Der Eingangskorb kennt das Jahr jedes Belegs.
 - **Kleines i am Handy:** Es lässt sich leicht antippen und öffnet sich als Zettel unten am Bildschirm, auch unter schiefen Überschriften. Escape schließt nur das i, nicht den ganzen Dialog.
-- **Am Handy:** Knöpfe und Klapp-Zeilen sind groß genug für den Finger. Die Steuer-Quest nutzt dieselben sechs Schriftgrößen wie der Rest.
+- **Am Handy:** Die Tab-Leiste unten reagiert auch auf der Steuer-Insel. Vorher konnte ein Tipp auf „Heute“ dort etwas auf der Karte öffnen. Knöpfe und Klapp-Zeilen sind groß genug für den Finger. Die Steuer-Quest nutzt dieselben sechs Schriftgrößen wie der Rest.
 
 ### Neu in 1.7.5
 

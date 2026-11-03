@@ -414,7 +414,11 @@ input[type=checkbox], input[type=radio] { width: 1.15rem; height: 1.15rem; verti
   /* Links inside a sentence or a table cell: a taller hit area without moving the text */
   :where(p, td, .bottom, .hint, ul.plain li) a:not(.button) { padding-block: 0.8rem; }
   .kapitel-leiste a { min-height: 44px; }
+  /* Two links side by side: each its own 44 px box, so the padding of one never covers the
+     other when it wraps (Lena R66: „Zur Insel“ opened the market) */
+  .link-reihe a { display: inline-flex; align-items: center; min-height: 44px; padding-block: 0; }
 }
+.link-reihe { display: flex; flex-wrap: wrap; column-gap: 1.2rem; }
 
 /* First setup: the logo left, "Später einrichten" on the right */
 .top > .brand + .top-actions { margin-left: auto; }
@@ -564,8 +568,10 @@ nav.tabs { display: none; }
   header.top nav { display: none; }
   header.top { flex-wrap: nowrap; }
   header.top .top-actions { margin-left: auto; }
+  /* z-index 100: above the island and its layers (steuer.css 60–90), so a tap on a tab never
+     lands on the map (Lena Runde 66); below toasts (200), bottom sheets (500) and stamps. */
   nav.tabs {
-    display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; flex-wrap: nowrap; gap: 0;
+    display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 100; flex-wrap: nowrap; gap: 0;
     padding: 0.25rem 0.3rem calc(0.25rem + env(safe-area-inset-bottom)); background: var(--papierkarte);
     border-top: 1px solid var(--papier-schatten); box-shadow: 0 -4px 14px rgba(40, 20, 5, .18);
   }
@@ -739,7 +745,7 @@ button.info-i-knopf::after { content: ""; position: absolute; left: 50%; top: 50
 @media (max-width: 600px) {
   /* on the phone it opens as a small sheet at the bottom of the screen */
   .info-i-text { position: fixed; left: 16px; right: 16px; top: auto; bottom: 16px; transform: none;
-    width: auto; max-width: none; z-index: 45; }
+    width: auto; max-width: none; z-index: 110; }
   /* above the tab bar at the bottom, not under it */
   body:has(nav.tabs) .info-i-text { bottom: calc(72px + env(safe-area-inset-bottom)); }
 }
