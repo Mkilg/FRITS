@@ -1850,3 +1850,4 @@ details.sq-mehr-marken .kurz { display: none; }
 .sq-mail-ausweg p { margin: 0 0 .4rem; }
 .sq-mail-ausweg ol { margin: 0 0 .4rem; padding-left: 1.3rem; display: grid; gap: .5rem; }
 .sq-mail-ausweg li > a, .sq-mail-ausweg li > button { margin-right: .4rem; }
+.sq-mail-ausweg .sq-pfad { display: block; margin-top: .3rem; font: 500 .8rem/1.3 system-ui, sans-serif; color: var(--muted-papier, #6b5a48); overflow-wrap: anywhere; }
