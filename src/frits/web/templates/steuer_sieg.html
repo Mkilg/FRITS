@@ -122,7 +122,7 @@
         <p><strong>Die Mail ließ sich nicht von selbst öffnen. So geht es trotzdem:</strong></p>
         <ol>
           <li><a class="sq-siegelknopf" href="{{ mail_ausweg }}">E-Mail öffnen</a> Betreff und Text sind schon drin.</li>
-          <li>{% if not im_browser() %}<button class="sq-stempelknopf" formaction="/steuer/{{ jahr }}/truhe/zeigen" formmethod="post">Fundkiste im Finder zeigen</button> {% endif %}Die Fundkiste <b>{{ zip_pfad.name }}</b> hängst du selbst an.</li>
+          <li>{% if not im_browser() %}<button class="sq-stempelknopf" formaction="/steuer/{{ jahr }}/truhe/zeigen" formmethod="post" data-leise>Fundkiste im Finder zeigen</button> {% endif %}Die Fundkiste <b>{{ zip_pfad.name }}</b> hängst du selbst an.</li>
           <li><button type="button" class="sq-stempelknopf" data-kopieren-aus="#sq-mailtext">Text kopieren</button> Falls dein Mail-Programm den Text nicht übernimmt, zum Beispiel bei Googlemail im Browser.</li>
         </ol>
         {% if mit_passwort %}<p class="muted">Das Passwort schickst du getrennt, nicht in dieselbe Mail.</p>{% endif %}

@@ -419,7 +419,7 @@ def register_steuer(
     # Fritte stutzt: Die Rückfrage bleibt am Zettel im Eingangskorb, auch nach dem Neuladen
     app.state.steuer_stutzen = {}
     # Ließ sich die Mail nicht öffnen: der mailto-Link für den Ausweg am Brief, je Jahr
-    app.state.steuer_mailto = {}
+    app.state.steuer_mailto = set()
 
     def conn():
         return quest.ensure_schema(store.connect(ws.db))
@@ -594,12 +594,19 @@ def register_steuer(
             return
         for j in quest_jahre():
             q = profil(j) if j != jahr else None
-            if q is not None and not (q.beraterin_name or q.beraterin_email):
-                q.beraterin_name, q.beraterin_email, q.anrede = (
-                    p.beraterin_name,
-                    p.beraterin_email,
-                    p.anrede,
-                )
+            if q is None:
+                continue
+            # Dieselbe Beraterin (oder noch keine): leere Felder füllen, Anrede mitnehmen. Das
+            # stille Speichern kommt Feld für Feld, darum zählt jedes Feld einzeln (Lena, R49).
+            gleich = not q.beraterin_name or q.beraterin_name == p.beraterin_name
+            gleich = gleich and (not q.beraterin_email or q.beraterin_email == p.beraterin_email)
+            if not gleich:
+                continue
+            vorher = (q.beraterin_name, q.beraterin_email, q.anrede)
+            q.beraterin_name = q.beraterin_name or p.beraterin_name
+            q.beraterin_email = q.beraterin_email or p.beraterin_email
+            q.anrede = p.anrede
+            if (q.beraterin_name, q.beraterin_email, q.anrede) != vorher:
                 q.save(quest.profil_datei(ws.root, j))
 
     def beraterin_vom_nachbarn(jahr: int, p: Profil) -> None:
@@ -2336,7 +2343,13 @@ def register_steuer(
                 else ""
             ),
             fritte_warten=fritte_warten,
-            mail_ausweg=app.state.steuer_mailto.get(jahr, ""),
+            # Lena (Runde 49): Der Link wird jedes Mal neu gebaut. Sonst öffnete er nach dem
+            # Finale noch die alte, halbe Mail, während daneben schon die vollständige Zip lag.
+            mail_ausweg=(
+                system.mailto_link(daten["profil"].beraterin_email, betreff, text)
+                if jahr in app.state.steuer_mailto
+                else ""
+            ),
             **daten,
         )
 
@@ -2439,9 +2452,13 @@ def register_steuer(
         return back(str(form.get("back") or f"/steuer/{jahr}/beraterin"))
 
     @app.post("/steuer/{jahr}/truhe/zeigen", dependencies=guarded)
-    def truhe_zeigen(jahr: int):
+    def truhe_zeigen(request: Request, jahr: int):
         p = profil_oder_404(jahr)
         zip_pfad = truhe_pfad(jahr, p)
+        if request.headers.get("x-frits-leise"):
+            # Lena (Runde 49): vom Brief aus ohne Neuladen, sonst ging der geänderte Text verloren
+            gezeigt = zip_pfad.exists() and system.reveal_path(zip_pfad)
+            return JSONResponse({"ok": bool(gezeigt), "pfad": str(zip_pfad)})
         if not zip_pfad.exists():
             flash("Pack zuerst die Fundkiste.")
         elif not system.reveal_path(zip_pfad):
@@ -2464,10 +2481,10 @@ def register_steuer(
         text = str(form.get("text") or "")
         result = system.compose_email(p.beraterin_email, betreff, text, zip_pfad)
         if result.opened:
-            app.state.steuer_mailto.pop(jahr, None)
+            app.state.steuer_mailto.discard(jahr)
             flash("Die Mail ist in deinem Mail-Programm. Du drückst dort auf Senden.", cue="sent")
             return back(f"/steuer/{jahr}/sieg")
         # Lena (Runde 48): Der Ausweg führte auf die Rechnungsseite („Das PDF hängst du selbst
         # an“, „Rechnungsordner öffnen“). Er bleibt jetzt am Brief, mit Weg zur Zip.
-        app.state.steuer_mailto[jahr] = result.mailto
+        app.state.steuer_mailto.add(jahr)
         return back(f"/steuer/{jahr}/sieg#brief")
