@@ -38,7 +38,7 @@
       <p class="sq-erzaehler">Du hast schon angefangen. Ich habe mir alles gemerkt.</p>
       {% elif kurz %}
       <h1 class="sq-intro-titel">Neue Insel für {{ jahr }}?</h1>
-      <p class="sq-erzaehler">{% if neu_begonnen %}{{ jahr }} beginnt von vorn. Deine Belege warten im Eingangskorb.{% else %}Für {{ jahr }} gibt es noch keine Quest.{% endif %} Drei kurze Teile, dann steht deine Insel.</p>
+      <p class="sq-erzaehler">{% if neu_begonnen %}{{ jahr }} beginnt von vorn.{% if im_korb %} Deine Belege warten im Eingangskorb.{% endif %}{% else %}Für {{ jahr }} gibt es noch keine Quest.{% endif %} Drei kurze Teile, dann steht deine Insel.</p>
       {% else %}
       <h1 class="sq-intro-titel">Steuer-Quest {{ jahr }}</h1>
       <p class="sq-erzaehler">Drei kurze Teile, dann steht deine Insel. Dauert etwa zwei Minuten.</p>

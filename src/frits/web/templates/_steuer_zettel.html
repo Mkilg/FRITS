@@ -3,7 +3,7 @@
 {% set alle_karten = provinzen | map(attribute="stuecke") | sum(start=[]) %}
 {% set titel_von = {} %}{% for p in provinzen %}{% set _ = titel_von.update({p.gebiet.id: p.gebiet.titel}) %}{% endfor %}
 {% set ahnungen = {} %}{% for f in lager %}{% set _ = ahnungen.update({f.name: ahnung(f.name, alle_karten)}) %}{% endfor %}
-{% set sichere = [] %}{% for f in lager %}{% if ahnungen[f.name].stueck and (aus_jahr is not defined or aus_jahr(f) in (none, jahr)) %}{% set _ = sichere.append(f) %}{% endif %}{% endfor %}
+{% set sichere = [] %}{% for f in lager %}{% if ahnungen[f.name].stueck and (aus_jahr is not defined or aus_jahr(f) in (none, jahr)) and not (fremdes_jahr is defined and fremdes_jahr(f.name, jahr, ahnungen[f.name].stueck.key)) %}{% set _ = sichere.append(f) %}{% endif %}{% endfor %}
 {% if "spuernase" in helfer and sichere | length > 1 %}
 <form method="post" action="/steuer/{{ jahr }}/lager/vorschlaege" class="sq-spuernase" data-stempel="GESICHERT">
   <input type="hidden" name="token" value="{{ token }}">

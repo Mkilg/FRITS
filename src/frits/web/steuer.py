@@ -804,6 +804,11 @@ def register_steuer(
                 if wuensche >= spiel.WUNSCH_DECKEL:
                     continue  # Wünsche zahlen nur bis zum Deckel (man kann sie selbst erfinden)
                 wuensche += 1
+            if quest.karte_hat_salz(c, jahr, v.grund):
+                # Lena (Runde 63): Im zweiten Spiel brachte „Gibt's nicht“ Salz für eine Karte,
+                # die im ersten schon einen Fund bezahlt hatte. Eine Karte zahlt einmal.
+                schon_bezahlt = True
+                continue
             schon_bezahlt = schon_bezahlt or quest.schon_bezahlt(c, jahr, v.grund)
             if quest.verdiene(c, jahr, v.grund, v.betrag, v.text):
                 basis, faktor, plus = basis + v.basis, v.mult, plus + v.betrag
@@ -1257,9 +1262,24 @@ def register_steuer(
             # zweiter Klick hätte es ohne Rückfrage zurückgesetzt. Vorgewählt ist nur, was
             # Fritz von seiner Insel aus mitbringt.
             gewaehlt=jahr if jahr in jahre else 0,
-            sicherungen=quest.sicherungs_liste(ws.root)[:6],
+            sicherungen=sicherungen_zeigen(),
+            jetzt={j: quest.jahres_stand(conn(), j) for j in jahre},
+            von_vorn=jahr if jahr and jahr not in jahre and quest.sicherungs_liste(ws.root) else 0,
             nav="/steuer",
         )
+
+    def sicherungen_zeigen() -> list[dict]:
+        """Die sechs neuesten Sicherungen. Lena (Runde 63): Nach sieben Schritten fiel der
+        Sieg-Stand aus der Liste. Der neueste Sieg jedes Jahres bleibt immer sichtbar."""
+        alle = quest.sicherungs_liste(ws.root)
+        gezeigt = alle[:6]
+        for jahr in sorted({s["jahr"] for s in alle}, reverse=True):
+            if any(s["jahr"] == jahr and s["sieg"] for s in gezeigt):
+                continue
+            sieg = next((s for s in alle if s["jahr"] == jahr and s["sieg"]), None)
+            if sieg:
+                gezeigt.append(sieg)
+        return gezeigt
 
     def jahr_vergessen(jahr: int) -> None:
         """Was sich die Seiten für dieses Jahr gemerkt haben (Mail, Passwort, Tagesziel …)."""
@@ -1280,19 +1300,27 @@ def register_steuer(
             flash("Diese Sicherung gibt es nicht (mehr).", "hinweis")
             return back("/steuer/neu-beginnen")
         try:
-            jahr, _davor = quest.zurueckholen(conn(), ws.root, name)
-        except sqlite3.IntegrityError:
+            z = quest.zurueckholen(conn(), ws.root, name)
+        except sqlite3.Error:
             flash(
-                "Das ging nicht: Die Sicherung passt nicht mehr zu deinen anderen Jahren."
-                " Es hat sich nichts geändert.",
+                "Das ging nicht: Die Sicherung ließ sich nicht lesen. Es hat sich nichts geändert.",
                 "hinweis",
             )
             return back("/steuer/neu-beginnen")
+        jahr = z.jahr
         jahr_vergessen(jahr)
-        flash(
-            f"{jahr} ist zurück, wie es gesichert war. Den Stand davor habe ich auch gesichert.",
-            "ok",
-        )
+        text = f"{jahr} ist zurück, wie es gesichert war. Den Stand davor habe ich auch gesichert."
+        if z.in_den_korb:
+            # Lena (Runde 63): Neuere Belege verschwanden im Sicherungs-Ordner
+            text += (
+                " 1 neuerer Beleg liegt im Eingangskorb."
+                if z.in_den_korb == 1
+                else f" {z.in_den_korb} neuere Belege liegen im Eingangskorb."
+            )
+        if z.salz:
+            # Lena (Runde 63): Schleifen aus Neu beginnen und Zurückholen brachten Salz
+            text += f" Salz wie damals: {'+' if z.salz > 0 else '−'}{spiel.koerner(abs(z.salz))}."
+        flash(text, "ok")
         return back(f"/steuer/{jahr}")
 
     @app.post("/steuer/neu-beginnen", dependencies=guarded)
@@ -1404,6 +1432,10 @@ def register_steuer(
             angefangen=angefangen,
             # Lena (Runde 61): Nach „Neu beginnen“ hieß es „Für 2025 gibt es noch keine Quest“
             neu_begonnen=any(s["jahr"] == jahr for s in quest.sicherungs_liste(ws.root)),
+            # Lena (Runde 63): „Deine Belege warten im Eingangskorb“ stand auch bei leerem Korb
+            im_korb=sum(
+                1 for f in quest.lager_dateien(ws.root) if quest.korb_jahr(conn(), f) == jahr
+            ),
         )
 
     @app.get("/steuer/{jahr}/fragebogen", response_class=HTMLResponse)
@@ -1761,6 +1793,8 @@ def register_steuer(
             aus = quest.korb_jahr(c, quelle)
             if karte is None or (aus and aus != jahr):
                 continue  # Lena (Runde 61): ein Beleg aus einem neu begonnenen anderen Jahr
+            if fremdes_jahr(quelle.name, jahr, karte["key"]):
+                continue  # Lena (Runde 63): „aus 2024?“ lässt die Spürnase auch liegen
             fund = quest.sammeln(c, ws.root, karte["id"], quelle, verschieben=True)
             if fund.neu:
                 quest.notiere(c, jahr, "fund", f"{karte['name']}: {quelle.name}")
