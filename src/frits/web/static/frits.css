@@ -409,7 +409,7 @@ input[type=checkbox], input[type=radio] { width: 1.15rem; height: 1.15rem; verti
   input[type=checkbox], input[type=radio] { width: 1.4rem; height: 1.4rem; flex: 0 0 auto; }
   input:not([type=checkbox]):not([type=radio]), select { min-height: 44px; }
   .brand { min-height: 44px; }
-  details > summary { padding-top: 0.6rem; padding-bottom: 0.6rem; }
+  details > summary { padding-top: 0.6rem; padding-bottom: 0.6rem; min-height: 44px; box-sizing: border-box; }
   .salz a { display: inline-block; padding: 0.7rem 0.2rem; margin: -0.7rem 0; }
   /* Links inside a sentence or a table cell: a taller hit area without moving the text */
   :where(p, td, .bottom, .hint, ul.plain li) a:not(.button) { padding-block: 0.8rem; }

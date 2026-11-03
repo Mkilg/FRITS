@@ -632,7 +632,7 @@
   // Escape closes it again. Only one is open at a time.
   // On the phone the text is a sheet fixed to the bottom of the screen. A tilted title
   // around the "i" (transform) would pin it to the title instead (Lena Runde 62), so while
-  // open the sheet sits directly in <body> and goes back home when it closes.
+  // open the sheet sits directly in <body> (or its <dialog>) and goes back home when it closes.
   function infoText(i) {
     var k = i.querySelector(".info-i-knopf");
     var id = k && k.getAttribute("aria-controls");
@@ -666,7 +666,8 @@
     box.classList.remove("nach-oben");
     if (getComputedStyle(box).position === "fixed") {
       box.classList.add("frei");
-      document.body.appendChild(box);
+      // inside a modal <dialog> it must stay in the dialog, which lies above the page
+      (info.closest("dialog") || document.body).appendChild(box);
       return;
     }
     var r = box.getBoundingClientRect(), rand = 8, breit = document.documentElement.clientWidth;
@@ -679,7 +680,14 @@
       box.classList.add("nach-oben");
     }
   });
-  document.addEventListener("keydown", function (e) { if (e.key === "Escape") infoZu(null); });
+  // Escape with an "i" open closes only the "i", not the dialog around it (Lena Runde 64):
+  // caught first (capture on window), so neither the <dialog> nor steuer.js see it.
+  window.addEventListener("keydown", function (e) {
+    if (e.key !== "Escape" || !document.querySelector(".info-i.offen")) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    infoZu(null);
+  }, true);
 
   window.Frits = { feedback: feedback, stampSound: stampSound, playful: playful };
 })();
