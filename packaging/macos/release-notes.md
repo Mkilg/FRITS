@@ -15,6 +15,16 @@ Sagt der Mac stattdessen, die App sei „beschädigt“: Terminal öffnen, `xatt
 
 Läuft ohne Internet, auf Macs mit Apple-Chip und Intel, ab macOS 13. Deine Daten liegen in `Dokumente/FRITS`, nicht im App-Ordner.
 
+### Neu in 1.7.5
+
+- **Viel weniger Text:** Die Seiten sind um bis zu zwei Drittel kürzer, es gibt nur noch sechs Schriftgrößen. Was man nicht jedes Mal braucht, steht hinter einem kleinen **i** zum Antippen.
+- **Laden mit Formeln:** Statt langer Sätze steht da zum Beispiel „🧂×2 für Fragen“.
+- **Dein Vorsatz und Frittes Flamme:** Am Ende der Einführung sagst du, wie oft du dich um den Papierkram kümmern willst. Neben Fritte zählt eine Flamme, wie oft in Folge du es geschafft hast.
+- **Einführung für Techies:** Bei Schwärzen und Trick-Test gibt es Ausklapper mit den genauen Bibliotheken und Code. Schritt 9 erklärt, dass nichts verloren geht, weil alles als normale Dateien auf dem Mac liegt.
+- **Neu anfangen:** Unter Einstellungen › Neu anfangen startest du mit einem leeren FRITS. Der alte Ordner bleibt als „FRITS-alt-Datum“ erhalten. Die Steuer-Quest lässt sich pro Jahr neu beginnen (Insel › Mehr), auch mit Sicherung.
+- **Eingang ohne Häkchen:** Was du ablegst, wird gleich gelesen, vorher geschwärzt. Wer lieber sammelt, stellt das unter Einstellungen › KI um.
+- **Ladebild:** Beim Start bereitet Fritte die Küche vor („Schäle Kartoffeln …“).
+
 ### Neu in 1.7.4
 - **Einrichtung kürzer:** Im Lern-Teil steht „Überspringen“ jetzt oben neben dem Hinweis, dass es nur 3 kurze Schritte sind. Der Trick-Test ist knapper.
 - **Steuer-Quest:** Eine leere Fundkiste wird nicht mehr gefeiert. Sie sagt ehrlich, was fehlt. Stutzt Fritte bei einem Beleg, führt ein Knopf zur passenden Karte. Nach „Heute nur senden“ gibt es eine Nachtrag-Mail, und ein Dokument mit der Steuer-ID wird erkannt. Deine Beraterin trägst du einmal für alle Jahre ein. Dein eigener Brieftext bleibt erhalten, und die Mail öffnet sich nur, wenn du auf den Knopf drückst.
