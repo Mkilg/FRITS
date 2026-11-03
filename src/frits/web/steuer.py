@@ -1207,6 +1207,44 @@ def register_steuer(
     def steuer_start():
         return back(f"/steuer/{standard_jahr()}")
 
+    @app.get("/steuer/neu-beginnen", response_class=HTMLResponse)
+    def neu_beginnen_seite(request: Request, jahr: int = 0):
+        jahre = quest_jahre()
+        ordner = quest.sicherungen(ws.root)
+        alte = sorted(d.name for d in ordner.iterdir() if d.is_dir()) if ordner.is_dir() else []
+        return page(
+            request,
+            "steuer_neu.html",
+            jahre=jahre,
+            gewaehlt=jahr if jahr in jahre else (jahre[-1] if jahre else 0),
+            sicherungen=alte[-5:],
+            nav="/steuer",
+        )
+
+    @app.post("/steuer/neu-beginnen", dependencies=guarded)
+    async def neu_beginnen(request: Request):
+        """Eine Quest von vorn, mit Sicherung vorher. Nichts wird gelöscht (Marie, 3.11.)."""
+        form = await request.form()
+        jahr = _zahl(form.get("jahr"), 9999)
+        if jahr not in quest_jahre():
+            flash("Für dieses Jahr gibt es keine Quest.")
+            return back("/steuer/neu-beginnen")
+        ziel = quest.neu_beginnen(conn(), ws.root, jahr)
+        # Was sich die Seiten für dieses Jahr gemerkt haben (Mail, Passwort, Tagesziel …)
+        for name, wert in list(vars(app.state).get("_state", {}).items()):
+            if not name.startswith("steuer_"):
+                continue
+            if isinstance(wert, dict):
+                wert.pop(jahr, None)
+            elif isinstance(wert, set):
+                wert.discard(jahr)
+        flash(
+            f"Die Steuer-Quest {jahr} beginnt von vorn. Deine Belege liegen im Eingangskorb, "
+            f"die Sicherung in steuer/sicherungen/{ziel.name}.",
+            "ok",
+        )
+        return back(f"/steuer/{jahr}/intro")
+
     @app.get("/steuer/{jahr}", response_class=HTMLResponse)
     def karte(request: Request, jahr: int, neu: str = ""):
         if profil(jahr) is None:

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Neu beginnen · Steuer-Quest{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/steuer.css">{% endblock %}
+{% block content %}
+{# Marie (3.11.): „Kann ich irgendwo komplett neu starten? Steuer-Quest aber auch allgemein?“ #}
+<div class="sq sq-tisch">
+<div class="sq-neu">
+  <section class="sq-papier">
+    <h1>Steuer-Quest neu beginnen</h1>
+    {% if not jahre %}
+    <p>Du hast noch keine Steuer-Quest angefangen. <a href="/steuer">Zur Steuer-Quest</a></p>
+    {% else %}
+    <form method="post" action="/steuer/neu-beginnen">
+      <input type="hidden" name="token" value="{{ token }}">
+      <label class="field">Welches Jahr?
+        <select name="jahr">{% for j in jahre %}<option value="{{ j }}"{% if j == gewaehlt %} selected{% endif %}>{{ j }}</option>{% endfor %}</select>
+      </label>
+      <ul class="sq-neu-liste">
+        <li><b>Nichts geht verloren.</b> Vorher sichere ich das ganze Jahr in den Ordner <code>steuer/sicherungen</code>.</li>
+        <li>Deine Belege kommen zurück in den Eingangskorb.</li>
+        <li>Fragebogen, Stempel und Fundkiste fangen von vorn an.</li>
+        <li>Deine Salzkörner bleiben. Für dieselbe Karte gibt es keine zweiten.</li>
+      </ul>
+      <p><button class="sq-siegelknopf">Neu beginnen</button> <a class="sq-stempelknopf" href="/steuer{% if gewaehlt %}/{{ gewaehlt }}{% endif %}">Doch nicht</a></p>
+    </form>
+    {% endif %}
+    {% if sicherungen %}<p class="muted">Frühere Sicherungen: {{ sicherungen | join(", ") }}</p>{% endif %}
+    <p class="muted">Ganz FRITS neu starten? Das geht unter <a href="/settings#neustart">Einstellungen</a>.</p>
+  </section>
+</div>
+</div>
+{% endblock %}
