@@ -712,7 +712,7 @@ ul.wartet-frueher li { display: flex; flex-wrap: wrap; align-items: center; gap:
 .info-i > summary:focus-visible { outline: 2px solid var(--ocker); outline-offset: 2px; }
 .info-i-text { position: absolute; z-index: 30; left: 50%; transform: translateX(-50%); top: 1.7rem;
   width: max-content; max-width: min(22rem, 80vw); padding: 0.6rem 0.8rem; border-radius: 8px;
-  background: var(--papier); color: var(--ink); border: 1px solid var(--papier-schatten);
+  background: var(--papier); color: var(--ink-papier); border: 1px solid var(--papier-schatten);
   box-shadow: 0 6px 18px rgba(0, 0, 0, .15); font-size: 0.88rem; font-weight: normal; font-style: normal;
   line-height: 1.45; text-align: left; white-space: normal; }
 @media (max-width: 600px) {
