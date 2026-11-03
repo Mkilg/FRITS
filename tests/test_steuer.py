@@ -4374,6 +4374,9 @@ def test_runde_60_steuer_id_aus_dem_vorjahr(client, ws):
     fragebogen(client, jahr=2025, teil1={"name": "Kim"})
     seite = client.get("/steuer/2025/gebiet/rathaus").text
     assert "Aus 2024 übernehmen" in seite and ">Steuer-ID: 12 345 678 901</textarea>" in seite
+    # Lena (Runde 62): auch rückwärts, wer 2023 nach 2024 macht
+    fragebogen(client, jahr=2023, teil1={"name": "Kim"})
+    assert "Aus 2024 übernehmen" in client.get("/steuer/2023/gebiet/rathaus").text
 
 
 def test_runde_61_neu_beginnen_zurueckholen_und_korb_kennt_das_jahr(client, ws):

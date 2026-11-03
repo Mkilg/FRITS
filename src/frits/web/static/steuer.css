@@ -1926,3 +1926,12 @@ details.sq-mehr-marken .kurz { display: none; }
 .sq-ahnung.sq-anderes-jahr a { color: #6b4a0e; }
 .sq .sq-beleg-name { color: inherit; text-decoration: none; } .sq .sq-beleg-name:hover strong { text-decoration: underline; }
 .sq .sq-beleg-info .reihe { display: flex; flex-wrap: wrap; align-items: center; gap: 0.1rem 0.4rem; margin: 0.15rem 0 0; } .sq .sq-beleg-info .reihe form { margin: 0; } .sq .sq-beleg-info .reihe button { padding: 0.2rem 0.5rem; }
+/* Lena (Runde 62): Am Handy öffnet das i als Blatt unten am Bildschirm (position: fixed). Ein
+   gedrehtes Papier darüber (Korb-Titel, schiefe Zettel) macht sich selbst zum Bezugsrahmen,
+   und das Blatt landete als schmaler Zettel weit über dem i. Solange es offen ist, liegt
+   das Papier gerade. */
+@media (max-width: 600px) {
+  .sq *:has(.info-i.offen) { transform: none !important; animation: none !important; }
+}
+/* Lena (Runde 62): Am Mac lag das Burg-Bild über „← Zur Insel“ */
+.sq .sq-zurueck { position: relative; z-index: 5; }

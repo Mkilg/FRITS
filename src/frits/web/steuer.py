@@ -511,9 +511,10 @@ def register_steuer(
 
     def steuer_id_frueher(jahr: int) -> tuple[int, str] | None:
         """Lena (Runde 60): Im zweiten Jahr war die Steuer-ID wieder leer, dabei ändert sie
-        sich nie. (Jahr, Text) der letzten eingetippten Steuer-ID aus einem früheren Jahr."""
+        sich nie. (Jahr, Text) der eingetippten Steuer-ID aus dem nächsten anderen Jahr."""
         c = conn()
-        for j in sorted((j for j in quest_jahre() if j < jahr), reverse=True):
+        # Lena (Runde 62): auch aus einem späteren Jahr (wer 2024 nach 2025 macht), das nächste zuerst
+        for j in sorted((j for j in quest_jahre() if j != jahr), key=lambda j: (abs(j - jahr), -j)):
             for st in quest.stuecke(c, j):
                 if st["key"] != "steuer-id":
                     continue
@@ -890,7 +891,8 @@ def register_steuer(
         if gold_zu_silber:
             flash(
                 "Aus Gold wird Silber: Eine wichtige Unterlage ist jetzt als „Gibt's nicht“ "
-                "gestempelt. Findest du sie doch, wird es wieder Gold."
+                "gestempelt. Findest du sie doch, wird es wieder Gold.",
+                "hinweis",  # Lena (Runde 62): kein grüner Rand für eine schlechte Nachricht
             )
             # Lena (Runde 59): Sie kam nach „Zählt trotzdem!“ erst nach fast 5 Sekunden.
             # Lena (Runde 60): Und „Zählt trotzdem!“ stand daneben noch 9 Sekunden. Die
