@@ -630,12 +630,22 @@
 
   // Info-i (Marie, 3.11.): a tap on the little "i" opens its text, a tap anywhere else or
   // Escape closes it again. Only one is open at a time.
+  // On the phone the text is a sheet fixed to the bottom of the screen. A tilted title
+  // around the "i" (transform) would pin it to the title instead (Lena Runde 62), so while
+  // open the sheet sits directly in <body> and goes back home when it closes.
+  function infoText(i) {
+    var k = i.querySelector(".info-i-knopf");
+    var id = k && k.getAttribute("aria-controls");
+    return (id && document.getElementById(id)) || i.querySelector(".info-i-text");
+  }
   function infoZu(ausser) {
     document.querySelectorAll(".info-i.offen").forEach(function (i) {
       if (i === ausser) return;
       i.classList.remove("offen");
       var k = i.querySelector(".info-i-knopf");
       if (k) k.setAttribute("aria-expanded", "false");
+      var box = infoText(i);
+      if (box && box.parentNode !== i) { box.classList.remove("frei"); i.appendChild(box); }
     });
   }
   document.addEventListener("click", function (e) {
@@ -649,11 +659,16 @@
     knopf.setAttribute("aria-expanded", auf ? "true" : "false");
     // Next to the edge of the page the box would be cut off (a jar on the left of the
     // shelf), so it moves back inside. On the phone it is a sheet at the bottom anyway.
-    var box = info.querySelector(".info-i-text");
-    if (!auf || !box) return;
+    var box = infoText(info);
+    if (!auf) { infoZu(null); return; }
+    if (!box) return;
     box.style.marginLeft = "";
     box.classList.remove("nach-oben");
-    if (getComputedStyle(box).position === "fixed") return;
+    if (getComputedStyle(box).position === "fixed") {
+      box.classList.add("frei");
+      document.body.appendChild(box);
+      return;
+    }
     var r = box.getBoundingClientRect(), rand = 8, breit = document.documentElement.clientWidth;
     var dx = r.left < rand ? rand - r.left : (r.right > breit - rand ? breit - rand - r.right : 0);
     if (dx) box.style.marginLeft = dx + "px";

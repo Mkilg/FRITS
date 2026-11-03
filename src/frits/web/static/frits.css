@@ -734,6 +734,7 @@ button.info-i-knopf::after { content: ""; position: absolute; left: 50%; top: 50
   line-height: 1.45; text-align: left; white-space: normal; letter-spacing: normal; text-transform: none;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
 .info-i.offen > .info-i-text { display: block; }
+.info-i-text.frei { display: block; } /* the phone sheet, lifted into <body> while open (frits.js) */
 .info-i-text.nach-oben { top: auto; bottom: 1.7rem; }
 @media (max-width: 600px) {
   /* on the phone it opens as a small sheet at the bottom of the screen */

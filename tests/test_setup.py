@@ -1,3 +1,4 @@
+import re
 from decimal import Decimal
 
 import pytest
@@ -330,3 +331,14 @@ def test_starting_over_keeps_the_old_folder(client, ws):
     assert ws.customers.is_dir() and not list(ws.customers.iterdir())
     assert alt[0].name in done.text
     assert client.post("/neu-anfangen", data={}).status_code in (400, 403)  # needs the token
+
+
+def test_info_i_names_its_text_for_screen_readers():
+    """Lena Runde 62: the button says which text it opens (aria-controls), each id once."""
+    from frits.web.app import info_i
+
+    a, b = str(info_i("eins")), str(info_i("zwei"))
+    ids = [re.search(r'aria-controls="(info-\d+)"', x).group(1) for x in (a, b)]
+    assert ids[0] != ids[1]
+    for x, nr in zip((a, b), ids, strict=True):
+        assert f'id="{nr}"' in x
