@@ -121,8 +121,8 @@
       <div class="sq-mail-ausweg" role="status">
         <p><strong>Die Mail ließ sich nicht von selbst öffnen. So geht es trotzdem:</strong></p>
         <ol>
-          <li><a class="sq-siegelknopf" href="{{ mail_ausweg }}">E-Mail öffnen</a> Betreff und Text sind schon drin.</li>
-          <li>{% if not im_browser() %}<button class="sq-stempelknopf" formaction="/steuer/{{ jahr }}/truhe/zeigen" formmethod="post" data-leise>Fundkiste im Finder zeigen</button> {% endif %}Die Fundkiste <b>{{ zip_pfad.name }}</b> hängst du selbst an.</li>
+          <li><a class="sq-siegelknopf" href="{{ mail_ausweg }}" data-mailto>E-Mail öffnen</a> Betreff und Text sind schon drin.</li>
+          <li>{% if not im_browser() %}<button class="sq-stempelknopf" formaction="/steuer/{{ jahr }}/truhe/zeigen" formmethod="post" data-leise>Fundkiste im Finder zeigen</button> <small class="sq-pfad" data-pfad hidden></small> {% endif %}Die Fundkiste <b>{{ zip_pfad.name }}</b> hängst du selbst an.</li>
           <li><button type="button" class="sq-stempelknopf" data-kopieren-aus="#sq-mailtext">Text kopieren</button> Falls dein Mail-Programm den Text nicht übernimmt, zum Beispiel bei Googlemail im Browser.</li>
         </ol>
         {% if mit_passwort %}<p class="muted">Das Passwort schickst du getrennt, nicht in dieselbe Mail.</p>{% endif %}
@@ -133,7 +133,8 @@
       <label>Betreff <input name="betreff" value="{{ betreff }}"></label>
       <label class="sr-only" for="sq-mailtext">Text (alles änderbar)</label>
       <textarea id="sq-mailtext" name="text" rows="16">{{ mailtext }}</textarea>
-      <p><button class="sq-siegelknopf" {% if not zip_pfad %}disabled title="Erst die Fundkiste packen"{% endif %}>In Mail öffnen</button></p>
+      {# Lena (Runde 50): Mit Ausweg gibt es nur einen roten Mail-Knopf, oben #}
+      <p><button class="{{ 'sq-stempelknopf' if mail_ausweg and zip_pfad else 'sq-siegelknopf' }}" {% if not zip_pfad %}disabled title="Erst die Fundkiste packen"{% endif %}>{{ "Noch einmal in Mail öffnen" if mail_ausweg and zip_pfad else "In Mail öffnen" }}</button></p>
       <p class="muted">Gesendet wird erst, wenn du in deinem Mail-Programm auf Senden drückst.</p>
     </form>
   </div>

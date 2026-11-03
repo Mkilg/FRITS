@@ -874,9 +874,11 @@
 (function () {
   Array.prototype.forEach.call(document.querySelectorAll("form[data-leise]"), function (form) {
     var gemerkt = form.querySelector("[data-gemerkt]"), uhr = null;
-    function speichern() {
+    function speichern(teilen) {
       if (!window.fetch) return;
-      fetch(form.action, { method: "POST", body: new FormData(form), headers: { "x-frits-leise": "1" }, credentials: "same-origin" })
+      var kopf = { "x-frits-leise": "1" };
+      if (teilen === true) kopf["x-frits-teilen"] = "1";  // erst beim Verlassen des Felds in andere Jahre
+      fetch(form.action, { method: "POST", body: new FormData(form), headers: kopf, credentials: "same-origin" })
         .then(function (r) {
           if (r.ok && gemerkt) {
             gemerkt.textContent = "✓ gemerkt";
@@ -886,7 +888,7 @@
         }).catch(function () {});
     }
     form.addEventListener("input", function () { clearTimeout(uhr); uhr = setTimeout(speichern, 700); });
-    form.addEventListener("change", function () { clearTimeout(uhr); speichern(); });
+    form.addEventListener("change", function () { clearTimeout(uhr); speichern(true); });
   });
   Array.prototype.forEach.call(document.querySelectorAll("form[data-mit]"), function (form) {
     form.addEventListener("submit", function () {
@@ -913,10 +915,25 @@
       fetch(knopf.getAttribute("formaction"), { method: "POST", body: daten, headers: { "x-frits-leise": "1" } })
         .then(function (r) { return r.json(); })
         .then(function (j) {
-          knopf.textContent = j.ok ? "✓ im Finder" : "Liegt hier: " + j.pfad;
-          if (j.ok) setTimeout(function () { knopf.textContent = beschriftung; }, 2500);
+          if (j.ok) {
+            knopf.textContent = "✓ im Finder";
+            setTimeout(function () { knopf.textContent = beschriftung; }, 2500);
+            return;
+          }
+          // Ohne Finder: der Pfad steht klein daneben, nicht in Großbuchstaben im Knopf (Lena, R50)
+          var pfad = knopf.parentNode.querySelector("[data-pfad]");
+          if (pfad) { pfad.textContent = "Liegt hier: " + j.pfad; pfad.hidden = false; }
         })
         .catch(function () { knopf.form.submit(); });
+    });
+  });
+  // „E-Mail öffnen“ nimmt, was gerade in den Feldern steht, auch spätere Änderungen (Lena, R50)
+  Array.prototype.forEach.call(document.querySelectorAll("a[data-mailto]"), function (link) {
+    link.addEventListener("click", function () {
+      var brief = link.closest("form");
+      if (!brief) return;
+      function wert(name) { var f = brief.querySelector("[name=" + name + "]"); return f ? f.value : ""; }
+      link.href = "mailto:" + encodeURIComponent(wert("an")) + "?subject=" + encodeURIComponent(wert("betreff")) + "&body=" + encodeURIComponent(wert("text"));
     });
   });
   // „Text kopieren“ beim Ausweg am Brief nimmt den Mailtext, so wie er gerade im Feld steht

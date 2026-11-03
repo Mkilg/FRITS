@@ -3746,7 +3746,7 @@ def test_runde_48_beraterin_feld_fuer_feld(client, ws):
     """Lena (Runde 49): Das stille Speichern kommt Feld für Feld, die Mail kam nicht mit."""
     fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
     fragebogen(client, jahr=2024, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
-    leise = {"x-frits-leise": "1"}
+    leise = {"x-frits-leise": "1", "x-frits-teilen": "1"}  # wie beim Verlassen des Felds
     client.post("/steuer/2024/beraterin/daten", headers=leise,
                 data={"token": client.token, "beraterin_name": "Frau Weber"})  # fmt: skip
     client.post("/steuer/2024/beraterin/daten", headers=leise,
@@ -3765,3 +3765,44 @@ def test_runde_48_beraterin_feld_fuer_feld(client, ws):
                       "beraterin_email": "kurz@example.org"})  # fmt: skip
     p24 = Profil.load(quest.profil_datei(ws.root, 2024))
     assert p24.beraterin_name == "Frau Weber"
+
+
+def test_runde_49_halbe_werte_bleiben_im_jahr(client, ws):
+    """Lena (Runde 50): Beim Tippen landete „Frau“ in 2025 und „weber@kanzlei“ in 2023."""
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    fragebogen(client, jahr=2024, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    tippen = {"x-frits-leise": "1"}
+    client.post("/steuer/2024/beraterin/daten", headers=tippen,
+                data={"token": client.token, "beraterin_name": "Frau"})  # fmt: skip
+    p25 = Profil.load(quest.profil_datei(ws.root, 2025))
+    assert p25.beraterin_name == ""  # beim Tippen wird nichts geteilt
+    # Auch beim Verlassen nicht, solange der Wert halb ist
+    raus = {"x-frits-leise": "1", "x-frits-teilen": "1"}
+    client.post("/steuer/2024/beraterin/daten", headers=raus,
+                data={"token": client.token, "beraterin_email": "weber@kanzlei"})  # fmt: skip
+    p25 = Profil.load(quest.profil_datei(ws.root, 2025))
+    assert (p25.beraterin_name, p25.beraterin_email) == ("", "")
+    # Ein halber Rest von früher wird vervollständigt
+    p25.beraterin_name = "Frau"
+    p25.save(quest.profil_datei(ws.root, 2025))
+    client.post("/steuer/2024/beraterin/daten", headers=raus,
+                data={"token": client.token, "beraterin_name": "Frau Weber",
+                      "beraterin_email": "weber@kanzlei.de"})  # fmt: skip
+    p25 = Profil.load(quest.profil_datei(ws.root, 2025))
+    assert (p25.beraterin_name, p25.beraterin_email) == ("Frau Weber", "weber@kanzlei.de")
+
+
+def test_runde_49_eigener_mailtext_bleibt_nach_dem_ausweg(client, ws, monkeypatch):
+    """Lena (Runde 50): Der eigene Zusatz im Mailtext ging nach dem Ausweg verloren."""
+    monkeypatch.setattr(system, "compose_email", lambda *a, **k: system.Composed(False, "x"))
+    _conn, _bonus = _besiegt_mit_bonus(client, ws)
+    post(client, "/steuer/2025/truhe", schloss="ohne")
+    seite = client.get("/steuer/2025/sieg").text
+    text = re.search(
+        r'<textarea id="sq-mailtext" name="text" rows="16">(.*?)</textarea>', seite, re.DOTALL
+    )
+    eigener = text.group(1).replace("&#34;", '"') + "\nPS: Bis Freitag?"
+    post(client, "/steuer/2025/mail", text=eigener, betreff="Meine Unterlagen")
+    seite = client.get("/steuer/2025/sieg").text
+    assert "PS: Bis Freitag?" in seite and 'value="Meine Unterlagen"' in seite
+    assert "Noch einmal in Mail öffnen" in seite
