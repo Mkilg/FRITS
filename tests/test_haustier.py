@@ -389,7 +389,8 @@ def test_pages_and_a_whole_round(client, ws):  # noqa: F811
     # Lena (phone): ten screens of shop. Shelves fold; without the quest only the market is open.
     assert '<details class="card laden-fach" id="markt" open>' in laden
     assert '<details class="card laden-fach" id="regal">' in laden
-    assert "Beim letzten Kassensturz" in laden  # what a spice would have brought
+    assert "beim letzten Mal" in laden  # what a spice would have brought
+    assert '<span class="formel">' in laden and '<details class="info-i">' in laden
     g = min(markt(conn, TODAY), key=lambda g: g.preis)
     assert g.id != "pfeffer"  # what is on the shelf is not offered again
     page = post(client, "/fritte/gewuerz/kaufen", gewuerz=g.id)

@@ -1,6 +1,10 @@
 {# Building blocks of the everyday game: cards and spice jars. #}
 {% macro zahl(w) %}{{ ("%g" % w) | replace(".", ",") }}{% endmacro %}
 
+{# Marie (3.11.): an effect as a tiny formula, "{salz}×2 für Fragen" with the salt shaker
+   painted in. The rest of the text is escaped. #}
+{% macro formel(text) %}<span class="formel">{{ (text | e).replace("{salz}", salz) }}</span>{% endmacro %}
+
 {% set KARTEN_BILD = {"rechnung": "symbol-rechnungen", "bezahlt": "symbol-euer", "angebot": "symbol-angebote", "ausgabe": "symbol-ausgaben", "erinnerung": "symbol-eingang", "feierabend": "fritte-feierabend", "aufgabe": "symbol-liste", "steuer": "symbol-steuer", "steuerjahr": "symbol-steuer", "lernen": "fritte-fertig", "uebung": "fritte-nachdenken", "start": "fritte-willkommen"} %}
 {% set KARTEN_ZEICHEN = {"rechnung": "📄", "bezahlt": "💶", "angebot": "📝", "ausgabe": "🧾", "erinnerung": "✉️", "feierabend": "🌙", "aufgabe": "✅", "steuer": "🗂️", "steuerjahr": "🐉", "lernen": "🎓", "uebung": "✏️", "start": "🎁"} %}
 {% set KARTEN_NAME = {"rechnung": "Rechnung", "bezahlt": "Zahlung", "angebot": "Angebot", "ausgabe": "Ausgabe", "erinnerung": "Erinnerung", "feierabend": "Feierabend", "aufgabe": "Abgehakt", "steuer": "Steuer", "steuerjahr": "Steuerjahr", "lernen": "Gelernt", "uebung": "Übung", "start": "Einzug", "korrektur": "Korrektur"} %}

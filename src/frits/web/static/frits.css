@@ -714,12 +714,15 @@ button.info-i-knopf:focus-visible { outline: 2px solid var(--ocker); outline-off
   width: max-content; max-width: min(22rem, 80vw); padding: 0.6rem 0.8rem; border-radius: 8px;
   background: var(--papier); color: var(--ink-papier); border: 1px solid var(--papier-schatten);
   box-shadow: 0 6px 18px rgba(0, 0, 0, .15); font-size: 0.88rem; font-weight: normal; font-style: normal;
-  line-height: 1.45; text-align: left; white-space: normal; }
+  line-height: 1.45; text-align: left; white-space: normal; letter-spacing: normal; text-transform: none;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
 .info-i.offen > .info-i-text { display: block; }
 @media (max-width: 600px) {
   /* on the phone it opens as a small sheet at the bottom of the screen */
   .info-i-text { position: fixed; left: 16px; right: 16px; top: auto; bottom: 16px; transform: none;
-    width: auto; max-width: none; }
+    width: auto; max-width: none; z-index: 45; }
+  /* above the tab bar at the bottom, not under it */
+  body:has(nav.tabs) .info-i-text { bottom: calc(72px + env(safe-area-inset-bottom)); }
 }
 
 /* "Für Techies" (Einführung 6 und 7): code stays as written and scrolls sideways in its box */

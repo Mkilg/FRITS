@@ -647,6 +647,15 @@
     infoZu(info);
     var auf = info.classList.toggle("offen");
     knopf.setAttribute("aria-expanded", auf ? "true" : "false");
+    // Next to the edge of the page the box would be cut off (a jar on the left of the
+    // shelf), so it moves back inside. On the phone it is a sheet at the bottom anyway.
+    var box = info.querySelector(".info-i-text");
+    if (!auf || !box) return;
+    box.style.marginLeft = "";
+    if (getComputedStyle(box).position === "fixed") return;
+    var r = box.getBoundingClientRect(), rand = 8, breit = document.documentElement.clientWidth;
+    var dx = r.left < rand ? rand - r.left : (r.right > breit - rand ? breit - rand - r.right : 0);
+    if (dx) box.style.marginLeft = dx + "px";
   });
   document.addEventListener("keydown", function (e) { if (e.key === "Escape") infoZu(null); });
 

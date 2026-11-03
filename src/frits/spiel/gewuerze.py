@@ -37,6 +37,9 @@ class Gewuerz:
     pro_karte: Callable[[dict, dict], int] | None = None  # (karte, umfeld) -> extra Körner
     plus_wuerze: Callable[[list[dict], dict], float] | None = None
     mal_wuerze: Callable[[list[dict], dict], float] | None = None  # 1 means no change
+    # Marie (3.11.): under the jar a tiny formula ("{salz}+2 pro Rechnung"), the template
+    # paints the salt shaker for {salz}. The full sentence (text) sits behind the info-i.
+    kurz: str = ""
 
 
 def _art(art: str, koerner: int, bedingung: str | None = None):
@@ -99,45 +102,59 @@ def _gereift(karten: list[dict], umfeld: dict) -> float:
 
 GEWUERZE: tuple[Gewuerz, ...] = (
     Gewuerz("meersalz", "Meersalz", "🌊", "gewöhnlich", 5,
-            "+2 Körner für jede Rechnung oder Gutschrift.", pro_karte=_art("rechnung", 2)),
+            "+2 Körner für jede Rechnung oder Gutschrift.", pro_karte=_art("rechnung", 2),
+            kurz="{salz}+2 pro Rechnung"),
     Gewuerz("muskat", "Muskat", "🌰", "gewöhnlich", 5,
-            "+1 Korn für jede Ausgabe.", pro_karte=_art("ausgabe", 1)),
+            "+1 Korn für jede Ausgabe.", pro_karte=_art("ausgabe", 1),
+            kurz="{salz}+1 pro Ausgabe"),
     Gewuerz("schnittlauch", "Schnittlauch", "🌱", "gewöhnlich", 6,
-            "+3 Körner für jedes Angebot, aus dem eine Rechnung wurde.", pro_karte=_art("angebot", 3)),
+            "+3 Körner für jedes Angebot, aus dem eine Rechnung wurde.", pro_karte=_art("angebot", 3),
+            kurz="{salz}+3 pro Angebot mit Rechnung"),
     Gewuerz("paprika", "Paprika", "🫑", "gewöhnlich", 7,
             "+3 Körner für jeden Beleg, den du innerhalb von 10 Tagen nach dem Eingang in"
-            " FRITS eingetragen hast.", pro_karte=_art("ausgabe", 3, "zeitnah")),
+            " FRITS eingetragen hast.", pro_karte=_art("ausgabe", 3, "zeitnah"),
+            kurz="{salz}+3 pro zeitnahem Beleg"),
     Gewuerz("rosmarin", "Rosmarin", "🌿", "gewöhnlich", 7,
             "+4 Körner für jede Rechnung, die höchstens 7 Tage nach dem Eingang der Notiz"
-            " fertig war.", pro_karte=_art("rechnung", 4, "frisch")),
+            " fertig war.", pro_karte=_art("rechnung", 4, "frisch"),
+            kurz="{salz}+4 pro frischer Rechnung"),
     Gewuerz("salbei", "Salbei", "🍃", "gewöhnlich", 9,
             "Würze ×1,5, wenn mindestens drei Karten echter Papierkram sind (Rechnung,"
             " Zahlung, Ausgabe, Angebot, Erinnerung oder Steuer-Unterlage).",
-            mal_wuerze=_salbei),
+            mal_wuerze=_salbei,
+            kurz="Würze ×1,5 ab 3 Papierkram-Karten"),
     Gewuerz("pfeffer", "Pfeffer", "⚫", "gewöhnlich", 8,
             "+1 Würze, wenn mindestens drei verschiedene Kartenarten dabei sind.",
-            plus_wuerze=_kartenarten),
+            plus_wuerze=_kartenarten,
+            kurz="Würze +1 ab 3 Kartenarten"),
     Gewuerz("knoblauch", "Knoblauch", "🧄", "selten", 10,
             "+4 Körner für jede Zahlung, die nach einer freundlichen Erinnerung kam.",
-            pro_karte=_art("bezahlt", 4, "nach_erinnerung")),
+            pro_karte=_art("bezahlt", 4, "nach_erinnerung"),
+            kurz="{salz}+4 pro Zahlung nach Erinnerung"),
     Gewuerz("zimt", "Zimt", "🪵", "selten", 10,
-            "+2 Würze, wenn ein Feierabend dabei ist.", plus_wuerze=_feierabend),
+            "+2 Würze, wenn ein Feierabend dabei ist.", plus_wuerze=_feierabend,
+            kurz="Würze +2 mit Feierabend"),
     Gewuerz("curry", "Curry", "🍛", "selten", 12,
-            "+0,5 Würze für jede eingegangene Zahlung (bis +2).", plus_wuerze=_zahlungen),
+            "+0,5 Würze für jede eingegangene Zahlung (bis +2).", plus_wuerze=_zahlungen,
+            kurz="Würze +0,5 pro Zahlung"),
     Gewuerz("chili", "Chili", "🌶️", "selten", 12,
             "+1 Würze für je 5 Karten im Kassensturz (bis +2). Gut für einen Büro-Block.",
-            plus_wuerze=_stapel),
+            plus_wuerze=_stapel,
+            kurz="Würze +1 pro 5 Karten"),
     Gewuerz("malzessig", "Malzessig", "🍶", "legendär", 20,
             "Reift im Regal: +0,2 Würze für jede Woche mit Kassensturz, seit er da ist"
             " (bis +2).",
-            plus_wuerze=_gereift),
+            plus_wuerze=_gereift,
+            kurz="Würze +0,2 pro Woche im Regal"),
     Gewuerz("trueffelsalz", "Trüffelsalz", "🍄", "legendär", 22,
             "Würze ×2, wenn du in jeder der letzten drei Wochen Papierkram gemacht hast.",
-            mal_wuerze=_rhythmus),
+            mal_wuerze=_rhythmus,
+            kurz="Würze ×2 nach 3 fleißigen Wochen"),
     Gewuerz("safran", "Safran", "🌸", "legendär", 25,
             "Würze ×1,5, wenn der Eingang leer ist und kein Entwurf auf dich wartet"
             " (auch keiner, den du in den letzten 7 Tagen verworfen hast).",
-            mal_wuerze=_aufgeraeumt),
+            mal_wuerze=_aufgeraeumt,
+            kurz="Würze ×1,5 bei leerem Eingang"),
 )  # fmt: skip
 NACH_ID = {g.id: g for g in GEWUERZE}
 
@@ -227,22 +244,29 @@ def _eingekocht(karten: list[dict], umfeld: dict) -> float:
 
 REZEPTE: tuple[Gewuerz, ...] = (
     Gewuerz("belegsuppe", "Belegsuppe", "🍲", "rezept", 0,
-            "+2 Körner für jede Ausgabe.", pro_karte=_art("ausgabe", 2)),
+            "+2 Körner für jede Ausgabe.", pro_karte=_art("ausgabe", 2),
+            kurz="{salz}+2 pro Ausgabe"),
     Gewuerz("rechnungsbraten", "Rechnungsbraten", "🍖", "rezept", 0,
-            "+3 Körner für jede Rechnung oder Gutschrift.", pro_karte=_art("rechnung", 3)),
+            "+3 Körner für jede Rechnung oder Gutschrift.", pro_karte=_art("rechnung", 3),
+            kurz="{salz}+3 pro Rechnung"),
     Gewuerz("zahltagspfanne", "Zahltagspfanne", "🍳", "rezept", 0,
-            "+3 Körner für jede eingegangene Zahlung.", pro_karte=_art("bezahlt", 3)),
+            "+3 Körner für jede eingegangene Zahlung.", pro_karte=_art("bezahlt", 3),
+            kurz="{salz}+3 pro Zahlung"),
     Gewuerz("angebotsauflauf", "Angebotsauflauf", "🥧", "rezept", 0,
             "+4 Körner für jedes Angebot, aus dem eine Rechnung wurde.",
-            pro_karte=_art("angebot", 4)),
+            pro_karte=_art("angebot", 4),
+            kurz="{salz}+4 pro Angebot mit Rechnung"),
     Gewuerz("steuereintopf", "Steuereintopf", "🥘", "rezept", 0,
-            "+2 Körner für jede gesammelte Steuer-Unterlage.", pro_karte=_art("steuer", 2)),
+            "+2 Körner für jede gesammelte Steuer-Unterlage.", pro_karte=_art("steuer", 2),
+            kurz="{salz}+2 pro Steuer-Unterlage"),
     Gewuerz("bunter_teller", "Bunter Teller", "🥗", "rezept", 0,
-            "+0,5 Würze für jede Art Papierkram auf dem Tisch.", plus_wuerze=_bunt),
+            "+0,5 Würze für jede Art Papierkram auf dem Tisch.", plus_wuerze=_bunt,
+            kurz="Würze +0,5 pro Kartenart"),
 )  # fmt: skip
 EINGEKOCHT = Gewuerz(
     EINKOCHEN, "Eingekochtes", "🫙", "rezept", 0,
     "Heute nichts extra. Dafür +1 Würze beim nächsten Kassensturz.",
     plus_wuerze=_eingekocht,
+    kurz="Heute nichts, nächstes Mal Würze +1",
 )  # fmt: skip
 REZEPT_NACH_ID = {g.id: g for g in (*REZEPTE, EINGEKOCHT)}

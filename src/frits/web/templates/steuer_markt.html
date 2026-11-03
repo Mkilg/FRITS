@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "_steuer_zierde.html" import zierde as zierde_bild, gouache_filter with context %}
+{% import "_spiel.html" as spiel %}
 {% block title %}Hafenmarkt · Steuer-Quest {{ jahr }}{% endblock %}
 {% block head %}<link rel="stylesheet" href="/static/steuer.css"><script>document.documentElement.classList.add("sq-js")</script><script src="/static/steuer.js" defer></script>{% endblock %}
 {% block flashes %}{% endblock %}
@@ -33,9 +34,11 @@
     {% set hat = w.key in besitz %}{% set an = w.key in helfer %}
     <article class="sq-ware helfer{% if an %} an{% elif hat %} hat{% endif %}" style="--r: {{ [-1.2, 0.8, -0.5, 1.1, -0.9][loop.index0 % 5] }}deg">
       <span class="sq-ware-zeichen {{ w.key }}" aria-hidden="true"></span>
-      <h3>{{ w.name }}</h3>
-      <p>{{ w.text }}</p>
-      {% if w.haken %}<p class="sq-haken"><b>Haken:</b> {{ w.haken }}</p>{% endif %}
+      {# Marie (3.11.): the effect as a formula, the sentence behind the "i" next to the name
+         (not inside the <p>: the info-i is a <details>, which would end the <p>) #}
+      <h3>{{ w.name }} {{ info_i(w.text ~ (" Haken: " ~ w.haken if w.haken else "")) }}</h3>
+      <p>{{ spiel.formel(w.kurz or w.text) }}</p>
+      {% if w.haken %}<p class="sq-haken"><b>Haken:</b> {{ spiel.formel(w.haken_kurz or w.haken) }}</p>{% endif %}
       {% if w.key == "sanduhr" and regeln.multiplikator(serie_start) > 3 %}<p class="sq-haken warnung"><b>Achtung:</b> Frittes Gewürze lassen deine Serie gerade höher starten, als die Sanduhr erlaubt. Mit der Sanduhr verschenkst du das.</p>{% endif %}
       {% if an %}
       <form method="post" action="/steuer/{{ jahr }}/markt/helfer"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="ware" value="{{ w.key }}"><input type="hidden" name="an" value="0">

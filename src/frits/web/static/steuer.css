@@ -1283,6 +1283,7 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
 .sq-waren { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 1rem; }
 .sq-ware { position: relative; display: flex; flex-direction: column; gap: 0.35rem; padding: 0.9rem 0.9rem 0.8rem; background: linear-gradient(175deg, var(--papier), var(--creme)); border-radius: 3px; transform: rotate(var(--r, 0deg)); box-shadow: 0 1px 0 var(--papier-schatten), 0 8px 16px rgba(25, 12, 3, .32); transition: transform .2s; }
 .sq-ware:hover { transform: rotate(0) translateY(-3px); }
+.sq-ware:has(.info-i.offen) { z-index: 5; } /* the open info-i lies above the next card */
 .sq-ware h3 { margin: 0; font-size: 1.05rem; }
 .sq-ware p { margin: 0; font-size: 0.88rem; line-height: 1.4; color: #4a4033; flex: 1; }
 .sq-ware form { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.3rem; }

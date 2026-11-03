@@ -145,7 +145,7 @@
 .ware { display: flex; flex-direction: column; align-items: flex-start; gap: .3rem; padding: .8rem;
   background: var(--papier); border: 1px solid var(--line); border-radius: var(--radius); }
 .ware .ware-muenze { width: 3.2rem; height: 3.2rem; font-size: 1.5rem; }
-.ware .hint { font-size: .85rem; flex: 1; }
+.ware .hint { flex: 1; }
 .ware form { margin-top: auto; }
 .ware.gekauft { background: rgba(163, 196, 102, .14); }
 .ware .preis { margin-top: auto; color: var(--muted); }
@@ -237,7 +237,7 @@ button.gross { font-size: 1.1rem; padding: .7rem 1.6rem; }
 }
 .regal-platz { display: flex; flex-direction: column; align-items: center; gap: .3rem; text-align: center; }
 .regal-platz.leer { justify-content: center; min-height: 7.5rem; border: 2px dashed var(--papier-schatten); border-radius: .6rem; color: var(--muted); font-size: .85rem; }
-.glas-text { margin: 0; font-size: .8rem; color: var(--muted); }
+.glas-text { margin: 0; font-size: .88rem; color: var(--muted); }
 .row.klein { gap: .25rem; justify-content: center; }
 .row.klein button { padding: .15rem .5rem; font-size: .8rem; }
 .markt { display: grid; grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); gap: .9rem; }
@@ -511,7 +511,7 @@ details[open] > summary::before { content: "▾ "; }
   color: var(--ink); border: 2px solid var(--gold); }
 .willkommen-spiel p { margin: 0; }
 @media (max-width: 600px) { .willkommen-spiel > .sticker-rund { display: none; } }
-.wirkung { font-size: .85rem; color: var(--moos-dunkel); }
+.wirkung { font-size: .88rem; color: var(--moos-dunkel); }
 .wirkung.null { color: var(--muted); }
 .ks-ausbau.mit-zimmer { align-items: center; }
 .ks-zimmer { flex: 0 0 min(22rem, 45%); }
@@ -616,7 +616,7 @@ details[open] > summary::before { content: "▾ "; }
 .gericht-zeichen { grid-row: 1 / span 3; font-size: 2rem; line-height: 1; align-self: center; }
 .gericht-zeichen img.zeichen-bild { width: 2.6rem; height: 2.6rem; vertical-align: middle; display: block; }
 .gericht strong { font-family: var(--schrift); }
-.gericht-text { font-size: .85rem; color: var(--ink); }
+.gericht-text { font-size: .88rem; color: var(--ink); }
 .gericht-summe { font-size: .85rem; color: var(--muted); margin-top: .2rem; }
 .gericht-summe strong { color: var(--tinte); font-family: inherit; }
 .ks-tipp { margin-top: .8rem; }
@@ -754,7 +754,7 @@ details[open] > summary::before { content: "▾ "; }
 .truhe-mehr { display: flex; flex-wrap: wrap; justify-content: center; gap: .4rem; align-items: center; margin-top: .4rem; }
 .truhe-knoepfe { gap: .6rem; align-items: center; }
 .drachen-bruecke { margin: .2rem 0 .8rem; padding: .4rem .7rem; border-left: 3px solid var(--terrakotta); background: rgba(196, 98, 58, .08); }
-.drachen-plus { font-size: .8rem; color: var(--terrakotta-dunkel); }
+.drachen-plus { font-size: .88rem; color: var(--terrakotta-dunkel); }
 @media (prefers-reduced-motion: reduce) {
   .truhe-show.selten-legendaer .fund::before, .truhe-show.selten-legendaer .fund::after { animation: none !important; }
 }

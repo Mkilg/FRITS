@@ -252,9 +252,14 @@ def test_the_shop_shows_the_bridge_to_the_dragon(client, ws):  # noqa: F811
     page = client.get("/fritte/laden").text
     assert len(kassensturz.regal(conn)) == 1  # the first spice
     # The same number the fight's banner shows before the first Beleg (Lena: ×2 here, ×4 there)
-    assert "drachen-bruecke" in page and "erste Beleg <strong>×4</strong>, ohne Gewürze ×2" in page
-    assert "🐉</span> Drachenkampf: erster Beleg ×5 statt ×4" in page  # on spices one could add
-    assert "Sanduhr" not in page.split("drachen-bruecke")[1].split("</p>")[0]  # ×2 is under its cap
+    assert (
+        "drachen-bruecke" in page
+        and 'erster Beleg <strong>×4</strong> <span class="hint">(ohne Gewürze ×2)' in page
+    )
+    assert "🐉</span> Drache ×5 statt ×4" in page  # on spices one could add
+    assert (
+        "Sanduhr" not in page.split("drachen-bruecke")[1].split("</details>")[0]
+    )  # ×2 is under its cap
     for g in gw.GEWUERZE:
         if len(kassensturz.regal(conn)) >= kassensturz.plaetze(conn):
             break
@@ -263,7 +268,8 @@ def test_the_shop_shows_the_bridge_to_the_dragon(client, ws):  # noqa: F811
     assert len(kassensturz.regal(conn)) == 3
     page = client.get("/fritte/laden").text
     assert (
-        "erste Beleg <strong>×6</strong>, ohne" in page and "Sanduhr" not in page
+        'erster Beleg <strong>×6</strong> <span class="hint">(ohne' in page
+        and "Sanduhr" not in page
     )  # the fight shows it
     assert "drachen-plus" not in page  # a full bridge: no more promises
 

@@ -75,7 +75,7 @@
           <input type="radio" name="rezept" value="{{ g.id }}" required{{ " checked" if g.id == gericht_vorwahl }} oninvalid="this.setCustomValidity('Wähl erst ein Gericht, dann kocht Fritte.')" onchange="this.form.querySelectorAll('[name=rezept]').forEach(function (r) { r.setCustomValidity(''); })">
           <span class="gericht-zeichen" aria-hidden="true">{# the preserving jar only for Einkochen: three equal jars said nothing #}{% if g.id == "einkochen" or picture('gewuerz-' ~ g.id) %}{{ spiel.bild_zeichen('gewuerz', g.id, g.zeichen) }}{% else %}{{ g.zeichen }}{% endif %}</span>
           <strong>{{ "Einkochen" if g.id == "einkochen" else g.name }}</strong>
-          <span class="gericht-text">{{ g.text }}</span>
+          <span class="gericht-text" title="{{ g.text }}">{{ spiel.formel(g.kurz or g.text) }}</span>
           <span class="gericht-summe">{% if g.id == "einkochen" %}Heute <strong>{{ gericht_summe[g.id] }}</strong>, nächstes Mal mehr{% else %}Ergibt <strong>{{ gericht_summe[g.id] }}</strong> {{ "Salzkorn" if gericht_summe[g.id] == 1 else "Salzkörner" }}{% endif %}</span>
         </label>
         {% endfor %}
