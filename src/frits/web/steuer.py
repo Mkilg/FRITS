@@ -1338,13 +1338,20 @@ def register_steuer(
         if jahr not in quest_jahre():
             flash("Für dieses Jahr gibt es keine Quest.")
             return back("/steuer/neu-beginnen")
-        ziel = quest.neu_beginnen(conn(), ws.root, jahr)
+        vorher = len(quest.lager_dateien(ws.root))
+        quest.neu_beginnen(conn(), ws.root, jahr)
         jahr_vergessen(jahr)
-        flash(
-            f"Die Steuer-Quest {jahr} beginnt von vorn. Deine Belege liegen im Eingangskorb, "
-            f"die Sicherung in steuer/sicherungen/{ziel.name}.",
-            "ok",
-        )
+        # Lena (Runde 65): Die Meldung nannte Belege im Korb, auch wenn keine dort lagen,
+        # und einen Ordnerpfad. Jetzt zählt sie nach und sagt, wo es zurückgeht.
+        im_korb = len(quest.lager_dateien(ws.root)) - vorher
+        text = f"Die Steuer-Quest {jahr} beginnt von vorn."
+        if im_korb:
+            text += (
+                " Dein Beleg liegt im Eingangskorb."
+                if im_korb == 1
+                else f" Deine {im_korb} Belege liegen im Eingangskorb."
+            )
+        flash(text + " Zurückholen kannst du alles unter „Neu beginnen“.", "ok")
         return back(f"/steuer/{jahr}/intro")
 
     @app.get("/steuer/{jahr}", response_class=HTMLResponse)
