@@ -913,6 +913,23 @@ def schon_bezahlt(conn: sqlite3.Connection, jahr: int, grund: str) -> bool:
     )
 
 
+def karte_hat_salz(conn: sqlite3.Connection, jahr: int, grund: str) -> bool:
+    """Zahlt eine Antwort („Gibt's nicht“, „Lieber fragen“) nichts, weil dieselbe Karte schon
+    einen Fund bezahlt hat? Im normalen Spiel bucht der Weg zurück auf „offen“ den Fund
+    zurück; nach „Neu beginnen“ sind die Karten aber offen, ohne dass etwas zurückgebucht
+    wurde (Lena, Runde 63). Ein Fund nach einer Frage zahlt dagegen extra, wie immer."""
+    art, _, karte = grund.partition(":")
+    if art != "antwort" or not karte:
+        return False
+    ensure_schema(conn)
+    return bool(
+        conn.execute(
+            "SELECT 1 FROM steuer_gold WHERE jahr = ? AND grund = ? AND betrag > 0",
+            (jahr, f"fund:{karte}"),
+        ).fetchone()
+    )
+
+
 def verdiene(conn: sqlite3.Connection, jahr: int, grund: str, betrag: int, text: str) -> int:
     """Bucht Salzkörner in Frittes Beutel, wenn es für diesen Grund noch keine gab.
 
@@ -1329,8 +1346,9 @@ def sicherungen(root: Path) -> Path:
     return Path(root) / "steuer" / "sicherungen"
 
 
-def _sichern(conn: sqlite3.Connection, root: Path, jahr: int) -> Path:
-    """Kopiert den Jahres-Ordner und die ganze Datenbank nach steuer/sicherungen/<jahr>-<Zeit>."""
+def _sichern(conn: sqlite3.Connection, root: Path, jahr: int, anlass: str = "") -> Path:
+    """Kopiert den Jahres-Ordner und die ganze Datenbank nach steuer/sicherungen/<jahr>-<Zeit>.
+    anlass („vor dem Neu-Beginnen“) steht in anlass.txt, damit die Liste sagt, was das war."""
     quelle = ordner(root, jahr)
     ziel = sicherungen(root) / f"{jahr}-{datetime.now():%Y-%m-%d-%H%M%S}"
     n = 2
@@ -1342,6 +1360,8 @@ def _sichern(conn: sqlite3.Connection, root: Path, jahr: int) -> Path:
         shutil.copytree(quelle, ziel / str(jahr))
     with sqlite3.connect(ziel / "frits.db") as kopie:
         conn.backup(kopie)
+    if anlass:
+        (ziel / "anlass.txt").write_text(anlass, encoding="utf-8")
     return ziel
 
 
@@ -1351,17 +1371,55 @@ def sicherung_jahr(name: str) -> int | None:
     return int(treffer[1]) if treffer else None
 
 
+def jahres_stand(conn: sqlite3.Connection, jahr: int) -> dict:
+    """Woran man einen Stand erkennt (Lena, Runde 63: sechs gleiche Einträge): Belege,
+    erledigte Pflicht-Karten, Prozent und ob der Drache schon gefallen ist."""
+    belege = sum(
+        1
+        for (original,) in conn.execute(
+            "SELECT original FROM steuer_dateien WHERE jahr = ?", (jahr,)
+        )
+        if not ist_angabe(original)
+    )
+    gesamt, erledigt = conn.execute(
+        "SELECT COUNT(*), COALESCE(SUM(status != 'offen'), 0) FROM steuer_stuecke"
+        " WHERE jahr = ? AND art = 'pflicht'",
+        (jahr,),
+    ).fetchone()
+    sieg = conn.execute(
+        "SELECT 1 FROM steuer_chronik WHERE jahr = ? AND art = 'sieg'", (jahr,)
+    ).fetchone()
+    return {
+        "belege": belege,
+        "prozent": round(100 * erledigt / gesamt) if gesamt else 0,
+        "sieg": sieg is not None,
+        "leer": not gesamt and not belege,
+    }
+
+
 def sicherungs_liste(root: Path) -> list[dict]:
-    """Die Sicherungen, neueste zuerst: Name, Jahr, wann."""
+    """Die Sicherungen, neueste zuerst: Name, Jahr, wann, Anlass und ihr Stand."""
     basis = sicherungen(root)
     if not basis.is_dir():
         return []
     liste = []
     for d in basis.iterdir():
         jahr = sicherung_jahr(d.name)
-        if d.is_dir() and jahr and (d / "frits.db").is_file():
-            wann = datetime.strptime(d.name[5:22], "%Y-%m-%d-%H%M%S")
-            liste.append({"name": d.name, "jahr": jahr, "wann": wann})
+        if not (d.is_dir() and jahr and (d / "frits.db").is_file()):
+            continue
+        wann = datetime.strptime(d.name[5:22], "%Y-%m-%d-%H%M%S")
+        eintrag = {"name": d.name, "jahr": jahr, "wann": wann, "anlass": ""}
+        if (d / "anlass.txt").is_file():
+            eintrag["anlass"] = (d / "anlass.txt").read_text(encoding="utf-8").strip()[:60]
+        try:
+            alt = sqlite3.connect(f"file:{d / 'frits.db'}?mode=ro", uri=True)
+            try:
+                eintrag |= jahres_stand(alt, jahr)
+            finally:
+                alt.close()
+        except sqlite3.Error:
+            eintrag |= {"belege": 0, "prozent": 0, "sieg": False, "leer": False}
+        liste.append(eintrag)
     return sorted(liste, key=lambda x: (x["wann"], x["name"]), reverse=True)
 
 
@@ -1374,59 +1432,203 @@ _JAHRES_TABELLEN = (
     "steuer_stuecke",
 )
 
+# Goldbuch-Gründe, die am Stand der Karten hängen (Tagesziele und Käufe nicht)
+_KARTEN_SALZ = ("fund:", "antwort:", "siegel:")
 
-def zurueckholen(conn: sqlite3.Connection, root: Path, name: str) -> tuple[int, Path]:
+
+@dataclass(frozen=True)
+class Zurueck:
+    jahr: int
+    davor: Path
+    in_den_korb: int  # Belege, die neuer als die Sicherung sind: jetzt im Eingangskorb
+    salz: int  # wie sich das Salz dadurch geändert hat (meist minus)
+
+
+def _umschreiben(text: str | None, karten: dict[int, int]) -> str | None:
+    """Zeilen „<Karten-Nummer>:…“ (Fundkiste) auf neue Karten-Nummern umschreiben."""
+    if not text or not karten:
+        return text
+    zeilen = []
+    for z in text.split("\n"):
+        nr, _, rest = z.partition(":")
+        if nr.isdigit() and int(nr) in karten:
+            z = f"{karten[int(nr)]}:{rest}"
+        zeilen.append(z)
+    return "\n".join(zeilen)
+
+
+def _zeilen_zurueck(conn: sqlite3.Connection, alt: sqlite3.Connection, jahr: int) -> None:
+    """Die Zeilen des Jahres aus der Sicherung. Nummern, die inzwischen ein anderes Jahr
+    benutzt, bekommen eine neue (Lena, Runde 63: sonst scheiterte jedes Zurückholen, sobald
+    in 2024 ein Beleg dazukam); was auf sie zeigt, wird umgeschrieben. Orden bleiben verdient,
+    auch die aus dem Spiel nach der Sicherung."""
+    karten: dict[int, int] = {}
+    dateien: dict[int, int] = {}
+    orden = {
+        r[0]
+        for r in conn.execute(
+            "SELECT text FROM steuer_chronik WHERE jahr = ? AND art = 'erfolg'", (jahr,)
+        )
+    }
+    for tabelle in _JAHRES_TABELLEN:
+        nur = " AND art != 'erfolg'" if tabelle == "steuer_chronik" else ""
+        conn.execute(f"DELETE FROM {tabelle} WHERE jahr = ?{nur}", (jahr,))
+    for tabelle in reversed(_JAHRES_TABELLEN):  # Karten zuerst, dann was auf sie zeigt
+        spalten = [r[1] for r in conn.execute(f"PRAGMA table_info({tabelle})")]
+        da = {r[1] for r in alt.execute(f"PRAGMA table_info({tabelle})")}
+        gemeinsam = [sp for sp in spalten if sp in da]
+        if not gemeinsam:
+            continue
+        for z in alt.execute(
+            f"SELECT {', '.join(gemeinsam)} FROM {tabelle} WHERE jahr = ?", (jahr,)
+        ).fetchall():
+            zeile = dict(zip(gemeinsam, tuple(z), strict=True))
+            if zeile.get("art") == "erfolg" and zeile.get("text") in orden:
+                continue  # Chronik: dieser Orden ist schon da
+            if "stueck_id" in zeile:
+                zeile["stueck_id"] = karten.get(zeile["stueck_id"], zeile["stueck_id"])
+            if "datei_id" in zeile:
+                zeile["datei_id"] = dateien.get(zeile["datei_id"], zeile["datei_id"])
+            if tabelle == "steuer_kiste" and zeile.get("bis_datei") is not None:
+                bis = zeile["bis_datei"]
+                zeile["bis_datei"] = max(
+                    [neu for alt_nr, neu in dateien.items() if alt_nr <= bis], default=bis
+                )
+            for sp in ("inhalt", "stati"):
+                if sp in zeile and tabelle in ("steuer_kiste", "steuer_halb"):
+                    zeile[sp] = _umschreiben(zeile[sp], karten)
+            alte_nr = zeile.get("id")
+            if (
+                alte_nr is not None
+                and conn.execute(f"SELECT 1 FROM {tabelle} WHERE id = ?", (alte_nr,)).fetchone()
+            ):
+                del zeile["id"]  # vergeben: SQLite gibt eine neue
+            liste = ", ".join(zeile)
+            cur = conn.execute(
+                f"INSERT INTO {tabelle} ({liste}) VALUES ({', '.join('?' for _ in zeile)})",
+                tuple(zeile.values()),
+            )
+            if alte_nr is not None and tabelle == "steuer_stuecke":
+                karten[alte_nr] = cur.lastrowid
+            elif alte_nr is not None and tabelle == "steuer_dateien":
+                dateien[alte_nr] = cur.lastrowid
+
+
+def _salz_wie_damals(conn: sqlite3.Connection, alt: sqlite3.Connection, jahr: int) -> int:
+    """Das Salz der Karten und Siegel wieder so, wie es zur Sicherung gebucht war (Lena,
+    Runde 63: Neu beginnen, anders spielen und zurückholen brachte +10 bei gleichem Stand).
+    Was seitdem dazukam, wird sichtbar zurückgebucht; was seitdem zurückgebucht wurde, kommt
+    wieder. Gibt die Änderung zurück."""
+
+    def lebend(db: sqlite3.Connection) -> dict[str, tuple[int, str]]:
+        try:
+            rows = db.execute(
+                "SELECT grund, betrag, text FROM steuer_gold WHERE jahr = ? AND grund IS NOT NULL",
+                (jahr,),
+            ).fetchall()
+        except sqlite3.Error:
+            return {}
+        return {g: (int(b), str(t)) for g, b, t in rows if str(g).startswith(_KARTEN_SALZ)}
+
+    damals, jetzt = lebend(alt), lebend(conn)
+    if not damals and not jetzt:
+        return 0
+    aenderung = 0
+    for grund in sorted(set(jetzt) - set(damals)):
+        aenderung -= storniere(conn, jahr, grund, jetzt[grund][1])
+    for grund in sorted(set(damals) - set(jetzt)):
+        betrag, text = damals[grund]
+        aenderung += verdiene(
+            conn, jahr, grund, betrag, text.replace(" (Jahresdeckel erreicht)", "")
+        )
+    return aenderung
+
+
+def zurueckholen(conn: sqlite3.Connection, root: Path, name: str) -> Zurueck:
     """Holt ein Steuerjahr aus einer Sicherung zurück (Lena, Runde 61). Der Stand davor wird
-    selbst erst gesichert, so lässt sich auch das Zurückholen zurücknehmen. Salzkörner und
-    Gekauftes bleiben wie sie sind: Die Karten behalten ihre Nummern und zahlen nicht noch
-    einmal. Belege, die beim Neu-Beginnen in den Korb kamen, verschwinden dort, weil sie
-    wieder an ihrer Karte liegen (nur wenn die Prüfsumme gleich ist).
-    Gibt (Jahr, Sicherung des Stands davor) zurück."""
+    selbst erst gesichert, so lässt sich auch das Zurückholen zurücknehmen.
+
+    Lena (Runde 63):
+    - Belege des Jahres, die nicht in der Sicherung sind, kommen in den Eingangskorb.
+      Nichts verschwindet in einem Sicherungs-Ordner.
+    - Das Salz der Karten ist danach wie zur Sicherung (kein Salz aus Schleifen).
+    - Nummern, die ein anderes Jahr inzwischen benutzt, werden neu vergeben.
+    Belege im Korb, die wieder an ihrer Karte liegen, verschwinden dort (gleiche Prüfsumme)."""
     ensure_schema(conn)
     quelle = sicherungen(root) / Path(name).name
     jahr = sicherung_jahr(quelle.name)
     if jahr is None or not (quelle / "frits.db").is_file():
         raise ValueError(f"Keine Sicherung: {name}")
-    davor = _sichern(conn, root, jahr)
-    alt = sqlite3.connect(quelle / "frits.db")
+    alt = sqlite3.connect(f"file:{quelle / 'frits.db'}?mode=ro", uri=True)
     alt.row_factory = sqlite3.Row
     try:
-        with transaction(conn):
-            for tabelle in _JAHRES_TABELLEN:
-                conn.execute(f"DELETE FROM {tabelle} WHERE jahr = ?", (jahr,))
-            for tabelle in reversed(_JAHRES_TABELLEN):  # Karten zuerst, dann was auf sie zeigt
-                spalten = [r[1] for r in conn.execute(f"PRAGMA table_info({tabelle})")]
-                da = {r[1] for r in alt.execute(f"PRAGMA table_info({tabelle})")}
-                gemeinsam = [sp for sp in spalten if sp in da]
-                if not gemeinsam:
-                    continue
-                liste = ", ".join(gemeinsam)
-                zeilen = alt.execute(
-                    f"SELECT {liste} FROM {tabelle} WHERE jahr = ?", (jahr,)
-                ).fetchall()
-                fragen = ", ".join("?" for _ in gemeinsam)
-                conn.executemany(
-                    f"INSERT INTO {tabelle} ({liste}) VALUES ({fragen})",
-                    [tuple(z) for z in zeilen],
+        damals = {
+            r[0] for r in alt.execute("SELECT sha256 FROM steuer_dateien WHERE jahr = ?", (jahr,))
+        }
+        try:
+            herkunft_damals = {
+                r[0]
+                for r in alt.execute(
+                    "SELECT sha256 FROM steuer_korb_herkunft WHERE jahr = ?", (jahr,)
                 )
+            }
+        except sqlite3.Error:
+            herkunft_damals = set()  # Sicherung von vor Runde 61
+        # Belege, die seit der Sicherung ins Jahr kamen: gleich in den Korb, nicht weg
+        retten = [
+            (Path(heile_pfad(conn, r["pfad"])), r["original"], r["sha256"], r["id"])
+            for r in conn.execute(
+                "SELECT id, pfad, original, sha256 FROM steuer_dateien WHERE jahr = ?", (jahr,)
+            ).fetchall()
+            if r["sha256"] not in damals and not ist_angabe(r["original"])
+        ]
+        davor = _sichern(conn, root, jahr, "vor dem Zurückholen")
+        try:
+            with transaction(conn):
+                _zeilen_zurueck(conn, alt, jahr)
+        except BaseException:
+            shutil.rmtree(davor, ignore_errors=True)  # es hat sich wirklich nichts geändert
+            raise
+        salz = _salz_wie_damals(conn, alt, jahr)
     finally:
         alt.close()
-    zurueck = {r["sha256"] for r in conn.execute(
-        "SELECT sha256 FROM steuer_dateien WHERE jahr = ?", (jahr,)
-    )}  # fmt: skip
+    korb = lager(root)
+    korb.mkdir(parents=True, exist_ok=True)
+    gerettet: list[str] = []
+    for pfad, original, sha, nr in retten:
+        if not pfad.is_file():
+            continue
+        neu = korb / Path(original).name
+        if neu.exists():
+            neu = neu.with_name(f"{neu.stem}_{nr}{neu.suffix}")
+        shutil.move(str(pfad), neu)
+        gerettet.append(sha)
     jetzt = ordner(root, jahr)
     if jetzt.is_dir():
         shutil.rmtree(jetzt)
     if (quelle / str(jahr)).is_dir():
         shutil.copytree(quelle / str(jahr), jetzt)
-    korb = lager(root)
-    if korb.is_dir():
-        for datei in korb.iterdir():
-            if datei.is_file() and not datei.name.startswith(".") and _sha(datei) in zurueck:
-                datei.unlink()
+    zurueck = {
+        r["sha256"]
+        for r in conn.execute(
+            "SELECT pfad, sha256 FROM steuer_dateien WHERE jahr = ?", (jahr,)
+        ).fetchall()
+        if Path(heile_pfad(conn, r["pfad"])).is_file()
+    }
+    herkunft = set(gerettet) | herkunft_damals
+    im_korb = []
+    for datei in lager_dateien(root):
+        sha = _sha(datei)
+        if sha in zurueck:
+            datei.unlink()  # liegt wieder an seiner Karte
+        elif sha in herkunft:
+            im_korb.append((sha, jahr))
     with transaction(conn):
         conn.execute("DELETE FROM steuer_korb_herkunft WHERE jahr = ?", (jahr,))
-    return jahr, davor
+        conn.executemany(
+            "INSERT OR REPLACE INTO steuer_korb_herkunft (sha256, jahr) VALUES (?, ?)", im_korb
+        )
+    return Zurueck(jahr, davor, len(gerettet), salz)
 
 
 def _sha(pfad: Path) -> str:
@@ -1463,7 +1665,7 @@ def neu_beginnen(conn: sqlite3.Connection, root: Path, jahr: int) -> Path:
     Gibt den Sicherungs-Ordner zurück."""
     ensure_schema(conn)
     quelle = ordner(root, jahr)
-    ziel = _sichern(conn, root, jahr)
+    ziel = _sichern(conn, root, jahr, "vor dem Neu-Beginnen")
     korb = lager(root)
     korb.mkdir(parents=True, exist_ok=True)
     herkunft = []

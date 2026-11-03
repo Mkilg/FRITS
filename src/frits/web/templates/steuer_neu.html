@@ -8,8 +8,9 @@
   <section class="sq-papier">
     <h1>Steuer-Quest neu beginnen</h1>
     {% if not jahre %}
-    <p>Du hast noch keine Steuer-Quest angefangen. <a href="/steuer">Zur Steuer-Quest</a></p>
+    <p>{% if sicherungen %}Gerade läuft keine Steuer-Quest.{% else %}Du hast noch keine Steuer-Quest angefangen.{% endif %} <a href="/steuer">Zur Steuer-Quest</a></p>
     {% else %}
+    {% if von_vorn %}<p>{{ von_vorn }} beginnt schon von vorn. <a href="/steuer/{{ von_vorn }}/intro">Zur Insel {{ von_vorn }} →</a></p>{% endif %}
     <form method="post" action="/steuer/neu-beginnen">
       <input type="hidden" name="token" value="{{ token }}">
       <label class="field">Welches Jahr?
@@ -26,14 +27,22 @@
     {% endif %}
     {% if sicherungen %}
     {# Lena (Runde 61): Zurück ging es nicht. Vorher wird der jetzige Stand auch gesichert. #}
-    <h2>Zurückholen {{ info_i("Holt ein Jahr so zurück, wie es gesichert war. Was du seitdem in diesem Jahr gemacht hast, sichere ich vorher auch. Salzkörner und Gekauftes bleiben, wie sie jetzt sind.") }}</h2>
+    <h2>Zurückholen {{ info_i("Holt ein Jahr so zurück, wie es gesichert war. Den Stand davor sichere ich auch. Neuere Belege kommen in den Eingangskorb. Das Salz der Karten ist danach wie damals, Gekauftes bleibt.") }}</h2>
     <ul class="sq-sicherungen">
-      {% for s in sicherungen %}
-      <li><form method="post" action="/steuer/sicherung/zurueckholen">
-        <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="name" value="{{ s.name }}">
-        <span><b>{{ s.jahr }}</b>, gesichert am {{ s.wann.day }}.{{ s.wann.month }}.{{ s.wann.year }} um {{ "%02d:%02d" | format(s.wann.hour, s.wann.minute) }}</span>
-        <button class="sq-stempelknopf" aria-label="{{ s.jahr }} zurückholen">Zurückholen</button>
-      </form></li>
+      {% for s in sicherungen %}{% set j = jetzt.get(s.jahr) %}
+      {# Lena (Runde 63): sechs gleiche Einträge, keine Rückfrage. Jetzt: Stand, Anlass, Rückfrage #}
+      <li>
+        <div class="sq-sicherung-was"><b>{{ s.jahr }}</b> · {% if s.sieg %}Drache besiegt{% elif s.leer %}leer{% else %}{{ s.prozent }} %{% endif %} · {{ s.belege }} Beleg{{ "" if s.belege == 1 else "e" }}
+          <small>{{ s.wann.day }}.{{ s.wann.month }}. um {{ "%02d:%02d" | format(s.wann.hour, s.wann.minute) }}{% if s.anlass %}, {{ s.anlass }}{% endif %}</small></div>
+        <details class="sq-sicherung-frage">
+          <summary class="sq-stempelknopf">Zurückholen</summary>
+          <form method="post" action="/steuer/sicherung/zurueckholen">
+            <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="name" value="{{ s.name }}">
+            <p>{% if j %}Jetzt: {% if j.sieg %}Drache besiegt{% else %}{{ j.prozent }} %{% endif %}, {{ j.belege }} Beleg{{ "" if j.belege == 1 else "e" }}. {% endif %}Das wird ersetzt und vorher gesichert.</p>
+            <button class="sq-siegelknopf" aria-label="{{ s.jahr }} zurückholen">Ja, {{ s.jahr }} zurückholen</button>
+          </form>
+        </details>
+      </li>
       {% endfor %}
     </ul>
     {% endif %}

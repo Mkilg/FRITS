@@ -4482,3 +4482,103 @@ def test_steuer_quest_neu_beginnen_sichert_und_verliert_nichts(client, ws):
     fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
     assert quest.stueck(conn, karte_id) is not None
     assert "Neu beginnen" in client.get("/steuer/2025").text
+
+
+def _karten_salz(conn):
+    """Salz der Karten von 2025 (ohne Tagesziele, die verdient bleiben)."""
+    return conn.execute(
+        "SELECT COALESCE(SUM(betrag), 0) FROM steuer_gold WHERE jahr = 2025"
+        " AND (grund IS NULL OR grund NOT LIKE 'tagwerk:%')"
+    ).fetchone()[0]
+
+
+def test_runde_63_zurueckholen_ohne_salz_schleife_und_ohne_verlust(client, ws):
+    """Lena (Runde 63): Neu beginnen, anders spielen, zurückholen brachte +10 Salz; neuere
+    Belege verschwanden im Sicherungs-Ordner; ein Beleg in 2024 ließ jedes Zurückholen scheitern."""
+    fragebogen(client, jahr=2024, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    a, b, c = spiel.pflicht(quest.stuecke(conn, 2025))[:3]
+    post(client, f"/steuer/2025/stueck/{a['id']}/datei",
+         files=[("datei", ("beleg-a.pdf", b"%PDF a"))])  # fmt: skip
+    post(client, f"/steuer/2025/stueck/{b['id']}/status", status="gibts_nicht")
+    gold = _karten_salz(conn)
+    sha_a = quest.dateien(conn, 2025)[0]["sha256"]
+    post(client, "/steuer/neu-beginnen", jahr="2025")
+    erste = quest.sicherungs_liste(ws.root)[0]
+    assert erste["anlass"] == "vor dem Neu-Beginnen" and erste["belege"] == 1
+    # Ein Beleg in 2024 bekommt die frei gewordene Nummer
+    k24 = spiel.pflicht(quest.stuecke(conn, 2024))[0]
+    post(client, f"/steuer/2024/stueck/{k24['id']}/datei",
+         files=[("datei", ("zahnarzt-2024.pdf", b"%PDF zahn"))])  # fmt: skip
+    belege_2024 = quest.dateien(conn, 2024)
+    # Zweites Spiel, anders gespielt
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    post(client, f"/steuer/2025/stueck/{a['id']}/status", status="gibts_nicht")
+    assert not quest.schon_bezahlt(conn, 2025, spiel.karten_grund(a, "antwort"))  # zahlt nie 2×
+    post(client, f"/steuer/2025/stueck/{b['id']}/datei",
+         files=[("datei", ("beleg-b.pdf", b"%PDF b"))])  # fmt: skip
+    post(client, f"/steuer/2025/stueck/{c['id']}/datei",
+         files=[("datei", ("beleg-c.pdf", b"%PDF c"))])  # fmt: skip
+    assert _karten_salz(conn) > gold
+    # Die Liste sagt, was jede Sicherung ist, und fragt vorher
+    seite = client.get("/steuer/neu-beginnen").text
+    assert "vor dem Neu-Beginnen" in seite and "Ja, 2025 zurückholen" in seite
+    assert "Jetzt: " in seite and "Das wird ersetzt" in seite
+    seite = post(client, "/steuer/sicherung/zurueckholen", name=erste["name"]).text
+    assert "Das ging nicht" not in seite
+    assert "2 neuere Belege liegen im Eingangskorb" in seite and "Salz wie damals: −" in seite
+    # Salz wie zur Sicherung, der Stand wie gesichert
+    assert _karten_salz(conn) == gold
+    assert [d["sha256"] for d in quest.dateien(conn, 2025)] == [sha_a]
+    assert quest.stueck(conn, quest.dateien(conn, 2025)[0]["stueck_id"])["key"] == a["key"]
+    stati = {s["key"]: s["status"] for s in quest.stuecke(conn, 2025)}
+    assert stati[a["key"]] == "gesammelt" and stati[b["key"]] == "gibts_nicht"
+    # Neuere Belege liegen im Korb und kennen ihr Jahr; 2024 ist unberührt
+    korb = {p.name: p for p in quest.lager_dateien(ws.root)}
+    assert {"beleg-b.pdf", "beleg-c.pdf"} <= set(korb)
+    assert quest.korb_jahr(conn, korb["beleg-c.pdf"]) == 2025
+    assert quest.dateien(conn, 2024) == belege_2024
+    assert Path(quest.heile_pfad(conn, belege_2024[0]["pfad"])).is_file()
+    # Den Stand davor zurückholen bringt genau dessen Salz zurück, nicht mehr
+    davor = next(s for s in quest.sicherungs_liste(ws.root) if s["anlass"] == "vor dem Zurückholen")
+    post(client, "/steuer/sicherung/zurueckholen", name=davor["name"])
+    assert _karten_salz(conn) > gold
+    assert not {"beleg-b.pdf", "beleg-c.pdf"} & {p.name for p in quest.lager_dateien(ws.root)}
+    post(client, "/steuer/sicherung/zurueckholen", name=erste["name"])
+    assert _karten_salz(conn) == gold  # Schleifen bringen nichts
+
+
+def test_runde_63_intro_spuernase_und_liste(client, ws):
+    """Lena (Runde 63): „Belege warten im Korb“ bei leerem Korb; die Spürnase nahm
+    „aus 2024?“ mit; der Sieg-Stand fiel aus der Liste."""
+    fragebogen(client, jahr=2024, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn, _bonus = _besiegt_mit_bonus(client, ws)
+    quest.notiere(conn, 2025, "sieg", "Der Papierdrache ist besiegt")
+    post(client, "/steuer/neu-beginnen", jahr="2025")
+    assert "Deine Belege warten im Eingangskorb" in client.get("/steuer/2025/intro").text
+    for p in quest.lager_dateien(ws.root):
+        p.unlink()
+    intro = client.get("/steuer/2025/intro").text
+    assert "2025 beginnt von vorn" in intro and "Belege warten" not in intro
+    assert "2025 beginnt schon von vorn" in client.get("/steuer/neu-beginnen?jahr=2025").text
+    # Spürnase: Ein Zettel, dessen Name ein anderes Jahr nennt, bleibt liegen
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    quest.verdiene(conn, 2025, "test", 50, "Testgold")
+    post(client, "/steuer/2025/markt/kaufen", ware="spuernase")
+    lager = quest.lager(ws.root)
+    (lager / "Steuer-ID_2023.pdf").write_bytes(b"%PDF id alt")
+    (lager / "Kontoauszug_Juni.pdf").write_bytes(b"%PDF konto")
+    assert spiel.ahnung("Steuer-ID_2023.pdf", quest.stuecke(conn, 2025)).stueck is not None
+    insel = client.get("/steuer/2025").text
+    assert "aus 2023?" in insel and "Vorschläge stempeln" not in insel
+    post(client, "/steuer/2025/lager/vorschlaege")
+    assert "Steuer-ID_2023.pdf" in {p.name for p in quest.lager_dateien(ws.root)}
+    # Der Sieg-Stand bleibt in der Liste, auch nach vielen Schritten
+    sieg = quest.sicherungs_liste(ws.root)[-1]
+    for _ in range(6):
+        post(client, "/steuer/neu-beginnen", jahr="2025")
+        fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    assert sieg["sieg"] and len(quest.sicherungs_liste(ws.root)) > 6
+    seite = client.get("/steuer/neu-beginnen").text
+    assert sieg["name"] in seite and "Drache besiegt" in seite
