@@ -438,7 +438,14 @@ def mail(
         gesehen: set[str] = set()
         nummer = 0
         for s in fragen:
-            text = s["frage"] or f"Ich bin unsicher. {brauchst}"
+            if s["frage"]:
+                text = s["frage"]
+            elif ist_kern(s["gebiet"], s["key"]):
+                # Lena (Runde 57): Bei der Jahressteuerbescheinigung heißt „Lieber fragen“ meist
+                # „hab ich noch nicht“, nicht „brauchst du das?“. Die hat fast jede:r.
+                text = "Habe ich noch nicht. Reicht es, wenn ich es nachreiche?"
+            else:
+                text = f"Ich bin unsicher. {brauchst}"
             if sie:
                 text = siezen(text)
             zeile = f"{wo(s)}, {s['name']}: {text}"

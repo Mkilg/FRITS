@@ -12,6 +12,8 @@
 {% include "_steuer_kopf.html" %}
 <h1 class="sq-sieg-titel{% if drache.besiegt and zweifel %} silber{% endif %}">{% if drache.besiegt and zweifel %}Silber-Sieg!{% elif drache.besiegt %}Goldenes Zeitalter!{% else %}Heute nur senden{% endif %}</h1>
 {% if not drache.besiegt %}<p class="sq-sieg-unter">{{ drache.max_lp - drache.lp }} von {{ drache.max_lp }} Karten erledigt. Was fehlt, steht als Liste in der Mail. Der Drache wartet, bis du weitermachst.</p>{% endif %}
+{# Lena (Runde 57): Das Tagesziel sagte nach dem Sieg „Für heute Schluss“, drei Klicks vor dem Ende #}
+{% if tagwerk_wartet and not frisch_gepackt %}<p class="sq-fast-fertig" role="status"><span class="sq-tagwerk-ring" style="--anteil: 1" aria-hidden="true"><b>✓</b></span><span>Tagesziel geschafft. Fast fertig: {% if zip_pfad and not kiste_aenderung %}nur noch die Mail öffnen{% else %}Fundkiste packen und Mail öffnen{% endif %}, dann ist Schluss für heute. <a href="#kiste">Zur Fundkiste ↓</a></span></p>{% endif %}
 <div class="sq-sieg">
   <aside class="sq-rand">
     {# Lena (Runde 46): Über den Notausgang zeigte die Seite eine volle Kiste, auch bei 0 Belegen #}
@@ -149,7 +151,7 @@
       </details>
       {% endif %}
       <p class="sq-anrede-hinweis muted">{{ "Per Sie" if profil.anrede == "sie" else "Per du" }}{% if profil.beraterin_name %} an {{ profil.beraterin_name }}{% endif %}. <a href="/steuer/{{ jahr }}/beraterin">Ändern</a></p>
-      <label>An <input type="email" id="sq-an" name="an" enterkeyhint="next" value="{{ profil.beraterin_email }}" placeholder="E-Mail deiner Beraterin"></label>
+      <label>An <input type="email" id="sq-an" class="sq-an" name="an" enterkeyhint="next" value="{{ profil.beraterin_email }}" placeholder="E-Mail deiner Beraterin"></label>
       <label>Betreff <input name="betreff" enterkeyhint="next" value="{{ betreff }}"></label>
       <label class="sr-only" for="sq-mailtext">Text (alles änderbar)</label>
       <textarea id="sq-mailtext" name="text" rows="16">{{ mailtext }}</textarea>

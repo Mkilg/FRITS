@@ -283,16 +283,16 @@ name = "Burg"
 bereich = "Privates, das Steuern spart"
 frage = "immer"
 anlage = "Anlagen Vorsorgeaufwand, AV, Sonderausgaben, Haushaltsnahe Aufwendungen, Außergewöhnliche Belastungen, Unterhalt, Energetische Maßnahmen"
-woerter = ["krankenversicherung", "rentenversicherung", "spende", "spenden", "spendenquittung", "zuwendungsbestätigung", "haushalt", "versicherung", "altersvorsorge", "riester", "rürup", "pflege", "krankheit", "steuerberatung", "ksk", "künstlersozialkasse"]
+woerter = ["krankenversicherung", "rentenversicherung", "spende", "spenden", "spendenquittung", "zuwendungsbestätigung", "haushalt", "versicherung", "altersvorsorge", "riester", "rürup", "pflege", "krankheit", "steuerberatung", "ksk", "künstlersozialkasse", "krankenkasse", "techniker", "pflegeversicherung", "zahnarzt", "arzt", "apotheke", "brille"]
 stuecke = [
   { key = "ksk", name = "Beitragsbescheinigung der Künstlersozialkasse", hinweis = "Jahresbescheinigung der KSK. Dein Anteil zählt wie gesetzliche Renten- und Krankenversicherung.", art = "bonus", wenn = "ksk" },
-  { key = "krankenversicherung", woerter = ["krankenkasse", "aok", "barmer"], name = "Kranken- und Pflegeversicherung", hinweis = "Jahresbescheinigung der Kasse.", art = "bonus", wenn = "vorsorge" },
-  { key = "altersvorsorge", name = "Altersvorsorge", hinweis = "Rürup, private Rentenversicherung. Für Riester die Bescheinigung des Anbieters (Anlage AV).", art = "bonus", wenn = "vorsorge" },
+  { key = "krankenversicherung", woerter = ["krankenkasse", "aok", "barmer", "techniker", "dak", "hkk", "ikk", "bkk", "pflegeversicherung"], name = "Kranken- und Pflegeversicherung", hinweis = "Jahresbescheinigung der Kasse.", art = "bonus", wenn = "vorsorge" },
+  { key = "altersvorsorge", woerter = ["riester", "rürup", "rentenversicherung"], name = "Altersvorsorge", hinweis = "Rürup, private Rentenversicherung. Für Riester die Bescheinigung des Anbieters (Anlage AV).", art = "bonus", wenn = "vorsorge" },
   { key = "versicherungen", name = "Weitere Versicherungen", hinweis = "Haftpflicht, Berufsunfähigkeit, Unfall.", art = "bonus", wenn = "vorsorge" },
   { key = "spenden", woerter = ["zuwendungsbestätigung", "spendenquittung", "spende"], name = "Spenden und Mitgliedsbeiträge", hinweis = "Bis 300 € reicht oft der Kontoauszug.", art = "bonus", wenn = "spenden" },
   { key = "haushalt", name = "Handwerker und Hilfe im Haushalt", hinweis = "Rechnung muss überwiesen worden sein.", art = "bonus", wenn = "haushalt" },
   { key = "sanierung", name = "Energetische Sanierung", hinweis = "Am selbst bewohnten Haus, mit Bescheinigung des Fachbetriebs.", art = "bonus", wenn = "sanierung" },
-  { key = "krankheit", name = "Krankheitskosten", hinweis = "Zuzahlungen, Brille, Zahnersatz, Therapie.", art = "bonus", wenn = "krankheit" },
+  { key = "krankheit", woerter = ["zahnarzt", "arzt", "apotheke", "brille", "zuzahlung"], name = "Krankheitskosten", hinweis = "Zuzahlungen, Brille, Zahnersatz, Therapie.", art = "bonus", wenn = "krankheit" },
   { key = "pflege", name = "Pflege oder Behinderung", hinweis = "Schwerbehindertenausweis oder Pflegegrad-Bescheid und die Kosten.", art = "bonus", wenn = "pflege" },
   { key = "unterhalt", name = "Unterhalt an Angehörige", hinweis = "Kontoauszüge der Überweisungen. Bar gezahlter Unterhalt zählt seit 2025 nicht mehr.", art = "bonus", wenn = "unterhalt" },
   { key = "steuerberatung", name = "Kosten der Steuerberatung", hinweis = "Rechnung deiner Beraterin vom letzten Jahr. Absetzbar ist nur der Teil für Geschäft, Vermietung oder Job, das teilt sie selbst auf.", art = "bonus", wenn = "steuerberatung" },

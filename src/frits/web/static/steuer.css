@@ -1863,3 +1863,12 @@ details.sq-mehr-marken .kurz { display: none; }
 
 /* Lena (Runde 55): Helfer kurz erklärt, sichtbar statt nur im Tooltip */
 .sq-hafen-erklaer { display: block; flex-basis: 100%; margin-top: .4rem; font-size: .85rem; color: var(--muted-papier, #6b5a48); }
+
+/* Runde 57 (Lena): Das Tagesziel wartet bis nach der Mail; vorher nur „Fast fertig“ */
+.sq .sq-fast-fertig { display: flex; align-items: center; gap: 0.7rem; max-width: 40rem; margin: 0 auto 1rem; padding: 0.55rem 0.9rem;
+  background: var(--papierkarte); color: var(--tinte); border-left: 5px solid var(--moos); border-radius: 2px; box-shadow: 0 6px 14px rgba(20, 8, 2, .3); font-size: 0.92rem; }
+.sq .sq-fast-fertig .sq-tagwerk-ring { flex: none; width: 34px; height: 34px; background: var(--moos); }
+.sq .sq-fast-fertig .sq-tagwerk-ring b { width: 26px; height: 26px; color: var(--moos-dunkel); }
+.sq .sq-fast-fertig a { color: var(--wachs); font-weight: 600; }
+/* Der Sprung zu „An“ zeigt auch die Beschriftung, nicht nur das Feld */
+.sq-an { scroll-margin-top: 6rem; }
