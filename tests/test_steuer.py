@@ -4088,3 +4088,32 @@ def test_runde_54_alter_tab_und_eigener_satz(client, ws):
     assert "PS: Bis Freitag? Und danke!" in seite
     assert "mit: „PS: Bis Freitag? Und danke!“" in seite
     assert seite.count('class="sq-alter-satz"') == 1  # ähnliche Fassung ersetzt, nicht doppelt
+
+
+def test_runde_55_erster_auftrag_ist_leicht(client, ws):
+    """Lena (Runde 55): Der erste Auftrag war die Jahressteuerbescheinigung; danach die Burg."""
+    fragebogen(client, teil1={"name": "Kim"},
+               teil2={"m_freiberuflich_0": "1", "m_depots_inland": "1"})  # fmt: skip
+    conn = quest.ensure_schema(store.connect(ws.db))
+    a = client.app.state.quest_auftrag(conn)
+    assert "Rathaus" in a["titel"] and "Steuer-ID" in a["text"] and "?karte=" in a["ziel"]
+    # Alle Pflichtkarten erledigt außer der Burg: kein Auftrag in die freiwillige Burg
+    for s in spiel.pflicht(quest.stuecke(conn, 2025)):
+        quest.setze_status(conn, s["id"], "fragen")
+    seite = client.get("/steuer/2025").text
+    assert "Versiegle Burg" not in seite
+
+
+def test_runde_55_crlf_ist_keine_eigene_fassung(client, ws):
+    _conn, _bonus = _besiegt_mit_bonus(client, ws)
+    post(client, "/steuer/2025/truhe", schloss="ohne")
+    seite = client.get("/steuer/2025/sieg").text
+    t = re.search(r'id="sq-mailtext" name="text" rows="16">(.*?)</textarea>', seite, re.DOTALL)
+    k = re.search(r'name="kennung" value="([0-9a-f]+)"', seite).group(1)
+    client.post("/steuer/2025/mail/merken", headers={"x-frits-leise": "1"},
+                data={"token": client.token, "kennung": k,
+                      "betreff": re.search(r'name="betreff" enterkeyhint="next" value="([^"]*)"',
+                                           seite).group(1),
+                      "text": html.unescape(t.group(1)).replace("\n", "\r\n")})  # fmt: skip
+    assert 2025 not in client.app.state.steuer_mailtext
+    assert "Noch keine Mail-Adresse deiner Beraterin" in seite
