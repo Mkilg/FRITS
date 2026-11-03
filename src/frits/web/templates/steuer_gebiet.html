@@ -46,7 +46,7 @@
   {% set nr = (reihe | map(attribute="id") | list).index(vorn.id) + 1 %}
   <div class="sq-stapel-kopf">
     {# Fortschritt statt Position (Lena, Runde 32): die Punkte zeigen, wo du bist #}
-    {% set p_fertig = pflicht_z | rejectattr("status", "equalto", "offen") | list | length %}{% set f_fertig = frei_z | rejectattr("status", "equalto", "offen") | list | length %}
+    {% set p_fertig = pflicht_z | rejectattr("status", "equalto", "offen") | list | length %}{% set f_fertig = frei_z | selectattr("status", "equalto", "gesammelt") | list | length %}{# Lena (Runde 55): wie im Kopf, „gefunden“ heißt gesammelt #}
     <p class="sq-kicker">{% if vorn.art == "bonus" %}Freiwillig · {{ f_fertig }} von {{ frei_z | length }} gefunden{% else %}{{ p_fertig }} von {{ pflicht_z | length }} erledigt{% if frei_z %} <span class="sq-kicker-frei">+ {{ frei_z | length }} freiwillig</span>{% endif %}{% endif %}</p>
     <ol class="sq-zettel-punkte" aria-label="Alle Zettel dieser Provinz">
       {% for s in reihe %}<li><a href="?karte={{ s.id }}" class="{{ 'vorn' if s.id == vorn.id else ('fertig' if s.status != 'offen' else 'offen') }}{% if s.art == 'bonus' %} bonus{% endif %}" title="{{ s.name }}{% if s.status != 'offen' %} ✓{% endif %}" aria-label="{{ s.name }}{% if s.status != 'offen' %}, erledigt{% endif %}"{% if s.id == vorn.id %} aria-current="true"{% endif %}></a></li>{% endfor %}

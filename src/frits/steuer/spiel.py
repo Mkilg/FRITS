@@ -526,7 +526,9 @@ def auftrag(
             erledigt=0,
             gesamt=zettel,
         )
-    offen = [p for p in staende if not p.stand.siegel]
+    # Lena (Runde 55): Der Auftrag schickte nach der ersten Karte in die Burg, die nur
+    # freiwillige Schätze hat. Aufträge führen nur durch Pflicht-Provinzen.
+    offen = [p for p in staende if not p.stand.siegel and not p.nur_bonus]
     if not offen:
         return Auftrag(
             "sieg",
@@ -536,7 +538,19 @@ def auftrag(
             f"{basis}/drache",
         )
     # Angefangene Provinzen zuerst, dann die mit den wenigsten offenen Karten.
-    ziel = min(offen, key=lambda p: (p.stand.erledigt == 0, p.stand.offen))
+    # Lena (Runde 55): Am ersten Abend war das die Schatzkammer mit der schwersten Karte
+    # (Jahressteuerbescheinigung aus dem Online-Banking), und Fritz gab dort auf. Solange
+    # nichts angefangen ist, beginnt die Reise darum im Rathaus mit der Steuer-ID: Die hat
+    # jeder, und eintippen reicht.
+    leichter_start = not any(p.stand.erledigt for p in staende)
+    ziel = min(
+        offen,
+        key=lambda p: (
+            p.stand.erledigt == 0,
+            not (leichter_start and p.gebiet.provinz.key == "rathaus"),
+            p.stand.offen,
+        ),
+    )
     gesamt = gesamtstand(stuecke)
     jetzt = zeitalter(gesamt.anteil)[0]
     danach_anteil = (gesamt.erledigt + ziel.stand.offen) / gesamt.gesamt if gesamt.gesamt else 1
@@ -547,12 +561,23 @@ def auftrag(
         belohnungen.append("Orden „Erste Ernte“")
     rest = ziel.stand.offen
     karten = "eine Karte" if rest == 1 else f"{rest} Karten"
+    text = f"Noch {karten}. Leg ab, was du hast. Was es nicht gibt, stempelst du einfach ab."
+    ziel_url = f"{basis}/gebiet/{ziel.gebiet.id}"
+    sid = next(
+        (x for x in ziel.stuecke if x.get("key") == "steuer-id" and x["status"] == "offen"), None
+    )
+    if leichter_start and sid is not None:
+        danach = rest - 1
+        text = "Fang leicht an: mit deiner Steuer-ID. Sie steht auf jedem Steuerbescheid, eintippen reicht."
+        if danach:
+            text += f" Danach noch {'eine Karte' if danach == 1 else f'{danach} Karten'}."
+        ziel_url += f"?karte={sid['id']}"
     return Auftrag(
         "provinz",
         f"Versiegle {ziel.gebiet.titel}",
-        f"Noch {karten}. Leg ab, was du hast. Was es nicht gibt, stempelst du einfach ab.",
+        text,
         "Los geht's",
-        f"{basis}/gebiet/{ziel.gebiet.id}",
+        ziel_url,
         tuple(belohnungen),
         gebiet_id=ziel.gebiet.id,
         erledigt=ziel.stand.erledigt,

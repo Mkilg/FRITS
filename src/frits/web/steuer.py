@@ -2609,6 +2609,9 @@ def register_steuer(
         Fassung. Jetzt bleiben die letzten drei, neueste zuerst. Kommt der Text von einer
         Seite mit altem Brief (kennung passt nicht, etwa beim Wegklicken zu „Neu packen“),
         ist er eine frühere Fassung und überschreibt den neuen Brief nicht."""
+        # Lena (Runde 55): Browser schicken Zeilenumbrüche als \r\n; FRITS' eigener Text galt
+        # sonst als geändert und belegte als „Fassung 2“ einen Platz
+        betreff, text = betreff.replace("\r\n", "\n"), text.replace("\r\n", "\n")
         basis = mail_basis(jahr, lage(jahr))
         vorher = app.state.steuer_mailtext.get(jahr) or {}
         frueher = list(vorher.get("frueher", []))
@@ -2694,7 +2697,7 @@ def register_steuer(
             p.beraterin_email = an
             p.save(quest.profil_datei(ws.root, jahr))
         betreff = str(form.get("betreff") or f"Steuerunterlagen {jahr}")
-        text = str(form.get("text") or "")
+        text = str(form.get("text") or "").replace("\r\n", "\n")
         basis = mail_entwurf(jahr, lage(jahr), truhe.verschluesselt(zip_pfad))
         mail_text_merken(jahr, betreff, text)
         result = system.compose_email(p.beraterin_email, betreff, text, zip_pfad)
