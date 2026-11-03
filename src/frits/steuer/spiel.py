@@ -542,7 +542,7 @@ def auftrag(
     # (Jahressteuerbescheinigung aus dem Online-Banking), und Fritz gab dort auf. Solange
     # nichts angefangen ist, beginnt die Reise darum im Rathaus mit der Steuer-ID: Die hat
     # jeder, und eintippen reicht.
-    leichter_start = not any(p.stand.erledigt for p in staende)
+    leichter_start = not any(p.stand.erledigt for p in staende if not p.nur_bonus)
     ziel = min(
         offen,
         key=lambda p: (
@@ -639,8 +639,9 @@ def koerner(n: int) -> str:
     return f"{n} Salzkorn" if abs(n) == 1 else f"{n} Salzkörner"
 
 
-def kiste_aenderung(neu: int, weg: int) -> str:
-    """„1 Beleg getauscht und 1 neuer Beleg seit dem Packen.“ Leer, wenn nichts anders ist."""
+def kiste_aenderung(neu: int, weg: int, karten: int = 0) -> str:
+    """„1 Beleg getauscht und 1 neuer Beleg seit dem Packen.“ Leer, wenn nichts anders ist.
+    karten: Karten, die seit dem Packen anders gestempelt sind (Lena, Runde 56)."""
     teile = []
     # Lena (Runde 45): „1 neuer Beleg und 1 Beleg herausgenommen“ heißt einfach getauscht
     getauscht = min(neu, weg)
@@ -651,6 +652,10 @@ def kiste_aenderung(neu: int, weg: int) -> str:
         teile.append("1 neuer Beleg" if neu == 1 else f"{neu} neue Belege")
     if weg:
         teile.append(f"{weg} Beleg{'e' if weg > 1 else ''} herausgenommen")
+    if karten:
+        teile.append(
+            "1 Karte anders gestempelt" if karten == 1 else f"{karten} Karten anders gestempelt"
+        )
     return f"{' und '.join(teile)} seit dem Packen." if teile else ""
 
 
@@ -1124,6 +1129,21 @@ def ahnung(dateiname: str, stuecke: list[dict]) -> Ahnung:
         rest = max((provinz_wort[s["gebiet"]][a] for a, t in treffer.items() if not t), default=0)
         if wert < STARK and rest < STARK:
             continue  # nur schwache Wörter: lieber nur die Provinz vorschlagen
+        # Lena (Runde 56): „Beitragsbescheinigung Krankenversicherung“ landete bei „Verbände,
+        # Presseausweis“, weil „Beitrag“ ein bisschen passte. Passt ein anderes Wort viel
+        # besser zu einer anderen Provinz (Burg: „krankenversicherung“), ist es nicht diese Karte.
+        fremd = max(
+            (
+                w[a]
+                for g, w in provinz_wort.items()
+                if g.split("-")[0] != s["gebiet"].split("-")[0]
+                for a, t in treffer.items()
+                if not t
+            ),
+            default=0,
+        )
+        if fremd > wert:
+            continue
         wert = wert * 2 + (1 if s["status"] == "offen" else 0) + rest
         if wert > punkte:
             beste, punkte = s, wert

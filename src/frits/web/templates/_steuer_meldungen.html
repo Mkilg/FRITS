@@ -41,9 +41,9 @@
     {% set angebot = hafen_angebot(ressourcen.gold, besitz) if ressourcen is defined and besitz is defined else [] %}
     <a class="sq-siegelknopf" href="/steuer/{{ jahr }}/drache">Stell dich dem Drachen →</a>
     {% if angebot %}
-    <a class="sq-stempelknopf sq-hafen-knopf" href="{{ markt_link(jahr) }}" title="Ab {{ koerner(angebot[0].preis) }}, z. B. {{ angebot[0].name }}: {{ angebot[0].text }}">Erst Helfer anheuern · ab {{ angebot[0].preis }}, du hast {{ ressourcen.gold }}</a>
-    {# Lena (Runde 55): „Helfer anheuern“ stand ohne Erklärung da (nur im Tooltip) #}
-    <small class="sq-hafen-erklaer">Helfer machen den Kampf leichter, zum Beispiel {{ angebot[0].name }}: {{ angebot[0].text }}</small>
+    <a class="sq-stempelknopf sq-hafen-knopf" href="{{ markt_link(jahr) }}" title="Ab {{ koerner(angebot[0].preis) }}, z. B. {{ angebot[0].name }}: {{ angebot[0].text }}">Erst Helfer anheuern · ab {{ koerner(angebot[0].preis) }}, du hast {{ koerner(ressourcen.gold) }}</a>
+    {# Lena (Runde 55/56): erklärt, und ehrlich: Helfer bringen mehr Salzkörner, der Kampf bleibt gleich #}
+    <small class="sq-hafen-erklaer">Helfer bringen dir mehr Salzkörner, zum Beispiel {{ angebot[0].name }}: {{ angebot[0].text }}</small>
     {% else %}
     <button class="quiet">Gleich</button>
     {% endif %}

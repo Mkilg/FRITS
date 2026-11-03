@@ -84,7 +84,7 @@
       {% if auftrag.art == "drache" %}<span class="sq-leuchtfeuer" aria-hidden="true"><span>Hier weiter</span></span>{% endif %}
       <span class="sq-drache-klein">{% include "_steuer_drache.html" %}</span>
       {% if drache.stimmung == "schläfrig" %}<span class="sq-zzz" aria-hidden="true">z z Z</span>{% endif %}
-      <span class="sq-schild"><strong>Drachenhort</strong><small>{% if drache.besiegt and kiste == (0, 0) %}Fundkiste gepackt{% elif drache.besiegt and kiste %}Kiste neu packen{% elif drache.besiegt %}Besiegt! Zur Beute{% elif not drache_wach %}schläft noch{% else %}Wach! {{ drache.lp }} Karte{{ "n" if drache.lp != 1 }} übrig{% endif %}</small></span>
+      <span class="sq-schild"><strong>Drachenhort</strong><small>{% if drache.besiegt and kiste is not none and not kiste | select | list %}Fundkiste gepackt{% elif drache.besiegt and kiste %}Kiste neu packen{% elif drache.besiegt %}Besiegt! Zur Beute{% elif not drache_wach %}schläft noch{% else %}Wach! {{ drache.lp }} Karte{{ "n" if drache.lp != 1 }} übrig{% endif %}</small></span>
     </a>
     </div>
     {# Ein Weg hinein statt fünf (Marie, 2.11.: weniger Menüs). Der Lager-Ordner liegt im Belegbuch. #}

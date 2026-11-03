@@ -202,7 +202,7 @@ zaehlbar = true
 anlage = "Anlage KAP"
 woerter = ["depot", "steuerbescheinigung", "kapitalerträge", "dividende", "zinsen", "bank", "fonds"]
 stuecke = [
-  { key = "steuerbescheinigung", kern = true, warum = "Deutsche Banken stellen sie meist im Frühjahr ins Online-Postfach, auch bei kleinen Beträgen.", name = "Jahressteuerbescheinigung", hinweis = "Stellt die Bank im Frühjahr ins Online-Postfach." },
+  { key = "steuerbescheinigung", kern = true, warum = "Deutsche Banken stellen sie meist im Frühjahr ins Online-Postfach, auch bei kleinen Beträgen.", name = "Jahressteuerbescheinigung", hinweis = "Im Online-Banking im Postfach, oft unter „Dokumente“ oder „Steuern“. Noch nicht da? Dann frag lieber deine Beraterin, das zählt auch." },
   { key = "verluste", name = "Verlustbescheinigung", hinweis = "Nur wenn die Bank Verluste bescheinigt.", art = "bonus" },
 ]
 
