@@ -149,10 +149,9 @@ Steuer-ID: {% endif %}</textarea></label>
           <summary>Lieber fragen …</summary>
           <form method="post" action="/steuer/{{ jahr }}/stueck/{{ s.id }}/status" data-stempel="FRAGE" data-farbe="blau">
             <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back" value="{{ zurueck }}">
-            <p class="sq-frage-hinweis">Deine Frage kommt in die Mail an deine Beraterin. Die schickst du am Ende selbst ab.</p>
             <input name="frage" placeholder="Deine Frage an die Beraterin (darf leer bleiben)" aria-label="Frage an die Beraterin">
-            <button class="sq-stempelknopf" name="status" value="fragen">In die Mail aufnehmen</button>
-            <a class="sq-frage-ki" href="/chat">Erst selbst die KI fragen? Zum freien Chat →</a>
+            <button class="sq-stempelknopf" name="status" value="fragen">In die Mail aufnehmen</button> {{ info_i("Deine Frage kommt in die Mail an deine Beraterin. Die schickst du am Ende selbst ab.") }}
+            <a class="sq-frage-ki" href="/chat">Erst die KI fragen →</a>
           </form>
         </details>
         {% else %}
@@ -181,9 +180,8 @@ Steuer-ID: {% endif %}</textarea></label>
     {% set selbst = fertig | reject("in", von_frits) | list %}
     {% if von_frits %}
     <section class="sq-papier sq-erledigt">
-      <h2>Hat FRITS schon dabei</h2>
+      <h2>Hat FRITS schon dabei {{ info_i("Das kommt aus deinen Rechnungen und Ausgaben in FRITS. Du musst dafür nichts tun.") }}</h2>
       <ul>{% for s in von_frits %}<li><a href="?karte={{ s.id }}">✓ {{ s.name }}</a></li>{% endfor %}</ul>
-      <p class="muted">Das kommt aus deinen Rechnungen und Ausgaben in FRITS. Du musst dafür nichts tun.</p>
     </section>
     {% endif %}
     {% if selbst %}
@@ -192,13 +190,12 @@ Steuer-ID: {% endif %}</textarea></label>
       <ul>{% for s in selbst %}<li><a href="?karte={{ s.id }}">✓ {{ s.name }}{% if s.status == "gibts_nicht" %} <small>gibt's nicht</small>{% elif s.status == "fragen" %} <small>Frage</small>{% endif %}</a></li>{% endfor %}</ul>
     </section>
     {% endif %}
-    <p class="sq-umschalter">Lieber alles auf einmal? <a href="?ansicht=liste">Alle Zettel als Liste zeigen</a></p>
+    <p class="sq-umschalter"><a href="?ansicht=liste">Alle Zettel als Liste</a></p>
     {% elif ansicht == "liste" %}
-    <p class="sq-umschalter">Zu viel auf einmal? <a href="?ansicht=stapel">Ein Zettel nach dem anderen</a></p>
+    <p class="sq-umschalter"><a href="?ansicht=stapel">Ein Zettel nach dem anderen</a></p>
     {% endif %}
     {% if lager %}
-    <h2 class="sq-rand-titel">Eingangskorb</h2>
-    <p>Leg einen Zettel auf die passende Karte.</p>
+    <h2 class="sq-rand-titel">Eingangskorb {{ info_i("Leg einen Zettel auf die passende Karte.") }}</h2>
     {% include "_steuer_zettel.html" %}
     {% endif %}
   </aside>

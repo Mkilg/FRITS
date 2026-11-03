@@ -18,8 +18,7 @@
   <aside class="sq-rand sq-korb" id="sq-korb" aria-label="Eingangskorb">
     {% if lager %}
     <div>
-      <h2 class="sq-rand-titel">Eingangskorb</h2>
-      <p>Leg jeden Zettel auf die Provinz, zu der er gehört.</p>
+      <h2 class="sq-rand-titel">Eingangskorb {{ info_i("Leg jeden Zettel auf die Provinz, zu der er gehört.") }}</h2>
       {% set zurueck = "/steuer/" ~ jahr %}
       {% include "_steuer_zettel.html" %}
     </div>
@@ -89,8 +88,8 @@
     </div>
     {# Ein Weg hinein statt fünf (Marie, 2.11.: weniger Menüs). Der Lager-Ordner liegt im Belegbuch. #}
     <div class="sq-unten" data-lager="{{ lager | length }}" data-lager-url="/steuer/{{ jahr }}/lager/anzahl">
-      {% with dz_action="/steuer/" ~ jahr ~ "/lager/hochladen", dz_back="/steuer/" ~ jahr, dz_class="sq-einwurf", dz_id="lager", dz_title="Alles hier ablegen", dz_hint="Bescheide, Belege, Fotos, Kontoauszüge. FRITS legt es in den Eingangskorb und schlägt die Provinz vor.", dz_accept="*/*", dz_send="In den Korb", dz_busy="Ich lege es in den Korb.", dz_text_label="Text einfügen, z. B. eine Mail vom Finanzamt" %}{% include "_dropzone.html" %}{% endwith %}
-      <p class="sq-unten-brief"><a href="/steuer/{{ jahr }}/beraterin">Mail von deiner Beraterin? Hier einfügen, ich lese sie</a></p>
+      {% with dz_action="/steuer/" ~ jahr ~ "/lager/hochladen", dz_back="/steuer/" ~ jahr, dz_class="sq-einwurf", dz_id="lager", dz_title="Alles hier ablegen", dz_hint="Bescheide, Belege, Fotos. Ich schlage die Provinz vor.", dz_accept="*/*", dz_send="In den Korb", dz_busy="Ich lege es in den Korb.", dz_text_label="Text einfügen" %}{% include "_dropzone.html" %}{% endwith %}
+      <p class="sq-unten-brief"><a href="/steuer/{{ jahr }}/beraterin">Mail von der Beraterin einfügen</a></p>
       <nav class="sq-werkzeuge" aria-label="Werkzeuge">
         <a href="/steuer/{{ jahr }}/belege"><span class="sq-ding-bild buch" aria-hidden="true"></span>Belegbuch</a>
         {% if sammlung_da %}<a href="/sammlung"><span class="sq-werkzeug-orden" aria-hidden="true"></span>Sammlung</a>{% else %}<a href="/steuer/{{ jahr }}/belege#orden"><span class="sq-werkzeug-orden" aria-hidden="true"></span>Orden</a>{% endif %}
