@@ -1594,7 +1594,7 @@ def zurueckholen(conn: sqlite3.Connection, root: Path, name: str) -> Zurueck:
         alt.close()
     korb = lager(root)
     korb.mkdir(parents=True, exist_ok=True)
-    gerettet: list[str] = []
+    gerettet: list[tuple[str, str]] = []
     for pfad, original, sha, nr in retten:
         if not pfad.is_file():
             continue
@@ -1602,7 +1602,7 @@ def zurueckholen(conn: sqlite3.Connection, root: Path, name: str) -> Zurueck:
         if neu.exists():
             neu = neu.with_name(f"{neu.stem}_{nr}{neu.suffix}")
         shutil.move(str(pfad), neu)
-        gerettet.append(sha)
+        gerettet.append((sha, neu.name))
     jetzt = ordner(root, jahr)
     if jetzt.is_dir():
         shutil.rmtree(jetzt)
@@ -1615,7 +1615,10 @@ def zurueckholen(conn: sqlite3.Connection, root: Path, name: str) -> Zurueck:
         ).fetchall()
         if Path(heile_pfad(conn, r["pfad"])).is_file()
     }
-    herkunft = set(gerettet) | herkunft_damals
+    # Lena (Runde 65): Ein Zettel, dessen Name ein anderes Jahr nennt („Riester_2024.pdf“), lag
+    # nur aus Versehen im Jahr. Er bekommt kein „Aus 2025“, sonst sagt kein Jahr „gehört hierher“.
+    herkunft = {sha for sha, name in gerettet if not _nennt_anderes_jahr(name, jahr)}
+    herkunft |= herkunft_damals
     im_korb = []
     for datei in lager_dateien(root):
         sha = _sha(datei)
@@ -1629,6 +1632,12 @@ def zurueckholen(conn: sqlite3.Connection, root: Path, name: str) -> Zurueck:
             "INSERT OR REPLACE INTO steuer_korb_herkunft (sha256, jahr) VALUES (?, ?)", im_korb
         )
     return Zurueck(jahr, davor, len(gerettet), salz)
+
+
+def _nennt_anderes_jahr(name: str, jahr: int) -> bool:
+    """Nennt der Dateiname nur andere Steuerjahre (und nicht dieses)?"""
+    jahre = {int(j) for j in re.findall(r"(?<!\d)(20[1-3]\d)(?!\d)", name)}
+    return bool(jahre) and jahr not in jahre
 
 
 def _sha(pfad: Path) -> str:
@@ -1677,7 +1686,8 @@ def neu_beginnen(conn: sqlite3.Connection, root: Path, jahr: int) -> Path:
         if neu.exists():
             neu = neu.with_name(f"{neu.stem}_{row['id']}{neu.suffix}")
         shutil.move(str(pfad), neu)
-        herkunft.append((row["sha256"], jahr))
+        if not _nennt_anderes_jahr(neu.name, jahr):  # Lena (Runde 65), siehe zurueckholen
+            herkunft.append((row["sha256"], jahr))
     with transaction(conn):
         conn.executemany(
             "INSERT OR REPLACE INTO steuer_korb_herkunft (sha256, jahr) VALUES (?, ?)", herkunft

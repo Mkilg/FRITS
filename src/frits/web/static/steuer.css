@@ -99,6 +99,8 @@ main:has(.sq-tisch) > .flash { max-width: 760px; margin: 0.8rem auto; position: 
 .sq-ahnung button:hover { background: var(--moos-dunkel); color: var(--papier); }
 .sq-spuernase { margin: 0 0 0.6rem; }
 .sq-spuernase button { width: 100%; }
+/* Lena (Runde 65): grün auf Holz hatte nur 2:1 Kontrast. Auf Papier sind es über 7:1 */
+.sq-spuernase .sq-stempelknopf { background: var(--papier, #fbf4e2) !important; box-shadow: 0 2px 5px rgba(20, 8, 2, .35); min-height: 44px; }
 .sq-zettel small { color: #8a7a5c; font-size: var(--fs-mini); }
 .sq-zettel form { background: var(--papier); margin-top: 2px; padding: 0.6rem; display: flex; flex-direction: column; gap: 0.4rem; box-shadow: 0 6px 12px rgba(25, 12, 3, .3); }
 .sq-zettel select { width: 100%; }

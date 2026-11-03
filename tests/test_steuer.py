@@ -4598,3 +4598,21 @@ def test_runde_64_kein_geisterknopf_und_ruhiger_hinweis(client, ws):
     css = client.get("/static/steuer.css").text
     assert ".sq-meldung.hinweis {" in css
     assert ".sq-zettel-punkte a::before" in css and "min-height: 44px" in css
+
+
+def test_runde_65_beleg_mit_anderem_jahr_im_namen_bekommt_kein_herkunftsjahr(client, ws):
+    """Lena (Runde 65): Riester_Bescheinigung_2024.pdf lag aus Versehen in 2025. Nach dem
+    Neu-Beginnen hieß sie in 2024 „Aus 2025“ und in 2025 „aus 2024?“: Kein Jahr nahm sie."""
+    fragebogen(client, jahr=2024, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    a, b = spiel.pflicht(quest.stuecke(conn, 2025))[:2]
+    post(client, f"/steuer/2025/stueck/{a['id']}/datei",
+         files=[("datei", ("Riester_Bescheinigung_2024.pdf", b"%PDF riester"))])  # fmt: skip
+    post(client, f"/steuer/2025/stueck/{b['id']}/datei",
+         files=[("datei", ("beleg-b.pdf", b"%PDF b"))])  # fmt: skip
+    seite = post(client, "/steuer/neu-beginnen", jahr="2025").text
+    assert "Deine 2 Belege liegen im Eingangskorb" in seite and "sicherungen/" not in seite
+    korb = {p.name: p for p in quest.lager_dateien(ws.root)}
+    assert quest.korb_jahr(conn, korb["Riester_Bescheinigung_2024.pdf"]) is None
+    assert quest.korb_jahr(conn, korb["beleg-b.pdf"]) == 2025
