@@ -427,6 +427,23 @@ def register_steuer(
     # Das Tagesziel, im Drachenkampf erreicht: gezeigt nach dem Kampf (Lena, Runde 56)
     app.state.steuer_tagwerk_spaeter = {}
 
+    def tagwerk_merken(jahr: int, text: str) -> None:
+        """Das Tagesziel wartet (im Kampf, nach dem Sieg bis zur Mail), mit Datum: Ein Zettel
+        von gestern kommt morgen nicht mehr (Lena, Runde 59)."""
+        app.state.steuer_tagwerk_spaeter[jahr] = (date.today(), text)
+
+    def tagwerk_wartend(jahr: int) -> bool:
+        v = app.state.steuer_tagwerk_spaeter.get(jahr)
+        if isinstance(v, tuple) and v[0] != date.today():
+            app.state.steuer_tagwerk_spaeter.pop(jahr, None)
+            return False
+        return v is not None
+
+    def tagwerk_zeigen(jahr: int) -> None:
+        if tagwerk_wartend(jahr):
+            v = app.state.steuer_tagwerk_spaeter.pop(jahr)
+            flash(v[1] if isinstance(v, tuple) else v, "tagwerk")
+
     def conn():
         return quest.ensure_schema(store.connect(ws.db))
 
@@ -844,6 +861,8 @@ def register_steuer(
                 "Aus Gold wird Silber: Eine wichtige Unterlage ist jetzt als „Gibt's nicht“ "
                 "gestempelt. Findest du sie doch, wird es wieder Gold."
             )
+            # Lena (Runde 59): Sie kam nach „Zählt trotzdem!“ erst nach fast 5 Sekunden
+            app.state.flashes.insert(0, app.state.flashes.pop())
         alt_siegel = {p.gebiet.id for p in vorher["provinzen"] if p.stand.siegel}
         for p in nachher["provinzen"]:
             if p.stand.siegel and p.gebiet.id not in alt_siegel:
@@ -901,8 +920,11 @@ def register_steuer(
         tag = f"tagwerk:{date.today()}"
         # Lena (Runde 58): Nach dem Sieg, aber vor der Mail, kam „Für heute Schluss“ bei jeder
         # Karten-Aktion zurück (Beleg zurückgelegt, erster Schatz). Erst die Mail, dann Feierabend.
+        # Lena (Runde 59): Auch wer nach dem Sieg einen Pflicht-Beleg zurücklegt (der Drache
+        # hat dann wieder eine Karte), bekommt es erst nach der Mail.
         tagwerk_wartet = im_kampf or (
-            nachher["drache"].besiegt and not quest.hat_notiz(c, jahr, "mail")
+            (nachher["drache"].besiegt or quest.hat_notiz(c, jahr, "sieg"))
+            and not quest.hat_notiz(c, jahr, "mail")
         )
         gemeinsam = nachher["tagesziel_info"] is not None
         # Mit dem gemeinsamen Tagesziel kann es auch bei Fritte erreicht worden sein:
@@ -926,11 +948,11 @@ def register_steuer(
             if tagwerk_wartet:
                 # Lena (Runde 56): Mitten im Kampf verdeckte der Zettel einen Schlag-Knopf und
                 # sagte „Für heute Schluss“. Er wartet jetzt, bis der Kampf vorbei ist.
-                app.state.steuer_tagwerk_spaeter[jahr] = text
+                tagwerk_merken(jahr, text)
             else:
                 flash(text, "tagwerk")
-        elif not tagwerk_wartet and jahr in app.state.steuer_tagwerk_spaeter:
-            flash(app.state.steuer_tagwerk_spaeter.pop(jahr), "tagwerk")
+        elif not tagwerk_wartet:
+            tagwerk_zeigen(jahr)
         if gold_zu_silber:
             pass  # schon oben gesagt
         elif nachher["zeitalter"][0] > vorher["zeitalter"][0]:
@@ -1564,6 +1586,17 @@ def register_steuer(
             p.haken = [*p.haken, haken]
             p.save(quest.profil_datei(ws.root, jahr))
             quest.start(conn(), p)
+        # Lena (Runde 59, P1): Ein offener Fragebogen-Entwurf kannte den neuen Haken nicht, und
+        # wer ihn danach speicherte, nahm die Karte wieder weg. Der Entwurf bekommt ihn auch.
+        e = app.state.steuer_entwurf.get(jahr)
+        e_datei = entwurf_datei(jahr)
+        if e is None and e_datei.exists():
+            e = Profil.load(e_datei)
+        if e is not None and haken not in e.haken:
+            e.haken = [*e.haken, haken]
+            app.state.steuer_entwurf[jahr] = e
+            if e_datei.exists():
+                e.save(e_datei)
         c = conn()
         karte = spiel.ahnung(name, quest.stuecke(c, jahr)).stueck
         if karte is None:
@@ -2470,8 +2503,8 @@ def register_steuer(
         # Lena (Runde 57): Nach dem Sieg sagte das Tagesziel „Für heute Schluss“, obwohl Kiste
         # und Mail noch fehlten, und lag auf der Schloss-Wahl. Es wartet jetzt bis nach der Mail.
         mail_schon = quest.hat_notiz(conn(), jahr, "mail")
-        if mail_schon and jahr in app.state.steuer_tagwerk_spaeter:
-            flash(app.state.steuer_tagwerk_spaeter.pop(jahr), "tagwerk")
+        if mail_schon:
+            tagwerk_zeigen(jahr)
         zip_pfad = truhe_pfad(jahr, daten["profil"])
         frisch_gepackt = jahr in app.state.steuer_gepackt
         app.state.steuer_gepackt.discard(jahr)
@@ -2529,7 +2562,7 @@ def register_steuer(
                 else ""
             ),
             fritte_warten=fritte_warten,
-            tagwerk_wartet=jahr in app.state.steuer_tagwerk_spaeter,
+            tagwerk_wartet=tagwerk_wartend(jahr),
             # Lena (Runde 49): Der Link wird jedes Mal neu gebaut. Sonst öffnete er nach dem
             # Finale noch die alte, halbe Mail, während daneben schon die vollständige Zip lag.
             mail_ausweg=(
@@ -2800,9 +2833,7 @@ def register_steuer(
             if not quest.hat_notiz(conn(), jahr, "mail"):
                 quest.notiere(conn(), jahr, "mail", "Mail an die Beraterin geöffnet")
             flash("Die Mail ist in deinem Mail-Programm. Du drückst dort auf Senden.", cue="sent")
-            if jahr in app.state.steuer_tagwerk_spaeter:
-                # Erst jetzt ist wirklich Schluss für heute (Lena, Runde 57)
-                flash(app.state.steuer_tagwerk_spaeter.pop(jahr), "tagwerk")
+            tagwerk_zeigen(jahr)  # erst jetzt ist wirklich Schluss für heute (Lena, Runde 57)
             return back(f"/steuer/{jahr}/sieg")
         # Lena (Runde 48): Der Ausweg führte auf die Rechnungsseite („Das PDF hängst du selbst
         # an“, „Rechnungsordner öffnen“). Er bleibt jetzt am Brief, mit Weg zur Zip.
