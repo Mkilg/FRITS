@@ -1879,3 +1879,43 @@ details.sq-mehr-marken .kurz { display: none; }
 .sq-neu { max-width: 36rem; margin: 2rem auto; padding: 0 16px; }
 .sq-neu-liste { padding-left: 1.2rem; line-height: 1.5; }
 .sq-neu .field select { margin-left: 0.4rem; font-size: 1rem; padding: 0.3rem 0.5rem; }
+
+/* Marie (3.11.): „zu viel Text, in zu vielen Größen“. Überall in der Steuer-Quest gibt es
+   drei Stufen: klein 0.8rem, normal 1rem, Titel 1.35rem (dazu die Seitentitel). */
+.sq .sq-papier :is(p, li, label, dd, dt, td) { font-size: 1rem; }
+.sq .sq-papier :is(small, .muted, .muted p) { font-size: 0.8rem; }
+.sq .sq-papier :is(p, li).muted { font-size: 0.8rem; }
+.sq .sq-papier h2 { font-size: 1.35rem; }
+
+/* Auf der Insel selbst (Holz, Schilder, Korb, Auftrag) dieselben drei Stufen:
+   klein 0.8rem, normal 1rem, Titel 1.35rem. Nur Symbole dürfen anders sein. */
+.sq .sq-kicker,
+.sq .sq-auftrag-lohn,
+.sq .sq-schild strong, .sq .sq-schild small, .sq .sq-schild-name,
+.sq .sq-insel.mit-bild .sq-schild strong,
+.sq .sq-insel.mit-bild .sq-geist .sq-schild small,
+.sq .sq-geist .sq-schild small,
+.sq .sq-zettel strong, .sq .sq-zettel .art, .sq .sq-spur,
+.sq .sq-zettel summary, .sq .sq-einwurf .dz-text summary, .sq .sq-auftrag-text p.sq-kicker,
+.sq .dropzone small, .sq .dropzone .muted,
+.sq .sq-ahnung button, .sq .sq-beiseite button,
+.sq .sq-stempelknopf { font-size: 0.8rem; }
+.sq .sq-auftrag-text p, .sq .sq-rand-titel, .sq .sq-unten-brief,
+.sq .sq-einwurf .dz-titel, .sq .sq-unten .sq-einwurf .dz-titel,
+.sq .sq-auftrag .sq-siegelknopf, .sq .sq-sprechblase,
+.sq .row > button, .sq form > label { font-size: 1rem; }
+.sq .sq-auftrag h2, .sq .sq-auftrag h2.lang { font-size: 1.35rem; }
+.sq .sq-fusszeile, .sq .sq-fusszeile a, .sq .sq-fb-ausweg, .sq .sq-ding span { font-size: 0.8rem; }
+.sq .sq-buch-karte h3 { font-size: 1rem; }
+.sq .sq-frage-gross { font-size: 1.35rem; }
+.sq :is(.sq-papier, .sq-stapel-kopf, .sq-fb-kopf) h1:not(.sq-sieg-titel), .sq .sq-papier h1 { font-size: 1.75rem; }
+.sq .sq-absatz { margin: 0.6rem 0; }
+.sq .sq-nah-insel .bereich, .sq .sq-etikett, .sq .sq-umschalter, .sq .sq-umschalter a,
+.sq .sq-korb > p, .sq .sq-frage-hinweis, .sq .sq-frage-ki, .sq .sq-karte details > summary,
+.sq .sq-intro-hinweis, .sq .sq-erledigt li small { font-size: 0.8rem; }
+.sq .sq-karte .fach .nur-maus { font-size: 1rem; }
+.sq .sq-erledigt li { font-size: 0.8rem; hyphens: auto; }
+.sq .sq-karte h3, .sq .sq-erzaehler, .sq .sq-siegelknopf.gross { font-size: 1.35rem; }
+.sq .sq-nah-insel h1 { font-size: 1.75rem; }
+.sq .sq-akte.stapel > .sq-karte.vorn h3 { font-size: 1.75rem; }
+.sq .sq-rand-titel .info-i > summary { color: var(--tinte); border-color: var(--tinte); text-shadow: none; opacity: .75; }

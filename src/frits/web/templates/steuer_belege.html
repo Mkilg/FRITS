@@ -10,15 +10,14 @@
 <div class="sq-bote sq-belegbuch">
   <div class="sq-buch">
     <section class="sq-papier sq-buchkopf">
-      <h1>Belegbuch {{ jahr }}</h1>
-      <p class="muted">Alles, was schon bei deinen Karten liegt, an einem Ort. Tipp auf einen Beleg, um ihn anzusehen.</p>
+      <h1>Belegbuch {{ jahr }} {{ info_i("Alles, was schon bei deinen Karten liegt, an einem Ort. Tipp auf einen Beleg, um ihn anzusehen.") }}</h1>
       <ul class="sq-buch-summen">
         <li><b>{{ summen.belege }}</b> Beleg{{ "e" if summen.belege != 1 }}</li>
         <li><b>{{ summen.angaben }}</b> eingetippte Angabe{{ "n" if summen.angaben != 1 }}</li>
         <li><b>{{ summen.fragen }}</b> Frage{{ "n" if summen.fragen != 1 }} für die Mail</li>
         <li><b>{{ summen.leer }}</b> Karte{{ "n" if summen.leer != 1 }} noch leer</li>
       </ul>
-      <p class="muted">Zusammen {{ summen.groesse }}.{% if korb %} {% if korb | length == 1 %}Im Eingangskorb wartet noch <a href="/steuer/{{ jahr }}#sq-korb">ein Zettel</a>, der zu noch keiner Karte gehört.{% else %}Im Eingangskorb warten noch <a href="/steuer/{{ jahr }}#sq-korb">{{ korb | length }} Zettel</a>, die zu noch keiner Karte gehören.{% endif %}{% endif %}</p>
+      <p class="muted">{% if korb %}{% if korb | length == 1 %}Im Eingangskorb wartet noch <a href="/steuer/{{ jahr }}#sq-korb">ein Zettel</a>, der zu noch keiner Karte gehört.{% else %}Im Eingangskorb warten noch <a href="/steuer/{{ jahr }}#sq-korb">{{ korb | length }} Zettel</a>, die zu noch keiner Karte gehören.{% endif %}{% endif %}</p>
       {% if zahlen %}
       <div class="sq-buch-zahlen">
         <h2>Deine Zahlen {{ jahr }} laut FRITS</h2>
@@ -44,7 +43,7 @@
       <details class="sq-buch-klappe" open>
       <summary><header>
         <h2>{{ p.g.titel }} <small class="sq-buch-zahl">{{ n_dateien }} Datei{{ "en" if n_dateien != 1 }}{% if p.leer %} · {{ p.leer | length }} leer{% endif %}</small></h2>
-        <p class="muted">{{ p.g.bereich }} · In der Fundkiste im Ordner „{{ p.ordner }}“ · <a href="/steuer/{{ jahr }}/gebiet/{{ p.g.id }}">Zur Provinz</a></p>
+        <div class="muted sq-absatz">{{ p.g.bereich }} · <a href="/steuer/{{ jahr }}/gebiet/{{ p.g.id }}">Zur Provinz</a> {{ info_i("In der Fundkiste liegt das im Ordner „" ~ p.ordner ~ "“.") }}</div>
       </header></summary>
       {% for k in p.karten if k.dateien or k.mit or k.frage %}
       <article class="sq-buch-karte" id="karte-{{ k.id }}">
@@ -171,12 +170,8 @@
       <ul>{% for e in (chronik | unique(attribute="text") | list)[:6] %}<li>{{ e.text }}</li>{% endfor %}</ul>
     </details>
     {% endif %}
-    <details class="sq-papier sq-schief sq-wer-sieht sq-rand-klappe" style="--r: 0.8deg" open>
-      <summary><h2>Wer sieht deine Belege?</h2></summary>
-      <p>Nur du. Die Steuer-Quest schickt nichts an eine KI. Die Vorschläge im Eingangskorb rät FRITS aus dem Dateinamen, hier auf deinem Computer.</p>
-      <p>Bei „Mit KI besprechen“ liest FRITS den Beleg hier, schwärzt Namen, Adressen und Nummern, und zeigt dir genau, was rausgehen würde. Raus geht erst etwas, wenn du dort eine Frage stellst.</p>
-      <p>Deine Beraterin bekommt die Belege erst, wenn du am Ende die Fundkiste packst und selbst verschickst.</p>
-    </details>
+    {# Marie (3.11.): weniger Text. Das Wichtigste in einem Satz, der Rest hinter dem i #}
+    <div class="sq-papier sq-schief sq-wer-sieht sq-absatz" style="--r: 0.8deg"><b>Nur du siehst deine Belege.</b> {{ info_i("Die Steuer-Quest schickt nichts an eine KI. Die Vorschläge im Eingangskorb rät FRITS aus dem Dateinamen, hier auf deinem Computer. Bei „Mit KI besprechen“ schwärzt FRITS Namen, Adressen und Nummern und zeigt dir genau, was rausgehen würde. Deine Beraterin bekommt die Belege erst, wenn du die Fundkiste packst und selbst verschickst.") }}</div>
   </aside>
 </div>
 </div>

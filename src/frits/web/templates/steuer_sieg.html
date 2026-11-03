@@ -47,21 +47,6 @@
       <ul>{% for s in offene_wuensche %}<li><a href="/steuer/{{ jahr }}/gebiet/{{ s.gebiet }}">{{ s.name }}</a></li>{% endfor %}</ul>
     </section>
     {% endif %}
-    {# Marie-Runde 8: Der Sieg kam früh, Freiwilliges und der Korb gingen unter #}
-    {% set frei = noch_frei %}
-    {% if frei or lager %}
-    <section class="sq-papier sq-noch-frei">
-      <h2>Lohnt sich noch</h2>
-      {% if lager %}<p>Im Eingangskorb {{ "liegt noch ein Zettel" if lager | length == 1 else "liegen noch " ~ (lager | length) ~ " Zettel" }}: <b>{{ lager[0].name }}</b>{% if lager | length > 1 %} und {{ lager | length - 1 }} {{ "weiterer" if lager | length == 2 else "weitere" }}{% endif %}. <a href="/steuer/{{ jahr }}#sq-korb">Zum Korb</a></p>{% endif %}
-      {% if frei %}
-      {% set sparen = noch_sparen %}
-      <p>{% if sparen %}Freiwillig, aber oft bares Geld: {{ sparen | length }} Zettel{{ " kann" if sparen | length == 1 else " können" }} Steuern sparen{% if frei | length > sparen | length %}, dazu {{ frei | length - sparen | length }} für die Ordnung{% endif %}.{% else %}Freiwillig: {{ frei | length }} Zettel für die Ordnung.{% endif %} {% if schatz_salz %}<b>Jeder Fund bringt +{{ schatz_salz }} {{ salz }}</b>{% if "goldwaage" in helfer %} (mit der Goldwaage){% endif %}.{% endif %} Was du jetzt noch findest, packst du einfach neu in die Fundkiste.</p>
-      <ul class="sq-noch-liste">{% for g in noch_gruppen %}<li><a href="/steuer/{{ jahr }}/gebiet/{{ g.gebiet }}?karte={{ g.karten[0].id }}">{{ g.titel }}</a>: {{ g.karten[:2] | map(attribute="name") | join(", ") }}{% if g.karten | length > 2 %} und {{ g.karten | length - 2 }} {{ "weiterer" if g.karten | length == 3 else "weitere" }}{% endif %}</li>{% endfor %}</ul>
-      {% set erster = noch_gruppen[0].karten[0] %}
-      <p><a class="sq-stempelknopf" href="/steuer/{{ jahr }}/gebiet/{{ erster.gebiet }}?karte={{ erster.id }}">Zum ersten Schatz →</a></p>
-      {% endif %}
-    </section>
-    {% endif %}
     <section class="sq-papier" id="kiste">
       {% if frisch_gepackt and zip_pfad and not drache.besiegt %}
       {# Lena (Runde 45): Über den Notausgang gepackt, vielleicht sogar leer: kein Fest, ein ehrlicher Satz #}
@@ -111,11 +96,11 @@
         <input type="hidden" name="token" value="{{ token }}">
         {% if zip_pfad %}<details class="sq-schloss-zu"><summary>Schloss: {{ "mit Passwort" if mit_passwort else "ohne Passwort" }} · ändern</summary>{% endif %}
         <fieldset class="sq-schloss">
-          <legend>Wie soll die Fundkiste zu sein?</legend>
+          <legend>Mit oder ohne Passwort?</legend>
           <label><input type="radio" name="schloss" value="passwort" {% if mit_passwort %}checked{% endif %}>
-            <span><strong>Mit Passwort</strong> (empfohlen). Nur wer das Passwort hat, kann die Unterlagen lesen, sogar die Dateinamen. <details class="sq-mehr"><summary>Mehr</summary>Im verschlossenen Zip liegt ein zweites Zip mit den Unterlagen, das sich dann ganz normal öffnet. Der Finder auf dem Mac kann solche Zips nicht öffnen; deine Beraterin braucht 7-Zip (Windows) oder Keka bzw. The Unarchiver (Mac).</details></span></label>
+            <span><strong>Mit Passwort</strong> (empfohlen). Nur wer das Passwort hat, kann es lesen. {{ info_i("Auch die Dateinamen sind dann geschützt. Im verschlossenen Zip liegt ein zweites Zip mit den Unterlagen, das sich ganz normal öffnet. Der Finder auf dem Mac kann solche Zips nicht öffnen; deine Beraterin braucht 7-Zip (Windows) oder Keka bzw. The Unarchiver (Mac).") }}</span></label>
           <label><input type="radio" name="schloss" value="ohne" {% if not mit_passwort %}checked{% endif %}>
-            <span><strong>Ohne Passwort.</strong> Öffnet sich überall ohne Extra-Programm. Aber jeder, der die Mail sieht, kann alles lesen. Gut, wenn du die Datei über ein sicheres Portal hochlädst oder persönlich übergibst.</span></label>
+            <span><strong>Ohne Passwort.</strong> Jeder, der die Mail sieht, kann alles lesen. {{ info_i("Öffnet sich überall ohne Extra-Programm. Gut, wenn du die Datei über ein sicheres Portal hochlädst oder persönlich übergibst.") }}</span></label>
         </fieldset>
         {% if zip_pfad %}</details>{% endif %}
         <button class="{{ 'quiet' if zip_pfad else 'sq-siegelknopf' }}">{{ "Neu packen" if zip_pfad else "Fundkiste packen" }}</button>
@@ -164,6 +149,22 @@
       <p><button name="oeffnen" value="1" class="{{ 'sq-stempelknopf' if (mail_ausweg or kiste_aenderung or finale_offen) and zip_pfad else 'sq-siegelknopf' }}" {% if not zip_pfad %}disabled title="Erst die Fundkiste packen"{% elif kiste_aenderung %}disabled title="Erst die Fundkiste neu packen"{% endif %}>{% if mail_ausweg and zip_pfad %}Noch einmal in Mail öffnen{% else %}In Mail öffnen{% endif %}</button></p>
       <p class="muted">Gesendet wird erst, wenn du in deinem Mail-Programm auf Senden drückst.</p>
     </form>
+    {# Marie-Runde 8: Der Sieg kam früh, Freiwilliges und der Korb gingen unter.
+       Lena (Runde 58): Zwischen „Fast fertig“ und der Kiste lockte der Schatz. Er steht jetzt unter dem Brief. #}
+    {% set frei = noch_frei %}
+    {% if frei or lager %}
+    <section class="sq-papier sq-noch-frei">
+      <h2>Lohnt sich noch</h2>
+      {% if lager %}<p>Im Eingangskorb {{ "liegt noch ein Zettel" if lager | length == 1 else "liegen noch " ~ (lager | length) ~ " Zettel" }}: <b>{{ lager[0].name }}</b>{% if lager | length > 1 %} und {{ lager | length - 1 }} {{ "weiterer" if lager | length == 2 else "weitere" }}{% endif %}. <a href="/steuer/{{ jahr }}#sq-korb">Zum Korb</a></p>{% endif %}
+      {% if frei %}
+      {% set sparen = noch_sparen %}
+      <div class="sq-absatz">{% if sparen %}{{ sparen | length }} Zettel {{ "kann" if sparen | length == 1 else "können" }} Steuern sparen{% else %}{{ frei | length }} freiwillige Zettel{% endif %}{% if schatz_salz %}, jeder Fund <b>+{{ schatz_salz }} {{ salz }}</b>{% endif %}. {{ info_i("Freiwillig, blockiert nichts. " ~ ((frei | length - sparen | length) ~ " Zettel sind nur für die Ordnung. " if frei | length > sparen | length else "") ~ ("Mit der Goldwaage. " if "goldwaage" in helfer else "") ~ "Was du jetzt noch findest, packst du einfach neu in die Fundkiste.") }}</div>
+      <ul class="sq-noch-liste">{% for g in noch_gruppen %}<li><a href="/steuer/{{ jahr }}/gebiet/{{ g.gebiet }}?karte={{ g.karten[0].id }}">{{ g.titel }}</a>: {{ g.karten[:2] | map(attribute="name") | join(", ") }}{% if g.karten | length > 2 %} und {{ g.karten | length - 2 }} {{ "weiterer" if g.karten | length == 3 else "weitere" }}{% endif %}</li>{% endfor %}</ul>
+      {% set erster = noch_gruppen[0].karten[0] %}
+      <p><a class="sq-stempelknopf" href="/steuer/{{ jahr }}/gebiet/{{ erster.gebiet }}?karte={{ erster.id }}">Zum ersten Schatz →</a></p>
+      {% endif %}
+    </section>
+    {% endif %}
   </div>
 </div>
 <p class="sq-fusszeile"><a href="/steuer/{{ jahr }}">← Zurück zur Insel</a></p>

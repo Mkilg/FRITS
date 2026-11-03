@@ -9,7 +9,7 @@
   <header class="sq-fb-kopf">
     {% set stimmung = "welcome" %}{% include "_steuer_fritte.html" %}
     <div>
-      <p class="sq-kicker">Steuer-Quest {{ jahr }} · Teil {{ teil }} von 3 <a class="sq-fb-ausweg" href="{{ ausweg }}">{{ ausweg_text }}</a></p>
+      <p class="sq-kicker">Steuer-Quest {{ jahr }} · Teil {{ teil }} von 3{% if teil > 1 %} <a class="sq-fb-ausweg" href="{{ ausweg }}">{{ ausweg_text }}</a>{% endif %}</p>
       <h1>{% if teil == 1 %}Wer lebt in deinem Reich?{% elif teil == 2 %}Welche Provinzen hat deine Insel?{% else %}Welche Schätze liegen am Wegesrand?{% endif %}</h1>
       <p class="sq-sprechblase">{% if teil == 1 %}„Erzähl mir kurz von dir. Falsche Antworten gibt es nicht, alles lässt sich später ändern.“{% elif teil == 2 %}„Woher kam {{ jahr }} dein Geld? Tipp alles an, was passt. Jede Karte wird eine Provinz auf deiner Insel.“{% else %}„Diese Ausgaben können Steuern sparen. Sie sind freiwillige Bonus-Schätze und blockieren nie deinen Sieg.“{% endif %}</p>
     </div>
@@ -78,7 +78,7 @@
       {% endfor %}
     </div>
     <div class="sq-einnahmen">
-      <p class="muted">Bei Zahlen: Wie viele Arbeitgeber, Firmen, Wohnungen, Depots … 0 heißt: gibt es nicht. Das Rathaus (Persönliches) ist immer dabei{% if profil.kinder %}, das Dorf für deine Kinder auch{% endif %}. Die Burg kommt mit der Schatzsuche in Teil 3.</p>
+      <div class="muted sq-absatz">Zahl = wie viele, 0 = gibt es nicht. {{ info_i("Wie viele Arbeitgeber, Firmen, Wohnungen, Depots … Das Rathaus (Persönliches) ist immer dabei" ~ (", das Dorf für deine Kinder auch" if profil.kinder else "") ~ ". Die Burg kommt mit der Schatzsuche in Teil 3.") }}</div>
       <label class="field">Meldest du unterm Jahr Umsatzsteuer?
         <select name="umsatzsteuer">
           {% for v, t in [("keine", "Nein"), ("monatlich", "Ja, jeden Monat"), ("quartal", "Ja, jedes Quartal")] %}

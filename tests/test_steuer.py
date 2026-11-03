@@ -1868,7 +1868,7 @@ def test_runde_15_belegbuch_zeigt_alles_und_nimmt_fragen(client, ws):
     buch = client.get("/steuer/2025/belege").text
     assert "Belegbuch 2025" in buch and "Quittung Kamera.png" in buch
     assert "Arbeitszimmer 12 qm" in buch  # die Angabe steht direkt da
-    assert "Wer sieht deine Belege?" in buch and "Mit KI besprechen" in buch
+    assert "Nur du siehst deine Belege." in buch and "Mit KI besprechen" in buch
     assert 'href="/steuer/2025/belege"' in buch  # die Belege-Marke oben führt hierher
     d = quest.dateien(conn, 2025, bild["id"])[0]
     antwort = client.get(f"/steuer/2025/datei/{d['id']}")
@@ -2819,7 +2819,7 @@ def test_runde_30_provinz_zettel_fuer_zettel(client, ws):
     seite = client.get("/steuer/2025/gebiet/werkstatt-1").text
     assert '<ul class="sq-akte stapel"' in seite and seite.count(' vorn"') == 1
     assert " erledigt" in seite and "Später ›" in seite
-    assert "Alle Zettel als Liste zeigen" in seite
+    assert "Alle Zettel als Liste" in seite
     assert seite.count("Kein Dokument? Einfach eintippen") <= len(
         re.findall("sq-karte status-offen", seite)
     )
@@ -2955,7 +2955,7 @@ def test_runde_33_nach_dem_sieg_keine_trommel_und_kontostand_im_regal(client, ws
         assert "Der Drache schläft bis nächstes Jahr" in laden.text
         assert "Du hast" in laden.text and "Passt jetzt" in laden.text
     sieg = client.get("/steuer/2025/sieg").text
-    assert "Jeder Fund bringt +4" in sieg and "Zum ersten Schatz" in sieg
+    assert "jeder Fund <b>+4" in sieg and "Zum ersten Schatz" in sieg
 
 
 def test_runde_33_ohne_ernte_nichts_von_frits(conn):
