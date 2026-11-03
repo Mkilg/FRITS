@@ -13,6 +13,7 @@ import shutil
 from collections.abc import Callable
 from dataclasses import replace
 from datetime import date
+from difflib import SequenceMatcher
 from importlib import resources
 from pathlib import Path
 
@@ -626,6 +627,8 @@ def register_steuer(
         if alt is None and not (name or mail):
             return
 
+        leert = alt is not None and sum(map(bool, paar)) < sum(map(bool, alt))
+
         def passt(alt_wert: str, neu: str) -> bool:
             return not alt_wert or not neu or neu.startswith(alt_wert)
 
@@ -637,7 +640,8 @@ def register_steuer(
             uebernommen = q.beraterin_von != 0  # nie selbst getippt, sondern übernommen
             von = jahr
             if hat == ("", ""):
-                neu = paar if any(paar) else None
+                # Lena (Runde 53): Wer gerade leert, gibt leeren Jahren kein halbes Paar
+                neu = paar if any(paar) and not leert else None
             elif uebernommen and hat in (paar, alt):
                 neu = paar
             elif hat == paar:
@@ -2346,7 +2350,17 @@ def register_steuer(
         if not halb:
             return None
         zeit, anzahl = halb
-        neu_ids = [d for d in quest.dateien(conn(), jahr) if str(d["hinzugefuegt"]) > zeit]
+        damals = quest.halb_inhalt(conn(), jahr)
+        if damals is not None:
+            # Lena (Runde 54): Zurückgelegt und wieder abgelegt war „neu dabei“. Jetzt zählt
+            # der Inhalt der halben Kiste, nicht die Uhrzeit.
+            neu_ids = [
+                d
+                for d in quest.dateien(conn(), jahr)
+                if f"{d['stueck_id']}:{d['sha256']}" not in damals
+            ]
+        else:
+            neu_ids = [d for d in quest.dateien(conn(), jahr) if str(d["hinzugefuegt"]) > zeit]
         namen = {s["id"]: s["name"] for s in quest.stuecke(conn(), jahr)}
         return truhe.Nachtrag(
             datum=schoenes_datum(zeit[:10]),
@@ -2393,15 +2407,23 @@ def register_steuer(
         mit_passwort = truhe.verschluesselt(zip_pfad) if zip_pfad.exists() else True
         betreff, text = basis = mail_entwurf(jahr, daten, mit_passwort)
         eigen = app.state.steuer_mailtext.get(jahr)
-        alter_text = ""
+        alte_texte: list[dict] = list(eigen.get("frueher", [])) if eigen else []
         if eigen and eigen["basis"] == basis:
             # Lena (Runde 50/51): Der eigene Text bleibt, solange FRITS dieselbe Mail schreiben
             # würde, auch nach dem Neuladen.
             betreff, text = eigen["eigen"]
-            alter_text = eigen.get("frueher", "")
-        elif eigen and eigen["eigen"] != eigen["basis"]:
+        elif (
+            eigen
+            and eigen["eigen"] != eigen["basis"]
+            and all(f["text"] != eigen["eigen"][1] for f in alte_texte)
+        ):
             # Nach dem Finale gilt die neue Mail; der alte eigene Text verschwindet nicht stumm
-            alter_text = eigen["eigen"][1]
+            fritz = {z.strip() for z in eigen["basis"][1].splitlines()}
+            satz = next(
+                (z.strip() for z in eigen["eigen"][1].splitlines() if z.strip() not in fritz),
+                "",
+            )
+            alte_texte.insert(0, {"text": eigen["eigen"][1], "satz": satz[:90]})
         # Der Ausweg gilt nur für die Mail, die sich nicht öffnen ließ, nicht nach dem Finale
         ausweg = app.state.steuer_mailto.get(jahr)
         ausweg_gilt = bool(ausweg and ausweg["basis"] == basis)
@@ -2435,7 +2457,9 @@ def register_steuer(
                 if ausweg_gilt
                 else ""
             ),
-            alter_text=alter_text,
+            alte_texte=alte_texte[:3],
+            kennung=basis_kennung(basis),
+            finale_offen=frisch_gepackt and daten["drache"].besiegt and zip_pfad.exists(),
             **daten,
         )
 
@@ -2547,7 +2571,13 @@ def register_steuer(
         if request.headers.get("x-frits-leise"):
             # Lena (Runde 49): vom Brief aus ohne Neuladen, sonst ging der geänderte Text verloren
             gezeigt = zip_pfad.exists() and system.reveal_path(zip_pfad)
-            return JSONResponse({"ok": bool(gezeigt), "pfad": str(zip_pfad)})
+            # Lena (Runde 53): Am Handy war der Pfad 5 Zeilen hoch; „~“ statt des Benutzerordners
+            anzeige = str(zip_pfad)
+            try:
+                anzeige = "~/" + str(zip_pfad.relative_to(Path.home()))
+            except ValueError:
+                pass
+            return JSONResponse({"ok": bool(gezeigt), "pfad": str(zip_pfad), "anzeige": anzeige})
         if not zip_pfad.exists():
             flash("Pack zuerst die Fundkiste.")
         elif not system.reveal_path(zip_pfad):
@@ -2560,22 +2590,69 @@ def register_steuer(
         noch einmal „In Mail öffnen“. Jetzt merkt FRITS ihn still beim Verlassen des Felds."""
         form = await request.form()
         profil_oder_404(jahr)
-        mail_text_merken(jahr, str(form.get("betreff") or ""), str(form.get("text") or ""))
+        mail_text_merken(
+            jahr,
+            str(form.get("betreff") or ""),
+            str(form.get("text") or ""),
+            str(form.get("kennung") or ""),
+        )
         return JSONResponse({"ok": True})
 
-    def mail_text_merken(jahr: int, betreff: str, text: str) -> None:
+    def basis_kennung(basis: tuple[str, str]) -> str:
+        """Kurze Kennung der Mail, die FRITS schrieb; der Brief schickt sie beim Merken mit."""
+        return hashlib.sha256("\x00".join(basis).encode()).hexdigest()[:16]
+
+    def mail_text_merken(jahr: int, betreff: str, text: str, kennung: str = "") -> None:
         """Merkt den eigenen Brieftext. Galt der alte für eine andere Mail (vor dem Finale),
-        bleibt er als „früher“ greifbar, auch wenn man den neuen Brief ändert (Lena, R52)."""
+        bleibt er als „früher“ greifbar, auch wenn man den neuen Brief ändert (Lena, R52).
+        Lena (Runde 53): Über zwei Wechsel (Notausgang, dann Finale) blieb nur die letzte
+        Fassung. Jetzt bleiben die letzten drei, neueste zuerst. Kommt der Text von einer
+        Seite mit altem Brief (kennung passt nicht, etwa beim Wegklicken zu „Neu packen“),
+        ist er eine frühere Fassung und überschreibt den neuen Brief nicht."""
         basis = mail_basis(jahr, lage(jahr))
         vorher = app.state.steuer_mailtext.get(jahr) or {}
-        frueher = vorher.get("frueher", "")
-        if vorher and vorher["basis"] != basis and vorher["eigen"] != vorher["basis"]:
-            frueher = vorher["eigen"][1]
-        eintrag = {"basis": basis, "eigen": (betreff, text), "frueher": frueher}
-        if (betreff, text) == basis and not frueher:
+        frueher = list(vorher.get("frueher", []))
+        neuer_brief = bool(vorher) and vorher["basis"] != basis
+        veraltet = bool(kennung) and kennung != basis_kennung(basis)
+
+        def dazu(alt: str, vorlage: str) -> None:
+            """Eine frühere Fassung merken, mit dem eigenen Satz darin als Erkennungszeichen.
+            Lena (Runde 54): Was man im alten Tab nachtippte, ging still verloren, und die drei
+            Fassungen sahen gleich aus. Eine sehr ähnliche Fassung wird jetzt ersetzt."""
+            if not alt.strip():
+                return
+
+            def eintrag(vorlage: str) -> dict:
+                fritz = {z.strip() for z in vorlage.splitlines()}
+                satz = next((z.strip() for z in alt.splitlines() if z.strip() not in fritz), "")
+                return {"text": alt, "satz": satz[:90], "vorlage": vorlage}
+
+            for i, f in enumerate(frueher):
+                if f["text"] == alt or SequenceMatcher(None, f["text"], alt).ratio() > 0.9:
+                    frueher[i] = eintrag(f.get("vorlage", vorlage))  # dieselbe Vorlage wie dort
+                    return
+            frueher.insert(0, eintrag(vorlage))
+            del frueher[3:]
+
+        if veraltet:
+            # Der Text kam von einer Seite mit dem alten Brief, etwa beim Wegklicken zu
+            # „Neu packen“. Er ersetzt die alte eigene Fassung, nie den neuen Brief.
+            if neuer_brief and (betreff, text) != vorher["basis"]:
+                dazu(text, vorher["basis"][1])
+            elif neuer_brief and vorher["eigen"] != vorher["basis"]:
+                dazu(vorher["eigen"][1], vorher["basis"][1])
+            elif not neuer_brief:
+                # Der neue Tab hat schon gemerkt: der alte Text wird eine frühere Fassung
+                dazu(text, basis[1])
+            eigen = vorher["eigen"] if vorher and not neuer_brief else basis
+        else:
+            if neuer_brief and vorher["eigen"] != vorher["basis"]:
+                dazu(vorher["eigen"][1], vorher["basis"][1])
+            eigen = (betreff, text)
+        if eigen == basis and not frueher:
             app.state.steuer_mailtext.pop(jahr, None)  # wieder wie von FRITS: nichts zu merken
         else:
-            app.state.steuer_mailtext[jahr] = eintrag
+            app.state.steuer_mailtext[jahr] = {"basis": basis, "eigen": eigen, "frueher": frueher}
 
     @app.post("/steuer/{jahr}/mail", dependencies=guarded)
     async def mail_oeffnen(request: Request, jahr: int):
@@ -2584,12 +2661,34 @@ def register_steuer(
         if form.get("oeffnen") != "1":
             # Lena (Runde 52): Ein Skript, das den Brief absendete, öffnete ohne Klick die Mail.
             # Mail-Programm und Zip gehen nur mit dem Knopf „In Mail öffnen“ auf.
-            mail_text_merken(jahr, str(form.get("betreff") or ""), str(form.get("text") or ""))
+            mail_text_merken(
+                jahr,
+                str(form.get("betreff") or ""),
+                str(form.get("text") or ""),
+                str(form.get("kennung") or ""),
+            )
             return back(f"/steuer/{jahr}/sieg#brief")
         zip_pfad = truhe_pfad(jahr, p)
         if not zip_pfad.exists():
             flash("Pack zuerst die Fundkiste, dann hänge ich sie an.")
             return back(f"/steuer/{jahr}/sieg")
+        kiste = lage(jahr)["kiste"]
+        if kiste and spiel.kiste_aenderung(*kiste):
+            # Lena (Runde 53/54): Mit der alten Kiste behauptete der Mailtext den neuen Stand,
+            # die Zip sagte „fehlt noch“. Die Mail geht erst auf, wenn Kiste und Text passen.
+            mail_text_merken(
+                jahr,
+                str(form.get("betreff") or ""),
+                str(form.get("text") or ""),
+                str(form.get("kennung") or ""),
+            )
+            flash(
+                "Seit dem Packen hat sich etwas geändert. Pack die Fundkiste erst neu, sonst "
+                "bekommt deine Beraterin die alte.",
+                "warn",
+                link=(f"/steuer/{jahr}/sieg#kiste", "Zur Fundkiste"),
+            )
+            return back(f"/steuer/{jahr}/sieg#kiste")
         an = str(form.get("an") or "").strip()
         if an and an != p.beraterin_email:
             p.beraterin_email = an
