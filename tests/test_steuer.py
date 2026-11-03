@@ -4296,3 +4296,34 @@ def test_runde_59_tagesziel_wartet_auch_beim_pflicht_beleg(client, ws):
     app.state.steuer_tagwerk_spaeter[2025] = (date(2020, 1, 1), "Tagesziel geschafft: alt.")
     quest.notiere(conn, 2025, "mail", "Mail an die Beraterin geöffnet")
     assert "Tagesziel geschafft: alt." not in client.get("/steuer/2025/sieg").text
+
+
+def test_steuer_quest_neu_beginnen_sichert_und_verliert_nichts(client, ws):
+    """Marie (3.11.): „Kann ich irgendwo komplett neu starten?“ Pro Jahr, ohne Datenverlust."""
+    conn, _bonus = _besiegt_mit_bonus(client, ws)
+    post(client, "/steuer/2025/truhe", schloss="ohne")
+    gold = quest.gold(conn, 2025)
+    beleg = quest.dateien(conn, 2025)[0]
+    karte_id = beleg["stueck_id"]
+    seite = client.get("/steuer/neu-beginnen?jahr=2025").text
+    assert "Nichts geht verloren" in seite and 'value="2025" selected' in seite
+    post(client, "/steuer/neu-beginnen", jahr="2025")
+    # Sicherung mit Belegen, Fragebogen und Datenbank
+    sich = next(quest.sicherungen(ws.root).iterdir())
+    assert (sich / "2025" / "fragebogen.toml").exists() and (sich / "frits.db").exists()
+    assert list((sich / "2025").rglob(Path(beleg["pfad"]).name))
+    # Beleg im Korb, Jahr ohne Fragebogen, Karten offen, Salzkörner bleiben
+    assert (quest.lager(ws.root) / beleg["original"]).exists()
+    assert not quest.profil_datei(ws.root, 2025).exists()
+    assert quest.dateien(conn, 2025) == []
+    assert all(s["status"] == "offen" for s in quest.stuecke(conn, 2025))
+    assert quest.gold(conn, 2025) == gold
+    assert (
+        client.get("/steuer/2025", follow_redirects=False)
+        .headers["location"]
+        .endswith("/steuer/2025/intro")
+    )
+    # Neu anfangen: dieselbe Karte behält ihre Nummer, kein zweites Salz
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    assert quest.stueck(conn, karte_id) is not None
+    assert "Neu beginnen" in client.get("/steuer/2025").text

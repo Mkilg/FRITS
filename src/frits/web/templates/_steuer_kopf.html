@@ -36,6 +36,7 @@
     {% if sammlung_da is defined and sammlung_da %}{% set sammel = sammlung_stand() %}{% if sammel %}
       <li class="sq-marke sammlung"><a href="/sammlung" title="Deine Sammlung mit Fritte: Orden, Zierden und Schätze aus allen Jahren. {{ sammel[0] }} von {{ sammel[1] }} Plätzen gefüllt."><i></i><b>{{ sammel[0] }}/{{ sammel[1] }}</b><span class="sr-only"> in deiner Sammlung</span></a></li>
     {% endif %}{% endif %}
+      <li class="sq-marke sq-neu-link"><a href="/steuer/neu-beginnen?jahr={{ jahr }}" title="Die Quest für {{ jahr }} von vorn, mit Sicherung vorher">↺ Neu beginnen</a></li>
     </ul>
   </details>
 </header>

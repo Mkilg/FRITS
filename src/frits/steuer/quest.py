@@ -1309,3 +1309,55 @@ def lege_helfer(conn: sqlite3.Connection, jahr: int, key: str, an: bool) -> str:
             (int(an), jahr, key),
         )
     return f"{w.name} spielt jetzt mit." if an else f"{w.name} macht Pause."
+
+
+def sicherungen(root: Path) -> Path:
+    """Wohin „Neu beginnen“ ein Steuerjahr vorher sichert."""
+    return Path(root) / "steuer" / "sicherungen"
+
+
+def neu_beginnen(conn: sqlite3.Connection, root: Path, jahr: int) -> Path:
+    """Beginnt die Quest eines Jahres von vorn, ohne etwas zu verlieren (Marie, 2026-11-03).
+
+    1. Sicherung: der ganze Jahres-Ordner (Belege, Fragebogen, Fundkiste) und eine Kopie der
+       Datenbank nach steuer/sicherungen/<jahr>-<Zeit>/.
+    2. Jeder Beleg wandert zurück in den Eingangskorb. Eingetippte Angaben bleiben nur in der
+       Sicherung; die fragt die Quest neu ab.
+    3. Fragebogen, Stempel, Chronik und Fundkiste des Jahres sind weg, die Karten wieder offen.
+       Die Karten behalten ihre Nummer: Salzkörner gibt es für dieselbe Karte nicht zweimal.
+    Gibt den Sicherungs-Ordner zurück."""
+    ensure_schema(conn)
+    quelle = ordner(root, jahr)
+    ziel = sicherungen(root) / f"{jahr}-{datetime.now():%Y-%m-%d-%H%M%S}"
+    n = 2
+    while ziel.exists():
+        ziel = ziel.with_name(f"{ziel.name}-{n}")
+        n += 1
+    ziel.mkdir(parents=True)
+    if quelle.is_dir():
+        shutil.copytree(quelle, ziel / str(jahr))
+    with sqlite3.connect(ziel / "frits.db") as kopie:
+        conn.backup(kopie)
+    korb = lager(root)
+    korb.mkdir(parents=True, exist_ok=True)
+    for row in conn.execute("SELECT * FROM steuer_dateien WHERE jahr = ?", (jahr,)).fetchall():
+        pfad = Path(heile_pfad(conn, row["pfad"]))
+        if ist_angabe(row["original"]) or not pfad.is_file():
+            continue
+        neu = korb / row["original"]
+        if neu.exists():
+            neu = neu.with_name(f"{neu.stem}_{row['id']}{neu.suffix}")
+        shutil.move(str(pfad), neu)
+    with transaction(conn):
+        for tabelle in ("steuer_verweise", "steuer_dateien", "steuer_chronik", "steuer_kiste",
+                        "steuer_halb"):  # fmt: skip
+            conn.execute(f"DELETE FROM {tabelle} WHERE jahr = ?", (jahr,))
+        conn.execute("DELETE FROM steuer_stuecke WHERE jahr = ? AND herkunft != 'katalog'", (jahr,))
+        conn.execute(
+            "UPDATE steuer_stuecke SET status = 'offen', frage = '', wunsch = 0, geaendert = ?"
+            " WHERE jahr = ?",
+            (_now(), jahr),
+        )
+    if quelle.is_dir():
+        shutil.rmtree(quelle)
+    return ziel
