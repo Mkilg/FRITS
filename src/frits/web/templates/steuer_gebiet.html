@@ -113,11 +113,12 @@
       </form>
       {% set beispiel = angabe(s.gebiet, s.key) %}
       {% if beispiel and s.status != "gesammelt" %}
-      <details class="sq-tippen"><summary>Kein Dokument? Einfach eintippen</summary>
+      {% set alt = steuer_id_alt if s.key == "steuer-id" else none %}
+      <details class="sq-tippen"{% if alt %} open{% endif %}><summary>{% if alt %}Aus {{ alt[0] }} übernehmen{% else %}Kein Dokument? Einfach eintippen{% endif %}</summary>
       <form method="post" action="/steuer/{{ jahr }}/stueck/{{ s.id }}/angabe" class="sq-angabe" data-stempel="NOTIERT">
         <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back" value="{{ zurueck }}">
         <label>Was du eintippst, kommt so in die Mail
-          <textarea name="text" rows="2" maxlength="2000" placeholder="{{ beispiel }}">{% if s.key == "steuer-id" and steuernummer %}Steuernummer: {{ steuernummer }}
+          <textarea name="text" rows="2" maxlength="2000" placeholder="{{ beispiel }}">{% if alt %}{{ alt[1] }}{% elif s.key == "steuer-id" and steuernummer %}Steuernummer: {{ steuernummer }}
 Steuer-ID: {% endif %}</textarea></label>
         <button class="sq-stempelknopf gruen">Notieren</button>
       </form>
