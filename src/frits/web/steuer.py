@@ -13,6 +13,7 @@ import shutil
 from collections.abc import Callable
 from dataclasses import replace
 from datetime import date
+from difflib import SequenceMatcher
 from importlib import resources
 from pathlib import Path
 
@@ -2349,7 +2350,17 @@ def register_steuer(
         if not halb:
             return None
         zeit, anzahl = halb
-        neu_ids = [d for d in quest.dateien(conn(), jahr) if str(d["hinzugefuegt"]) > zeit]
+        damals = quest.halb_inhalt(conn(), jahr)
+        if damals is not None:
+            # Lena (Runde 54): Zurückgelegt und wieder abgelegt war „neu dabei“. Jetzt zählt
+            # der Inhalt der halben Kiste, nicht die Uhrzeit.
+            neu_ids = [
+                d
+                for d in quest.dateien(conn(), jahr)
+                if f"{d['stueck_id']}:{d['sha256']}" not in damals
+            ]
+        else:
+            neu_ids = [d for d in quest.dateien(conn(), jahr) if str(d["hinzugefuegt"]) > zeit]
         namen = {s["id"]: s["name"] for s in quest.stuecke(conn(), jahr)}
         return truhe.Nachtrag(
             datum=schoenes_datum(zeit[:10]),
@@ -2396,14 +2407,23 @@ def register_steuer(
         mit_passwort = truhe.verschluesselt(zip_pfad) if zip_pfad.exists() else True
         betreff, text = basis = mail_entwurf(jahr, daten, mit_passwort)
         eigen = app.state.steuer_mailtext.get(jahr)
-        alte_texte: list[str] = list(eigen.get("frueher", [])) if eigen else []
+        alte_texte: list[dict] = list(eigen.get("frueher", [])) if eigen else []
         if eigen and eigen["basis"] == basis:
             # Lena (Runde 50/51): Der eigene Text bleibt, solange FRITS dieselbe Mail schreiben
             # würde, auch nach dem Neuladen.
             betreff, text = eigen["eigen"]
-        elif eigen and eigen["eigen"] != eigen["basis"] and eigen["eigen"][1] not in alte_texte:
+        elif (
+            eigen
+            and eigen["eigen"] != eigen["basis"]
+            and all(f["text"] != eigen["eigen"][1] for f in alte_texte)
+        ):
             # Nach dem Finale gilt die neue Mail; der alte eigene Text verschwindet nicht stumm
-            alte_texte.insert(0, eigen["eigen"][1])
+            fritz = {z.strip() for z in eigen["basis"][1].splitlines()}
+            satz = next(
+                (z.strip() for z in eigen["eigen"][1].splitlines() if z.strip() not in fritz),
+                "",
+            )
+            alte_texte.insert(0, {"text": eigen["eigen"][1], "satz": satz[:90]})
         # Der Ausweg gilt nur für die Mail, die sich nicht öffnen ließ, nicht nach dem Finale
         ausweg = app.state.steuer_mailto.get(jahr)
         ausweg_gilt = bool(ausweg and ausweg["basis"] == basis)
@@ -2595,22 +2615,39 @@ def register_steuer(
         neuer_brief = bool(vorher) and vorher["basis"] != basis
         veraltet = bool(kennung) and kennung != basis_kennung(basis)
 
-        def dazu(alt: str) -> None:
-            if alt.strip() and alt not in frueher:
-                frueher.insert(0, alt)
+        def dazu(alt: str, vorlage: str) -> None:
+            """Eine frühere Fassung merken, mit dem eigenen Satz darin als Erkennungszeichen.
+            Lena (Runde 54): Was man im alten Tab nachtippte, ging still verloren, und die drei
+            Fassungen sahen gleich aus. Eine sehr ähnliche Fassung wird jetzt ersetzt."""
+            if not alt.strip():
+                return
+
+            def eintrag(vorlage: str) -> dict:
+                fritz = {z.strip() for z in vorlage.splitlines()}
+                satz = next((z.strip() for z in alt.splitlines() if z.strip() not in fritz), "")
+                return {"text": alt, "satz": satz[:90], "vorlage": vorlage}
+
+            for i, f in enumerate(frueher):
+                if f["text"] == alt or SequenceMatcher(None, f["text"], alt).ratio() > 0.9:
+                    frueher[i] = eintrag(f.get("vorlage", vorlage))  # dieselbe Vorlage wie dort
+                    return
+            frueher.insert(0, eintrag(vorlage))
             del frueher[3:]
 
         if veraltet:
             # Der Text kam von einer Seite mit dem alten Brief, etwa beim Wegklicken zu
             # „Neu packen“. Er ersetzt die alte eigene Fassung, nie den neuen Brief.
             if neuer_brief and (betreff, text) != vorher["basis"]:
-                dazu(text)
+                dazu(text, vorher["basis"][1])
             elif neuer_brief and vorher["eigen"] != vorher["basis"]:
-                dazu(vorher["eigen"][1])
+                dazu(vorher["eigen"][1], vorher["basis"][1])
+            elif not neuer_brief:
+                # Der neue Tab hat schon gemerkt: der alte Text wird eine frühere Fassung
+                dazu(text, basis[1])
             eigen = vorher["eigen"] if vorher and not neuer_brief else basis
         else:
             if neuer_brief and vorher["eigen"] != vorher["basis"]:
-                dazu(vorher["eigen"][1])
+                dazu(vorher["eigen"][1], vorher["basis"][1])
             eigen = (betreff, text)
         if eigen == basis and not frueher:
             app.state.steuer_mailtext.pop(jahr, None)  # wieder wie von FRITS: nichts zu merken
@@ -2636,9 +2673,9 @@ def register_steuer(
             flash("Pack zuerst die Fundkiste, dann hänge ich sie an.")
             return back(f"/steuer/{jahr}/sieg")
         kiste = lage(jahr)["kiste"]
-        if kiste and spiel.kiste_aenderung(*kiste) and form.get("alte_kiste") != "1":
-            # Lena (Runde 53): Seit dem Packen kam etwas dazu. Mit der alten Kiste geht die
-            # Mail nur auf, wenn man das ausdrücklich will (Knopf „Mit der alten Kiste“).
+        if kiste and spiel.kiste_aenderung(*kiste):
+            # Lena (Runde 53/54): Mit der alten Kiste behauptete der Mailtext den neuen Stand,
+            # die Zip sagte „fehlt noch“. Die Mail geht erst auf, wenn Kiste und Text passen.
             mail_text_merken(
                 jahr,
                 str(form.get("betreff") or ""),

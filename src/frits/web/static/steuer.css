@@ -1858,4 +1858,5 @@ details.sq-mehr-marken .kurz { display: none; }
 /* Lena (Runde 51): Der alte eigene Brieftext nach dem Finale, zum Kopieren */
 .sq-alter-text { margin: .6rem 0 1rem; padding: .5rem .8rem; border: 1px dashed rgba(120, 90, 50, .45); border-radius: 8px; }
 .sq-alter-text summary { cursor: pointer; font-weight: 600; }
+.sq-alter-satz { margin: .7rem 0 .2rem; font-size: .9rem; }
 .sq-alter-text textarea { width: 100%; margin-top: .5rem; opacity: .85; }

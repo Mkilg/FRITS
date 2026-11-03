@@ -90,6 +90,10 @@ CREATE TABLE IF NOT EXISTS steuer_kiste (
     anzahl INTEGER NOT NULL,
     inhalt TEXT                    -- Karte:Prüfsumme je Datei, sortiert (Lena, Runde 44)
 );
+CREATE TABLE IF NOT EXISTS steuer_halb (
+    jahr INTEGER PRIMARY KEY,      -- Inhalt der letzten Kiste vor dem Sieg (Notausgang), damit
+    inhalt TEXT NOT NULL           -- die vollständige Mail ehrlich sagt, was neu ist (Lena, R54)
+);
 CREATE TABLE IF NOT EXISTS steuer_besitz (
     jahr INTEGER NOT NULL,
     ware TEXT NOT NULL,            -- siehe spiel.MARKT
@@ -764,12 +768,24 @@ def kiste_gepackt(conn: sqlite3.Connection, jahr: int) -> None:
         "SELECT COALESCE(MAX(id), 0), COUNT(*) FROM steuer_dateien WHERE jahr = ?", (jahr,)
     ).fetchone()
     inhalt = "\n".join(sorted(_kiste_inhalt(conn, jahr)))
+    vor_dem_sieg = not hat_notiz(conn, jahr, "sieg")
     with transaction(conn):
         conn.execute(
             "INSERT OR REPLACE INTO steuer_kiste (jahr, bis_datei, anzahl, inhalt)"
             " VALUES (?, ?, ?, ?)",
             (jahr, bis, anzahl, inhalt),
         )
+        if vor_dem_sieg:
+            conn.execute(
+                "INSERT OR REPLACE INTO steuer_halb (jahr, inhalt) VALUES (?, ?)", (jahr, inhalt)
+            )
+
+
+def halb_inhalt(conn: sqlite3.Connection, jahr: int) -> set[str] | None:
+    """Was in der letzten Kiste vor dem Sieg lag (Karte:Prüfsumme), oder None."""
+    ensure_schema(conn)
+    row = conn.execute("SELECT inhalt FROM steuer_halb WHERE jahr = ?", (jahr,)).fetchone()
+    return set(filter(None, row[0].split("\n"))) if row else None
 
 
 def kiste_stand(conn: sqlite3.Connection, jahr: int) -> tuple[int, int] | None:

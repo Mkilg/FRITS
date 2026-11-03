@@ -1,5 +1,6 @@
 """Die Steuer-Quest: Fragebogen, Sammeln, Drache, Beraterin-Mail, FRITS-Ernte und Schatztruhe."""
 
+import html
 import re
 import shutil
 import sqlite3
@@ -3969,13 +3970,15 @@ def test_runde_53_enter_und_alte_kiste(client, ws, monkeypatch):
     (ws.root / "spende.pdf").write_bytes(b"%PDF spende")
     quest.sammeln(conn, ws.root, bonus["id"], ws.root / "spende.pdf")
     seite = client.get("/steuer/2025/sieg").text
-    assert (
-        "Mit der alten Kiste in Mail öffnen" in seite and 'href="#kiste">↑ Zur Fundkiste' in seite
-    )
-    # Ein alter Tab ohne den Hinweis: die Mail geht nicht mit der alten Kiste auf
+    # Lena (Runde 54): Mit der alten Kiste passte der Text nicht; der Knopf ist gesperrt
+    assert 'href="#kiste">↑ Zur Fundkiste' in seite
+    assert 'disabled title="Erst die Fundkiste neu packen"' in seite
     r = post(client, "/steuer/2025/mail", oeffnen="1", text="Hallo")
     assert geoeffnet == [] and "Pack die Fundkiste erst neu" in r.text
     post(client, "/steuer/2025/mail", oeffnen="1", alte_kiste="1", text="Hallo")
+    assert geoeffnet == []
+    post(client, "/steuer/2025/truhe", schloss="ohne")
+    post(client, "/steuer/2025/mail", oeffnen="1", text="Hallo")
     assert len(geoeffnet) == 1
 
 
@@ -4028,3 +4031,60 @@ def test_runde_53_leeren_gibt_kein_halbes_paar(client, ws):
     tippen(2024, beraterin_email="")
     p20 = Profil.load(quest.profil_datei(ws.root, 2020))
     assert (p20.beraterin_name, p20.beraterin_email) == ("", "")
+
+
+def test_runde_54_wieder_abgelegt_ist_nicht_neu(client, ws):
+    """Lena (Runde 54): Zurückgelegt und wieder abgelegt hieß in der Mail „neu dabei“."""
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    pflicht = spiel.pflicht(quest.stuecke(conn, 2025))
+    erste, zweite = pflicht[0], pflicht[1]
+    (ws.root / "a.pdf").write_bytes(b"%PDF a")
+    quest.sammeln(conn, ws.root, erste["id"], ws.root / "a.pdf")
+    post(client, "/steuer/2025/drache/notausgang")
+    post(client, "/steuer/2025/truhe", schloss="ohne")  # halbe Kiste
+    conn.execute("UPDATE steuer_chronik SET zeit = '2000-01-01T00:00:00' WHERE art = 'truhe'")
+    conn.commit()
+    d = quest.dateien(conn, 2025, erste["id"])[0]
+    quest.entferne_datei(conn, d["id"])
+    quest.sammeln(conn, ws.root, erste["id"], quest.lager(ws.root) / "a.pdf")  # dieselbe Datei
+    (ws.root / "b.pdf").write_bytes(b"%PDF b")
+    quest.sammeln(conn, ws.root, zweite["id"], ws.root / "b.pdf")  # wirklich neu
+    for s in spiel.pflicht(quest.stuecke(conn, 2025))[2:]:
+        quest.setze_status(conn, s["id"], "fragen")
+    quest.notiere(conn, 2025, "sieg", "Der Papierdrache ist besiegt")
+    seite = post(client, "/steuer/2025/truhe", schloss="ohne").text
+    neu = re.search(r"Neu dabei seit der letzten Sendung: ([^\n]*)", seite).group(1)
+    assert zweite["name"] in neu and erste["name"] not in neu
+
+
+def test_runde_54_alter_tab_und_eigener_satz(client, ws):
+    """Lena (Runde 54): Im alten Tab Nachgetipptes ging still verloren; Fassungen sahen gleich aus."""
+    conn, _bonus = _besiegt_mit_bonus(client, ws)
+    post(client, "/steuer/2025/truhe", schloss="ohne")
+    leise = {"x-frits-leise": "1"}
+
+    def kennung():
+        seite = client.get("/steuer/2025/sieg").text
+        return re.search(r'name="kennung" value="([0-9a-f]+)"', seite).group(1)
+
+    def merken(text, k):
+        client.post("/steuer/2025/mail/merken", headers=leise,
+                    data={"token": client.token, "betreff": "B", "text": text,
+                          "kennung": k})  # fmt: skip
+
+    def brief():
+        seite = client.get("/steuer/2025/sieg").text
+        t = re.search(r'id="sq-mailtext" name="text" rows="16">(.*?)</textarea>', seite, re.DOTALL)
+        return html.unescape(t.group(1))
+
+    alt, vorlage = kennung(), brief()
+    merken(vorlage + "\nPS: Bis Freitag?", alt)
+    quest.notiere(conn, 2025, "sieg", "Der Papierdrache ist besiegt")
+    post(client, "/steuer/2025/truhe", schloss="ohne")
+    merken(brief() + "\nNeuer Gruß", kennung())  # der neue Tab merkt zuerst
+    merken(vorlage + "\nPS: Bis Freitag? Und danke!", alt)  # der alte Tab tippt nach
+    seite = client.get("/steuer/2025/sieg").text
+    assert "PS: Bis Freitag? Und danke!" in seite
+    assert "mit: „PS: Bis Freitag? Und danke!“" in seite
+    assert seite.count('class="sq-alter-satz"') == 1  # ähnliche Fassung ersetzt, nicht doppelt
