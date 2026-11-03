@@ -904,7 +904,8 @@
   });
   // "Passwort kopieren": es wird nur einmal gezeigt
   // „Fundkiste im Finder zeigen“ am Brief: ohne Neuladen, damit der Mailtext bleibt (Lena, R49)
-  Array.prototype.forEach.call(document.querySelectorAll("button[data-leise][formaction]"), function (knopf) {
+  // Lena (Runde 51): Der Knopf in Abschnitt 1 hat sein eigenes Formular, auch er ohne Neuladen
+  Array.prototype.forEach.call(document.querySelectorAll("button[data-leise]"), function (knopf) {
     var beschriftung = knopf.textContent;
     knopf.addEventListener("click", function (e) {
       if (!window.fetch) return;
@@ -912,7 +913,8 @@
       var token = knopf.form && knopf.form.querySelector("input[name=token]");
       var daten = new FormData();
       if (token) daten.append("token", token.value);
-      fetch(knopf.getAttribute("formaction"), { method: "POST", body: daten, headers: { "x-frits-leise": "1" } })
+      var ziel = knopf.getAttribute("formaction") || (knopf.form && knopf.form.action);
+      fetch(ziel, { method: "POST", body: daten, headers: { "x-frits-leise": "1" } })
         .then(function (r) { return r.json(); })
         .then(function (j) {
           if (j.ok) {
@@ -922,10 +924,30 @@
           }
           // Ohne Finder: der Pfad steht klein daneben, nicht in Großbuchstaben im Knopf (Lena, R50)
           var pfad = knopf.parentNode.querySelector("[data-pfad]");
-          if (pfad) { pfad.textContent = "Liegt hier: " + j.pfad; pfad.hidden = false; }
+          // Der Pfad steht in einem eigenen Element: ein Klick markiert nur ihn (Lena, R51)
+          var code = pfad && pfad.querySelector("code");
+          if (code) { code.textContent = j.pfad; pfad.hidden = false; }
         })
         .catch(function () { knopf.form.submit(); });
     });
+  });
+  // Lena (Runde 51): Der eigene Brieftext wird still gemerkt, wenn man das Feld verlässt,
+  // und zur Sicherheit auch nach einer Tipp-Pause. So übersteht er ein Neuladen.
+  Array.prototype.forEach.call(document.querySelectorAll("form[data-merken]"), function (brief) {
+    var uhr = null;
+    function merken() {
+      if (!window.fetch) return;
+      var token = brief.querySelector("input[name=token]");
+      var daten = new FormData();
+      if (token) daten.append("token", token.value);
+      ["betreff", "text"].forEach(function (name) {
+        var feld = brief.querySelector("[name=" + name + "]");
+        if (feld) daten.append(name, feld.value);
+      });
+      fetch(brief.getAttribute("data-merken"), { method: "POST", body: daten, headers: { "x-frits-leise": "1" }, credentials: "same-origin" }).catch(function () {});
+    }
+    brief.addEventListener("change", function () { clearTimeout(uhr); merken(); });
+    brief.addEventListener("input", function () { clearTimeout(uhr); uhr = setTimeout(merken, 1500); });
   });
   // „E-Mail öffnen“ nimmt, was gerade in den Feldern steht, auch spätere Änderungen (Lena, R50)
   Array.prototype.forEach.call(document.querySelectorAll("a[data-mailto]"), function (link) {

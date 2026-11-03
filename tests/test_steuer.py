@@ -3729,8 +3729,13 @@ def test_runde_48_ausweg_link_ist_immer_frisch(client, ws, monkeypatch):
     quest.sammeln(conn, ws.root, erste["id"], ws.root / "beleg.pdf")
     quest.notiere(conn, 2025, "sieg", "Der Papierdrache ist besiegt")
     seite = post(client, "/steuer/2025/truhe", schloss="ohne").text
+    # Lena (Runde 51): Nach dem Finale gilt der alte Ausweg gar nicht mehr; der Kasten geht weg
+    assert "sq-mail-ausweg" not in seite and "mailto:" not in seite
+    assert "vollständig" in seite.split('id="sq-mailtext"')[1]
+    post(client, "/steuer/2025/mail", text="Hallo, alles da")
+    seite = client.get("/steuer/2025/sieg").text
     link = re.search(r'href="(mailto:[^"]+)"', seite).group(1)
-    assert "vollständig" in unquote(link.replace("&amp;", "&"))
+    assert "body=Hallo, alles da" in unquote(link.replace("&amp;", "&"))
 
 
 def test_runde_48_finder_ohne_neuladen(client, ws):
@@ -3806,3 +3811,66 @@ def test_runde_49_eigener_mailtext_bleibt_nach_dem_ausweg(client, ws, monkeypatc
     seite = client.get("/steuer/2025/sieg").text
     assert "PS: Bis Freitag?" in seite and 'value="Meine Unterlagen"' in seite
     assert "Noch einmal in Mail öffnen" in seite
+
+
+def test_runde_51_beraterin_wechselt_als_paar(client, ws):
+    """Lena (Runde 51): Feld für Feld gewechselt, bekam 2020 „Frau Lange“ mit Brauns Mail."""
+    for jahr in (2020, 2024, 2025):
+        fragebogen(client, jahr=jahr, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    raus = {"x-frits-leise": "1", "x-frits-teilen": "1"}
+
+    def tippen(jahr, **felder):
+        client.post(f"/steuer/{jahr}/beraterin/daten", headers=raus,
+                    data={"token": client.token, **felder})  # fmt: skip
+
+    def paar(jahr):
+        p = Profil.load(quest.profil_datei(ws.root, jahr))
+        return (p.beraterin_name, p.beraterin_email)
+
+    tippen(2025, beraterin_name="Herr Braun", beraterin_email="braun@example.org")
+    assert paar(2020) == paar(2024) == ("Herr Braun", "braun@example.org")
+    tippen(2024, beraterin_name="Frau Weber", beraterin_email="weber@example.org")
+    assert paar(2020) == ("Herr Braun", "braun@example.org")  # 2020 hat Braun von 2025
+    # Wechsel Feld für Feld: erst der Name, dann die Mail
+    tippen(2025, beraterin_name="Frau Lange")
+    tippen(2025, beraterin_email="lange@example.org")
+    assert paar(2020) == ("Frau Lange", "lange@example.org")
+    assert paar(2024) == ("Frau Weber", "weber@example.org")  # selbst getippt, bleibt
+    # Leeren und neu tippen zieht ebenso als Paar mit
+    tippen(2025, beraterin_email="")
+    tippen(2025, beraterin_email="lange@kanzlei.de")
+    assert paar(2020) == ("Frau Lange", "lange@kanzlei.de")
+    # Halb getippt zieht nicht mit
+    tippen(2025, beraterin_name="Herr")
+    assert paar(2020) == ("Frau Lange", "lange@kanzlei.de")
+
+
+def test_runde_51_finder_in_abschnitt_1_ohne_neuladen(client, ws):
+    _conn, _bonus = _besiegt_mit_bonus(client, ws)
+    seite = post(client, "/steuer/2025/truhe", schloss="ohne").text
+    abschnitt = seite.split("<h2>1. Fundkiste packen</h2>")[1].split('id="brief"')[0]
+    assert '<button class="sq-stempelknopf" data-leise>Im Finder zeigen</button>' in abschnitt
+    assert "Liegt hier: <code></code>" in abschnitt
+
+
+def test_runde_51_mailtext_still_gemerkt(client, ws, monkeypatch):
+    """Lena (Runde 51): Geänderter Text war nach dem Neuladen weg, auch nach dem Ausweg."""
+    monkeypatch.setattr(system, "compose_email", lambda *a, **k: system.Composed(False, "x"))
+    conn, _bonus = _besiegt_mit_bonus(client, ws)
+    post(client, "/steuer/2025/truhe", schloss="ohne")
+    seite = client.get("/steuer/2025/sieg").text
+    assert 'data-merken="/steuer/2025/mail/merken"' in seite
+    post(client, "/steuer/2025/mail", text="Hallo")  # Ausweg
+    r = client.post("/steuer/2025/mail/merken", headers={"x-frits-leise": "1"},
+                    data={"token": client.token, "betreff": "Belege",
+                          "text": "Hallo, PS: bis Freitag"})  # fmt: skip
+    assert r.json() == {"ok": True}
+    seite = client.get("/steuer/2025/sieg").text
+    assert "PS: bis Freitag" in seite and "sq-mail-ausweg" in seite
+    assert "sq-alter-text" not in seite
+    # Nach dem Finale gilt die neue Mail: der Ausweg-Kasten geht, der alte Text bleibt greifbar
+    quest.notiere(conn, 2025, "sieg", "Der Papierdrache ist besiegt")
+    seite = post(client, "/steuer/2025/truhe", schloss="ohne").text
+    assert "sq-mail-ausweg" not in seite
+    assert "sq-alter-text" in seite and "PS: bis Freitag" in seite
+    assert "vollständig" in seite.split('id="sq-mailtext"')[1]

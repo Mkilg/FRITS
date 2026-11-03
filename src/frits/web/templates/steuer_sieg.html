@@ -90,8 +90,10 @@
       <p>Gepackt: <strong>{{ zip_pfad.name }}</strong> ({{ "mit Passwort" if mit_passwort else "ohne Passwort" }})</p>
       <form method="post" action="/steuer/{{ jahr }}/truhe/zeigen" class="reihe">
         <input type="hidden" name="token" value="{{ token }}">
-        <button class="sq-stempelknopf">Im Finder zeigen</button>
+        {# Lena (Runde 51): Auch dieser Knopf ohne Neuladen, sonst sprang die Seite nach oben #}
+        <button class="sq-stempelknopf" data-leise>Im Finder zeigen</button>
         <span class="muted">Von dort hängst du die Fundkiste an die Mail, falls sie nicht schon dranhängt.</span>
+        <small class="sq-pfad" data-pfad hidden>Liegt hier: <code></code></small>
       </form>
       {% if not kiste_aenderung and not (frisch_gepackt and drache.besiegt) %}<p><a class="sq-stempelknopf sq-weiter-brief" href="#brief">Weiter zu 2. Brief ↓</a></p>{% endif %}
       {% if passwort %}
@@ -114,19 +116,28 @@
       </form>
     </section>
 
-    <form method="post" action="/steuer/{{ jahr }}/mail" class="sq-papier sq-brief" id="brief">
+    <form method="post" action="/steuer/{{ jahr }}/mail" class="sq-papier sq-brief" id="brief" data-merken="/steuer/{{ jahr }}/mail/merken">
       <input type="hidden" name="token" value="{{ token }}">
       <h2>2. Brief an deine Beraterin</h2>
       {% if mail_ausweg and zip_pfad %}
       <div class="sq-mail-ausweg" role="status">
         <p><strong>Die Mail ließ sich nicht von selbst öffnen. So geht es trotzdem:</strong></p>
         <ol>
-          <li><a class="sq-siegelknopf" href="{{ mail_ausweg }}" data-mailto>E-Mail öffnen</a> Betreff und Text sind schon drin.</li>
-          <li>{% if not im_browser() %}<button class="sq-stempelknopf" formaction="/steuer/{{ jahr }}/truhe/zeigen" formmethod="post" data-leise>Fundkiste im Finder zeigen</button> <small class="sq-pfad" data-pfad hidden></small> {% endif %}Die Fundkiste <b>{{ zip_pfad.name }}</b> hängst du selbst an.</li>
+          <li><a class="{{ 'sq-stempelknopf' if kiste_aenderung else 'sq-siegelknopf' }}" href="{{ mail_ausweg }}" data-mailto>E-Mail öffnen</a> Betreff und Text sind schon drin.</li>
+          <li>{% if not im_browser() %}<button class="sq-stempelknopf" formaction="/steuer/{{ jahr }}/truhe/zeigen" formmethod="post" data-leise>Fundkiste im Finder zeigen</button> <small class="sq-pfad" data-pfad hidden>Liegt hier: <code></code></small> {% endif %}Die Fundkiste <b>{{ zip_pfad.name }}</b> hängst du selbst an.</li>
           <li><button type="button" class="sq-stempelknopf" data-kopieren-aus="#sq-mailtext">Text kopieren</button> Falls dein Mail-Programm den Text nicht übernimmt, zum Beispiel bei Googlemail im Browser.</li>
         </ol>
         {% if mit_passwort %}<p class="muted">Das Passwort schickst du getrennt, nicht in dieselbe Mail.</p>{% endif %}
       </div>
+      {% endif %}
+      {% if alter_text %}
+      {# Lena (Runde 51): Nach dem Finale war der eigene Text ohne ein Wort weg #}
+      <details class="sq-alter-text">
+        <summary>Die Fundkiste hat sich geändert, darum habe ich den Brief neu geschrieben. Dein geänderter Text von vorher ist noch da.</summary>
+        <label class="sr-only" for="sq-alter-text">Dein Text von vorher</label>
+        <textarea id="sq-alter-text" rows="8" readonly>{{ alter_text }}</textarea>
+        <p><button type="button" class="sq-stempelknopf" data-kopieren-aus="#sq-alter-text">Alten Text kopieren</button></p>
+      </details>
       {% endif %}
       <p class="sq-anrede-hinweis muted">{{ "Per Sie" if profil.anrede == "sie" else "Per du" }}{% if profil.beraterin_name %} an {{ profil.beraterin_name }}{% endif %}. <a href="/steuer/{{ jahr }}/beraterin">Ändern</a></p>
       <label>An <input type="email" name="an" value="{{ profil.beraterin_email }}" placeholder="E-Mail deiner Beraterin"></label>
