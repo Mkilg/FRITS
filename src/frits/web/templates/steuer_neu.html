@@ -32,7 +32,7 @@
       <li><form method="post" action="/steuer/sicherung/zurueckholen">
         <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="name" value="{{ s.name }}">
         <span><b>{{ s.jahr }}</b>, gesichert am {{ s.wann.day }}.{{ s.wann.month }}.{{ s.wann.year }} um {{ "%02d:%02d" | format(s.wann.hour, s.wann.minute) }}</span>
-        <button class="sq-stempelknopf">{{ s.jahr }} zurückholen</button>
+        <button class="sq-stempelknopf" aria-label="{{ s.jahr }} zurückholen">Zurückholen</button>
       </form></li>
       {% endfor %}
     </ul>
