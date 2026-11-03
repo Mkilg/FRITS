@@ -926,7 +926,7 @@
           var pfad = knopf.parentNode.querySelector("[data-pfad]");
           // Der Pfad steht in einem eigenen Element: ein Klick markiert nur ihn (Lena, R51)
           var code = pfad && pfad.querySelector("code");
-          if (code) { code.textContent = j.pfad; pfad.hidden = false; }
+          if (code) { code.textContent = j.anzeige || j.pfad; pfad.hidden = false; }
         })
         .catch(function () { knopf.form.submit(); });
     });
@@ -943,7 +943,7 @@
       var token = brief.querySelector("input[name=token]");
       var daten = new FormData();
       if (token) daten.append("token", token.value);
-      ["betreff", "text"].forEach(function (name) {
+      ["betreff", "text", "kennung"].forEach(function (name) {
         var feld = brief.querySelector("[name=" + name + "]");
         if (feld) daten.append(name, feld.value);
       });
@@ -957,6 +957,26 @@
     window.addEventListener("pagehide", merken);
     document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden") merken(); });
     brief.addEventListener("submit", function () { offen = false; clearTimeout(uhr); });
+    // Enter in „An“ oder „Betreff“ springt ins nächste Feld, statt etwas abzuschicken (Lena, R53)
+    Array.prototype.forEach.call(brief.querySelectorAll("input[name=an], input[name=betreff]"), function (feld) {
+      feld.addEventListener("keydown", function (e) {
+        if (e.key !== "Enter" || e.isComposing) return;
+        e.preventDefault();
+        var weiter = feld.name === "an" ? brief.querySelector("input[name=betreff]") : brief.querySelector("textarea[name=text]");
+        if (weiter) weiter.focus();
+      });
+    });
+  });
+  // Lena (Runde 53): Ein Klick (auch dreifach) auf „Liegt hier:“ markiert genau den Pfad
+  Array.prototype.forEach.call(document.querySelectorAll("[data-pfad]"), function (kasten) {
+    kasten.addEventListener("click", function () {
+      var code = kasten.querySelector("code");
+      if (!code || !window.getSelection) return;
+      setTimeout(function () {
+        var r = document.createRange(); r.selectNodeContents(code);
+        var sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      }, 0);
+    });
   });
   // „E-Mail öffnen“ nimmt, was gerade in den Feldern steht, auch spätere Änderungen (Lena, R50)
   Array.prototype.forEach.call(document.querySelectorAll("a[data-mailto]"), function (link) {

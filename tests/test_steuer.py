@@ -3076,7 +3076,9 @@ def test_runde_36_neu_packen_nennt_das_neue_passwort(client, ws):
     assert "Neu gepackt" not in seite and "data-konfetti" not in seite
     # Im Finale führt „Weiter zum Brief“, der zweite Brief-Knopf bleibt weg (Lena, Runde 47)
     assert (
-        "Weiter zum Brief" in seite and "Weiter zu 2. Brief" not in seite and 'id="brief"' in seite
+        "Erst den Brief lesen" in seite
+        and "Weiter zu 2. Brief" not in seite
+        and 'id="brief"' in seite
     )
     seite = post(client, "/steuer/2025/truhe", schloss="passwort").text
     assert "Neu gepackt, mit neuem Passwort" in seite and "Weiter zu 2. Brief" in seite
@@ -3539,7 +3541,7 @@ def test_runde_45_finale_nach_dem_notausgang(client, ws):
     quest.sammeln(conn, ws.root, erste["id"], ws.root / "beleg.pdf")
     quest.notiere(conn, 2025, "sieg", "Der Papierdrache ist besiegt")
     seite = post(client, "/steuer/2025/truhe", schloss="ohne").text
-    assert 'class="sq-kiste-finale"' in seite and "Weiter zum Brief" in seite
+    assert 'class="sq-kiste-finale"' in seite and "Erst den Brief lesen" in seite
     assert "Die Fundkiste ist gepackt, ohne Passwort." not in seite  # das sagt das Finale
     seite = post(client, "/steuer/2025/truhe", schloss="ohne").text
     assert 'class="sq-kiste-finale"' not in seite  # nur einmal
@@ -3950,3 +3952,79 @@ def test_runde_52_alter_text_bleibt_beim_neuen_brief(client, ws):
                 data={"token": client.token, "betreff": "B", "text": "Neuer Text"})  # fmt: skip
     seite = client.get("/steuer/2025/sieg").text
     assert "Neuer Text" in seite and "Alter Text mit PS" in seite and "sq-alter-text" in seite
+
+
+def test_runde_53_enter_und_alte_kiste(client, ws, monkeypatch):
+    """Lena (Runde 53): Enter im Betreff öffnete die Mail, auch mit der alten Kiste."""
+    geoeffnet = []
+    monkeypatch.setattr(
+        system, "compose_email", lambda *a, **k: geoeffnet.append(a) or system.Composed(True, "")
+    )
+    conn, bonus = _besiegt_mit_bonus(client, ws)
+    post(client, "/steuer/2025/truhe", schloss="ohne")
+    seite = client.get("/steuer/2025/sieg").text
+    # Der erste Knopf des Briefs ist gesperrt: Enter schickt nichts ab
+    erster = re.search(r'<button[^>]*form="brief"[^>]*>|<form[^>]*id="brief"', seite).group(0)
+    assert "disabled" in erster
+    (ws.root / "spende.pdf").write_bytes(b"%PDF spende")
+    quest.sammeln(conn, ws.root, bonus["id"], ws.root / "spende.pdf")
+    seite = client.get("/steuer/2025/sieg").text
+    assert (
+        "Mit der alten Kiste in Mail öffnen" in seite and 'href="#kiste">↑ Zur Fundkiste' in seite
+    )
+    # Ein alter Tab ohne den Hinweis: die Mail geht nicht mit der alten Kiste auf
+    r = post(client, "/steuer/2025/mail", oeffnen="1", text="Hallo")
+    assert geoeffnet == [] and "Pack die Fundkiste erst neu" in r.text
+    post(client, "/steuer/2025/mail", oeffnen="1", alte_kiste="1", text="Hallo")
+    assert len(geoeffnet) == 1
+
+
+def test_runde_53_alle_frueheren_fassungen(client, ws):
+    """Lena (Runde 53): Über zwei Wechsel blieb nur die letzte eigene Fassung."""
+    conn, _bonus = _besiegt_mit_bonus(client, ws)
+    post(client, "/steuer/2025/truhe", schloss="ohne")
+    leise = {"x-frits-leise": "1"}
+
+    def merken(text, kennung=""):
+        client.post("/steuer/2025/mail/merken", headers=leise,
+                    data={"token": client.token, "betreff": "B", "text": text,
+                          "kennung": kennung})  # fmt: skip
+
+    def kennung():
+        seite = client.get("/steuer/2025/sieg").text
+        return re.search(r'name="kennung" value="([0-9a-f]+)"', seite).group(1)
+
+    alt = kennung()
+    merken("Erster Brief mit P1", alt)
+    quest.notiere(conn, 2025, "sieg", "Der Papierdrache ist besiegt")
+    post(client, "/steuer/2025/truhe", schloss="ohne")  # Brief neu
+    # Der alte Tab merkt beim Wegklicken noch den alten Text: der neue Brief bleibt unberührt
+    merken("Erster Brief mit P1, spaeter", alt)
+    seite = client.get("/steuer/2025/sieg").text
+    brief = re.search(r'id="sq-mailtext" name="text" rows="16">(.*?)</textarea>', seite, re.DOTALL)
+    assert "spaeter" not in brief.group(1) and "Erster Brief mit P1, spaeter" in seite
+    merken("Zweiter Brief EDIT0", kennung())
+    # Noch ein Wechsel: Mit Namen der Beraterin schreibt FRITS eine andere Anrede
+    post(client, "/steuer/2025/beraterin/daten", beraterin_name="Frau Weber")
+    merken("Dritter Brief", kennung())
+    seite = client.get("/steuer/2025/sieg").text
+    assert "Zweiter Brief EDIT0" in seite and "Erster Brief mit P1, spaeter" in seite
+
+
+def test_runde_53_leeren_gibt_kein_halbes_paar(client, ws):
+    raus = {"x-frits-leise": "1", "x-frits-teilen": "1"}
+
+    def tippen(jahr, **felder):
+        client.post(f"/steuer/{jahr}/beraterin/daten", headers=raus,
+                    data={"token": client.token, **felder})  # fmt: skip
+
+    fragebogen(client, jahr=2024, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    tippen(2024, beraterin_name="Frau Weber", beraterin_email="weber@example.org")
+    fragebogen(client, jahr=2020, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    p20 = Profil.load(quest.profil_datei(ws.root, 2020))
+    p20.beraterin_name = p20.beraterin_email = ""
+    p20.beraterin_von = 0
+    p20.save(quest.profil_datei(ws.root, 2020))
+    tippen(2024, beraterin_email="")
+    p20 = Profil.load(quest.profil_datei(ws.root, 2020))
+    assert (p20.beraterin_name, p20.beraterin_email) == ("", "")
