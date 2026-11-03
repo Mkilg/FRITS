@@ -934,6 +934,13 @@ def register_steuer(
                 if p.silber:
                     text += " Deine Beraterin prüft noch etwas."
                 flash(text, "siegel", cue="done")
+        if gold_zu_silber and plus:
+            # Lena (Runde 64): Die Körner (meist fürs Siegel) kamen still dazu, seit „Zählt
+            # trotzdem!“ weg ist. Der Silber-Zettel nennt sie jetzt.
+            for f in app.state.flashes:
+                if str(f.get("text", "")).startswith("Aus Gold wird Silber"):
+                    f["text"] += f" · +{spiel.koerner(plus)}"
+                    break
         drache_vorher, drache_nachher = vorher["drache"], nachher["drache"]
         sieg = drache_nachher.besiegt and not drache_vorher.besiegt and bool(nachher["stuecke"])
         if nachher["drache_wach"] and not vorher["drache_wach"] and not drache_nachher.besiegt:
