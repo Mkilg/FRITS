@@ -609,8 +609,8 @@ def register_steuer(
         Werte, und halbe Reste von früher („Frau“, „weber@kanzlei“) werden vervollständigt.
 
         Lena (Runde 51): Name und Mail sind ein Paar. Ein anderes Jahr zieht nur mit, wenn es
-        noch gar nichts weiß, oder wenn es seine Beraterin von hier hat und genau das Paar, das
-        dieses Jahr zuletzt geteilt hat. Sonst bekam beim Wechsel Feld für Feld ein Jahr
+        noch gar nichts weiß, oder wenn es seine Beraterin übernommen hat (geteilt oder als Kopie
+        des Vorjahrs) und genau das Paar hat, das dieses Jahr zuletzt geteilt hat. Sonst bekam beim Wechsel Feld für Feld ein Jahr
         „Frau Lange“ mit Brauns Mail und behielt sie. Ein Jahr mit selbst getippter Beraterin
         bleibt, wie es ist: Wer 2025 zu Herrn Kurz wechselt, hat 2024 noch Frau Weber.
         """
@@ -634,13 +634,21 @@ def register_steuer(
             if q is None:
                 continue
             hat = (q.beraterin_name, q.beraterin_email)
-            von_hier = q.beraterin_von == jahr
-            if hat == ("", "") or (von_hier and hat in (paar, alt)):
+            uebernommen = q.beraterin_von != 0  # nie selbst getippt, sondern übernommen
+            von = jahr
+            if hat == ("", ""):
+                neu = paar if any(paar) else None
+            elif uebernommen and hat in (paar, alt):
                 neu = paar
-            elif passt(hat[0], name) and passt(hat[1], mail):
-                # Noch nie geteilt (Profile von früher): leere Jahre und halbe Reste derselben
-                # Beraterin; was hier fehlt, bleibt dort stehen
+            elif hat == paar:
+                # Selbst getippt, dieselbe Beraterin: nur die Anrede zieht mit (Runde 47)
+                neu, von = paar, q.beraterin_von
+            elif any(paar) and passt(hat[0], name) and passt(hat[1], mail):
+                # Halbe Reste derselben Beraterin von früher („Frau“) werden vervollständigt;
+                # was hier fehlt, bleibt dort stehen
                 neu = (name or hat[0], mail or hat[1])
+                if neu == hat:
+                    neu = None  # nichts zu ergänzen: Anrede und Herkunft bleiben (Lena, R52)
             else:
                 neu = None
             if neu is None:
@@ -648,7 +656,7 @@ def register_steuer(
             vorher = (*hat, q.anrede, q.beraterin_von)
             q.beraterin_name, q.beraterin_email = neu
             q.anrede = p.anrede
-            q.beraterin_von = jahr
+            q.beraterin_von = von
             if (q.beraterin_name, q.beraterin_email, q.anrede, q.beraterin_von) != vorher:
                 q.save(quest.profil_datei(ws.root, j))
         if (list(paar), p.beraterin_von) != (p.beraterin_geteilt, 0):
@@ -1179,7 +1187,13 @@ def register_steuer(
         """Der Fragebogen, wie er gerade ausgefüllt wird (Vorlage: dieses Jahr oder das Vorjahr)."""
         p = app.state.steuer_entwurf.get(jahr)
         if p is None:
-            p = Profil.load(entwurf_datei(jahr)) or profil(jahr) or profil(jahr - 1)
+            p = Profil.load(entwurf_datei(jahr)) or profil(jahr)
+            if p is None:
+                p = profil(jahr - 1)
+                if p is not None and (p.beraterin_name or p.beraterin_email):
+                    # Lena (Runde 52): Die Kopie des Vorjahrs hat ihre Beraterin übernommen
+                    # und zieht darum mit, wenn sie dort wechselt
+                    p.beraterin_von = p.beraterin_von or jahr - 1
             if p is None:
                 p = Profil(jahr=jahr, name=settings().name)
                 # Wer FRITS eingerichtet hat oder in dem Jahr Rechnungen geschrieben hat,
@@ -2384,6 +2398,7 @@ def register_steuer(
             # Lena (Runde 50/51): Der eigene Text bleibt, solange FRITS dieselbe Mail schreiben
             # würde, auch nach dem Neuladen.
             betreff, text = eigen["eigen"]
+            alter_text = eigen.get("frueher", "")
         elif eigen and eigen["eigen"] != eigen["basis"]:
             # Nach dem Finale gilt die neue Mail; der alte eigene Text verschwindet nicht stumm
             alter_text = eigen["eigen"][1]
@@ -2545,19 +2560,32 @@ def register_steuer(
         noch einmal „In Mail öffnen“. Jetzt merkt FRITS ihn still beim Verlassen des Felds."""
         form = await request.form()
         profil_oder_404(jahr)
-        betreff = str(form.get("betreff") or "")
-        text = str(form.get("text") or "")
+        mail_text_merken(jahr, str(form.get("betreff") or ""), str(form.get("text") or ""))
+        return JSONResponse({"ok": True})
+
+    def mail_text_merken(jahr: int, betreff: str, text: str) -> None:
+        """Merkt den eigenen Brieftext. Galt der alte für eine andere Mail (vor dem Finale),
+        bleibt er als „früher“ greifbar, auch wenn man den neuen Brief ändert (Lena, R52)."""
         basis = mail_basis(jahr, lage(jahr))
-        if (betreff, text) == basis:
+        vorher = app.state.steuer_mailtext.get(jahr) or {}
+        frueher = vorher.get("frueher", "")
+        if vorher and vorher["basis"] != basis and vorher["eigen"] != vorher["basis"]:
+            frueher = vorher["eigen"][1]
+        eintrag = {"basis": basis, "eigen": (betreff, text), "frueher": frueher}
+        if (betreff, text) == basis and not frueher:
             app.state.steuer_mailtext.pop(jahr, None)  # wieder wie von FRITS: nichts zu merken
         else:
-            app.state.steuer_mailtext[jahr] = {"basis": basis, "eigen": (betreff, text)}
-        return JSONResponse({"ok": True})
+            app.state.steuer_mailtext[jahr] = eintrag
 
     @app.post("/steuer/{jahr}/mail", dependencies=guarded)
     async def mail_oeffnen(request: Request, jahr: int):
         form = await request.form()
         p = profil_oder_404(jahr)
+        if form.get("oeffnen") != "1":
+            # Lena (Runde 52): Ein Skript, das den Brief absendete, öffnete ohne Klick die Mail.
+            # Mail-Programm und Zip gehen nur mit dem Knopf „In Mail öffnen“ auf.
+            mail_text_merken(jahr, str(form.get("betreff") or ""), str(form.get("text") or ""))
+            return back(f"/steuer/{jahr}/sieg#brief")
         zip_pfad = truhe_pfad(jahr, p)
         if not zip_pfad.exists():
             flash("Pack zuerst die Fundkiste, dann hänge ich sie an.")
@@ -2569,7 +2597,7 @@ def register_steuer(
         betreff = str(form.get("betreff") or f"Steuerunterlagen {jahr}")
         text = str(form.get("text") or "")
         basis = mail_entwurf(jahr, lage(jahr), truhe.verschluesselt(zip_pfad))
-        app.state.steuer_mailtext[jahr] = {"basis": basis, "eigen": (betreff, text)}
+        mail_text_merken(jahr, betreff, text)
         result = system.compose_email(p.beraterin_email, betreff, text, zip_pfad)
         if result.opened:
             app.state.steuer_mailto.pop(jahr, None)
