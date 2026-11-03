@@ -8,7 +8,7 @@
 {% include "_steuer_meldungen.html" %}
 {# Lena (Runde 53): Enter in „Betreff“ oder „An“ schickte den Brief ab. Ein gesperrter erster
    Knopf des Briefs fängt das ab: Mail geht nur mit einem echten Klick auf. #}
-<button type="submit" form="brief" disabled hidden aria-hidden="true" tabindex="-1"></button>
+<button type="submit" form="brief" disabled hidden aria-hidden="true" tabindex="-1" style="display: none"></button>{# Lena (Runde 64): eine Button-Regel machte ihn sichtbar #}
 {% include "_steuer_kopf.html" %}
 <h1 class="sq-sieg-titel{% if drache.besiegt and zweifel %} silber{% endif %}">{% if drache.besiegt and zweifel %}Silber-Sieg!{% elif drache.besiegt %}Goldenes Zeitalter!{% else %}Heute nur senden{% endif %}</h1>
 {% if not drache.besiegt %}<p class="sq-sieg-unter">{{ drache.max_lp - drache.lp }} von {{ drache.max_lp }} Karten erledigt. Was fehlt, steht als Liste in der Mail. Der Drache wartet, bis du weitermachst.</p>{% endif %}

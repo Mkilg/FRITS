@@ -4363,8 +4363,11 @@ def test_runde_60_aus_gold_wird_silber_ersetzt_zaehlt_trotzdem(client, ws):
         if s["key"] in ("belege", "ausgangsrechnungen") and s["status"] == "gesammelt"
     )
     quest.setze_status(conn, wichtig["id"], "offen")  # Beleg zurückgelegt
+    quest.storniere(conn, 2025, spiel.karten_grund(wichtig, "fund"), wichtig["name"])
     seite = post(client, f"/steuer/2025/stueck/{wichtig['id']}/status", status="gibts_nicht").text
     assert "Aus Gold wird Silber" in seite and "Zählt trotzdem!" not in seite
+    # Lena (Runde 64): Die Körner kamen still dazu; jetzt nennt der Zettel sie
+    assert re.search(r"wird es wieder Gold\. · \+\d+ Salzk", seite)
 
 
 def test_runde_60_steuer_id_aus_dem_vorjahr(client, ws):
@@ -4584,3 +4587,14 @@ def test_runde_63_intro_spuernase_und_liste(client, ws):
     assert sieg["sieg"] and len(quest.sicherungs_liste(ws.root)) > 6
     seite = client.get("/steuer/neu-beginnen").text
     assert sieg["name"] in seite and "Drache besiegt" in seite
+
+
+def test_runde_64_kein_geisterknopf_und_ruhiger_hinweis(client, ws):
+    """Lena (Runde 64): Auf der Sieg-Seite stand ein leerer Knopf, der versteckt sein sollte;
+    Hinweise hatten einen grünen Rand; Tippziele am Handy waren zu klein."""
+    _besiegt_mit_bonus(client, ws)
+    sieg = client.get("/steuer/2025/sieg").text
+    assert re.search(r'<button type="submit" form="brief"[^>]*style="display: none"', sieg)
+    css = client.get("/static/steuer.css").text
+    assert ".sq-meldung.hinweis {" in css
+    assert ".sq-zettel-punkte a::before" in css and "min-height: 44px" in css

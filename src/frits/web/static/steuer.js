@@ -1097,3 +1097,18 @@
     document.querySelectorAll("details.sq-rand-klappe").forEach(function (d) { d.open = false; });
   })();
 })();
+
+// Lena (Runde 64): Escape bei offenem i im Drachen-Dialog schloss den ganzen Dialog. Jetzt
+// schließt Escape erst nur das i (das macht frits.js), der Dialog bleibt offen.
+(function () {
+  window.addEventListener("keydown", function (e) {
+    if (e.key !== "Escape") return;
+    var i = document.querySelector("dialog[open] .info-i.offen");
+    if (i) i.closest("dialog").dataset.nurI = "1";
+  }, true);
+  document.querySelectorAll("dialog").forEach(function (d) {
+    d.addEventListener("cancel", function (e) {
+      if (d.dataset.nurI) { e.preventDefault(); delete d.dataset.nurI; }
+    });
+  });
+})();

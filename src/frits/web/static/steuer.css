@@ -658,6 +658,7 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
 }
 .sq-meldung.warn, .sq-meldung.fehler { border-left-color: var(--wachs); }
 .sq-meldung.beute, .sq-meldung.treffer { border-left-color: var(--gold); }
+.sq-meldung.hinweis { border-left-color: #b39a68; } /* Lena (Runde 64): ruhig, nicht grün */
 .sq-meldung.weg { animation: sq-zettel-raus .4s ease-in forwards; }
 .sq-meldung.wartet { display: none; }
 .sq-meldung[data-mehr] { position: relative; }
@@ -1946,3 +1947,20 @@ details.sq-mehr-marken .kurz { display: none; }
 }
 /* Lena (Runde 62): Am Mac lag das Burg-Bild über „← Zur Insel“ */
 .sq .sq-zurueck { position: relative; z-index: 5; }
+
+/* Lena (Runde 64): Am Handy waren 30 von 304 Tippzielen kleiner als 44 px */
+@media (max-width: 600px), (pointer: coarse) {
+  .sq-zettel-punkte { gap: 12px; padding: 6px 0; }
+  .sq-zettel-punkte a { position: relative; width: 16px; height: 16px; }
+  .sq-zettel-punkte a::before { content: ""; position: absolute; inset: -14px; border-radius: 50%; }
+  .sq-erledigt li { padding: 0; }
+  .sq-erledigt li a { display: flex; align-items: center; min-height: 44px; }
+  details.sq-mehr-marken > summary { display: flex; align-items: center; min-height: 44px; }
+  .sq-marke.gold > a { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; }
+  .sq .sq-zurueck { display: inline-flex; align-items: center; min-height: 44px; }
+  .sq-werkzeuge a { min-height: 44px; }
+  .sq .sq-fb-ausweg { display: inline-flex; align-items: center; min-height: 44px; }
+  .sq-buch a[href*="/gebiet/"] { display: inline-flex; align-items: center; min-height: 44px; }
+  .sq details > summary { min-height: 44px; }
+  .sq .sq-beleg-name { display: inline-block; padding: 9px 0; }
+}
