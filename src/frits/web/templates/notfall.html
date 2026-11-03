@@ -7,7 +7,7 @@
   <div class="mascot-big">{{ mascot("thinking" if g else "welcome") }}</div>
   <div>
     <h1>Chat</h1>
-    <p class="speech">{% if not g %}Frag mich, was du willst, oder leg einen Brief rein, der Bauchweh macht. Namen und Nummern schwärze ich vorher hier auf deinem Computer.{% if not ai_ready %} Eine KI ist noch nicht verbunden, also kopierst du den geschwärzten Text danach selbst in einen Chat.{% endif %}{% elif g.wartend and not g.docs %}Fast fertig: Bei einer Datei muss ich noch ein paar Wörter mehr schwärzen. Bis dahin geht nichts raus.{% elif not g.messages %}Ich habe alles gelesen und geschwärzt. Schau kurz drüber, dann frag los.{% else %}Frag ruhig weiter. Alles bleibt geschwärzt.{% endif %}</p>
+    <p class="speech">{% if not g %}Frag mich, was du willst, oder leg einen Brief rein, der Bauchweh macht. Namen und Nummern schwärze ich vorher hier auf deinem Computer.{% if not ai_ready %} Ohne verbundene KI kopierst du den geschwärzten Text selbst in einen Chat.{% endif %}{% elif g.wartend and not g.docs %}Bei einer Datei muss ich noch mehr schwärzen. Bis dahin geht nichts raus.{% elif not g.messages %}Ich habe alles gelesen und geschwärzt. Schau kurz drüber, dann frag los.{% else %}Frag ruhig weiter. Alles bleibt geschwärzt.{% endif %}</p>
   </div>
 </section>
 
@@ -32,15 +32,14 @@
   </form>
 </section>
 
-{% with dz_action="/chat/neu", dz_back="/chat", dz_id="chat", dz_title="Oder ein Dokument hierher ziehen", dz_hint="Briefe, Verträge, Mahnungen, E-Mails, PDFs, Word, Fotos. Ich zeige dir zuerst, was geschwärzt ist.", dz_send="Schwärzen und ansehen", dz_busy="Ich lese und schwärze. Das dauert einen Moment.", dz_text_label="Text einfügen, z. B. aus einer E-Mail oder einem Brief" %}{% include "_dropzone.html" %}{% endwith %}
+{% with dz_action="/chat/neu", dz_back="/chat", dz_id="chat", dz_title="Oder ein Dokument hierher ziehen", dz_hint="Brief, Vertrag, Mail, PDF, Foto. Du siehst zuerst, was geschwärzt ist.", dz_send="Schwärzen und ansehen", dz_busy="Ich lese und schwärze. Das dauert einen Moment.", dz_text_label="Text einfügen" %}{% include "_dropzone.html" %}{% endwith %}
 
 {% if chats %}
 <section class="card">
-  <h2>Offene Chats</h2>
+  <h2>Offene Chats {{ info_i("Nur bis FRITS geschlossen wird.") }}</h2>
   <ul class="list">
     {% for c in chats %}<li><a href="/chat/{{ c.key }}"><span>{{ c.title }}</span><span class="muted">seit {{ c.created }} Uhr</span><span class="muted">{{ c.messages | length }} Nachrichten</span></a></li>{% endfor %}
   </ul>
-  <p class="hint">Nur bis FRITS geschlossen wird.</p>
 </section>
 {% endif %}
 
@@ -75,7 +74,7 @@
 {% else %}
 <section class="card" id="unterlagen">
   <div class="kopf">
-    <h2>Deine Unterlagen</h2>
+    <h2>Deine Unterlagen {{ info_i("Den Dateinamen schicke ich nicht mit, " ~ ki ~ " hört nur „Dokument 1“.") }}</h2>
     <form method="post" action="/chat/{{ g.key }}/vergessen">
       <input type="hidden" name="token" value="{{ token }}">
       <button class="quiet tiny" title="Löscht den Chat aus dem Arbeitsspeicher">Chat vergessen</button>
@@ -84,7 +83,7 @@
   {% if g.wartend %}
   <div class="lesson warnung wartend" role="status">
     <strong>Noch nicht sicher geschwärzt:</strong> {% for d in g.wartend %}{{ d.name }}{{ ", " if not loop.last }}{% endfor %}. Davon geht nichts raus.
-    Schau im Original nach, welcher Name oder welche Nummer noch drinsteht, und trag es unten bei „Auch schwärzen“ ein. Dann versuche ich es gleich noch einmal.
+    Trag den Namen oder die Nummer aus dem Original unten bei „Auch schwärzen“ ein, dann versuche ich es noch einmal.
   </div>
   <ul class="dokumente">
     {% for d in g.wartend %}
@@ -125,11 +124,10 @@
     </li>
     {% endfor %}
   </ul>
-  <p class="hint">Den Dateinamen schicke ich nicht mit, {{ ki }} hört nur „Dokument 1“.</p>
 
   {% if g.auto_hidden and g.pending %}
   <div class="lesson warnung" role="status">
-    <strong>Vorsichtshalber auch geschwärzt:</strong> {{ g.auto_hidden | join(", ") }}. Das habe ich selbst dazugenommen, damit nichts durchrutscht. Unten bei „Auch schwärzen“ kannst du es wieder herausnehmen.
+    <strong>Vorsichtshalber auch geschwärzt:</strong> {{ g.auto_hidden | join(", ") }}. Unten bei „Auch schwärzen“ kannst du es wieder herausnehmen.
   </div>
   {% endif %}
 
@@ -138,11 +136,11 @@
       <summary>Auch schwärzen ({{ g.extra | length }})</summary>
       <form method="post" action="/chat/{{ g.key }}/schwaerzen" class="form" data-busy="Ich schwärze neu.">
         <input type="hidden" name="token" value="{{ token }}">
-        <label class="field">Ein Wort pro Zeile, z. B. ein Aktenzeichen, eine Kundennummer oder einen Spitznamen
+        <label class="field"><span>Ein Wort pro Zeile {{ info_i("Zum Beispiel ein Aktenzeichen, eine Kundennummer oder ein Spitzname.") }}</span>
           <textarea name="extra" rows="3">{{ g.extra | join("\n") }}</textarea>
         </label>
         <button>Neu schwärzen</button>
-        {% if g.messages %}<p class="hint">Was schon verschickt ist, kann ich nicht zurückholen. Ab jetzt geht es aber nur noch geschwärzt raus.</p>{% endif %}
+        {% if g.messages %}<p class="hint">Schon Verschicktes kann ich nicht zurückholen. Ab jetzt geht es nur noch geschwärzt raus.</p>{% endif %}
       </form>
     </details>
     {% if g.mapping.entries %}
@@ -197,7 +195,7 @@
   <h2>Jetzt kopieren</h2>
   <figure class="kopierbox">
     <figcaption>
-      <strong>Geschwärzt, fertig zum Einfügen in claude.ai oder einen anderen Chat</strong>
+      <strong>Geschwärzt, fertig zum Einfügen in einen Chat</strong> {{ info_i("Zum Beispiel claude.ai.") }}
       <button type="button" class="tiny kopieren primary" data-kopieren="#text-kopie">Kopieren</button>
     </figcaption>
     <p class="hint">Lies kurz drüber, ob wirklich nichts durchgerutscht ist.</p>
@@ -205,7 +203,7 @@
   </figure>
   <form method="post" action="/chat/{{ g.key }}/antwort" class="form" id="antwort">
     <input type="hidden" name="token" value="{{ token }}">
-    <label class="field">Antwort der KI hier einfügen, ich setze die echten Namen wieder ein
+    <label class="field"><span>Antwort der KI hier einfügen {{ info_i("Ich setze die echten Namen wieder ein, nur hier auf deinem Computer.") }}</span>
       <textarea name="antwort" rows="6" placeholder="Hier einfügen …"></textarea>
     </label>
     <div class="row">
@@ -230,14 +228,14 @@
       <textarea name="frage" rows="3" maxlength="4000" placeholder="z. B. Muss ich da widersprechen? Was passiert, wenn ich nicht zahle?" data-frage>{{ g.entwurf }}</textarea>
     </label>
     {% if g.pending %}
-    <p class="geht-raus">Mit dieser Frage gehen <strong>{{ g.pending | length }} {{ "Dokument" if g.pending | length == 1 else "Dokumente" }}</strong> an {{ ki }}, genau so geschwärzt wie oben unter „Das sieht {{ ki }}“.</p>
+    <p class="geht-raus">Mit dieser Frage gehen <strong>{{ g.pending | length }} {{ "Dokument" if g.pending | length == 1 else "Dokumente" }}</strong> an {{ ki }}, geschwärzt wie oben.</p>
     {% endif %}
     <div class="row">
       {% if ai_ready %}<button class="primary" name="action" value="senden">An {{ ki }} schicken</button>{% endif %}
       <button class="{{ 'quiet' if ai_ready else 'primary' }}" name="action" value="kopieren">{{ "Lieber selbst kopieren" if ai_ready else "Schwärzen zum Kopieren" }}</button>
       <span class="muted dz-tipp"><kbd data-taste-cmd>⌘</kbd><kbd>↩</kbd> schickt ab</span>
     </div>
-    <p class="hint">Auch deine Frage schwärze ich, bevor sie rausgeht. Du siehst danach unter „So ging es raus“, was {{ ki }} bekommen hat. {{ ki }} ersetzt keine Rechts- oder Steuerberatung.{% if not ai_ready %} <a href="/settings#ki">KI verbinden</a>, dann geht es mit einem Klick.{% endif %}</p>
+    <p class="hint">Auch deine Frage schwärze ich vorher. {{ info_i("Du siehst danach unter „So ging es raus“, was " ~ ki ~ " bekommen hat. " ~ ki ~ " ersetzt keine Rechts- oder Steuerberatung.") }}{% if not ai_ready %} <a href="/settings#ki">KI verbinden</a>, dann geht es mit einem Klick.{% endif %}</p>
   </form>
 </section>
 {% endif %}

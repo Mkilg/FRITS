@@ -85,7 +85,7 @@ def test_home_says_plainly_when_no_ai_is_connected(ws, nlp, monkeypatch):  # noq
     with TestClient(app) as c:
         shutil.copy(FIXTURES / "docs" / "01_notiz_meier.txt", ws.inbox)
         page = c.get("/").text
-    assert "Die KI ist noch nicht verbunden" in page
+    assert "Noch keine KI verbunden" in page
     assert "KI verbinden" in page and "Rechnung von Hand schreiben" in page
     assert "Jetzt lesen lassen" not in page  # no button that leads nowhere
     assert 'name="lesen"' not in page

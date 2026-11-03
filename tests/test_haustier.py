@@ -389,7 +389,8 @@ def test_pages_and_a_whole_round(client, ws):  # noqa: F811
     # Lena (phone): ten screens of shop. Shelves fold; without the quest only the market is open.
     assert '<details class="card laden-fach" id="markt" open>' in laden
     assert '<details class="card laden-fach" id="regal">' in laden
-    assert "Beim letzten Kassensturz" in laden  # what a spice would have brought
+    assert "beim letzten Mal" in laden  # what a spice would have brought
+    assert '<span class="formel">' in laden and 'class="info-i"' in laden
     g = min(markt(conn, TODAY), key=lambda g: g.preis)
     assert g.id != "pfeffer"  # what is on the shelf is not offered again
     page = post(client, "/fritte/gewuerz/kaufen", gewuerz=g.id)
@@ -1071,3 +1072,10 @@ def test_serie_counts_kept_vorsaetze_in_a_row():
     assert serie(tage, mi, "taeglich") == 5
     assert serie_text(1, "taeglich") == "1 Tag in Folge"
     assert serie_text(3) == "3 Wochen in Folge"
+
+
+def test_flamme_steht_bei_fritte(client, ws):  # noqa: F811
+    """Marie 3.11.: „Irgendwo bei Fritte sollte ein Streak-Symbol gezeigt werden.“"""
+    for seite in (client.get("/").text, client.get("/fritte").text):
+        assert 'class="serie' in seite and "Deine Serie beginnt" in seite
+        assert "Dein Vorsatz: Einmal pro Woche." in seite

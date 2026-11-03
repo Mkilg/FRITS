@@ -2466,6 +2466,26 @@ def test_runde_31_regal_fuer_die_insel_in_frittes_laden(client, ws):
     assert 'href="/fritte/laden#insel"' in client.get("/steuer/2025").text
 
 
+def test_laden_zeigt_wirkungen_als_kleine_formel(client, ws):
+    """Marie (3.11.): „Salzstreuer ×2 für Fragen“ statt eines Satzes; der Satz steht hinter
+    dem Info-i. Die Zahlen folgen den Konstanten."""
+    assert spiel.ware("brieftaube").kurz == "{salz}×2 für Fragen"
+    assert spiel.ware("goldwaage").kurz == "{salz}×2 für Schätze"
+    assert spiel.ware("sanduhr").kurz == "Tagesziel {salz}×3"
+    assert spiel.ware("brieftaube").haken_kurz == "„Gibt's nicht“ {salz}×0"
+    assert all(w.kurz and w.haken_kurz for w in spiel.MARKT if w.art == "helfer")
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    quest.verdiene(conn, 2025, "test", 20, "Testgold")
+    for seite in (client.get("/fritte/laden").text, client.get("/steuer/2025/markt").text):
+        karte = seite.split(">Brieftaube ")[1].split("</form>")[0]
+        info, rest = karte.split('<span class="info-i-text" role="note">')[1].split("</span>", 1)
+        # der ganze Satz steht nur noch hinter dem Info-i, sichtbar ist die Formel
+        assert "Fragen an die Beraterin bringen 2 Salzkörner statt 1." in info
+        assert "Fragen an die Beraterin" not in rest
+        assert "×2 für Fragen" in rest and "salz-zeichen" in rest.split("×2 für Fragen")[0]
+
+
 def test_runde_20_ein_tagesziel_mit_fritte(client, ws, monkeypatch):
     # Ein Ziel unter einem Namen: Mit Fritte zeigt das Tagwerk Frittes gemeinsame Zählung.
     # frits.spiel.tagesziel kommt aus dem Fritte-Thread; bis dahin hier ein Stellvertreter.

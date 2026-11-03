@@ -15,23 +15,22 @@
   <div>
     {% set alte = karten | rejectattr("art", "equalto", "start") | list | length %}
     {% if alte %}
-    <p><strong>Willkommen bei Fritte!</strong> Dein Papierkram liegt schon als {{ alte }} {{ "Karte" if alte == 1 else "Karten" }} auf dem Tisch, dazu die Karte „Fritte zieht ein“. Fritte hat dir ein Glas Pfeffer ins Regal gestellt. Schau, was Würze daraus macht.{% if geschenk %} Für ältere Vorgänge, die nicht mehr auf den Tisch passen, gab es schon {{ geschenk }} Salzkörner als Willkommensgeschenk.{% endif %}</p>
+    <p><strong>Willkommen bei Fritte!</strong> Dein Papierkram liegt schon als {{ alte }} {{ "Karte" if alte == 1 else "Karten" }} auf dem Tisch, dazu ein Glas Pfeffer im Regal.{% if geschenk %} {{ info_i("Für ältere Vorgänge, die nicht mehr auf den Tisch passen, gab es schon " ~ geschenk ~ " Salzkörner als Willkommensgeschenk.") }}{% endif %}</p>
     {% else %}
-    <p><strong>Willkommen bei Fritte!</strong> Fritte ist gerade eingezogen und hat dir ein Glas Pfeffer mitgebracht. Er wirkt, sobald drei verschiedene Kartenarten auf dem Tisch liegen. Jede erledigte Rechnung, Ausgabe oder Zahlung wird zu einer Karte.</p>
+    <p><strong>Willkommen bei Fritte!</strong> Sie hat dir ein Glas Pfeffer mitgebracht. {{ info_i("Er wirkt, sobald drei verschiedene Kartenarten auf dem Tisch liegen. Jede erledigte Rechnung, Ausgabe oder Zahlung wird zu einer Karte.") }}</p>
     {% endif %}
     {% if stil_fragen %}
     <div class="stil-frage">
-      <p><strong>Wie soll Fritte feiern?</strong> Das kannst du jederzeit in den Einstellungen ändern.</p>
+      <p><strong>Wie soll Fritte feiern?</strong> {{ info_i("Das kannst du jederzeit in den Einstellungen ändern.") }}</p>
       <form method="post" action="/fritte/stil" class="stil-wahl">
         <input type="hidden" name="token" value="{{ token }}">
-        <button name="stil" value="verspielt">{{ zeichen("verspielt", "🎉") }} Verspielt mit Klang<small>Karte für Karte, Gläser wackeln, kleine Töne</small></button>
-        <button name="stil" value="ruhig">{{ zeichen("ruhig", "🌿") }} Ruhig und leise<small>Nur das Ergebnis und ein Stempel</small></button>
+        <button name="stil" value="verspielt">{{ zeichen("verspielt", "🎉") }} Verspielt mit Klang<small>Karte für Karte, mit Tönen</small></button>
+        <button name="stil" value="ruhig">{{ zeichen("ruhig", "🌿") }} Ruhig und leise<small>Ergebnis und Stempel</small></button>
       </form>
     </div>
     {% else %}
     <p class="hint">{% set bunt = settings.effects == "verspielt" %}Fritte feiert {{ ("verspielt mit Klang" if settings.sound else "verspielt, aber ohne Klang") if bunt else ("ruhig, aber mit Klang" if settings.sound else "ruhig und leise") }}. Ändern kannst du das in den <a href="/settings">Einstellungen</a>.</p>
     {% endif %}
-    <p class="hint">Unten wartet dein erster <a href="#kassensturz">Kassensturz</a>.</p>
   </div>
 </section>
 {% endif %}
@@ -41,6 +40,7 @@
     <p class="speech">{{ f.satz }}</p>
     <div class="haus-zahlen">
       <p class="salz">{{ salz }} <strong data-zaehlen>{{ f.guthaben }}</strong> {{ "Salzkorn" if f.guthaben == 1 else "Salzkörner" }}{% if f.bereit %} <a class="hint" href="#kassensturz">(+{{ f.bereit }} warten)</a>{% endif %}{% if truhen_zu %} <a class="truhe-wartet" href="#truhen">{{ zeichen("truhe", "🎁") }} {{ "1 Truhe wartet" if truhen_zu | length == 1 else truhen_zu | length ~ " Truhen warten" }}</a>{% endif %}</p>
+      <p>{% include "_serie.html" %}</p>
     </div>
   </div>
 </section>
@@ -49,10 +49,9 @@
   <h2>Kassensturz</h2>
   {% set zaehlbar = karten | rejectattr("art", "equalto", "korrektur") | list %}
   {% if karten and not zaehlbar %}
-  <p>Gerade wartet nur eine Korrektur. Sie bringt keine Körner und wird beim nächsten Kassensturz still mitgebucht.</p>
-  <p class="hint">Gelöschte oder stornierte Vorgänge fallen heraus. Ein Fehler mit Korrektur bringt nie mehr als gleich richtig.</p>
+  <p>Gerade wartet nur eine Korrektur, ohne Körner. {{ info_i("Sie wird beim nächsten Kassensturz still mitgebucht. Gelöschte oder stornierte Vorgänge fallen heraus. Ein Fehler mit Korrektur bringt nie mehr als gleich richtig.") }}</p>
   {% elif karten %}
-  <p>{{ zaehlbar | length }} {{ "Karte wartet" if zaehlbar | length == 1 else "Karten warten" }}. Jede bringt Körner, die Gewürze im Regal machen mehr daraus.</p>
+  <p>{{ zaehlbar | length }} {{ "Karte wartet" if zaehlbar | length == 1 else "Karten warten" }}. {{ info_i("Jede bringt Körner, die Gewürze im Regal machen mehr daraus.") }}</p>
   <div class="kartenreihe">
     {% for k in karten[:12] %}{{ spiel.karte(k.als_dict(), loop.index0, pro_karte[loop.index0]) }}{% endfor %}
     {% if karten | length > 12 %}<span class="hint">und {{ karten | length - 12 }} weitere</span>{% endif %}
@@ -68,14 +67,14 @@
     <input type="hidden" name="token" value="{{ token }}">
     {% if gerichte %}
     <fieldset class="tagesgericht">
-      <legend>Was kocht Fritte heute dazu? <span class="hint">Ein Gericht für diesen Kassensturz. Morgen gibt es andere.</span></legend>
+      <legend>Was kocht Fritte heute dazu? {{ info_i("Ein Gericht für diesen Kassensturz. Morgen gibt es andere.") }}</legend>
       <div class="gerichte">
         {% for g in gerichte %}
         <label class="gericht">
           <input type="radio" name="rezept" value="{{ g.id }}" required{{ " checked" if g.id == gericht_vorwahl }} oninvalid="this.setCustomValidity('Wähl erst ein Gericht, dann kocht Fritte.')" onchange="this.form.querySelectorAll('[name=rezept]').forEach(function (r) { r.setCustomValidity(''); })">
           <span class="gericht-zeichen" aria-hidden="true">{# the preserving jar only for Einkochen: three equal jars said nothing #}{% if g.id == "einkochen" or picture('gewuerz-' ~ g.id) %}{{ spiel.bild_zeichen('gewuerz', g.id, g.zeichen) }}{% else %}{{ g.zeichen }}{% endif %}</span>
           <strong>{{ "Einkochen" if g.id == "einkochen" else g.name }}</strong>
-          <span class="gericht-text">{{ g.text }}</span>
+          <span class="gericht-text" title="{{ g.text }}">{{ spiel.formel(g.kurz or g.text) }}</span>
           <span class="gericht-summe">{% if g.id == "einkochen" %}Heute <strong>{{ gericht_summe[g.id] }}</strong>, nächstes Mal mehr{% else %}Ergibt <strong>{{ gericht_summe[g.id] }}</strong> {{ "Salzkorn" if gericht_summe[g.id] == 1 else "Salzkörner" }}{% endif %}</span>
         </label>
         {% endfor %}
@@ -84,11 +83,9 @@
     {% endif %}
     <button class="primary gross">{{ "Ersten Kassensturz machen" if willkommen else "Kassensturz machen" }}</button>
   </form>
-  {% if not willkommen %}
-  <p class="hint">Du kannst auch sammeln, Fritte rechnet alles gern auf einmal.</p>
-  {% endif %}
+
   {% else %}
-  <p>Gerade wartet keine Karte. Jede erledigte Rechnung, Gutschrift, Zahlung, Ausgabe, jedes Angebot, jeder Feierabend und jeder abgehakte Punkt auf deiner Liste (drei am Tag) wird zu einer Karte. Beim Kassensturz rechnet Fritte sie zusammen.</p>
+  <p>Gerade wartet keine Karte. {{ info_i("Jede erledigte Rechnung, Gutschrift, Zahlung, Ausgabe, jedes Angebot, jeder Feierabend und jeder abgehakte Punkt auf deiner Liste (drei am Tag) wird zu einer Karte. Beim Kassensturz rechnet Fritte sie zusammen. Sammeln geht auch, Fritte rechnet alles gern auf einmal.") }}</p>
   {% endif %}
 </section>
 
@@ -115,9 +112,9 @@
         {% endif %}
       </div>
       {% else %}
-      <p>{% if willkommen %}Beim ersten Kassensturz schenkt dir Fritte eine Truhe. Danach füllt jede neue Karte echter Papierkram die nächste ein Stück.{% else %}Gerade ist keine Truhe zu. Jede neue Karte echter Papierkram füllt die nächste ein Stück.{% endif %}</p>
+      <p>{% if willkommen %}Beim ersten Kassensturz schenkt dir Fritte eine Truhe.{% else %}Gerade ist keine Truhe zu.{% endif %}</p>
       {% endif %}
-      <p class="truhe-zeile"><span class="truhe-fuellung" role="img" aria-label="Nächste Truhe: {{ fuellung }} von {{ pro_truhe }} Karten">{% for i in range(pro_truhe) %}<i class="{{ 'voll' if i < fuellung }}"></i>{% endfor %}</span> Nächste Truhe: <strong>{{ fuellung }} von {{ pro_truhe }}</strong> Karten echter Papierkram</p>
+      <p class="truhe-zeile"><span class="truhe-fuellung" role="img" aria-label="Nächste Truhe: {{ fuellung }} von {{ pro_truhe }} Karten">{% for i in range(pro_truhe) %}<i class="{{ 'voll' if i < fuellung }}"></i>{% endfor %}</span> Nächste Truhe: <strong>{{ fuellung }} von {{ pro_truhe }}</strong> {{ info_i("Jede neue Karte echter Papierkram füllt die nächste Truhe ein Stück.") }}</p>
     </div>
   </div>
   {% if truhen_auf %}
@@ -126,9 +123,9 @@
     {% for t in truhen_auf %}<a class="fund-chip selten-{{ t.inhalt.seltenheit | replace('ö', 'oe') | replace('ä', 'ae') }}" href="/fritte/truhe/{{ t.id }}" title="{{ seltenheit_name(t.inhalt.seltenheit) }}: {{ t.inhalt.name }}"><span aria-hidden="true">{{ spiel.bild_zeichen(t.inhalt.art, t.inhalt.id, t.inhalt.zeichen) }}</span> {{ t.inhalt.name }}</a>{% endfor %}
   </div>
   {% endif %}
-  <p class="schaetze-zeile hint">Schätze, die es nur in Truhen gibt: <strong>{{ schaetze | selectattr(1) | list | length }} von {{ schaetze | length }}</strong> gefunden. <a href="/sammlung#schaetze">In der Sammlung ansehen</a></p>
+  <p class="schaetze-zeile hint"><a href="/sammlung#schaetze">Schätze</a>: <strong>{{ schaetze | selectattr(1) | list | length }} von {{ schaetze | length }}</strong> gefunden</p>
   <details class="truhen-regeln">
-    <summary>Was in einer Truhe steckt und wie fair das ist</summary>
+    <summary>Was drin steckt, wie fair das ist</summary>
     <p><strong>So kommt eine Truhe:</strong> Jede Rechnung, Gutschrift, Zahlung, Ausgabe, jedes angenommene Angebot, jede Erinnerung und jede gesammelte Steuer-Unterlage kommt beim Kassensturz in die Truhe. Fünf davon füllen sie. Ungefähr jede achte dieser Karten ist eine goldene <strong>Glückskarte</strong> und bringt gleich eine eigene Truhe mit. Abgehakte Punkte, Gelerntes, Feierabende und Korrekturen zählen hier nicht.</p>
     <p><strong>Die Chancen</strong> für das, was drin ist: {% for name, p in chancen.prozent %}{{ p }} % {{ name }}{{ ", " if not loop.last }}{% endfor %}. Spätestens jede 4. Truhe ist mindestens selten, spätestens jede 12. legendär.
       {% if chancen.geoeffnet %}Bei dir: die nächste seltene spätestens in {{ chancen.selten_in }} {{ "Truhe" if chancen.selten_in == 1 else "Truhen" }}, die nächste legendäre spätestens in {{ chancen.legendaer_in }}.{% endif %}</p>
@@ -146,7 +143,7 @@
   {% if saison.geschafft %}
   <p>{{ zeichen("pokal", "🏆") }} <strong>Saisonziel geschafft!</strong> Der Pokal steht in Frittes Zimmer.</p>
   {% else %}
-  <p><strong>{{ saison.erreicht }} von {{ saison.ziel }} Wochen</strong> mit Papierkram. Geschafft gibt es einen Pokal und {{ saison.bonus }} Salzkörner. Pausen sind eingeplant: Es braucht nur {{ saison.ziel }} der {{ saison.wochen }} Wochen.</p>
+  <p><strong>{{ saison.erreicht }} von {{ saison.ziel }} Wochen</strong> mit Papierkram. {{ info_i("Geschafft gibt es einen Pokal und " ~ saison.bonus ~ " Salzkörner. Pausen sind eingeplant: Es braucht nur " ~ saison.ziel ~ " der " ~ saison.wochen ~ " Wochen.") }}</p>
   {% endif %}
   <p class="saison-thema">{{ saison.thema_text }}</p>
   {% if fest_moeglich %}
@@ -175,7 +172,7 @@
     {% endfor %}
   </ol>
   {% if f.bau %}
-  <p>{{ zeichen("baustelle", "🚧") }} <strong>{{ f.bau }}</strong> wird gerade gebaut. Beim nächsten Kassensturz ist der Ausbau fertig.</p>
+  <p>{{ zeichen("baustelle", "🚧") }} <strong>{{ f.bau }}</strong> wird gebaut, fertig beim nächsten Kassensturz.</p>
   {% elif naechste %}
   {% set kosten = bau_preis(naechste) %}
   <p><strong>Nächster Ausbau: {{ naechste.name }}.</strong> {{ stufen_text(naechste) }}</p>
@@ -189,7 +186,7 @@
   <p>Die Frittenbude {{ hier }} ist fertig. Wer hätte das gedacht!</p>
   {% set ansicht = picture("aussicht-" ~ AUSSICHT.get(naechster_ort.nummer, "")) %}
   {% if ansicht %}<img class="aussicht-karte" src="{{ ansicht }}" alt="Der Blick {{ dort }}" width="480" height="320">{% endif %}
-  <p><strong>Nächstes Ziel: eine neue Bude {{ dort }}.</strong> {{ naechster_ort.text }} Fritte nimmt ihre Sachen, ihr Gewürzregal und ihren guten Ruf mit: Jeder Kassensturz bekommt für immer +0,5 Würze. Das Haus fängt dort wieder als Zimmer an, und Bauen kostet etwas mehr.</p>
+  <p><strong>Nächstes Ziel: eine neue Bude {{ dort }}.</strong> {{ naechster_ort.text }} {{ info_i("Fritte nimmt ihre Sachen, ihr Gewürzregal und ihren guten Ruf mit: Jeder Kassensturz bekommt für immer +0,5 Würze. Das Haus fängt dort wieder als Zimmer an, und Bauen kostet etwas mehr.") }}</p>
   <form method="post" action="/fritte/umziehen" data-confirm="Für {{ umzug_preis }} Salzkörner eine neue Bude {{ dort }} eröffnen?">
     <input type="hidden" name="token" value="{{ token }}">
     <button {{ "disabled" if f.guthaben < umzug_preis }}>Neue Bude für {{ umzug_preis }} {{ salz }}</button>
@@ -212,7 +209,7 @@
 <section class="card" id="kassenbuch">
   <details>
     <summary><h2>Frittes Kassenbuch</h2></summary>
-    <p class="hint">Jedes Salzkorn, das reinkommt oder rausgeht, steht hier in einer Zeile. Jeden Kassensturz kannst du noch einmal ansehen. Auch die Steuer-Quest zahlt in dieses Glas ein und kauft davon ihre Helfer: Es gibt in FRITS nur eine Währung.</p>
+    <p class="hint">Jedes Salzkorn in einer Zeile. {{ info_i("Jeden Kassensturz kannst du noch einmal ansehen. Auch die Steuer-Quest zahlt in dieses Glas ein und kauft davon ihre Helfer: Es gibt in FRITS nur eine Währung.") }}</p>
     <table class="kassenbuch">
       <thead><tr><th>Tag</th><th>Was</th><th class="amount">Salzkörner</th></tr></thead>
       <tbody>
@@ -239,7 +236,7 @@
     <h3>Saisons</h3>
     <p>Jedes Vierteljahr hat ein Thema: Eine Kartenart bringt dann doppelt so viele Körner. Der Saison-Streifen zeigt den Wochenrhythmus, ein Punkt pro Woche: Das Ziel ist Papierkram in etwa sieben von zehn Wochen, in dieser Saison {{ saison.ziel }} von {{ saison.wochen }}. Gezählt wird, wann FRITS neue Arbeit bemerkt hat, nicht wie viele Salzkörner es waren. Wer das Ziel erreicht, bekommt Salzkörner extra und einen Pokal. Wer es nicht erreicht, verliert nichts.</p>
     <p class="hint">Gelöschte oder stornierte Vorgänge fallen heraus. Wird eine schon gezählte Rechnung, Gutschrift oder Ausgabe storniert oder gestrichen, ist die nächste passende Karte eine Korrektur ohne Körner, egal in welcher Reihenfolge. Belohnt wird nur, was gute Buchhaltung ausmacht: Belege bald nach dem Eingang eintragen, Rechnungen bald nach der Notiz schreiben, freundlich nachhaken, regelmäßig dranbleiben. Fritte schaut dabei nur auf Daten, die FRITS selbst festhält. Das Datum auf einem Beleg oder einer Rechnung muss einfach stimmen, ein anderes Datum bringt nie mehr.</p>
+    <p class="hint">Fritte ausblenden kannst du in den <a href="/settings">Einstellungen</a>.</p>
   </details>
 </section>
-<p class="hint">Fritte ausblenden kannst du in den <a href="/settings">Einstellungen</a>.</p>
 {% endblock %}

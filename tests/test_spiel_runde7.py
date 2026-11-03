@@ -116,7 +116,7 @@ def test_fritte_page_shows_dishes_and_what_each_jar_does(client, ws):  # noqa: F
     assert "Wie soll Fritte feiern?" not in client.get("/fritte").text
     show = post(client, "/fritte/kassensturz").text
     assert "Pfeffer" in show and 'class="glas-wirkung"' in show
-    assert "kocht Fritte jedes Mal ein Gericht dazu" in show
+    assert "kocht Fritte ein Gericht dazu" in show
 
     add_invoice(conn, "2026-0002", TODAY)
     page = client.get("/fritte").text

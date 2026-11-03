@@ -158,6 +158,14 @@ class Fritte:
     def laune_name(self) -> str:
         return LAUNE_NAME[self.laune]
 
+    @property
+    def serie_satz(self) -> str:
+        return serie_text(self.serie, self.vorsatz)
+
+    @property
+    def vorsatz_name(self) -> str:
+        return VORSATZ.get(self.vorsatz, VORSATZ[VORSATZ_STANDARD])[0]
+
 
 def _periode(tag: date, laenge: int) -> int:
     """Number of the day (laenge 1) or of the week / fortnight starting on a Monday."""

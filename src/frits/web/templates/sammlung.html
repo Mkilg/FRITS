@@ -17,9 +17,8 @@
 <div class="spiel-kopf">
   <h1>Sammlung</h1>
   {% if f %}{% include "_spiel_reiter.html" %}{% endif %}
-  <p class="salz kopf-salz">{{ hat }} von {{ platz }} gesammelt</p>
+  <p class="salz kopf-salz">{{ hat }} von {{ platz }} gesammelt {{ info_i("Alles, was du dir mit echtem Papierkram verdient hast, steht hier in einer Vitrine. Einmal da, bleibt es für immer.") }}</p>
 </div>
-<p class="hint">Alles, was du dir mit echtem Papierkram verdient hast, steht hier in einer Vitrine. Einmal da, bleibt es für immer.</p>
 {% if zuletzt %}
 <section class="card vitrine-oben" aria-labelledby="zuletzt-titel">
   <h2 id="zuletzt-titel">Zuletzt verdient</h2>
@@ -30,8 +29,7 @@
 {% endif %}
 {% for fach in faecher %}
 <section class="card sammlung-fach" id="{{ fach.id }}">
-  <h2>{{ fach.titel }}{% if fach.id != "saisons" %} <span class="hint">{{ fach.da | length }} von {{ fach.kacheln | length }}</span>{% endif %}</h2>
-  <p class="hint">{{ fach.text }}</p>
+  <h2>{{ fach.titel }}{% if fach.text %} {{ info_i(fach.text) }}{% endif %}{% if fach.id != "saisons" %} <span class="hint">{{ fach.da | length }} von {{ fach.kacheln | length }}</span>{% endif %}</h2>
   {% if fach.da %}<ul class="vitrine">{% for k in fach.da %}{{ stueck(k) }}{% endfor %}</ul>{% endif %}
   {% if fach.als_naechstes %}
   <h3 class="vitrine-naechstes">{{ "Als Nächstes" if fach.da else "Die ersten Plätze" }}</h3>
@@ -45,6 +43,6 @@
   {% endif %}
 </section>
 {% else %}
-<section class="card"><p>Noch ist die Vitrine leer. Mit Fritte oder der Steuer-Quest füllt sie sich ganz von allein.</p></section>
+<section class="card"><p>Noch ist die Vitrine leer. {{ info_i("Mit Fritte oder der Steuer-Quest füllt sie sich ganz von allein.") }}</p></section>
 {% endfor %}
 {% endblock %}

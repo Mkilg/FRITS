@@ -80,7 +80,7 @@ def test_fritte_page_is_calmer_at_the_start(client, ws):  # noqa: F811
     assert "Büro-Wochen" not in page  # the season strip says it once
     assert 'class="saison-streifen"' in page
     assert 'id="haus"' not in page  # house stages come after the third Kassensturz
-    assert "Seltene Gewürze gibt es erst" not in client.get("/fritte/laden").text
+    assert "Seltene Gewürze gibt es ab" not in client.get("/fritte/laden").text
     assert "Frittes Kassenbuch" in page and "Chronik" not in page
     assert 'href="/fritte/kassensturz/1"' in page
     assert "Kassenbuch" not in client.get("/fritte/laden").text

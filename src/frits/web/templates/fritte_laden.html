@@ -20,14 +20,16 @@
 {% endif %}
 
 <details class="card laden-fach" id="regal"{{ " open" if offen == "regal" }}>
-  <summary><h2>Gewürzregal <span class="hint">{{ regal | length }} von {{ plaetze }} Plätzen · Drache: erster Beleg ×{{ drachen_serie.jetzt }}</span></h2></summary>
-  <p class="hint">Die Würze wirkt von links nach rechts. Ein „×“-Gewürz ganz rechts multipliziert alles davor.</p>
-  <p class="drachen-bruecke"><span class="warm-zeichen" aria-hidden="true">🐉</span> Im Drachenkampf der Steuer-Quest wärmen die Gewürze im Regal die Serie vor (höchstens {{ drachen_serie.max }}). Mit deinem Regal zählt der erste Beleg <strong>×{{ drachen_serie.jetzt }}</strong>{% if drachen_serie.jetzt != drachen_serie.ohne %}, ohne Gewürze ×{{ drachen_serie.ohne }}{% endif %}.</p>
+  <summary><h2>Gewürzregal <span class="hint">{{ regal | length }} von {{ plaetze }} Plätzen</span></h2></summary>
+  {# Marie (3.11.): one line each, the why behind the "i" #}
+  {# a <div>, not a <p>: the info-i is a <details>, which would end a <p> early #}
+  <div class="drachen-bruecke"><span class="warm-zeichen" aria-hidden="true">🐉</span> Drache: erster Beleg <strong>×{{ drachen_serie.jetzt }}</strong>{% if drachen_serie.jetzt != drachen_serie.ohne %} <span class="hint">(ohne Gewürze ×{{ drachen_serie.ohne }})</span>{% endif %} {{ info_i("Im Drachenkampf der Steuer-Quest wärmen die Gewürze im Regal die Serie vor. Jedes Gewürz zählt, höchstens " ~ drachen_serie.max ~ ".") }}</div>
+  <div class="hint">Wirkt von links nach rechts. {{ info_i("Ein „×“-Gewürz ganz rechts multipliziert alles davor. Mit „◀ links“ stellst du die Gläser um.") }}</div>
   <div class="regalbrett">
     {% for g in regal %}
     <div class="regal-platz">
       {{ spiel.glas(g) }}
-      <p class="glas-text">{{ g.text }}</p>
+      <div class="glas-text">{{ spiel.formel(g.kurz or g.text) }} {{ info_i(g.text) }}</div>
       <div class="row klein">
         {% if not loop.first %}
         <form method="post" action="/fritte/gewuerz/links">
@@ -47,8 +49,8 @@
 </details>
 
 <details class="card laden-fach" id="markt"{{ " open" if offen == "markt" }}>
-  <summary><h2>Markttag <span class="hint">{{ markt | length }} {{ "Gewürz" if markt | length == 1 else "Gewürze" }} · neue Ware jeden Montag</span></h2></summary>
-  {% if haus_sichtbar and stufe.nummer < 3 and not ruf %}<p class="hint">{{ "Seltene" if stufe.nummer < 2 else "Legendäre" }} Gewürze gibt es erst, wenn Frittes Haus weiter ausgebaut ist ({{ "Stube" if stufe.nummer < 2 else "Werkstatt" }}).</p>{% endif %}
+  <summary><h2>Markttag <span class="hint">{{ markt | length }} {{ "Gewürz" if markt | length == 1 else "Gewürze" }} · neu am Montag</span></h2></summary>
+  {% if haus_sichtbar and stufe.nummer < 3 and not ruf %}<div class="hint">{{ "Seltene" if stufe.nummer < 2 else "Legendäre" }} Gewürze gibt es ab der {{ "Stube" if stufe.nummer < 2 else "Werkstatt" }}. {{ info_i("Frittes Haus wächst mit deinen Kassenstürzen. Mit jeder Ausbaustufe kommen seltenere Gewürze auf den Markt.") }}</div>{% endif %}
   <div class="markt">
     {% for g in markt %}
     {% set kosten = preis(g) %}
@@ -56,10 +58,11 @@
     <div class="ware gewuerz-ware selten-{{ g.seltenheit | replace('ö', 'oe') | replace('ä', 'ae') }}">
       {{ spiel.glas(g) }}
       <span class="seltenheit">{{ g.seltenheit }}</span>
-      <span class="hint">{{ g.text }}</span>
-      {% if g.id not in im_regal and regal | length < drachen_serie.max and drachen_serie.naechster > drachen_serie.jetzt %}<span class="drachen-plus"><span class="warm-zeichen" aria-hidden="true">🐉</span> Drachenkampf: erster Beleg ×{{ drachen_serie.naechster }} statt ×{{ drachen_serie.jetzt }}</span>{% endif %}
+      <span class="glas-text">{{ spiel.formel(g.kurz or g.text) }} {{ info_i(g.text) }}</span>
+      {% if g.id not in im_regal and regal | length < drachen_serie.max and drachen_serie.naechster > drachen_serie.jetzt %}<span class="drachen-plus"><span class="warm-zeichen" aria-hidden="true">🐉</span> Drache ×{{ drachen_serie.naechster }} statt ×{{ drachen_serie.jetzt }}</span>{% endif %}
       {% if g.id not in im_regal and w[1] %}
-      <span class="wirkung{{ ' null' if not w[0] }}">{% if w[2] == "warten" %}{{ "Mit deiner wartenden Karte" if w[1] == 1 else "Mit deinen " ~ w[1] ~ " wartenden Karten" }}{% else %}Beim letzten Kassensturz{% endif %}: {% if w[0] %}<strong>+{{ w[0] }}</strong> {{ "Salzkorn" if w[0] == 1 else "Salzkörner" }}{% else %}kein Unterschied{% endif %}</span>
+      {# what it would bring: with the cards waiting now, or at the last Kassensturz #}
+      <span class="wirkung{{ ' null' if not w[0] }}">{% if w[0] %}<strong>{{ salz }}+{{ w[0] }}</strong>{% else %}kein Unterschied{% endif %} {{ ("mit deiner Karte" if w[1] == 1 else "mit deinen " ~ w[1] ~ " Karten") if w[2] == "warten" else "beim letzten Mal" }}</span>
       {% endif %}
       {% if g.id in im_regal %}
       <span class="badge ok">im Regal</span>
@@ -90,10 +93,10 @@
   <div class="laden">
     {% for d in laden %}
     {% set hat = d.id in f.gekauft %}
-    <div class="ware{{ ' gekauft' if hat }}">
+    {# Marie (3.11.): less text. The little story stays as a tooltip. #}
+    <div class="ware{{ ' gekauft' if hat }}" title="{{ d.text }}">
       <span class="muenze ware-muenze" aria-hidden="true">{% if picture('ding-' ~ d.id) %}<img src="{{ picture('ding-' ~ d.id) }}" alt="">{% else %}<span class="praegung">{{ d.zeichen }}</span>{% endif %}</span>
       <strong>{{ d.name }}</strong>
-      <span class="hint">{{ d.text }}</span>
       {% if hat %}
       <span class="badge ok">{{ "im Schrank" if d.art == "hut" else "im Zimmer" }}</span>
       {% elif f.guthaben >= d.preis %}

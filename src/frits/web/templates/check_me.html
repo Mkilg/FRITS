@@ -1,8 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Zum Prüfen · FRITS{% endblock %}
 {% block content %}
-<h1>Bitte einmal ansehen</h1>
-<p class="hint">Diese Dateien konnte ich nicht selbst einordnen. Bei jeder steht, ob die KI etwas davon gesehen hat. Schau sie kurz an und sag mir, was sie sind. Das dauert pro Datei ein paar Sekunden.</p>
+<h1>Bitte einmal ansehen {{ info_i("Diese Dateien konnte ich nicht selbst einordnen. Bei jeder steht, ob die KI etwas davon gesehen hat. Schau sie kurz an und sag mir, was sie sind.") }}</h1>
 {% if files %}
 {% for f in files %}
 <section class="card pruefen">
@@ -14,17 +13,17 @@
   <p><strong>Warum hier?</strong> {{ f.reason }}</p>
   {% endif %}
   {% if f.gesehen %}
-  <p class="hint">Die KI hat nur die geschwärzte Fassung gesehen, um einzuordnen, was es ist. Namen, Adressen und Nummern waren dabei Platzhalter.</p>
+  <p class="hint">Die KI sah nur die geschwärzte Fassung. {{ info_i("Nur um einzuordnen, was es ist. Namen, Adressen und Nummern waren dabei Platzhalter.") }}</p>
   <details class="gesehen"><summary>Das hat die KI gesehen</summary><pre class="redacted">{{ f.gesehen }}</pre></details>
   {% else %}
   <p class="hint">Davon ging nichts an die KI.</p>
   {% endif %}
   {% if "weder ein Auftrag noch ein Beleg" in f.reason %}
-  <p class="hint">Steuer-Unterlagen wie Briefe vom Finanzamt, Bescheide, Bescheinigungen oder deine Notizen dazu gehören in die <a href="/steuer">Steuer-Quest</a>: Öffne dort das passende Feld und zieh die Datei hinein. Willst du erst verstehen, was drinsteht, frag im Chat (unten der Knopf „Ein Brief“).</p>
+  <p class="hint">Steuer-Unterlagen gehören in die <a href="/steuer">Steuer-Quest</a>. {{ info_i("Briefe vom Finanzamt, Bescheide, Bescheinigungen oder deine Notizen dazu: Öffne in der Steuer-Quest das passende Feld und zieh die Datei hinein. Willst du erst verstehen, was drinsteht, frag im Chat (unten der Knopf „Ein Brief“).") }}</p>
   {% elif "Schwärzen" in f.reason %}
-  <p class="hint">Beim Schwärzen blieb etwas übrig, das wie ein Name oder eine Nummer aussah. Deshalb habe ich die Datei lieber gar nicht an die KI geschickt. Ist es ein Ticket oder eine Quittung, trägst du es einfach als Ausgabe ein: Das geht ganz ohne KI.</p>
+  <p class="hint">Ein Ticket oder eine Quittung trägst du einfach als Ausgabe ein, ganz ohne KI. {{ info_i("Beim Schwärzen blieb etwas übrig, das wie ein Name oder eine Nummer aussah. Deshalb habe ich die Datei lieber gar nicht an die KI geschickt.") }}</p>
   {% elif "Text" in f.reason or "lesen" in f.reason %}
-  <p class="hint">Ich konnte darin keinen Text lesen. Ist es ein Beleg, trag ihn als Ausgabe ein und tipp Betrag und Datum selbst ab. Ein schärferes Foto kannst du auch noch einmal hereingeben.</p>
+  <p class="hint">Ein Beleg? Dann tipp Betrag und Datum selbst ab. {{ info_i("Ich konnte darin keinen Text lesen. Ein schärferes Foto kannst du auch noch einmal hereingeben.") }}</p>
   {% endif %}
   <p><strong>Was ist es?</strong></p>
   <div class="row actions">
@@ -36,7 +35,6 @@
   </div>
 </section>
 {% endfor %}
-<p class="hint">Für einen Brief, den du verstehen willst, gibt es den <a href="/chat">Chat</a>. Dort siehst du auch genau, was geschwärzt wird.</p>
 {% else %}
 <p class="muted">Alles erledigt.</p>
 {% endif %}

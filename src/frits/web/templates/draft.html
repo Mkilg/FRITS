@@ -28,13 +28,12 @@
 <div class="review entwurf {{ 'single' if not (original or sent_text) }}">
   {% if original or sent_text %}
   <section class="card source">
-    <h2>Das Original</h2>
-    <p class="hint">Bleibt auf diesem Computer.</p>
+    <h2>Das Original {{ info_i("Bleibt auf diesem Computer.") }}</h2>
     <pre>{{ original or "Die Datei ist nicht mehr im Ordner „done“." }}</pre>
     {% if sent_text %}
     <details>
       <summary>Das hat die KI gesehen</summary>
-      <p class="hint">Genau dieser Text ging an die KI. Namen und Adressen sind Platzhalter.</p>
+      <p class="hint">Genau dieser Text ging an die KI, mit Platzhaltern statt Namen.</p>
       <pre class="redacted">{{ sent_text }}</pre>
     </details>
     {% endif %}
@@ -72,8 +71,8 @@
               {% if line.stated_price is not none and "stated_price_needs_ok" in line.flags and not draft.warnings %}
               <button type="button" class="tiny" data-fill="{{ line.stated_price | qty }}" title="Diesen Preis übernehmen">Im Text: {{ line.stated_price | eur }} übernehmen</button>
               {% endif %}
-              {% if line.stated_price is not none and draft.warnings %}<small class="note">Im Text steht {{ line.stated_price | eur }}, aber dieses Dokument versucht die KI zu steuern. Bitte selbst entscheiden.</small>{% endif %}
-              {% if "price_not_in_text" in line.flags %}<small class="note">Die KI nannte einen Preis, der nicht im Text steht. Ignoriert.</small>{% endif %}
+              {% if line.stated_price is not none and draft.warnings %}<small class="note">Im Text: {{ line.stated_price | eur }}. Bitte selbst entscheiden, das Dokument versucht die KI zu steuern.</small>{% endif %}
+              {% if "price_not_in_text" in line.flags %}<small class="note">Preis der KI stand nicht im Text, ignoriert.</small>{% endif %}
               {% if "quantity_unusual" in line.flags %}<small class="note">Ungewöhnliche Menge, bitte prüfen.</small>{% endif %}
             </td>
             {% if rate_column %}<td>{{ rate_select(line.vat_rate) }}</td>{% endif %}
@@ -106,26 +105,25 @@
         </tfoot>
       </table>
       </div>
-      {% if sums.note %}<p class="hint">Steht auf der Rechnung: „{{ sums.note }}“</p>{% endif %}
+      <p class="hint">{% if sums.note %}Auf der Rechnung: „{{ sums.note }}“ {% endif %}{{ info_i("Preise kommen aus der Kundennotiz oder deinen Einstellungen, nie von der KI. Du kannst jeden Wert ändern.", "Woher die Preise kommen") }}</p>
       {% if rate_column and editable %}<details class="hint"{% if sums.groups|length > 1 %} open{% endif %}><summary>Wann 7 %?</summary>USt „normal“ ist dein Satz aus den Einstellungen. 7 % gilt zum Beispiel, wenn du Nutzungsrechte an Texten, Beiträgen oder Fotos einräumst (§ 12 Abs. 2 Nr. 7c UStG). Fahrt- und Recherchekosten zu so einem Artikel bekommen meist denselben Satz wie der Artikel selbst, weil sie dazugehören. Bahntickets rechnest du netto weiter, also ohne die Umsatzsteuer, die auf dem Ticket steht. Im Zweifel frag deine Steuerberatung.</details>{% endif %}
       {% for w in draft_hints or [] %}<p class="hint warn-text">{{ w }}</p>{% endfor %}
       {% for w in limit_warnings or [] %}<p class="hint warn-text">{{ w }}</p>{% endfor %}
-      {% if editable and not is_quote and not period %}<p class="hint" data-gone-when="dates">Keine Position hat ein Datum. Dann steht auf der Rechnung „Leistungsdatum entspricht dem Rechnungsdatum“. Hast du früher gearbeitet, trag bitte bei den Positionen das Datum ein (Pflicht nach § 14 UStG).</p>{% endif %}
-      <p class="hint">Preise kommen aus der Kundennotiz oder deinen Einstellungen, nie von der KI. Du kannst jeden Wert ändern.</p>
+      {% if editable and not is_quote and not period %}<p class="hint" data-gone-when="dates">Ohne Datum gilt: „Leistungsdatum entspricht dem Rechnungsdatum“. {{ info_i("Hast du früher gearbeitet, trag bitte bei den Positionen das Datum ein (Pflicht nach § 14 UStG).") }}</p>{% endif %}
 
       {% if draft.questions %}
       <div class="questions" id="fragen">
         <h3>Fragen an dich</h3>
         <ul>{% for q in draft.questions %}<li>{{ q }}</li>{% endfor %}</ul>
         {% if editable and row.job_id and ai_on %}
-        <label class="field">Antworte einfach in deinen Worten
-          <textarea name="answers" rows="3" placeholder="z. B. Der KI-Report war Recherche und Text, fertig am 12.10. Ja, 3.000 € pauschal."></textarea>
+        <label class="field"><span>Antworte in deinen Worten {{ info_i("Deine Antworten schwärze ich wie die Notiz, bevor die KI sie sieht. Danach schlage ich die Positionen neu vor; Preise rechnet weiter FRITS.") }}</span>
+          <textarea name="answers" rows="3" placeholder="z. B. Fertig am 12.10., 3.000 € pauschal."></textarea>
         </label>
         <div class="row">
           <button name="action" value="answer" class="primary" data-busy="Ich lese die Notiz mit deinen Antworten noch einmal. Das dauert meist 10 bis 30 Sekunden.">Mit meinen Antworten neu vorschlagen</button>
           <label><input type="checkbox" name="questions_done"> Geklärt, Fragen ausblenden</label>
         </div>
-        <p class="hint">Deine Antworten schwärze ich wie die Notiz, bevor die KI sie sieht. Danach schlage ich die Positionen neu vor; Preise rechnet weiter FRITS.{% if "Kundenliste" in draft.questions | join(" ") %} Einen neuen Kunden legst du am besten oben bei „Kunde“ mit „Neuer Kunde“ an.{% endif %}</p>
+        {% if "Kundenliste" in draft.questions | join(" ") %}<p class="hint">Einen neuen Kunden legst du oben mit „Neuer Kunde“ an.</p>{% endif %}
         {% elif editable %}<label><input type="checkbox" name="questions_done"> Geklärt, Fragen ausblenden</label>{% endif %}
       </div>
       {% endif %}

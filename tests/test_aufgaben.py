@@ -173,7 +173,7 @@ def test_without_ai_or_with_a_strange_answer_the_sentence_stays_one_point(client
 def test_at_most_twenty_open_points(client):
     post(client, "/aufgaben", text="\n".join(f"Punkt {i}" for i in range(1, 19)))
     page = post(client, "/aufgaben", text="A\nB\nC\nD")
-    assert "2 von 4 Punkten stehen jetzt auf der Liste" in page.text
+    assert "2 von 4 Punkten stehen auf der Liste" in page.text
     assert ">C\nD</textarea>" in page.text  # the rest waits in the field
     page = post(client, "/aufgaben", text="E")
     assert "Mehr als 20 offene Punkte" in page.text and ">E</textarea>" in page.text
