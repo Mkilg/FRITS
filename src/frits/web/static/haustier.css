@@ -123,9 +123,9 @@
 .fritte-ecke .ecke-zimmer { display: block; text-decoration: none; }
 .fritte-ecke .ecke-zimmer:hover .zimmer, .fritte-ecke .ecke-zimmer:focus-visible .zimmer { outline: 2px solid var(--ocker); outline-offset: 2px; }
 .fritte-ecke p { margin: 0.2rem 0 0.6rem; }
-.salz { font-size: 1.05rem; }
-.salz strong { font-family: var(--schrift); font-size: 1.3rem; color: var(--eiche-tief); }
-.salz .plus { margin-left: .4rem; padding: .1rem .5rem; border-radius: 999px; font-size: .85rem;
+.salz { font-size: var(--fs-text); }
+.salz strong { font-family: var(--schrift); font-size: var(--fs-gross); color: var(--eiche-tief); }
+.salz .plus { margin-left: .4rem; padding: .1rem .5rem; border-radius: 999px; font-size: var(--fs-klein);
   background: rgba(163, 196, 102, .3); color: var(--moos-dunkel); white-space: nowrap; }
 @media (max-width: 700px) { .fritte-ecke { grid-template-columns: 1fr; } }
 
@@ -144,8 +144,8 @@
 .laden { display: grid; grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr)); gap: .8rem; }
 .ware { display: flex; flex-direction: column; align-items: flex-start; gap: .3rem; padding: .8rem;
   background: var(--papier); border: 1px solid var(--line); border-radius: var(--radius); }
-.ware .ware-muenze { width: 3.2rem; height: 3.2rem; font-size: 1.5rem; }
-.ware .hint { font-size: .85rem; flex: 1; }
+.ware .ware-muenze { width: 3.2rem; height: 3.2rem; font-size: var(--fs-titel); }
+.ware .hint { font-size: var(--fs-klein); flex: 1; }
 .ware form { margin-top: auto; }
 .ware.gekauft { background: rgba(163, 196, 102, .14); }
 .ware .preis { margin-top: auto; color: var(--muted); }
@@ -161,7 +161,7 @@
 .spiel-reiter a[aria-current="page"] { background: var(--ocker); border-color: var(--ocker-dunkel); }
 .kopf-salz { margin: 0 0 0 auto; }
 .fritte-ecke .wartet { font-weight: 600; color: var(--terrakotta-dunkel); }
-button.gross { font-size: 1.1rem; padding: .7rem 1.6rem; }
+button.gross { font-size: var(--fs-gross); padding: .7rem 1.6rem; }
 
 /* ---------- a card ---------- */
 .spielkarte {
@@ -182,13 +182,13 @@ button.gross { font-size: 1.1rem; padding: .7rem 1.6rem; }
 .art-ausgabe { --karte-farbe: var(--terrakotta); }
 .art-erinnerung { --karte-farbe: var(--wachs); }
 .art-feierabend { --karte-farbe: var(--tinte); }
-.karte-art { font-family: var(--schrift); font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.karte-art { font-family: var(--schrift); font-size: var(--fs-mini); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .karte-art.lang { letter-spacing: .02em; font-size: .7rem; }
 .karte-bild { display: grid; place-items: center; height: 4.2rem; font-size: 2.4rem; }
 .karte-bild img { max-height: 4.2rem; max-width: 100%; object-fit: contain; }
 .karte-bild img.karte-gemalt { width: 100%; height: 4.2rem; object-fit: cover; border-radius: 4px; }
-.karte-titel { font-family: var(--schrift); font-size: .92rem; line-height: 1.2; color: var(--eiche-tief); }
-.karte-detail { font-size: .78rem; color: var(--muted); line-height: 1.25; overflow-wrap: break-word; hyphens: auto; }
+.karte-titel { font-family: var(--schrift); font-size: var(--fs-klein); line-height: 1.2; color: var(--eiche-tief); }
+.karte-detail { font-size: var(--fs-mini); color: var(--muted); line-height: 1.25; overflow-wrap: break-word; hyphens: auto; }
 .karte-marken { display: flex; flex-wrap: wrap; gap: .2rem; }
 .marke { font-size: .68rem; padding: 0 .4rem; border-radius: 999px; background: rgba(163, 196, 102, .35); color: var(--moos-dunkel); }
 .karte-koerner {
@@ -212,11 +212,11 @@ button.gross { font-size: 1.1rem; padding: .7rem 1.6rem; }
     rgba(214, 228, 222, .55);
   border: 1.5px solid rgba(110, 98, 83, .35); box-shadow: 0 4px 8px rgba(60, 35, 10, .15);
 }
-.glas-zeichen { font-size: 1.8rem; line-height: 1; }
+.glas-zeichen { font-size: var(--fs-titel); line-height: 1; }
 .glas-zeichen img { height: 2.2rem; width: auto; display: block; }
 .glas-etikett {
   width: 100%; text-align: center; padding: .1rem .15rem; border-radius: 2px;
-  background: var(--papier); border-top: 3px solid var(--etikett, var(--moos)); font-family: var(--schrift); font-size: .82rem; line-height: 1.15; color: var(--eiche-tief);
+  background: var(--papier); border-top: 3px solid var(--etikett, var(--moos)); font-family: var(--schrift); font-size: var(--fs-klein); line-height: 1.15; color: var(--eiche-tief);
   hyphens: auto; overflow-wrap: anywhere; /* Lena: was the smallest text in the app */
 }
 .selten-gewoehnlich { --etikett: var(--moos); }
@@ -225,7 +225,7 @@ button.gross { font-size: 1.1rem; padding: .7rem 1.6rem; }
 .selten-legendaer .glas-koerper { box-shadow: 0 0 0 2px rgba(233, 189, 79, .55), 0 4px 10px rgba(156, 111, 31, .35); }
 .gewuerzglas.klein { width: 3.6rem; }
 .gewuerzglas.klein .glas-koerper { height: 3.8rem; }
-.gewuerzglas.klein .glas-zeichen { font-size: 1.25rem; }
+.gewuerzglas.klein .glas-zeichen { font-size: var(--fs-gross); }
 .gewuerzglas.klein .glas-etikett { font-size: .7rem; }
 .regal-vorschau { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .5rem; margin-bottom: .9rem; }
 
@@ -236,25 +236,25 @@ button.gross { font-size: 1.1rem; padding: .7rem 1.6rem; }
   border-radius: 3px;
 }
 .regal-platz { display: flex; flex-direction: column; align-items: center; gap: .3rem; text-align: center; }
-.regal-platz.leer { justify-content: center; min-height: 7.5rem; border: 2px dashed var(--papier-schatten); border-radius: .6rem; color: var(--muted); font-size: .85rem; }
-.glas-text { margin: 0; font-size: .8rem; color: var(--muted); }
+.regal-platz.leer { justify-content: center; min-height: 7.5rem; border: 2px dashed var(--papier-schatten); border-radius: .6rem; color: var(--muted); font-size: var(--fs-klein); }
+.glas-text { margin: 0; font-size: var(--fs-klein); color: var(--muted); }
 .row.klein { gap: .25rem; justify-content: center; }
-.row.klein button { padding: .15rem .5rem; font-size: .8rem; }
+.row.klein button { padding: .15rem .5rem; font-size: var(--fs-mini); }
 .markt { display: grid; grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); gap: .9rem; }
 .gewuerz-ware { align-items: center; text-align: center; }
-.seltenheit { font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; color: var(--etikett); font-weight: 700; }
+.seltenheit { font-size: var(--fs-mini); letter-spacing: .1em; text-transform: uppercase; color: var(--etikett); font-weight: 700; }
 .wuerfeln { margin-top: .9rem; }
-.kassenbuch { width: 100%; border-collapse: collapse; font-size: .92rem; }
+.kassenbuch { width: 100%; border-collapse: collapse; font-size: var(--fs-klein); }
 .kassenbuch th, .kassenbuch td { padding: .3rem .4rem; border-bottom: 1px dotted var(--papier-schatten); text-align: left; }
 .kassenbuch .amount { text-align: right; font-variant-numeric: tabular-nums; }
 .kassenbuch .plus { color: var(--moos-dunkel); }
 .kassenbuch .minus { color: var(--terrakotta-dunkel); }
 .kassenbuch details.buchungen summary { cursor: pointer; }
-.kassenbuch details.buchungen ul { margin: .3rem 0 0; padding-left: 1.1rem; font-size: .88rem; }
+.kassenbuch details.buchungen ul { margin: .3rem 0 0; padding-left: 1.1rem; font-size: var(--fs-klein); }
 .kassenbuch details.buchungen li span { font-variant-numeric: tabular-nums; margin-left: .3rem; }
 /* Phones: long German words (Krankenversicherungsbeiträge) must not push the table wider than the card (Lena) */
 @media (max-width: 600px) {
-  .kassenbuch { font-size: .85rem; }
+  .kassenbuch { font-size: var(--fs-klein); }
   .kassenbuch th, .kassenbuch td { padding: .3rem .25rem; }
   .kassenbuch td { overflow-wrap: anywhere; hyphens: auto; }
   .kassenbuch details.buchungen ul { padding-left: .9rem; }
@@ -294,16 +294,16 @@ details[open] > summary::before { content: "▾ "; }
 .ks-box.wuerze { background-color: #a64d29;
   background-image: linear-gradient(160deg, rgba(255, 246, 216, .06), transparent 45%, rgba(40, 20, 5, .14)),
     repeating-linear-gradient(90deg, rgba(255, 255, 255, .03) 0 2px, transparent 2px 5px); --dreh: 1deg; transform: rotate(var(--dreh)); }
-.ks-box strong { display: block; font-family: var(--schrift); font-size: 2rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
-.ks-label { font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; }
-.ks-mal { color: var(--creme); font-size: 1.6rem; font-weight: 700; }
+.ks-box strong { display: block; font-family: var(--schrift); font-size: var(--fs-display); line-height: 1.1; font-variant-numeric: tabular-nums; }
+.ks-label { font-size: var(--fs-mini); letter-spacing: .1em; text-transform: uppercase; }
+.ks-mal { color: var(--creme); font-size: var(--fs-titel); font-weight: 700; }
 .ks-ergebnis {
   grid-column: 1 / -1; position: relative; padding: .7rem; border-radius: 6px; text-align: center;
   background: var(--papierkarte); border: 1px solid var(--papier-schatten);
   box-shadow: 0 2px 0 var(--papier-schatten), 0 10px 18px rgba(30, 15, 5, .4);
 }
 .ks-ergebnis .ks-label { color: var(--muted-papier); } /* paper on the dark table */
-.ks-ergebnis strong { display: block; font-family: var(--schrift); font-size: 2.6rem; color: var(--eiche-tief); line-height: 1.1; font-variant-numeric: tabular-nums; }
+.ks-ergebnis strong { display: block; font-family: var(--schrift); font-size: var(--fs-display); color: var(--eiche-tief); line-height: 1.1; font-variant-numeric: tabular-nums; }
 .ks-ergebnis .stempel-gebucht { position: absolute; right: .4rem; top: .3rem; color: var(--wachs); animation: none; }
 .ks-ergebnis .stempel-gebucht.drauf { animation: stempel-drauf .35s cubic-bezier(.2, 1.6, .4, 1) both; }
 .laeuft .ks-ergebnis .stempel-gebucht:not(.drauf) { visibility: hidden; }
@@ -316,12 +316,12 @@ details[open] > summary::before { content: "▾ "; }
 .ks-plus {
   position: absolute; left: 50%; top: 30%; z-index: 5; pointer-events: none; white-space: nowrap;
   transform: translateX(-50%); padding: .1rem .5rem; border-radius: 999px;
-  font-family: var(--schrift); font-weight: 800; font-size: 1.15rem; color: #fff; background: var(--moos-dunkel);
+  font-family: var(--schrift); font-weight: 800; font-size: var(--fs-gross); color: #fff; background: var(--moos-dunkel);
   animation: aufsteigen 1s ease-out forwards;
 }
 .ks-plus.gewuerz { background: var(--gold); color: var(--eiche-tief); }
 .ks-plus.wuerze { background: var(--terrakotta); top: -10%; }
-.ks-plus.mal { background: var(--wachs); font-size: 1.8rem; top: -30%; }
+.ks-plus.mal { background: var(--wachs); font-size: var(--fs-titel); top: -30%; }
 @keyframes aufsteigen { 0% { opacity: 0; transform: translate(-50%, 8px) scale(.6); } 20% { opacity: 1; transform: translate(-50%, 0) scale(1.1); } 100% { opacity: 0; transform: translate(-50%, -34px) scale(1); } }
 .pochen { animation: pochen .25s ease-out; }
 @keyframes pochen { 50% { transform: rotate(var(--dreh, 0deg)) scale(1.12); } }
@@ -408,9 +408,9 @@ details[open] > summary::before { content: "▾ "; }
 .zeitalter li.jetzt { box-shadow: 0 0 0 2px var(--moos-dunkel); }
 .zeitalter li.im-bau { opacity: 1; border-style: dashed; border-color: var(--ocker-dunkel); background: rgba(233, 189, 79, .18); }
 .zeitalter li + li::before { content: "›"; position: absolute; left: -.42rem; top: 40%; color: var(--muted); }
-.za-zeichen { font-size: 1.7rem; line-height: 1.1; }
-.za-muenze { width: 2.8rem; height: 2.8rem; font-size: 1.3rem; }
-.zeitalter strong { font-family: var(--schrift); font-size: .9rem; line-height: 1.2; }
+.za-zeichen { font-size: var(--fs-titel); line-height: 1.1; }
+.za-muenze { width: 2.8rem; height: 2.8rem; font-size: var(--fs-gross); }
+.zeitalter strong { font-family: var(--schrift); font-size: var(--fs-klein); line-height: 1.2; }
 @media (max-width: 700px) { .zeitalter { grid-template-columns: repeat(3, 1fr); } }
 
 .ks-ausbau { display: flex; gap: .9rem; align-items: center; margin-top: 1rem; padding: .8rem 1.1rem; border-radius: 6px;
@@ -420,42 +420,42 @@ details[open] > summary::before { content: "▾ "; }
 .ks-ausbau.da { animation: karte-hoch .6s cubic-bezier(.2, 1.5, .4, 1); }
 
 /* ---------- Sammlung: eine Vitrine ---------- */
-.sticker-rund { display: grid; place-items: center; width: 3.6rem; height: 3.6rem; border-radius: 50%; font-size: 1.8rem;
+.sticker-rund { display: grid; place-items: center; width: 3.6rem; height: 3.6rem; border-radius: 50%; font-size: var(--fs-titel);
   background: var(--creme); color: var(--muted); border: 3px solid var(--papier-schatten); }
 .vitrine { list-style: none; padding: 0; margin: .6rem 0 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr)); gap: .9rem; }
 .vitrine.klein { grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: .6rem; }
 .stueck { display: flex; flex-direction: column; align-items: center; gap: .25rem; text-align: center; padding: .9rem .6rem;
   border-radius: var(--radius); border: 2px solid var(--ocker); background: var(--papierkarte); box-shadow: var(--karten-schatten); }
 .stueck strong { font-family: var(--schrift); color: var(--eiche-tief); }
-.stueck .hint { font-size: .8rem; }
+.stueck .hint { font-size: var(--fs-mini); }
 .stueck.offen { border: 2px dashed var(--papier-schatten); background: rgba(252, 246, 230, .5); box-shadow: none; padding: .6rem .5rem; }
-.stueck.offen strong { color: var(--muted); font-size: .92rem; }
-.stueck.offen .hint { font-size: .74rem; }
+.stueck.offen strong { color: var(--muted); font-size: var(--fs-klein); }
+.stueck.offen .hint { font-size: var(--fs-mini); }
 /* One coin for everything: the earned sign is pressed into gold, like a minted medal. */
-.muenze { display: grid; place-items: center; width: 3.6rem; height: 3.6rem; border-radius: 50%; font-size: 1.7rem; flex: none;
+.muenze { display: grid; place-items: center; width: 3.6rem; height: 3.6rem; border-radius: 50%; font-size: var(--fs-titel); flex: none;
   background: radial-gradient(circle at 35% 30%, #fff6d8, var(--gold) 70%, var(--ocker-dunkel)); border: 3px solid var(--ocker-dunkel);
   box-shadow: inset 0 -3px 0 rgba(90, 58, 32, .25), 0 2px 4px rgba(26, 14, 4, .18); transform: rotate(-6deg); overflow: hidden; }
 .muenze img { width: 78%; height: 78%; object-fit: contain; }
 .praegung { filter: sepia(1) saturate(1.4) hue-rotate(-12deg) brightness(.82) contrast(1.15) drop-shadow(0 1px 0 rgba(255, 246, 216, .9)); }
-.stueck.offen .muenze { width: 2.6rem; height: 2.6rem; font-size: 1.2rem; transform: none; color: var(--muted);
+.stueck.offen .muenze { width: 2.6rem; height: 2.6rem; font-size: var(--fs-gross); transform: none; color: var(--muted);
   background: var(--creme); border: 2px dashed var(--papier-schatten); box-shadow: none; }
 .muenze.gross { width: 4.6rem; height: 4.6rem; font-size: 2.2rem; }
 .vitrine-zuletzt { list-style: none; padding: 0; margin: .6rem 0 0; display: flex; flex-wrap: wrap; gap: 1.2rem; }
 .vitrine-zuletzt li { display: flex; flex-direction: column; align-items: center; gap: .3rem; width: 7.5rem; text-align: center; }
 .vitrine-zuletzt strong { font-family: var(--schrift); color: var(--eiche-tief); line-height: 1.2; }
-.vitrine-naechstes { font-size: .95rem; margin: 1rem 0 0; color: var(--eiche-dunkel); }
+.vitrine-naechstes { font-size: var(--fs-text); margin: 1rem 0 0; color: var(--eiche-dunkel); }
 .vitrine-mehr { margin-top: .8rem; }
 .vitrine-mehr summary { cursor: pointer; color: var(--eiche-dunkel); font-weight: 600; }
 @media (max-width: 520px) {
   .vitrine, .vitrine.klein { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .55rem; }
   .stueck { padding: .7rem .45rem; }
-  .stueck .hint { font-size: .74rem; }
+  .stueck .hint { font-size: var(--fs-mini); }
   .vitrine-zuletzt { gap: .8rem; justify-content: space-around; }
   .vitrine-zuletzt li { width: 6.6rem; }
 }
-.sticker-tag { font-size: .72rem; color: var(--moos-dunkel); }
-.sticker-zierde { font-size: .74rem; color: var(--tinte); }
-.ks-sticker .sticker-rund { width: 2.8rem; height: 2.8rem; font-size: 1.4rem; background: radial-gradient(circle at 35% 30%, #fff6d8, var(--gold)); border-color: var(--ocker-dunkel); }
+.sticker-tag { font-size: var(--fs-mini); color: var(--moos-dunkel); }
+.sticker-zierde { font-size: var(--fs-mini); color: var(--tinte); }
+.ks-sticker .sticker-rund { width: 2.8rem; height: 2.8rem; font-size: var(--fs-titel); background: radial-gradient(circle at 35% 30%, #fff6d8, var(--gold)); border-color: var(--ocker-dunkel); }
 .laeuft .ks-sticker:not(.da) { visibility: hidden; }
 
 /* the Frittenbude: Fritte now works from a market stall with an awning and a counter */
@@ -487,7 +487,7 @@ details[open] > summary::before { content: "▾ "; }
 .zimmer .pokalbrett i { font-style: normal; filter: drop-shadow(0 .2cqw .2cqw rgba(58, 36, 18, .3)); }
 
 /* ---------- seasons, the house's places, the shop preview ---------- */
-.saison h2 .hint, .frittes-haus h2 .hint { font-weight: normal; font-size: .85rem; margin-left: .4rem; }
+.saison h2 .hint, .frittes-haus h2 .hint { font-weight: normal; font-size: var(--fs-klein); margin-left: .4rem; }
 .saison-thema { margin: .2rem 0 .6rem; font-weight: 600; color: var(--eiche-tief); }
 .saison-ziel .balken { height: .9rem; border-radius: 99px; background: var(--creme); border: 1px solid var(--papier-schatten); overflow: hidden; }
 .saison-ziel .balken span { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--ocker), var(--gold)); }
@@ -499,9 +499,9 @@ details[open] > summary::before { content: "▾ "; }
 .saison-streifen .woche.leer { border-color: var(--papier-schatten); }
 .saison-streifen .woche.jetzt { border-style: dashed; border-color: var(--ocker-dunkel); }
 .saison-streifen .woche.kommt { border-color: var(--papier-schatten); opacity: .55; }
-.saison .saison-thema { font-weight: normal; font-size: .95rem; }
+.saison .saison-thema { font-weight: normal; font-size: var(--fs-text); }
 .landkarte { list-style: none; padding: 0; margin: 1rem 0 0; display: flex; flex-wrap: wrap; gap: .4rem; }
-.landkarte li { padding: .3rem .7rem; border-radius: 99px; border: 1px dashed var(--papier-schatten); color: var(--muted); font-size: .9rem; }
+.landkarte li { padding: .3rem .7rem; border-radius: 99px; border: 1px dashed var(--papier-schatten); color: var(--muted); font-size: var(--fs-klein); }
 .landkarte li.fertig { border-style: solid; border-color: var(--moos); background: rgba(163, 196, 102, .2); color: var(--ink); }
 .landkarte li.jetzt { border-style: solid; border-color: var(--ocker-dunkel); background: rgba(233, 189, 79, .25); color: var(--ink); font-weight: 600; }
 .vorschau-zeile { margin: .6rem 0; }
@@ -511,12 +511,12 @@ details[open] > summary::before { content: "▾ "; }
   color: var(--ink); border: 2px solid var(--gold); }
 .willkommen-spiel p { margin: 0; }
 @media (max-width: 600px) { .willkommen-spiel > .sticker-rund { display: none; } }
-.wirkung { font-size: .85rem; color: var(--moos-dunkel); }
+.wirkung { font-size: var(--fs-klein); color: var(--moos-dunkel); }
 .wirkung.null { color: var(--muted); }
 .ks-ausbau.mit-zimmer { align-items: center; }
 .ks-zimmer { flex: 0 0 min(22rem, 45%); }
 .ks-zimmer .zimmer { border-radius: 4px; }
-.ks-saison .sticker-rund { width: 2.8rem; height: 2.8rem; font-size: 1.4rem; background: radial-gradient(circle at 35% 30%, #fff6d8, var(--gold)); border-color: var(--ocker-dunkel); }
+.ks-saison .sticker-rund { width: 2.8rem; height: 2.8rem; font-size: var(--fs-titel); background: radial-gradient(circle at 35% 30%, #fff6d8, var(--gold)); border-color: var(--ocker-dunkel); }
 .laeuft .ks-saison:not(.da) { visibility: hidden; }
 .art-steuer { --karte-farbe: var(--moos-dunkel); }
 .art-steuerjahr { --karte-farbe: var(--gold); }
@@ -591,7 +591,7 @@ details[open] > summary::before { content: "▾ "; }
 /* ---------- What each jar does right now (Lena: a quiet jar must not look like a bug) ---------- */
 .glas-mit-wirkung { display: inline-flex; flex-direction: column; align-items: center; gap: .25rem; max-width: 9.5rem; }
 /* a small paper label, readable on the dark shelf of the Kassensturz too (Lena: 1.61 : 1) */
-.glas-wirkung { font-size: .74rem; line-height: 1.25; text-align: center; color: var(--muted-papier);
+.glas-wirkung { font-size: var(--fs-mini); line-height: 1.25; text-align: center; color: var(--muted-papier);
   background: var(--papierkarte); padding: .05rem .45rem; border-radius: 3px; box-shadow: 0 1px 0 var(--papier-schatten); }
 .glas-mit-wirkung.wirkt .glas-wirkung { color: var(--moos-dunkel); font-weight: 600; }
 .glas-mit-wirkung.wirkt .glas-koerper { box-shadow: 0 0 0 2px var(--moos-hell), 0 4px 10px rgba(75, 106, 42, .25); }
@@ -616,8 +616,8 @@ details[open] > summary::before { content: "▾ "; }
 .gericht-zeichen { grid-row: 1 / span 3; font-size: 2rem; line-height: 1; align-self: center; }
 .gericht-zeichen img.zeichen-bild { width: 2.6rem; height: 2.6rem; vertical-align: middle; display: block; }
 .gericht strong { font-family: var(--schrift); }
-.gericht-text { font-size: .85rem; color: var(--ink); }
-.gericht-summe { font-size: .85rem; color: var(--muted); margin-top: .2rem; }
+.gericht-text { font-size: var(--fs-klein); color: var(--ink); }
+.gericht-summe { font-size: var(--fs-klein); color: var(--muted); margin-top: .2rem; }
 .gericht-summe strong { color: var(--tinte); font-family: inherit; }
 .ks-tipp { margin-top: .8rem; }
 [data-effekte="ruhig"] .gericht, [data-effekte="ruhig"] .gericht:hover { transform: none; }
@@ -627,7 +627,7 @@ details[open] > summary::before { content: "▾ "; }
 .stil-frage p { margin: 0 0 .4rem; }
 .stil-wahl { display: flex; flex-wrap: wrap; gap: .5rem; }
 .stil-wahl button { display: inline-flex; flex-direction: column; align-items: flex-start; text-align: left; padding: .5rem .9rem; }
-.stil-wahl button small { font-weight: 400; font-size: .78rem; color: var(--muted); }
+.stil-wahl button small { font-weight: 400; font-size: var(--fs-mini); color: var(--muted); }
 .regal-vorschau:has(.glas-mit-wirkung) { align-items: flex-start; }
 .regal-vorschau:has(.glas-mit-wirkung) > .hint:first-child { flex-basis: 100%; }
 
@@ -672,7 +672,7 @@ details[open] > summary::before { content: "▾ "; }
 .truhen-funde { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; margin-top: .8rem; }
 .schaetze-zeile { margin: .7rem 0 0; }
 .fund-chip { display: inline-flex; gap: .3rem; align-items: center; padding: .15rem .6rem; border-radius: 999px; text-decoration: none; color: var(--ink);
-  border: 2px solid var(--etikett, var(--moos)); background: var(--papier); font-size: .88rem; }
+  border: 2px solid var(--etikett, var(--moos)); background: var(--papier); font-size: var(--fs-klein); }
 .truhen-regeln { margin-top: .9rem; }
 .truhen-regeln summary { cursor: pointer; font-weight: 600; color: var(--eiche-dunkel); }
 
@@ -703,9 +703,9 @@ details[open] > summary::before { content: "▾ "; }
   transition: opacity .5s, transform .6s cubic-bezier(.2, 1.5, .4, 1); }
 .fund-bild { font-size: 3.2rem; line-height: 1.1; }
 .fund-bild img { max-width: 6rem; max-height: 5rem; }
-.fund-seltenheit { font-size: .74rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; padding: .05rem .6rem; border-radius: 999px; background: var(--etikett); color: #fff; }
+.fund-seltenheit { font-size: var(--fs-mini); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; padding: .05rem .6rem; border-radius: 999px; background: var(--etikett); color: #fff; }
 .truhe-show.selten-legendaer .fund-seltenheit { color: var(--eiche-tief); }
-.fund-name { font-family: var(--schrift); font-size: 1.4rem; color: var(--eiche-tief); }
+.fund-name { font-family: var(--schrift); font-size: var(--fs-titel); color: var(--eiche-tief); }
 .fund-text { color: var(--ink); }
 .truhe-aktionen { justify-content: center; margin-top: .6rem; }
 .truhe-fair { margin-top: 1rem; }
@@ -738,13 +738,13 @@ details[open] > summary::before { content: "▾ "; }
   border: 4px double var(--ocker-dunkel); padding: 1.3rem 1.8rem;
   background: radial-gradient(circle at 50% 0%, #fff8dc, #f6dc8f 70%, #e9bd4f);
   box-shadow: 0 0 0 5px rgba(233, 189, 79, .45), 0 0 38px 8px rgba(233, 189, 79, .65), var(--karten-schatten); }
-.truhe-show.selten-legendaer .fund-name { font-size: 1.8rem; }
+.truhe-show.selten-legendaer .fund-name { font-size: var(--fs-titel); }
 .truhe-show.selten-legendaer .fund-bild { font-size: 4.2rem; }
-.truhe-show.selten-legendaer .fund-seltenheit { font-size: .9rem; padding: .15rem .9rem; background: var(--eiche-tief); color: var(--gold); }
+.truhe-show.selten-legendaer .fund-seltenheit { font-size: var(--fs-klein); padding: .15rem .9rem; background: var(--eiche-tief); color: var(--gold); }
 .truhe-show.selten-legendaer .truhe-strahlen { width: 30rem; height: 30rem; margin-left: -15rem; margin-top: -9rem; opacity: .6; }
 .truhe-show.selten-legendaer .truhe-gross { filter: drop-shadow(0 0 14px rgba(233, 189, 79, .9)); }
 .truhe-show.selten-legendaer .fund::before, .truhe-show.selten-legendaer .fund::after {
-  content: "✦"; position: absolute; font-size: 1.6rem; color: var(--gold); text-shadow: 0 0 8px #fff3c4; }
+  content: "✦"; position: absolute; font-size: var(--fs-titel); color: var(--gold); text-shadow: 0 0 8px #fff3c4; }
 .truhe-show.selten-legendaer .fund { position: relative; }
 .truhe-show.selten-legendaer .fund::before { left: -1.1rem; top: -1rem; }
 .truhe-show.selten-legendaer .fund::after { right: -1.1rem; bottom: -1rem; }
@@ -754,7 +754,7 @@ details[open] > summary::before { content: "▾ "; }
 .truhe-mehr { display: flex; flex-wrap: wrap; justify-content: center; gap: .4rem; align-items: center; margin-top: .4rem; }
 .truhe-knoepfe { gap: .6rem; align-items: center; }
 .drachen-bruecke { margin: .2rem 0 .8rem; padding: .4rem .7rem; border-left: 3px solid var(--terrakotta); background: rgba(196, 98, 58, .08); }
-.drachen-plus { font-size: .8rem; color: var(--terrakotta-dunkel); }
+.drachen-plus { font-size: var(--fs-klein); color: var(--terrakotta-dunkel); }
 @media (prefers-reduced-motion: reduce) {
   .truhe-show.selten-legendaer .fund::before, .truhe-show.selten-legendaer .fund::after { animation: none !important; }
 }
@@ -781,6 +781,11 @@ h2 .hint .aussicht-mini { width: 36px; height: 24px; object-fit: cover; border-r
 .ks-zettel.zeigen { opacity: 1; transform: translate(-50%, 0); }
 .ks-zettel img { width: 2.2rem; height: 2.2rem; object-fit: contain; }
 .ks-zettel span { display: grid; line-height: 1.2; }
-.ks-zettel small { color: var(--muted-papier); font-size: .75rem; }
-.ks-zettel strong { font-family: var(--schrift); font-size: 1.1rem; color: var(--terrakotta-dunkel); }
-.ks-zettel em { font-style: normal; font-size: .8rem; color: var(--muted-papier); }
+.ks-zettel small { color: var(--muted-papier); font-size: var(--fs-mini); }
+.ks-zettel strong { font-family: var(--schrift); font-size: var(--fs-gross); color: var(--terrakotta-dunkel); }
+.ks-zettel em { font-style: normal; font-size: var(--fs-mini); color: var(--muted-papier); }
+
+/* Frittes Flamme (Marie, 3.11.): the streak of kept Vorsätze */
+.serie { display: inline-flex; align-items: center; gap: .3rem; flex-wrap: wrap; }
+.serie.aus { color: var(--muted); }
+.serie.aus .zeichen-emoji, .serie.aus .zeichen-bild { filter: grayscale(1); opacity: .6; }

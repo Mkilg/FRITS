@@ -4,6 +4,5 @@
 {% if ki_kosten %}{% set m = ki_kosten.monat %}{% set v = ki_kosten.vormonat %}
 <p class="hint ki-kosten" id="ki-kosten">💶 <strong>KI-Kosten diesen Monat:</strong>
   {% if m.anfragen %}{{ betrag(m.usd) }} für {{ anzahl(m.anfragen) }}{% if m.lokal %}, dazu {{ anzahl(m.lokal) }} an die lokale KI, die nichts kosten{% endif %}{% elif m.lokal %}0 €. Deine {{ anzahl(m.lokal) }} liefen über die lokale KI auf deinem Mac, die kostet nichts{% else %}noch keine Anfrage{% endif %}{% if v.anfragen %}, im letzten Monat {{ betrag(v.usd) }}{% endif %}.
-  {% if m.ohne_preis %}Für {{ m.ohne_preis }} davon kenne ich keinen Preis, die fehlen in der Summe.{% endif %}
-  {% if m.anfragen or v.anfragen %}Ich rechne mit den Preisen des Anbieters, die genaue Abrechnung steht in deinem Konto dort.{% endif %}</p>
+  {% if m.ohne_preis or m.anfragen or v.anfragen %}{{ info_i(("Für " ~ m.ohne_preis ~ " davon kenne ich keinen Preis, die fehlen in der Summe. " if m.ohne_preis else "") ~ "Ich rechne mit den Preisen des Anbieters, die genaue Abrechnung steht in deinem Konto dort.") }}{% endif %}</p>
 {% endif %}

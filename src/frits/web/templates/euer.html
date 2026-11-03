@@ -2,13 +2,12 @@
 {% block title %}EÜR {{ year }} · FRITS{% endblock %}
 {% block content %}
 <div class="head-row">
-  <h1>EÜR {{ year }}</h1>
+  <h1>EÜR {{ year }} {{ info_i("Die Einnahmen-Überschuss-Rechnung zählt Geld in dem Jahr, in dem es geflossen ist: Rechnungen, wenn der Kunde bezahlt hat, Ausgaben, wenn du bezahlt hast. Die Zeilennamen sind die aus dem Formular „Anlage EÜR“ in ELSTER.") }}</h1>
   <div class="row">
     <a class="button quiet" href="/euer?year={{ year - 1 }}">← {{ year - 1 }}</a>
     {% if year < this_year %}<a class="button quiet" href="/euer?year={{ year + 1 }}">{{ year + 1 }} →</a>{% endif %}
   </div>
 </div>
-<p class="hint">Die Einnahmen-Überschuss-Rechnung zählt Geld in dem Jahr, in dem es geflossen ist: Rechnungen, wenn der Kunde bezahlt hat, Ausgaben, wenn du bezahlt hast. Die Zeilennamen sind die aus dem Formular „Anlage EÜR“ in ELSTER.</p>
 
 <section class="card">
   <h2>Einnahmen</h2>
@@ -27,7 +26,7 @@
     <a class="button" href="/euer/{{ year }}.csv">Als Tabelle (CSV)</a>
     {% if summary.tax_mode == "regelbesteuerung" %}<a class="button quiet" href="/ustva">USt-Voranmeldung</a>{% endif %}
   </div>
-  <p class="hint">Eine Hilfe, keine Steuerberatung: Bitte prüf die Zahlen, bevor du sie in ELSTER überträgst.</p>
+  <p class="hint">Eine Hilfe, keine Steuerberatung. {{ info_i("Bitte prüf die Zahlen, bevor du sie in ELSTER überträgst.") }}</p>
   <details class="fuer-beratung">
     <summary>Für die Steuerberatung</summary>
     <p>Die <strong>Buchungsliste</strong> zeigt jede Zahlung dieses Jahres einzeln, mit Belegnummer und Steuersatz. Zusammen ergibt sie genau die Summen oben. Die <strong>Verfahrensdokumentation</strong> beschreibt, wie FRITS deine Belege erfasst und aufbewahrt. Das Finanzamt kann sie bei einer Prüfung verlangen (GoBD). Lies sie einmal durch: Läuft bei dir etwas anders, zum Beispiel die Datensicherung, trag es in den <a href="/settings#verfahren">Einstellungen unter „Bei mir läuft es anders“</a> ein. Dann steht es beim nächsten Mal mit drin.</p>

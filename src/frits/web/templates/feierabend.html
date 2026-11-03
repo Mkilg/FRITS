@@ -39,23 +39,23 @@
     <li>{{ overdue }} überfällige {{ "Rechnung" if overdue == 1 else "Rechnungen" }}</li>
   </ul>
   {% if picture("rueckblick-buendel") %}{{ picture_tag("rueckblick-buendel", "buendel") }}{% endif %}
-  <p class="hint">Alles ist gespeichert. Du kannst das Fenster jetzt schließen und den Kopf frei machen.</p>
+  <p class="hint">Alles ist gespeichert.</p>
   {% if sicherung_faellig %}
   <form method="post" action="/sicherung" class="sicherung-hinweis" data-busy="Ich sichere. Das dauert einen Moment.">
     <input type="hidden" name="token" value="{{ token }}">
     <input type="hidden" name="back" value="/feierabend">
-    <p class="hint">Die letzte Datensicherung ist über eine Woche her. Ist der Datenträger angesteckt?</p>
+    <p class="hint">Die letzte Datensicherung ist über eine Woche her.</p>
     <button>Jetzt sichern</button>
   </form>
   {% elif not sicherung_ziel %}
-  <p class="hint">Noch keine Datensicherung eingerichtet. Das dauert eine Minute: <a href="/sicherung">Datensicherung</a>.</p>
+  <p class="hint">Noch keine Datensicherung eingerichtet. <a href="/sicherung">Einrichten</a></p>
   {% endif %}
   <form method="post" action="/quit">
     <input type="hidden" name="token" value="{{ token }}">
     <button class="primary">FRITS beenden</button>
   </form>
   {% if karten %}
-  <p class="hint kassensturz-hinweis">{{ karten }} {{ "Karte wartet" if karten == 1 else "Karten warten" }} auf den Kassensturz. Das hat Zeit: Fritte rechnet sie dir gern beim nächsten Mal vor, oder <a href="/fritte#kassensturz">jetzt gleich</a>.</p>
+  <p class="hint kassensturz-hinweis">{{ karten }} {{ "Karte wartet" if karten == 1 else "Karten warten" }} auf den Kassensturz. Das hat Zeit, oder <a href="/fritte#kassensturz">jetzt gleich</a>.</p>
   {% endif %}
 </section>
 <script>window.addEventListener("load", function () { if (window.FritsSound) FritsSound.music.stop(); });</script>

@@ -828,7 +828,7 @@ def test_hints_from_tester_round_3(client, ws, nlp):
     replace(Settings.load(ws.settings_file), strict_local=True).save(ws.settings_file)
     app = create_app(ws, nlp_loader=lambda: nlp, today=lambda: TODAY)
     with TestClient(app) as plain:
-        assert "Eine KI ist noch nicht verbunden" in plain.get("/chat").text
+        assert "Ohne verbundene KI" in plain.get("/chat").text
 
 
 def test_painted_pictures_keep_their_space_while_loading(tmp_path):

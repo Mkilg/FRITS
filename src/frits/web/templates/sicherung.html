@@ -2,7 +2,7 @@
 {% block title %}Datensicherung · FRITS{% endblock %}
 {% block content %}
 <h1>Datensicherung</h1>
-<p class="lead">Ein Mac kann kaputtgehen. Deine Rechnungen und Belege musst du aber 8 bis 10 Jahre aufheben. Deshalb packt FRITS den ganzen Ordner FRITS in eine verschlossene Datei auf einem zweiten Datenträger, zum Beispiel einem USB-Stick oder in iCloud Drive.</p>
+<p class="lead">Der ganze Ordner FRITS, verschlossen auf einem zweiten Datenträger, zum Beispiel einem USB-Stick oder in iCloud Drive. {{ info_i("Ein Mac kann kaputtgehen. Deine Rechnungen und Belege musst du aber 8 bis 10 Jahre aufheben.", "Warum?") }}</p>
 
 {% if zurueck %}
 <section class="card accent">
@@ -18,13 +18,13 @@
 {% endif %}
 
 <section class="card" id="sichern">
-  <h2>Sichern</h2>
+  <h2>Sichern {{ info_i("FRITS löscht nie eine alte Sicherung. Die Zuordnungen der Schwärzung kommen nicht mit, sie bleiben nur auf diesem Mac.") }}</h2>
   {% if letzte %}
   <p>Letzte Sicherung: <strong>{{ letzte.strftime("%d.%m.%Y um %H:%M") }}</strong>{% if faellig %}, das ist über eine Woche her.{% endif %}</p>
   {% elif ziel %}
   <p>In <code>{{ ziel }}</code> liegt noch keine Sicherung{% if faellig %}, oder der Datenträger ist gerade nicht angesteckt{% endif %}.</p>
   {% else %}
-  <p>Noch keine Sicherung eingerichtet. Wähl einen Ort, dann geht es mit einem Klick.</p>
+  <p>Noch keine Sicherung eingerichtet.</p>
   {% endif %}
   <form method="post" action="/sicherung" class="form" data-busy="Ich sichere. Das dauert je nach Menge einen Moment.">
     <input type="hidden" name="token" value="{{ token }}">
@@ -45,14 +45,13 @@
       </label>
     </details>
     {% else %}
-    <label class="field">Ordner für die Sicherung
+    <label class="field"><span>Ordner für die Sicherung {{ info_i("Steck einen USB-Stick oder eine Festplatte an und lade die Seite neu, dann schlage ich sie dir vor.") }}</span>
       <input name="ziel" value="{{ ziel }}" placeholder="/Volumes/USB-Stick/FRITS-Sicherung">
     </label>
-    <p class="hint">Steck einen USB-Stick oder eine Festplatte an und lade die Seite neu, dann schlage ich sie dir vor.</p>
     {% endif %}
     {% if zettel %}
     {% if zettel_neu %}
-    <label class="field">Neues Passwort für die Sicherung <small class="muted">(mindestens {{ min_neu }} Zeichen, schreib es auf einen Zettel)</small>
+    <label class="field"><span>Neues Passwort für die Sicherung <span class="muted">(mindestens {{ min_neu }} Zeichen, schreib es auf einen Zettel)</span></span>
       <input name="passwort" autocomplete="off" required minlength="{{ min_neu }}" placeholder="z. B. Fritte-Wolke-Tisch">
     </label>
     {% else %}
@@ -66,12 +65,11 @@
       {% if not im_browser() %}<button class="quiet" formaction="/sicherung/waehlen" formnovalidate>Ordner im Finder wählen …</button>{% endif %}
     </div>
   </form>
-  <p class="hint">FRITS löscht nie eine alte Sicherung. Die Zuordnungen der Schwärzung kommen nicht mit, sie bleiben nur auf diesem Mac.</p>
 </section>
 
 <section class="card">
   <h2>Das Passwort</h2>
-  <p>Jede Sicherung ist mit einem Passwort verschlossen. Ohne Passwort kann niemand sie öffnen, auch du nicht. Es liegt im Schlüsselbund dieses Macs. Schreib es dir einmal auf Papier und leg es zu deinen Unterlagen. Wenn der Mac kaputtgeht, brauchst du es.</p>
+  <p>Ohne Passwort kann niemand die Sicherung öffnen, auch du nicht. Schreib es einmal auf Papier. {{ info_i("Es liegt im Schlüsselbund dieses Macs. Leg den Zettel zu deinen Unterlagen: Wenn der Mac kaputtgeht, brauchst du es.") }}</p>
   {% if kennwort %}
   <p class="kennwort"><code id="kennwort">{{ kennwort }}</code> <button type="button" class="quiet tiny" data-kopieren="#kennwort">Kopieren</button></p>
   {% else %}
@@ -84,8 +82,7 @@
 
 <section class="card">
   <h2>Sicherung zurückholen</h2>
-  <p>FRITS packt die Sicherung in einen <strong>neuen</strong> Ordner neben deinem FRITS-Ordner aus. Dabei wird nichts überschrieben.</p>
-  <p class="hint">Ohne FRITS geht es auch: Öffne die Sicherung mit einem kostenlosen Programm wie Keka oder The Unarchiver und dem Passwort. Darin liegt <code>FRITS.zip</code>, das öffnet der Mac dann mit einem Doppelklick. Das Entpacken, das im Mac eingebaut ist, kann verschlossene Sicherungen nicht öffnen.</p>
+  <p>Kommt in einen <strong>neuen</strong> Ordner neben deinem FRITS-Ordner. Nichts wird überschrieben. {{ info_i("Ohne FRITS geht es auch: Öffne die Sicherung mit einem kostenlosen Programm wie Keka oder The Unarchiver und dem Passwort. Darin liegt FRITS.zip, das öffnet der Mac dann mit einem Doppelklick. Das Entpacken, das im Mac eingebaut ist, kann verschlossene Sicherungen nicht öffnen.", "Ohne FRITS öffnen") }}</p>
   <form method="post" action="/sicherung/zurueck" enctype="multipart/form-data" class="form" data-busy="Ich packe die Sicherung aus.">
     <input type="hidden" name="token" value="{{ token }}">
     <label class="field">Sicherung (FRITS-Sicherung_….zip)

@@ -28,8 +28,20 @@
   --ok: var(--moos-dunkel);
   --warn-bg: #fbefd0;
   --radius: 4px;
+  /* Type scale (Marie, 3.11.: "zu viele Größen"). Every font size in frits.css and
+     haustier.css is one of these six; only text painted onto fixed-size game graphics
+     (cards, jars, coins) keeps its own size. */
+  --fs-mini: 0.75rem;    /* badges, kickers, labels on game pieces */
+  --fs-klein: 0.88rem;   /* hints, notes, secondary lines */
+  --fs-text: 1rem;       /* body text, buttons, h3 */
+  --fs-gross: 1.2rem;    /* h2, lead text */
+  --fs-titel: 1.6rem;    /* h1, big symbols */
+  --fs-display: 2.4rem;  /* big numbers */
   font-size: 17px;
 }
+/* <small> is one step, not "smaller than whatever is around it": no tiny text inside hints */
+small { font-size: var(--fs-klein); }
+.hint small { font-size: inherit; }
 * { box-sizing: border-box; }
 body {
   margin: 0;
@@ -51,23 +63,23 @@ body {
 }
 a { color: var(--tinte); }
 h1, h2, h3 { font-family: var(--schrift); color: var(--eiche-tief); }
-h1 { font-size: 1.75rem; margin: 0.2rem 0 1rem; }
-h2 { font-size: 1.25rem; margin: 0 0 0.5rem; }
-h3 { font-size: 1rem; margin: 0.8rem 0 0.3rem; }
+h1 { font-size: var(--fs-titel); margin: 0.2rem 0 1rem; }
+h2 { font-size: var(--fs-gross); margin: 0 0 0.5rem; }
+h3 { font-size: var(--fs-text); margin: 0.8rem 0 0.3rem; }
 
 .top {
   display: flex; align-items: center; gap: 1rem; flex-wrap: nowrap;
   padding: 0.5rem 1.5rem; background: var(--papierkarte); border-bottom: 1px solid var(--papier-schatten);
   box-shadow: 0 2px 10px rgba(60, 35, 10, .10);
 }
-.brand { display: flex; align-items: center; gap: 0.4rem; font-weight: 700; font-size: 1.3rem; font-family: var(--schrift);
+.brand { display: flex; align-items: center; gap: 0.4rem; font-weight: 700; font-size: var(--fs-gross); font-family: var(--schrift);
   color: var(--eiche-tief); text-decoration: none; letter-spacing: 0.06em; }
 .brand-fry svg, .brand-fry img, .brand-fry .fry-fallback { object-fit: contain; width: 32px; height: 32px; font-size: 26px; display: block; }
 /* One line of navigation on a normal Mac window; secondary pages sit behind "Mehr".
    Very narrow windows wrap the row instead of hiding anything. */
 nav { display: flex; gap: 0.1rem; flex-wrap: wrap; flex: 1; min-width: 0; align-items: center; }
 nav a, nav summary { padding: 0.3rem 0.6rem; border-radius: 999px; color: var(--ink); text-decoration: none;
-  white-space: nowrap; font-size: 0.95rem; }
+  white-space: nowrap; font-size: var(--fs-text); }
 /* Painted symbols appear before each label once they are there (see static/bilder). */
 nav a::before { content: ""; display: none; width: 20px; height: 20px; margin-right: 0.3rem;
   vertical-align: -4px; background: center / contain no-repeat; }
@@ -98,7 +110,7 @@ nav a[aria-current="page"] { background: var(--fry); }
 }
 
 main { max-width: 1100px; margin: 0 auto; padding: 1.5rem; }
-.bottom { max-width: 1100px; margin: 0 auto 1.5rem; padding: 0.6rem 1.5rem; color: var(--muted); font-size: 0.85rem;
+.bottom { max-width: 1100px; margin: 0 auto 1.5rem; padding: 0.6rem 1.5rem; color: var(--muted); font-size: var(--fs-klein);
   background: rgba(252, 246, 230, .8); border-radius: var(--radius); }
 
 .card { background: var(--papierkarte); border: 1px solid var(--line); border-radius: var(--radius);
@@ -113,13 +125,13 @@ main { max-width: 1100px; margin: 0 auto; padding: 1.5rem; }
 .mascot-small svg, .mascot-small img, .mascot-small .fry-fallback { object-fit: contain; width: 64px; height: 64px; font-size: 48px; display: block; }
 .speech { position: relative; background: var(--papier); border: 1px solid var(--papier-schatten); border-radius: 18px;
   box-shadow: var(--karten-schatten); padding: 0.9rem 1.2rem; margin: 0; max-width: 34rem;
-  font-family: var(--hand); font-size: 1.2rem; line-height: 1.4; }
+  font-family: var(--hand); font-size: var(--fs-gross); line-height: 1.4; }
 .speech::before { content: ""; position: absolute; left: -9px; top: 50%; width: 16px; height: 16px;
   background: var(--papier); border-left: 1px solid var(--papier-schatten); border-bottom: 1px solid var(--papier-schatten);
   transform: translateY(-50%) rotate(45deg); }
 
 button, .button {
-  font: inherit; font-size: 0.95rem; padding: 0.5rem 1rem; border-radius: 999px; cursor: pointer;
+  font: inherit; font-size: var(--fs-text); padding: 0.5rem 1rem; border-radius: 999px; cursor: pointer;
   border: 1px solid var(--papier-schatten); background: var(--papier); color: var(--ink); text-decoration: none;
   display: inline-block;
 }
@@ -134,7 +146,7 @@ button.danger { color: var(--ketchup); }
 button.gefahr { background: var(--ketchup); border-color: var(--ketchup); color: #fff; font-weight: 600; }
 input.falsch, select.falsch, textarea.falsch, input.falsch:focus, select.falsch:focus, textarea.falsch:focus { border-color: var(--ketchup); box-shadow: 0 0 0 3px rgba(178, 70, 40, 0.18); background: #fff6f2; }
 button.gefahr:hover { filter: brightness(1.08); }
-button.tiny, .button.tiny { font-size: 0.8rem; padding: 0.2rem 0.6rem; }
+button.tiny, .button.tiny { font-size: var(--fs-mini); padding: 0.2rem 0.6rem; }
 button:disabled { opacity: 0.5; cursor: wait; }
 .row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
 .actions { margin-top: 1rem; }
@@ -150,13 +162,13 @@ form { margin: 0; }
 .busy { color: var(--muted); font-style: italic; margin: 0.4rem 0 0; }
 
 .muted, .hint { color: var(--muted); }
-.hint { font-size: 0.88rem; margin: 0.4rem 0; }
+.hint { font-size: var(--fs-klein); margin: 0.4rem 0; }
 .hint.warn-text { color: var(--ink); border-left: 3px solid #c98a00; padding-left: 0.6rem; }
 details.abroad { margin: 0.6rem 0; }
 details.abroad summary { cursor: pointer; font-weight: 600; }
 .platzhalter { color: var(--muted); font-style: italic; }
-.note { display: block; color: var(--ketchup); font-size: 0.78rem; }
-.badge { display: inline-block; padding: 0.1rem 0.6rem; border-radius: 999px; font-size: 0.8rem;
+.note { display: block; color: var(--ketchup); font-size: var(--fs-mini); }
+.badge { display: inline-block; padding: 0.1rem 0.6rem; border-radius: 999px; font-size: var(--fs-mini);
   background: var(--creme); border: 1px solid var(--line); white-space: nowrap; }
 /* Done and overdue look like small ink stamps */
 .badge.ok, .badge.late { background: transparent; border: 1.5px solid currentColor; border-radius: 5px;
@@ -182,12 +194,12 @@ table { width: 100%; border-collapse: collapse; }
 .table td.actions { display: flex; gap: 0.3rem; flex-wrap: wrap; justify-content: flex-end; margin: 0; }
 .table small { display: block; }
 .table tr:target { background: var(--warn-bg); }
-.lines input, .lines select { width: 100%; font: inherit; font-size: 0.92rem; padding: 0.3rem 0.4rem;
+.lines input, .lines select { width: 100%; font: inherit; font-size: var(--fs-klein); padding: 0.3rem 0.4rem;
   border: 1px solid var(--line); border-radius: 6px; background: #fffdf6; }
 .lines tr.needs input[name=price] { border-color: var(--ketchup); background: #fff8f7; }
 .lines tr.blank input { background: var(--bg); }
 .lines tfoot td { border-bottom: 0; }
-.lines tr.total td { font-weight: 700; font-size: 1.05rem; }
+.lines tr.total td { font-weight: 700; font-size: var(--fs-text); }
 .lines th:nth-child(1) { width: 38%; }
 .lines select { min-width: 6.2rem; }
 .table-wrap { overflow-x: auto; }
@@ -201,7 +213,7 @@ table { width: 100%; border-collapse: collapse; }
   .review.entwurf:not(.single) { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); }
 }
 .source pre { white-space: pre-wrap; word-break: break-word; background: var(--bg); padding: 0.8rem;
-  border-radius: 8px; font-size: 0.85rem; max-height: 28rem; overflow: auto; margin: 0.3rem 0; }
+  border-radius: 8px; font-size: var(--fs-klein); max-height: 28rem; overflow: auto; margin: 0.3rem 0; }
 .source pre.redacted { background: #f3f0ff; }
 details summary { cursor: pointer; margin-top: 0.8rem; color: var(--tinte); }
 .questions, .problems { background: var(--warn-bg); border-radius: 8px; padding: 0.4rem 1rem 0.8rem; margin-top: 1rem; }
@@ -210,7 +222,7 @@ details summary { cursor: pointer; margin-top: 0.8rem; color: var(--tinte); }
 @keyframes nudge { 50% { transform: translateX(4px); } }
 @media (prefers-reduced-motion: reduce) { .problems.nudge { animation: none; } }
 
-.form .field { display: flex; flex-direction: column; gap: 0.2rem; margin-bottom: 0.8rem; font-size: 0.92rem; color: var(--muted); }
+.form .field { display: flex; flex-direction: column; gap: 0.2rem; margin-bottom: 0.8rem; font-size: var(--fs-klein); color: var(--muted); }
 .field input, .field select, .field textarea { font: inherit; color: var(--ink); padding: 0.5rem 0.6rem;
   border: 1px solid var(--line); border-radius: 6px; background: #fffdf6; max-width: min(32rem, 100%); min-width: 0; }
 label.field { display: flex; flex-direction: column; gap: 0.2rem; margin-bottom: 0.6rem; }
@@ -229,7 +241,7 @@ label.field { display: flex; flex-direction: column; gap: 0.2rem; margin-bottom:
 .steps .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--line); }
 .steps .dot.done { background: var(--fry-dark); }
 .steps .dot.now { background: var(--fry); outline: 2px solid var(--fry-dark); }
-.steps .muted { margin-left: 0.5rem; font-size: 0.85rem; }
+.steps .muted { margin-left: 0.5rem; font-size: var(--fs-klein); }
 .hello h1 { margin-bottom: 0.5rem; }
 .choice.big { padding: 0.6rem 0.8rem; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 0.5rem; }
 .choice.big:has(input:checked) { border-color: var(--fry-dark); background: var(--warn-bg); }
@@ -248,7 +260,7 @@ body.frits-einblenden main { animation: frits-einblenden 0.8s ease-out; }
 .lesson { background: #f3f7fb; border: 1px solid #d6e2ee; border-radius: 10px; padding: 0.8rem 1rem; margin: 1rem 0; }
 .lesson.ok { background: #eef6ef; border-color: #c7dfcb; }
 .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }
-.compare pre, .setup > pre, .lesson pre { white-space: pre-wrap; background: var(--bg); padding: 0.7rem; border-radius: 8px; font-size: 0.85rem; }
+.compare pre, .setup > pre, .lesson pre { white-space: pre-wrap; background: var(--bg); padding: 0.7rem; border-radius: 8px; font-size: var(--fs-klein); }
 pre.redacted { background: #f3f0ff; }
 .setup-nav { justify-content: flex-end; border-top: 1px solid var(--line); padding-top: 1rem; }
 code { background: var(--bg); padding: 0.1rem 0.3rem; border-radius: 4px; }
@@ -258,12 +270,12 @@ code { background: var(--bg); padding: 0.1rem 0.3rem; border-radius: 4px; }
 img.receipt { max-width: 100%; border-radius: 8px; border: 1px solid var(--line); }
 iframe.receipt { width: 100%; height: 32rem; border: 1px solid var(--line); border-radius: 8px; }
 .spaced { margin-top: 1.4rem; }
-.profit { font-size: 1.2rem; margin: 1rem 0; }
+.profit { font-size: var(--fs-gross); margin: 1rem 0; }
 
 /* ---------- Stamps, pictures and the two kinds of joy ---------- */
 .stempel { display: inline-block; padding: 0.05rem 0.6rem; vertical-align: middle;
   border: 2.5px solid currentColor; border-radius: 999px; color: var(--moos-dunkel);
-  font-family: var(--schrift); font-weight: 800; font-size: 0.85rem; letter-spacing: 0.1em; text-transform: uppercase;
+  font-family: var(--schrift); font-weight: 800; font-size: var(--fs-klein); letter-spacing: 0.1em; text-transform: uppercase;
   transform: rotate(-8deg); opacity: 0.9; position: relative;
   animation: stempel-drauf .35s cubic-bezier(.2, 1.6, .4, 1) .15s both; }
 .stempel-fertig { color: var(--tinte); border-radius: 50% / 60%; }
@@ -315,7 +327,7 @@ body:has(.feierabend-page) { background-image: var(--schleier, none), var(--feie
 .mock-invoice td.num { text-align: right; white-space: nowrap; vertical-align: top; }
 .mock-invoice tfoot td { border-top: 1px solid var(--line); padding-top: 0.4rem; }
 tr.struck td { color: var(--muted); }
-.tag.bad { background: var(--terrakotta); color: #fff; border-radius: 999px; padding: 0 0.5rem; font-size: 0.8rem; }
+.tag.bad { background: var(--terrakotta); color: #fff; border-radius: 999px; padding: 0 0.5rem; font-size: var(--fs-mini); }
 input.imported, textarea.imported, select.imported { background: #fff7dc; border-color: var(--fry); }
 details.lesson summary { cursor: pointer; }
 .checklist li { margin-bottom: 0.35rem; }
@@ -324,13 +336,13 @@ fieldset.prices input { width: 100%; }
 
 /* ---------- Einwurf: drop, paste (⌘V) or pick ---------- */
 .einwurf .dropzone { padding: 1.4rem 1rem; }
-.dz-titel { display: block; font-size: 1.12rem; font-weight: 600; margin-bottom: 0.2rem; }
+.dz-titel { display: block; font-size: var(--fs-gross); font-weight: 600; margin-bottom: 0.2rem; }
 .dz-titel { text-wrap: balance; }
 /* Phones and touch: the tray sits above the sentence, so a two-line title doesn't step
    down like a staircase next to it (Lena, round 42) */
 @media (max-width: 600px), (pointer: coarse) {
   .dz-titel > img.zeichen-bild { display: block; width: 2.6rem; height: 2.6rem; margin: 0 auto 0.35rem; }
-  .dz-titel > .zeichen-emoji { display: block; font-size: 1.8rem; margin-bottom: 0.2rem; }
+  .dz-titel > .zeichen-emoji { display: block; font-size: var(--fs-titel); margin-bottom: 0.2rem; }
   /* the empty-inbox picture floats right: the field starts below it, not squeezed beside it */
   .einwurf .dropzone { clear: both; }
 }
@@ -340,18 +352,18 @@ body.zieht-datei .dropzone { border-color: var(--fry); }
 .dropzone.bringt { border-style: solid; border-color: var(--moos); background: #eef4e1; }
 .dropzone:focus-within { outline: 3px solid var(--tinte-hell); outline-offset: 2px; }
 kbd { display: inline-block; min-width: 1.4em; padding: 0 0.3em; margin: 0 0.1em; border: 1px solid var(--papier-schatten);
-  border-bottom-width: 2px; border-radius: 4px; background: #fff; font: 0.8rem/1.4 -apple-system, system-ui, sans-serif;
+  border-bottom-width: 2px; border-radius: 4px; background: #fff; font: var(--fs-mini)/1.4 -apple-system, system-ui, sans-serif;
   text-align: center; color: var(--ink); }
 .dz-text { margin-top: 0.6rem; }
-.dz-text summary { cursor: pointer; color: var(--tinte); font-size: 0.92rem; }
+.dz-text summary { cursor: pointer; color: var(--tinte); font-size: var(--fs-klein); }
 .dz-text textarea { width: 100%; margin: 0.5rem 0; font: inherit; }
 .dz-text .row { align-items: center; }
-.dz-tipp { font-size: 0.8rem; }
-.dz-lesen { display: block; margin-top: 0.6rem; font-size: 0.92rem; }
-.dz-lesen .muted { font-size: 0.82rem; }
-.dz-hinweis { margin: 0.6rem 0 0; color: var(--ketchup); font-size: 0.9rem; }
+.dz-tipp { font-size: var(--fs-mini); }
+.dz-lesen { display: block; margin-top: 0.6rem; font-size: var(--fs-klein); }
+.dz-lesen .muted { font-size: var(--fs-klein); }
+.dz-hinweis { margin: 0.6rem 0 0; color: var(--ketchup); font-size: var(--fs-klein); }
 .ki-fehlt { border-left: 4px solid var(--fry); }
-.leise-links { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; margin-top: 0.6rem; font-size: 0.9rem; }
+.leise-links { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; margin-top: 0.6rem; font-size: var(--fs-klein); }
 .leise-links form { display: inline; }
 @media (pointer: coarse) { .leise-links .nur-maus { display: none; } }
 .leise-links button { background: none; border: 0; padding: 0; color: var(--tinte); text-decoration: underline;
@@ -359,7 +371,7 @@ kbd { display: inline-block; min-width: 1.4em; padding: 0 0.3em; margin: 0 0.1em
 p code, li code, p a { overflow-wrap: anywhere; }
 .flash form.rueckgaengig { display: inline; margin-left: 0.6rem; }
 details.mehr-felder { margin: 0.4rem 0 0.8rem; }
-details.mehr-felder summary { cursor: pointer; color: var(--tinte); font-size: 0.92rem; margin-bottom: 0.4rem; }
+details.mehr-felder summary { cursor: pointer; color: var(--tinte); font-size: var(--fs-klein); margin-bottom: 0.4rem; }
 
 /* Fritte got a card for the work just done (only when Fritte is switched on) */
 .flash.karte { border-left: 6px solid var(--ocker); }
@@ -370,7 +382,7 @@ body[data-effekte="verspielt"] .flash.karte::before { display: inline-block; ani
 
 /* Rechnungen: payment date next to the button, numbers never break */
 .paid-form { display: inline-flex; gap: 0.3rem; align-items: center; }
-.paid-form input[type="date"] { font-size: 0.8rem; padding: 0.1rem 0.3rem; width: auto; }
+.paid-form input[type="date"] { font-size: var(--fs-mini); padding: 0.1rem 0.3rem; width: auto; }
 /* (only in tables that can scroll sideways; the EÜR rows must wrap on a phone) */
 .table-wrap .table td:first-child { white-space: nowrap; }
 
@@ -410,16 +422,16 @@ input[type=checkbox], input[type=radio] { width: 1.15rem; height: 1.15rem; verti
 /* Phone-sized windows: a compact header and a smaller Fritte */
 @media (max-width: 600px) {
   .top { padding: 0.35rem 0.75rem; gap: 0.2rem 0.6rem; }
-  .brand { font-size: 1.1rem; }
+  .brand { font-size: var(--fs-gross); }
   nav { gap: 0; }
-  nav a, nav summary { padding: 0.2rem 0.45rem; font-size: 0.85rem; }
+  nav a, nav summary { padding: 0.2rem 0.45rem; font-size: var(--fs-klein); }
   .top-actions { gap: 0.15rem; }
-  .top-actions button { padding: 0.3rem 0.55rem; font-size: 0.85rem; }
+  .top-actions button { padding: 0.3rem 0.55rem; font-size: var(--fs-klein); }
   .hello { gap: 0.8rem; margin: 0.2rem 0 1rem; }
   .mascot-big img.fritte { width: 54px; height: 72px; }
   .mascot-big svg, .mascot-big .fry-fallback { width: 72px; height: 72px; font-size: 54px; }
-  .speech { font-size: 1.05rem; padding: 0.7rem 0.9rem; }
-  h1 { font-size: 1.45rem; }
+  .speech { font-size: var(--fs-text); padding: 0.7rem 0.9rem; }
+  h1 { font-size: var(--fs-titel); }
   main { padding: 0.8rem; }
 }
 
@@ -439,18 +451,18 @@ body:has(.sq-tisch) .bottom a { color: var(--gold); }
 @media (prefers-reduced-motion: reduce) { .vorschau * { animation: none !important; } }
 
 .notfall-hinweis { margin: 0.4rem 0 1rem; padding: 0.5rem 0.9rem; border-radius: var(--radius);
-  background: rgba(252, 246, 230, .75); border: 1px dashed var(--papier-schatten); font-size: 0.92rem; }
+  background: rgba(252, 246, 230, .75); border: 1px dashed var(--papier-schatten); font-size: var(--fs-klein); }
 
 /* Datensicherung: one place per line; long folder paths wrap instead of widening the page */
 .orte { min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 0.5rem 0.9rem 0.7rem; margin: 0 0 0.9rem; }
 .orte label { display: flex; flex-wrap: wrap; gap: 0 0.5rem; align-items: baseline; padding: 0.35rem 0; cursor: pointer; }
-.orte .muted { flex-basis: 100%; padding-left: 1.6rem; font-size: 0.85em; overflow-wrap: anywhere; }
-.kennwort code { font-size: 1.1em; overflow-wrap: anywhere; }
+.orte .muted { flex-basis: 100%; padding-left: 1.6rem; font-size: var(--fs-klein); overflow-wrap: anywhere; }
+.kennwort code { font-size: var(--fs-gross); overflow-wrap: anywhere; }
 
 /* ---------- Deine Liste (Heute) ---------- */
 .liste-kopf { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.2rem 1rem; }
-.liste-karten { font-size: 0.85rem; color: var(--muted); }
-.tagesziel { margin: -1rem 0 1.2rem; font-size: .9rem; color: var(--muted); }
+.liste-karten { font-size: var(--fs-klein); color: var(--muted); }
+.tagesziel { margin: -1rem 0 1.2rem; font-size: var(--fs-klein); color: var(--muted); }
 .tagesziel.geschafft { color: var(--moos-hell); font-weight: 600; }  /* on the board: #a3c466, not the dark green (Lena: 2.3:1) */
 .tagesziel-punkte { display: inline-flex; gap: 3px; vertical-align: middle; }
 .tagesziel-punkte i { width: .6rem; height: .6rem; border-radius: 50%; border: 1.5px solid currentColor; opacity: .7; }
@@ -462,9 +474,9 @@ ul.aufgaben { list-style: none; margin: 0.3rem 0 0.8rem; padding: 0; }
 .punkt:last-child { border-bottom: 0; }
 .punkt form { display: contents; }
 .punkt-text { grid-column: 2; overflow-wrap: anywhere; }
-.punkt-ziel { grid-column: 3; font-size: 0.85rem; white-space: nowrap; }
+.punkt-ziel { grid-column: 3; font-size: var(--fs-klein); white-space: nowrap; }
 .punkt-weg { grid-column: 4; }
-.punkt-wann { font-size: 0.8rem; color: var(--muted); }
+.punkt-wann { font-size: var(--fs-mini); color: var(--muted); }
 /* A hand-drawn box to tick; ticked, it gets a moss-green check and the line is crossed out */
 button.haken { grid-column: 1; width: 1.6rem; height: 1.6rem; min-height: 0; padding: 0; border: 2px solid var(--eiche);
   border-radius: 5px 3px 6px 4px; background: var(--papier); color: var(--moos-dunkel); font-weight: 700; line-height: 1;
@@ -474,7 +486,7 @@ button.haken:not(.an):hover::after { content: "✓"; opacity: 0.45; }
 button.haken.an { border-color: var(--moos-dunkel); background: #e7efd3; }
 .punkt.fertig .punkt-text { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--moos); }
 button.punkt-weg { background: none; border: 0; padding: 0 0.3rem; min-height: 0; color: var(--muted);
-  font-size: 1.15rem; line-height: 1; cursor: pointer; opacity: 0.55; }
+  font-size: var(--fs-gross); line-height: 1; cursor: pointer; opacity: 0.55; }
 button.punkt-weg:hover, button.punkt-weg:focus-visible { opacity: 1; color: var(--terrakotta-dunkel); }
 .liste-neu { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: flex-end; }
 .liste-neu textarea { flex: 1 1 auto; min-height: 2.8rem; resize: vertical; font: inherit; }
@@ -560,7 +572,7 @@ nav.tabs { display: none; }
   nav.tabs > a, nav.tabs > details > summary {
     flex: 1 1 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.1rem;
     min-height: 52px; padding: 0.2rem 0; border-radius: 10px; color: var(--ink-papier); text-decoration: none;
-    font-size: 0.72rem; line-height: 1.1; }
+    font-size: var(--fs-mini); line-height: 1.1; }
   nav.tabs > details { flex: 1 1 0; display: flex; position: relative; }
   nav.tabs > details > summary { width: 100%; list-style: none; cursor: pointer; margin: 0; }
   nav.tabs > details > summary::-webkit-details-marker { display: none; }
@@ -597,7 +609,7 @@ button.klang.an .glocke-bild img { filter: drop-shadow(0 0 4px rgba(233, 189, 79
 /* The question before a step that can't be undone: a card, not the browser's grey box. */
 dialog.rueckfrage-karte { max-width: min(30rem, calc(100vw - 2rem)); border: 1px solid var(--line);
   border-radius: 14px; padding: 1.3rem 1.4rem 1.1rem; background: var(--card, #fffaf0); color: inherit;
-  box-shadow: 0 18px 50px rgba(60, 40, 10, 0.28); font-size: 1.02rem; line-height: 1.5; }
+  box-shadow: 0 18px 50px rgba(60, 40, 10, 0.28); font-size: var(--fs-text); line-height: 1.5; }
 dialog.rueckfrage-karte::backdrop { background: rgba(40, 28, 10, 0.35); }
 dialog.rueckfrage-karte p { margin: 0 0 1rem; white-space: pre-line; }
 dialog.rueckfrage-karte .row { gap: 0.6rem; justify-content: flex-end; flex-wrap: wrap; }
@@ -606,26 +618,26 @@ main .kopf-salz .salz-zeichen { color: var(--papier-schatten); }
 /* Feierabend: the day's closing credits (spiel.abspann.bilanz) */
 .abspann { margin: 1.2rem 0; padding: 1rem 1.1rem; border-radius: var(--radius); background: var(--papierkarte, #fbf3df);
   border: 1px solid var(--papier-schatten, #e3d4b4); }
-.abspann-schlagzeile { display: flex; align-items: center; gap: .7rem; margin: 0 0 .8rem; font-size: 1.35rem; }
+.abspann-schlagzeile { display: flex; align-items: center; gap: .7rem; margin: 0 0 .8rem; font-size: var(--fs-gross); }
 .abspann-stempel { position: relative; display: grid; place-items: center; width: 3rem; height: 3rem;
   transform: rotate(-8deg); flex: none; border-radius: 50%; }
 .abspann-stempel img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 .abspann-stempel:not(:has(img)) { border: 2px solid var(--stempel-gruen, #3f6b3a); }
-.abspann-stempel span { position: relative; font-size: 1.35rem; line-height: 1; color: var(--stempel-gruen, #3f6b3a);
+.abspann-stempel span { position: relative; font-size: var(--fs-gross); line-height: 1; color: var(--stempel-gruen, #3f6b3a);
   filter: sepia(.35) saturate(.7) contrast(.95); }
 .abspann-kacheln { display: grid; grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); gap: .7rem; }
 .abspann-kachel { padding: .6rem .8rem; border-radius: var(--radius); background: var(--papier, #fffaf0);
   border: 1px solid var(--papier-schatten, #e3d4b4); }
-.abspann-kachel h3 { margin: 0 0 .3rem; font-size: .95rem; color: var(--muted); font-weight: 600; }
+.abspann-kachel h3 { margin: 0 0 .3rem; font-size: var(--fs-text); color: var(--muted); font-weight: 600; }
 .abspann-kachel p { margin: .1rem 0; }
-.abspann-kachel strong { font-size: 1.3rem; font-variant-numeric: tabular-nums; }
+.abspann-kachel strong { font-size: var(--fs-gross); font-variant-numeric: tabular-nums; }
 .abspann-alles { margin-top: .8rem; }
 .abspann-alles summary { cursor: pointer; color: var(--tinte); }
 
 /* ---------- Five places, tabs inside a place (Rechnungen | Entwürfe | Angebote) ---------- */
 nav.reiter { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0 0 1.1rem; flex: none; }
 nav.reiter a { padding: 0.4rem 1rem; border-radius: 999px; background: var(--papierkarte); border: 1px solid #e8d6ae;
-  color: var(--ink); text-decoration: none; font-size: 0.95rem; box-shadow: 0 2px 6px rgba(20, 10, 2, .25); }
+  color: var(--ink); text-decoration: none; font-size: var(--fs-text); box-shadow: 0 2px 6px rgba(20, 10, 2, .25); }
 nav.reiter a:hover { background: var(--papier); }
 nav.reiter a[aria-current="page"] { background: var(--fry); border-color: var(--ocker-dunkel); font-weight: 600; }
 nav.reiter a::before { content: none !important; }
@@ -637,23 +649,23 @@ nav.reiter a::before { content: none !important; }
 /* Heute: the one next step on top, with the page's only primary button */
 .card.als-naechstes { border-left: 6px solid var(--ocker); padding-top: 0.9rem; }
 .card.als-naechstes.ruhig { border-left-color: var(--moos); }
-.card.als-naechstes .kicker { margin: 0 0 0.2rem; font: 700 0.75rem/1 var(--schrift); letter-spacing: 0.14em;
+.card.als-naechstes .kicker { margin: 0 0 0.2rem; font: 700 var(--fs-mini)/1 var(--schrift); letter-spacing: 0.14em;
   text-transform: uppercase; color: var(--terrakotta-dunkel); }
 .card.als-naechstes.ruhig .kicker { color: var(--moos-dunkel); }
 .card.als-naechstes h2 { margin-top: 0.3rem; }
 .card.als-naechstes ul.plain { margin: 0 0 0.8rem; }
-.card.als-naechstes .fritte-wartet { margin: 0.6rem 0 0; font-size: 0.92rem; }
+.card.als-naechstes .fritte-wartet { margin: 0.6rem 0 0; font-size: var(--fs-klein); }
 /* Settings in folds: the title and the current value on one line, the fields inside */
 .einstellungen-intro { margin: -0.3rem 0 1rem; color: var(--muted); }
-h2.fach-gruppe { font-size: 1.05rem; margin: 1.4rem 0 0.5rem; color: var(--kopf); letter-spacing: 0.02em; }
+h2.fach-gruppe { font-size: var(--fs-text); margin: 1.4rem 0 0.5rem; color: var(--kopf); letter-spacing: 0.02em; }
 details.card.fach { padding: 0; margin-bottom: 0.6rem; }
 details.card.fach > summary { display: flex; align-items: baseline; gap: 0.5rem 1rem; flex-wrap: wrap; padding: 0.9rem 1.2rem;
   cursor: pointer; list-style: none; }
 details.card.fach > summary::-webkit-details-marker { display: none; }
 details.card.fach > summary::before { content: "▸"; color: var(--ocker-dunkel); transition: transform .15s; display: inline-block; }
 details.card.fach[open] > summary::before { transform: rotate(90deg); }
-.fach-titel { font: 700 1.15rem var(--schrift); color: var(--kopf); }
-.fach-stand { color: var(--muted); font-size: 0.92rem; margin-left: auto; text-align: right; }
+.fach-titel { font: 700 var(--fs-gross) var(--schrift); color: var(--kopf); }
+.fach-stand { color: var(--muted); font-size: var(--fs-klein); margin-left: auto; text-align: right; }
 details.card.fach[open] > summary { border-bottom: 1px dashed var(--line); }
 details.card.fach > :not(summary) { margin-left: 1.2rem; margin-right: 1.2rem; }
 details.card.fach > :last-child { margin-bottom: 1.1rem; }
@@ -663,10 +675,10 @@ details.card.fach > summary + * { margin-top: 0.9rem; }
 form:has(details.fach[open]) .speichern-leiste { position: sticky; bottom: 0.6rem; z-index: 5; padding: 0.6rem 0.9rem;
   background: var(--papierkarte); border: 1px solid #e8d6ae; border-radius: var(--radius); box-shadow: var(--karten-schatten); }
 @media (max-width: 600px) { form:has(details.fach[open]) .speichern-leiste { bottom: calc(70px + env(safe-area-inset-bottom)); } }
-@media (max-width: 600px) { nav.reiter { gap: 0.3rem; } nav.reiter a { padding: 0.35rem 0.75rem; font-size: 0.88rem; } }
+@media (max-width: 600px) { nav.reiter { gap: 0.3rem; } nav.reiter a { padding: 0.35rem 0.75rem; font-size: var(--fs-klein); } }
 /* "Schon bezahlt?" when entering an old invoice: two plain choices, the day next to "Ja" */
 fieldset.schon-bezahlt { border: 0; padding: 0; margin: 0 0 0.8rem; min-width: 0; }
-fieldset.schon-bezahlt legend { padding: 0; color: var(--ink); font-weight: 700; font-size: 1.05rem; }
+fieldset.schon-bezahlt legend { padding: 0; color: var(--ink); font-weight: 700; font-size: var(--fs-text); }
 fieldset.schon-bezahlt .choice { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; color: var(--ink); margin: 0.3rem 0; }
 fieldset.schon-bezahlt input[type=date] { flex: 0 1 12rem; }
 ul.wartet-frueher { list-style: none; padding-left: 0; }
@@ -685,7 +697,7 @@ ul.wartet-frueher li { display: flex; flex-wrap: wrap; align-items: center; gap:
   .table.ausgaben .a-bei { grid-area: bei; font-weight: 600; overflow-wrap: anywhere; }
   .table.ausgaben td.amount { grid-area: betrag; text-align: right; white-space: nowrap; font-weight: 600; }
   .table.ausgaben .a-wofuer { grid-area: wofuer; overflow-wrap: anywhere; }
-  .table.ausgaben .a-datum, .table.ausgaben .a-kat { color: var(--muted); font-size: 0.85rem; align-self: center; }
+  .table.ausgaben .a-datum, .table.ausgaben .a-kat { color: var(--muted); font-size: var(--fs-klein); align-self: center; }
   .table.ausgaben .a-datum { grid-area: datum; }
   .table.ausgaben .a-kat { grid-area: kat; overflow-wrap: anywhere; }
   .table.ausgaben td.actions { grid-area: aktion; align-self: center; }
@@ -698,27 +710,32 @@ ul.wartet-frueher li { display: flex; flex-wrap: wrap; align-items: center; gap:
    „Überspringen“ gleich daneben (Lena Runde 45: vorher grau unter „Weiter“). */
 .lern-leiste { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem;
   margin: -0.2rem 0 1rem; padding: 0.5rem 0.7rem; border-radius: var(--radius); background: var(--papierkarte, #fcf6e6);
-  border: 1px solid #e8d6ae; font-size: 0.92rem; }
+  border: 1px solid #e8d6ae; font-size: var(--fs-klein); }
 .lern-leiste button { flex: none; margin: 0; }
 
 /* Info-i (Marie, 3.11.): what must be said but isn't needed every time sits behind a small
-   round "i" next to the thing it explains. Tap to open, tap again to close. */
-.info-i { display: inline-block; position: relative; vertical-align: middle; margin-left: 0.25rem; }
-.info-i > summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+   round "i" next to the thing it explains. Tap to open, tap again or anywhere else to close
+   (frits.js). Only inline elements, so it can stand inside a sentence. */
+.info-i { display: inline-block; position: relative; vertical-align: middle; margin-left: 0.25rem; line-height: 1; }
+button.info-i-knopf { display: inline-flex; align-items: center; justify-content: center; padding: 0; min-height: 0;
   width: 1.25rem; height: 1.25rem; border-radius: 50%; border: 1.5px solid var(--muted); color: var(--muted);
-  font: italic 700 0.8rem/1 Georgia, serif; user-select: none; }
-.info-i > summary::-webkit-details-marker { display: none; }
-.info-i > summary:hover, .info-i[open] > summary { border-color: var(--ink); color: var(--ink); }
-.info-i > summary:focus-visible { outline: 2px solid var(--ocker); outline-offset: 2px; }
-.info-i-text { position: absolute; z-index: 30; left: 50%; transform: translateX(-50%); top: 1.7rem;
+  background: transparent; box-shadow: none; font: italic 700 var(--fs-mini)/1 Georgia, serif; cursor: pointer; }
+button.info-i-knopf:hover, .info-i.offen > button.info-i-knopf { border-color: currentColor; color: inherit; background: transparent; }
+button.info-i-knopf:focus-visible { outline: 2px solid var(--ocker); outline-offset: 2px; }
+.info-i-text { display: none; position: absolute; z-index: 30; left: 50%; transform: translateX(-50%); top: 1.7rem;
   width: max-content; max-width: min(22rem, 80vw); padding: 0.6rem 0.8rem; border-radius: 8px;
   background: var(--papier); color: var(--ink-papier); border: 1px solid var(--papier-schatten);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, .15); font-size: 0.88rem; font-weight: normal; font-style: normal;
-  line-height: 1.45; text-align: left; white-space: normal; }
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .15); font-size: var(--fs-klein); font-weight: normal; font-style: normal;
+  line-height: 1.45; text-align: left; white-space: normal; letter-spacing: normal; text-transform: none;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
+.info-i.offen > .info-i-text { display: block; }
+.info-i-text.nach-oben { top: auto; bottom: 1.7rem; }
 @media (max-width: 600px) {
   /* on the phone it opens as a small sheet at the bottom of the screen */
   .info-i-text { position: fixed; left: 16px; right: 16px; top: auto; bottom: 16px; transform: none;
-    width: auto; max-width: none; }
+    width: auto; max-width: none; z-index: 45; }
+  /* above the tab bar at the bottom, not under it */
+  body:has(nav.tabs) .info-i-text { bottom: calc(72px + env(safe-area-inset-bottom)); }
 }
 
 /* "Für Techies" (Einführung 6 und 7): code stays as written and scrolls sideways in its box */

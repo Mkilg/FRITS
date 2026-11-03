@@ -628,5 +628,43 @@
     if (fold) fold.open = true;
   }, true);
 
+  // Info-i (Marie, 3.11.): a tap on the little "i" opens its text, a tap anywhere else or
+  // Escape closes it again. Only one is open at a time.
+  function infoZu(ausser) {
+    document.querySelectorAll(".info-i.offen").forEach(function (i) {
+      if (i === ausser) return;
+      i.classList.remove("offen");
+      var k = i.querySelector(".info-i-knopf");
+      if (k) k.setAttribute("aria-expanded", "false");
+    });
+  }
+  document.addEventListener("click", function (e) {
+    var knopf = e.target.closest && e.target.closest(".info-i-knopf");
+    if (!knopf) { if (!(e.target.closest && e.target.closest(".info-i-text"))) infoZu(null); return; }
+    e.preventDefault();  // inside a <label> the tap must not tick the box
+    e.stopPropagation();
+    var info = knopf.parentNode;
+    infoZu(info);
+    var auf = info.classList.toggle("offen");
+    knopf.setAttribute("aria-expanded", auf ? "true" : "false");
+    // Next to the edge of the page the box would be cut off (a jar on the left of the
+    // shelf), so it moves back inside. On the phone it is a sheet at the bottom anyway.
+    var box = info.querySelector(".info-i-text");
+    if (!auf || !box) return;
+    box.style.marginLeft = "";
+    box.classList.remove("nach-oben");
+    if (getComputedStyle(box).position === "fixed") return;
+    var r = box.getBoundingClientRect(), rand = 8, breit = document.documentElement.clientWidth;
+    var dx = r.left < rand ? rand - r.left : (r.right > breit - rand ? breit - rand - r.right : 0);
+    if (dx) box.style.marginLeft = dx + "px";
+    // At the end of the page there is no room below: it opens upwards.
+    var hoch = window.innerHeight || document.documentElement.clientHeight;
+    var docUnten = document.documentElement.scrollHeight - window.scrollY;
+    if (r.bottom > Math.min(hoch, docUnten) - rand && info.getBoundingClientRect().top > r.height + 2 * rand) {
+      box.classList.add("nach-oben");
+    }
+  });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") infoZu(null); });
+
   window.Frits = { feedback: feedback, stampSound: stampSound, playful: playful };
 })();

@@ -692,6 +692,16 @@ class Ware:
     text: str
     haken: str = ""  # Helfer haben wie gute Joker immer auch einen Nachteil
     platz: tuple[float, float] = (0.0, 0.0)  # Zierde: Lieblingsplatz auf der gemalten Insel
+    # Marie (3.11.): die Wirkung als kleine Formel, „{salz}×2 für Fragen“. Die Vorlage malt
+    # für {salz} den Salzstreuer; der ganze Satz (text, haken) steht hinter dem Info-i.
+    kurz: str = ""
+    haken_kurz: str = ""
+
+
+def _mal(neu: int, alt: int) -> str:
+    """„×2“, wenn neu ein Vielfaches von alt ist, sonst „4 statt 3“: die Formel folgt den
+    echten Zahlen, auch wenn sich eine Konstante ändert."""
+    return f"×{neu // alt}" if alt and neu % alt == 0 else f"{neu} statt {alt}"
 
 
 MARKT: tuple[Ware, ...] = (
@@ -702,6 +712,8 @@ MARKT: tuple[Ware, ...] = (
         "helfer",
         "Stempelt alle Vorschläge im Korb auf einmal ab, statt Zettel für Zettel.",
         haken=f"Sie frisst mit: Funde bringen {GOLD_FUND - 1} Salzkorn statt {GOLD_FUND}.",
+        kurz="Alle Vorschläge auf einmal stempeln",
+        haken_kurz="Funde {salz}−1",
     ),
     Ware(
         "brieftaube",
@@ -710,6 +722,8 @@ MARKT: tuple[Ware, ...] = (
         "helfer",
         f"Fragen an die Beraterin bringen {GOLD_FRAGE + 1} Salzkörner statt {GOLD_FRAGE}.",
         haken="„Gibt's nicht“ bringt nichts mehr.",
+        kurz=f"{{salz}}{_mal(GOLD_FRAGE + 1, GOLD_FRAGE)} für Fragen",
+        haken_kurz="„Gibt's nicht“ {salz}×0",
     ),
     Ware(
         "goldwaage",
@@ -718,6 +732,8 @@ MARKT: tuple[Ware, ...] = (
         "helfer",
         f"Bonus-Schätze wiegen doppelt: {GOLD_SCHATZ * 2} Salzkörner statt {GOLD_SCHATZ}.",
         haken="Fragen bringen nichts mehr.",
+        kurz=f"{{salz}}{_mal(GOLD_SCHATZ * 2, GOLD_SCHATZ)} für Schätze",
+        haken_kurz="Fragen {salz}×0",
     ),
     Ware(
         "sanduhr",
@@ -726,6 +742,8 @@ MARKT: tuple[Ware, ...] = (
         "helfer",
         f"Das Tagesziel bringt {GOLD_TAGWERK * 3} Salzkörner statt {GOLD_TAGWERK}. Wenig am Tag, aber jeden Tag.",
         haken="Im Drachenkampf zählt die Serie höchstens ×3.",
+        kurz=f"Tagesziel {{salz}}{_mal(GOLD_TAGWERK * 3, GOLD_TAGWERK)}",
+        haken_kurz="Drache höchstens ×3",
     ),
     Ware(
         "trommel",
@@ -734,6 +752,8 @@ MARKT: tuple[Ware, ...] = (
         "helfer",
         "Im Drachenkampf wächst die Serie eine Stufe schneller.",
         haken="„Gibt's nicht“ im Kampf setzt die Serie auf null.",
+        kurz="Drache: Serie +1",
+        haken_kurz="„Gibt's nicht“: Serie auf 0",
     ),
     Ware(
         "laternen",

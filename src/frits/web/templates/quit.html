@@ -9,12 +9,11 @@
 <section class="card">
   <h2>Doch noch etwas vergessen?</h2>
   {% if mac_app %}
-  <p><a class="button primary" href="frits://start">FRITS wieder starten</a></p>
-  <p class="hint">Beim ersten Mal fragt dein Browser, ob er „FRITS“ öffnen darf. Klick auf „Erlauben“ (oder „Öffnen“).</p>
+  <p><a class="button primary" href="frits://start">FRITS wieder starten</a> {{ info_i("Beim ersten Mal fragt dein Browser, ob er „FRITS“ öffnen darf. Klick auf „Erlauben“ (oder „Öffnen“).") }}</p>
   {% else %}
-  <p>Starte FRITS so wie vorhin: Doppelklick auf <strong>FRITS.app</strong>, oder im Terminal <code>frits ui</code> (mit Docker: <code>docker compose up ui</code>).</p>
+  <p>Starte FRITS wie vorhin, mit Doppelklick auf <strong>FRITS.app</strong>. {{ info_i("Oder im Terminal: frits ui (mit Docker: docker compose up ui).") }}</p>
   {% endif %}
-  <p class="muted" id="frits-waiting">Lass dieses Fenster ruhig offen: Sobald FRITS wieder läuft, geht es hier von selbst weiter. Sonst kannst du es einfach schließen.</p>
+  <p class="muted" id="frits-waiting">Läuft FRITS wieder, geht es hier von selbst weiter.</p>
 </section>
 
 <script>

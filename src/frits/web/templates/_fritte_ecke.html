@@ -5,8 +5,9 @@
     <h2>Fritte zuhause</h2>
     <p>{{ f.satz }}</p>
     <p class="salz">{{ salz }} <strong data-zaehlen>{{ f.guthaben }}</strong> Salzkörner</p>
+    <p>{% include "_serie.html" %}</p>
     {% if f.wartend %}
-    <p>{{ f.wartend }} {{ "Karte wartet" if f.wartend == 1 else "Karten warten" }} auf den Kassensturz. Das {{ "ist" if f.bereit == 1 else "sind" }} gerade etwa <strong>+{{ f.bereit }} {{ "Salzkorn" if f.bereit == 1 else "Salzkörner" }}</strong>.</p>
+    <p>{{ f.wartend }} {{ "Karte wartet" if f.wartend == 1 else "Karten warten" }}: etwa <strong>+{{ f.bereit }} {{ "Salzkorn" if f.bereit == 1 else "Salzkörner" }}</strong></p>
     {% endif %}
     {# No big button here: "Heute" is for work, Fritte is one quiet link away. #}
     <a class="button" href="/fritte">Zu Fritte</a>
