@@ -116,12 +116,12 @@ BILLING_LINKS = {
 # Für Techies (Marie, 3.11.): which libraries do the redaction and the reading before it.
 # (package, what it does here). Versions are looked up on this computer.
 BIBLIOTHEKEN = (
-    ("spacy", "Erkennt Namen, Firmen und Orte (Named Entity Recognition) mit dem deutschen Modell"),
-    ("pytesseract", "Liest Text aus Fotos, mit Tesseract OCR"),
-    ("pypdf", "Liest Text aus PDFs"),
-    ("python-docx", "Liest Word-Dateien"),
-    ("pillow", "Öffnet Bilder"),
-    ("pi-heif", "Öffnet iPhone-Fotos (HEIC)"),
+    ("spacy", "erkennt Namen, Firmen und Orte, Modell"),
+    ("pytesseract", "liest Text aus Fotos, mit Tesseract OCR"),
+    ("pypdf", "liest Text aus PDFs"),
+    ("python-docx", "liest Word-Dateien"),
+    ("pillow", "öffnet Bilder"),
+    ("pi-heif", "öffnet iPhone-Fotos (HEIC)"),
 )
 
 
