@@ -15,6 +15,12 @@ Sagt der Mac stattdessen, die App sei „beschädigt“: Terminal öffnen, `xatt
 
 Läuft ohne Internet, auf Macs mit Apple-Chip und Intel, ab macOS 13. Deine Daten liegen in `Dokumente/FRITS`, nicht im App-Ordner.
 
+### Neu in 1.7.4
+- **Einrichtung kürzer:** Im Lern-Teil steht „Überspringen“ jetzt oben neben dem Hinweis, dass es nur 3 kurze Schritte sind. Der Trick-Test ist knapper.
+- **Steuer-Quest:** Eine leere Fundkiste wird nicht mehr gefeiert. Sie sagt ehrlich, was fehlt. Stutzt Fritte bei einem Beleg, führt ein Knopf zur passenden Karte. Nach „Heute nur senden“ gibt es eine Nachtrag-Mail, und ein Dokument mit der Steuer-ID wird erkannt. Deine Beraterin trägst du einmal für alle Jahre ein. Dein eigener Brieftext bleibt erhalten, und die Mail öffnet sich nur, wenn du auf den Knopf drückst.
+- **Fritte:** Im Kassensturz drehen sich die Karten im Bild, und „Würze“ ist gut lesbar. Ein Würze-Zettel zeigt die Wirkung, die Seite fährt weich zur Truhe, und gefundene Salzkörner zeigen das gemalte Salz.
+- Das Ablagefeld zeigt überall das gemalte Ablage-Symbol.
+
 ### Neu in 1.7.3
 - **Ausgaben am Handy:** Jede Ausgabe steht als Zeile mit dem Betrag rechts. Die Summe ist immer zu sehen, ohne seitlich zu wischen.
 - **Heute** zeigt den Einstieg in die Steuer-Quest, solange es noch keine gibt. Beim ersten Besuch steht kein „seit letztem Mal“ mehr da.
