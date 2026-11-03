@@ -780,11 +780,16 @@ def kiste_karten(conn: sqlite3.Connection, jahr: int) -> int:
         return 0
     damals = dict(x.split(":", 1) for x in filter(None, row[0].split("\n")))
     jetzt = dict(x.split(":", 1) for x in _kiste_stati(conn, jahr))
-    # Ein neuer Beleg ändert den Status von selbst (offen → gesammelt); das zählt schon als Beleg
+    # Ein neuer Beleg ändert den Status von selbst (offen → gesammelt), ein herausgenommener
+    # auch (gesammelt → offen); das zählt schon als Beleg. Wer danach „Gibt's nicht“ stempelt,
+    # hat aber auch die Karte geändert (Lena, Runde 57: „1 Beleg herausgenommen“ war nur halb).
     return sum(
         1
         for k, v in jetzt.items()
-        if k in damals and damals[k] != v and "gesammelt" not in (v, damals[k])
+        if k in damals
+        and damals[k] != v
+        and v != "gesammelt"
+        and (damals[k], v) != ("gesammelt", "offen")
     )
 
 

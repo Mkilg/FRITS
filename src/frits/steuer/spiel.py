@@ -499,8 +499,17 @@ def auftrag(
             erledigt=drache_.max_lp - lp,
             gesamt=drache_.max_lp,
         )
-    if zettel:
-        if all(s["status"] == "offen" for s in stuecke):
+    frisch = all(s["status"] == "offen" for s in stuecke)
+    # Lena (Runde 57): Lagen Zettel aus anderen Jahren im gemeinsamen Korb, begann ein neues
+    # Jahr mit „Sortiere den Eingangskorb“ statt mit der leichten Steuer-ID. In einem frischen
+    # Jahr kommt die Steuer-ID zuerst, der Korb steht dabei.
+    sid_zuerst = (
+        frisch
+        and any(s.get("key") == "steuer-id" and s["status"] == "offen" for s in stuecke)
+        and any(p.gebiet.provinz.key == "rathaus" for p in staende)
+    )
+    if zettel and not sid_zuerst:
+        if frisch:
             # Lena (Runde 45): Ein neues Jahr begann mit einem Zettel aus dem Vorjahr. Der Korb
             # gilt für alle Jahre; in einem frischen Jahr sagen wir das, statt ihn ihm zuzuschreiben.
             text = (
@@ -571,6 +580,12 @@ def auftrag(
         text = "Fang leicht an: mit deiner Steuer-ID. Sie steht auf jedem Steuerbescheid, eintippen reicht."
         if danach:
             text += f" Danach noch {'eine Karte' if danach == 1 else f'{danach} Karten'}."
+        if zettel:
+            text += (
+                " Im Korb liegt noch ein Zettel, den legst du danach auf seine Provinz."
+                if zettel == 1
+                else f" Im Korb liegen noch {zettel} Zettel, die legst du danach auf ihre Provinz."
+            )
         ziel_url += f"?karte={sid['id']}"
     return Auftrag(
         "provinz",
@@ -1020,6 +1035,10 @@ def _woerter(text: str) -> set[str]:
     # Lena (Runde 46): "Steuer-ID.pdf" fiel durch (zu kurz) und "steuer-id-brief" landete bei
     # den Briefen. Die Steuer-ID zählt als ein Wort.
     text = re.sub(r"steuer[\s_.\-]?id(?:nr|s)?(?![a-z])", "steuerid", text)
+    # Lena (Runde 57): „KV-Beitragsbescheinigung“ und „TK_…“ sind zu kurz zum Raten. Die
+    # üblichen Kürzel werden zu den Wörtern, für die sie stehen.
+    text = re.sub(r"(?<![a-z])[gp]?kv(?![a-z])", " krankenversicherung ", text)
+    text = re.sub(r"(?<![a-z])tk(?![a-z])", " techniker ", text)
     return {
         w
         for w in re.findall(r"[a-z]{3,}|\d{4}", text)
@@ -1132,13 +1151,16 @@ def ahnung(dateiname: str, stuecke: list[dict]) -> Ahnung:
         # Lena (Runde 56): „Beitragsbescheinigung Krankenversicherung“ landete bei „Verbände,
         # Presseausweis“, weil „Beitrag“ ein bisschen passte. Passt ein anderes Wort viel
         # besser zu einer anderen Provinz (Burg: „krankenversicherung“), ist es nicht diese Karte.
+        # Lena (Runde 57): „Spendenquittung“ ging zu „Belege und Quittungen“, weil „quittung“
+        # darin steckt. Zählt ein Wort bei einer anderen Provinz mehr als bei dieser Karte,
+        # gehört der Zettel eher dorthin.
         fremd = max(
             (
                 w[a]
                 for g, w in provinz_wort.items()
                 if g.split("-")[0] != s["gebiet"].split("-")[0]
                 for a, t in treffer.items()
-                if not t
+                if w[a] > t
             ),
             default=0,
         )

@@ -1104,7 +1104,9 @@ def test_drache_geht_vor_dem_korb_und_zettel_lassen_sich_beiseitelegen(client, w
     conn = quest.ensure_schema(store.connect(ws.db))
     quest.lager(ws.root).mkdir(parents=True, exist_ok=True)
     (quest.lager(ws.root) / "urlaubsfoto.png").write_bytes(b"strand")
-    assert "Sortiere den Eingangskorb" in client.get("/steuer/2025").text
+    # Lena (Runde 57): Im frischen Jahr kommt die Steuer-ID zuerst, der Korb steht dabei
+    insel = client.get("/steuer/2025").text
+    assert "mit deiner Steuer-ID" in insel and "Im Korb liegt noch ein Zettel" in insel
     _bis_wach(conn)
     karte = client.get("/steuer/2025").text
     assert "Besiege den Papierdrachen" in karte and "Zettel aus dem Korb hast du als Hand" in karte
@@ -3291,7 +3293,8 @@ def test_runde_40_kein_umweg_ueber_fragen_und_helfer(client, ws):
     assert quest.stueck(conn, karte["id"])["status"] == "gesammelt"
     assert quest.gold(conn, 2025) == start  # netto 0
 
-    schatz = quest.stuecke(conn, 2025, "burg")[0]
+    # Seit Runde 57 erkennt Fritte Riester: Die Datei kommt auf die passende Karte
+    schatz = next(s for s in quest.stuecke(conn, 2025, "burg") if s["key"] == "altersvorsorge")
     riester = [("datei", ("riester.pdf", b"%PDF riester"))]
     post(client, f"/steuer/2025/stueck/{schatz['id']}/datei", files=riester)
     quest.verdiene(conn, 2025, "test", 100, "Testgold")
@@ -3520,10 +3523,14 @@ def test_runde_44_frisches_jahr_sagt_der_korb_gilt_fuer_alle_jahre(client, ws):
     """Lena (Runde 45): 2024 begann mit „Ein Zettel wartet“, dem DB-Ticket aus 2025."""
     fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
     conn = quest.ensure_schema(store.connect(ws.db))
-    a = spiel.auftrag(
-        2025, [], spiel.drache(quest.stuecke(conn, 2025)), 1, quest.stuecke(conn, 2025)
-    )
+    alle = [s for s in quest.stuecke(conn, 2025) if s["key"] != "steuer-id"]
+    a = spiel.auftrag(2025, [], spiel.drache(alle), 1, alle)
     assert a.art == "korb" and "Der Korb gilt für alle Jahre" in a.text and "2025" in a.text
+    # Lena (Runde 57): Mit offener Steuer-ID beginnt ein frisches Jahr leicht, trotz Korb
+    p = Profil.load(quest.profil_datei(ws.root, 2025))
+    alle = quest.stuecke(conn, 2025)
+    a = spiel.auftrag(2025, spiel.provinzen(reich(p), alle), spiel.drache(alle), 6, alle)
+    assert a.art == "provinz" and "Steuer-ID" in a.text and "6 Zettel" in a.text
 
 
 def test_runde_45_finale_nach_dem_notausgang(client, ws):
@@ -4149,6 +4156,60 @@ def test_runde_56_tagesziel_wartet_bis_nach_dem_kampf(client, ws):
     app = client.app
     app.state.steuer_tagwerk_spaeter[2025] = "Tagesziel geschafft: 3 Karten heute."
     _conn, _bonus = _besiegt_mit_bonus(client, ws)
+    # Lena (Runde 57): Nach dem Sieg wartet es weiter, bis die Mail offen ist
     seite = client.get("/steuer/2025/sieg").text
-    assert "Tagesziel geschafft: 3 Karten heute." in seite
+    assert "Tagesziel geschafft: 3 Karten heute." not in seite
+    assert 'class="sq-fast-fertig"' in seite and "Fundkiste packen und Mail öffnen" in seite
+    post(client, "/steuer/2025/truhe", schloss="ohne")
+    seite = client.get("/steuer/2025/sieg").text
+    assert "Tagesziel geschafft: 3 Karten heute." not in seite
+    assert "nur noch die Mail öffnen" in seite
+    post(client, "/steuer/2025/mail", text="Hallo", oeffnen="1")
+    seite = client.get("/steuer/2025/sieg").text
     assert 2025 not in app.state.steuer_tagwerk_spaeter
+    assert 'class="sq-fast-fertig"' not in seite
+    assert quest.hat_notiz(_conn, 2025, "mail")
+
+
+def test_runde_57_fritte_raet_kv_spenden_zahnarzt():
+    p = Profil(jahr=2025, mengen={"freiberuflich": [1, 0]}, haken=["vorsorge"])
+    st = []
+    for i, g in enumerate(reich(p)):
+        for j, k in enumerate(g.stuecke):
+            st.append({"id": i * 100 + j, "gebiet": g.id, "key": k.key, "name": k.name,
+                       "status": "offen"})  # fmt: skip
+    for name in ("KV-Beitragsbescheinigung_2025.pdf", "TK_Beitragsbescheinigung.pdf"):
+        assert spiel.ahnung(name, st).stueck["key"] == "krankenversicherung", name
+    assert spiel.ahnung("Riester_Bescheinigung_2025.pdf", st).stueck["key"] == "altersvorsorge"
+    # Ohne Spenden- und Krankheits-Karte: lieber nur die Burg als die falsche Werkstatt-Karte
+    for name in ("Spendenquittung_2025.pdf", "Zahnarzt_Rechnung_2025.pdf"):
+        a = spiel.ahnung(name, st)
+        assert a.stueck is None and a.gebiet == "burg", name
+
+
+def test_runde_57_lieber_fragen_bei_kernkarte_heisst_noch_nicht_da():
+    p = Profil(jahr=2025, mengen={"depots_inland": [1, 0]})
+    gebiete = reich(p)
+    st = []
+    for i, g in enumerate(gebiete):
+        for j, k in enumerate(g.stuecke):
+            st.append({"id": i * 100 + j, "gebiet": g.id, "key": k.key, "name": k.name,
+                       "status": "fragen" if k.key == "steuerbescheinigung" else "gesammelt",
+                       "frage": "", "wunsch": "", "dateien": 1})  # fmt: skip
+    _betreff, text = truhe.mail(p, gebiete, st, mit_passwort=False)
+    assert "Jahressteuerbescheinigung: Habe ich noch nicht." in text
+    assert "Ich bin unsicher" not in text
+
+
+def test_runde_57_umstempeln_nach_dem_packen_nennt_auch_den_stempel(client, ws):
+    conn, _bonus = _besiegt_mit_bonus(client, ws)
+    zweite = next(s for s in spiel.pflicht(quest.stuecke(conn, 2025)) if s["status"] == "fragen")
+    (ws.root / "zwei.pdf").write_bytes(b"%PDF zwei")
+    quest.sammeln(conn, ws.root, zweite["id"], ws.root / "zwei.pdf")
+    post(client, "/steuer/2025/truhe", schloss="ohne")
+    for d in quest.dateien(conn, 2025):
+        if d["stueck_id"] == zweite["id"]:
+            quest.entferne_datei(conn, d["id"])
+    quest.setze_status(conn, zweite["id"], "gibts_nicht")
+    seite = client.get("/steuer/2025/sieg").text
+    assert "1 Beleg herausgenommen und 1 Karte anders gestempelt seit dem Packen" in seite

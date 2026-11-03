@@ -913,7 +913,18 @@ def register_steuer(
                 flash(text, "tagwerk")
         elif not im_kampf and jahr in app.state.steuer_tagwerk_spaeter:
             flash(app.state.steuer_tagwerk_spaeter.pop(jahr), "tagwerk")
-        if nachher["zeitalter"][0] > vorher["zeitalter"][0]:
+        gold_text = spiel.aufstieg(spiel.ZEITALTER[-1][1]) + "!"
+        if (
+            nachher["zeitalter"][0] > vorher["zeitalter"][0]
+            and nachher["zeitalter"][1] == spiel.SILBER[0]
+            and quest.hat_notiz(c, jahr, "zeitalter", gold_text)
+        ):
+            # Lena (Runde 57): Gold wurde Silber, und FRITS feierte einen „Aufstieg“
+            flash(
+                "Aus Gold wird Silber: Eine wichtige Unterlage ist jetzt als „Gibt's nicht“ "
+                "gestempelt. Findest du sie doch, wird es wieder Gold."
+            )
+        elif nachher["zeitalter"][0] > vorher["zeitalter"][0]:
             text = spiel.aufstieg(nachher["zeitalter"][1]) + "!"
             if not quest.hat_notiz(c, jahr, "zeitalter", text):
                 quest.notiere(c, jahr, "zeitalter", text)
@@ -2407,8 +2418,11 @@ def register_steuer(
         if not daten["drache"].besiegt and jahr not in app.state.steuer_notausgang:
             flash("Erst der Drache, dann die Beute. Oder nimm den Notausgang, wenn es eilt.")
             return back(f"/steuer/{jahr}/drache")
-        if jahr in app.state.steuer_tagwerk_spaeter:
-            flash(app.state.steuer_tagwerk_spaeter.pop(jahr), "tagwerk")  # nach dem Kampf
+        # Lena (Runde 57): Nach dem Sieg sagte das Tagesziel „Für heute Schluss“, obwohl Kiste
+        # und Mail noch fehlten, und lag auf der Schloss-Wahl. Es wartet jetzt bis nach der Mail.
+        mail_schon = quest.hat_notiz(conn(), jahr, "mail")
+        if mail_schon and jahr in app.state.steuer_tagwerk_spaeter:
+            flash(app.state.steuer_tagwerk_spaeter.pop(jahr), "tagwerk")
         zip_pfad = truhe_pfad(jahr, daten["profil"])
         frisch_gepackt = jahr in app.state.steuer_gepackt
         app.state.steuer_gepackt.discard(jahr)
@@ -2466,6 +2480,7 @@ def register_steuer(
                 else ""
             ),
             fritte_warten=fritte_warten,
+            tagwerk_wartet=jahr in app.state.steuer_tagwerk_spaeter,
             # Lena (Runde 49): Der Link wird jedes Mal neu gebaut. Sonst öffnete er nach dem
             # Finale noch die alte, halbe Mail, während daneben schon die vollständige Zip lag.
             mail_ausweg=(
@@ -2719,7 +2734,12 @@ def register_steuer(
         result = system.compose_email(p.beraterin_email, betreff, text, zip_pfad)
         if result.opened:
             app.state.steuer_mailto.pop(jahr, None)
+            if not quest.hat_notiz(conn(), jahr, "mail"):
+                quest.notiere(conn(), jahr, "mail", "Mail an die Beraterin geöffnet")
             flash("Die Mail ist in deinem Mail-Programm. Du drückst dort auf Senden.", cue="sent")
+            if jahr in app.state.steuer_tagwerk_spaeter:
+                # Erst jetzt ist wirklich Schluss für heute (Lena, Runde 57)
+                flash(app.state.steuer_tagwerk_spaeter.pop(jahr), "tagwerk")
             return back(f"/steuer/{jahr}/sieg")
         # Lena (Runde 48): Der Ausweg führte auf die Rechnungsseite („Das PDF hängst du selbst
         # an“, „Rechnungsordner öffnen“). Er bleibt jetzt am Brief, mit Weg zur Zip.
