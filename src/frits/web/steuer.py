@@ -418,6 +418,8 @@ def register_steuer(
     app.state.steuer_zurueck = {}
     # Fritte stutzt: Die Rückfrage bleibt am Zettel im Eingangskorb, auch nach dem Neuladen
     app.state.steuer_stutzen = {}
+    # Ließ sich die Mail nicht öffnen: der mailto-Link für den Ausweg am Brief, je Jahr
+    app.state.steuer_mailto = {}
 
     def conn():
         return quest.ensure_schema(store.connect(ws.db))
@@ -584,6 +586,36 @@ def register_steuer(
                 p.beraterin_termin = date.fromisoformat(termin).isoformat() if termin else ""
             except ValueError:
                 p.beraterin_termin = ""
+
+    def beraterin_teilen(jahr: int, p: Profil) -> None:
+        """Lena (Runde 48): „Sie, Frau Weber“ galt nur für ein Jahr. Jahre, die noch nichts über
+        die Beraterin wissen, übernehmen Name, Mail und Anrede."""
+        if not (p.beraterin_name or p.beraterin_email):
+            return
+        for j in quest_jahre():
+            q = profil(j) if j != jahr else None
+            if q is not None and not (q.beraterin_name or q.beraterin_email):
+                q.beraterin_name, q.beraterin_email, q.anrede = (
+                    p.beraterin_name,
+                    p.beraterin_email,
+                    p.anrede,
+                )
+                q.save(quest.profil_datei(ws.root, j))
+
+    def beraterin_vom_nachbarn(jahr: int, p: Profil) -> None:
+        """Ein neues Jahr übernimmt die Beraterin aus dem nächstgelegenen Quest-Jahr."""
+        nachbarn = sorted(
+            (j for j in quest_jahre() if j != jahr), key=lambda j: (abs(j - jahr), -j)
+        )
+        for j in nachbarn:
+            q = profil(j)
+            if q is not None and (q.beraterin_name or q.beraterin_email):
+                p.beraterin_name, p.beraterin_email, p.anrede = (
+                    q.beraterin_name,
+                    q.beraterin_email,
+                    q.anrede,
+                )
+                return
 
     def titel_von(jahr: int, gebiet_id: str) -> str:
         p = profil_oder_404(jahr)
@@ -821,7 +853,7 @@ def register_steuer(
                 quest.zierde_freischalten(c, z.key)
             flash(
                 f"Neuer Orden: {e.name}. {e.beschreibung}"
-                + (f" Dafür steht jetzt {z.name} auf deiner Insel." if z else ""),
+                + (f" Neu auf deiner Insel: {z.name}." if z else ""),
                 "orden",
             )
         gold = (
@@ -1039,7 +1071,7 @@ def register_steuer(
                 quest.zierde_freischalten(c, z.key)
             flash(
                 f"Orden nachgetragen: {e.name}. {e.beschreibung}"
-                + (f" Dafür steht jetzt {z.name} auf deiner Insel." if z else ""),
+                + (f" Neu auf deiner Insel: {z.name}." if z else ""),
                 "orden",
             )
             n += 1
@@ -1102,6 +1134,8 @@ def register_steuer(
                     app.state.steuer_uebernommen.add(jahr)
                 if settings().tax_mode == "regelbesteuerung":
                     p.umsatzsteuer = "quartal"
+            if not (p.beraterin_name or p.beraterin_email):
+                beraterin_vom_nachbarn(jahr, p)
             p.jahr = jahr
             app.state.steuer_entwurf[jahr] = p
         return p
@@ -1923,6 +1957,7 @@ def register_steuer(
             p = profil_oder_404(jahr)
             beraterin_merken(p, form)
             p.save(quest.profil_datei(ws.root, jahr))
+            beraterin_teilen(jahr, p)
         daten = lage(jahr)
         wuensche = beraterin.zuordnen(text, daten["gebiete"], daten["stuecke"])
         if not wuensche:
@@ -2236,6 +2271,23 @@ def register_steuer(
         zusatz = "-vollstaendig" if vollstaendig else ""
         return quest.ordner(ws.root, jahr) / f"Steuer-{jahr}{name}{zusatz}.zip"
 
+    def nachtrag_aus(jahr: int, halb: tuple[str, int] | None) -> truhe.Nachtrag | None:
+        """Was die vollständige Kiste nach dem Notausgang sagt: wann die letzte halbe kam,
+        ob es mehrere waren und welche Karten seitdem einen Beleg bekamen."""
+        if not halb:
+            return None
+        zeit, anzahl = halb
+        neu_ids = [d for d in quest.dateien(conn(), jahr) if str(d["hinzugefuegt"]) > zeit]
+        namen = {s["id"]: s["name"] for s in quest.stuecke(conn(), jahr)}
+        return truhe.Nachtrag(
+            datum=schoenes_datum(zeit[:10]),
+            mehrere=anzahl > 1,
+            neu=tuple(
+                dict.fromkeys(namen[d["stueck_id"]] for d in neu_ids if d["stueck_id"] in namen)
+            ),
+            neue_dateien=frozenset(d["id"] for d in neu_ids),
+        )
+
     @app.get("/steuer/{jahr}/sieg", response_class=HTMLResponse)
     def sieg(request: Request, jahr: int):
         daten = lage(jahr)
@@ -2254,13 +2306,12 @@ def register_steuer(
             except Exception:  # noqa: BLE001 - der Hinweis auf Fritte ist ein Extra
                 fritte_warten = 0
         mit_passwort = truhe.verschluesselt(zip_pfad) if zip_pfad.exists() else True
-        seit = quest.nachtrag_seit(conn(), jahr)
         betreff, text = truhe.mail(
             daten["profil"],
             daten["gebiete"],
             daten["stuecke"],
             mit_passwort=mit_passwort,
-            nachtrag=schoenes_datum(seit) if seit else "",
+            nachtrag=nachtrag_aus(jahr, quest.nachtrag_seit(conn(), jahr)),
         )
         return seite(
             request,
@@ -2285,6 +2336,7 @@ def register_steuer(
                 else ""
             ),
             fritte_warten=fritte_warten,
+            mail_ausweg=app.state.steuer_mailto.get(jahr, ""),
             **daten,
         )
 
@@ -2328,17 +2380,23 @@ def register_steuer(
             and (not schon or quest.vor_dem_sieg_gepackt(conn(), jahr))
         )
         # Das Finale nach einem Notausgang ist ein Nachtrag: eigener Name für die Zip
-        nachtrag = (
-            finale and schon and quest.hat_notiz(conn(), jahr, "sieg")
-        ) or quest.nachtrag_seit(conn(), jahr) is not None
+        nachtrag = None
+        if (finale and schon) or quest.hat_notiz(conn(), jahr, "kiste_finale"):
+            nachtrag = nachtrag_aus(jahr, quest.halbe_sendungen(conn(), jahr))
+        if nachtrag:
+            # Die halbe Kiste liegt sonst gleich daneben und wird aus Versehen angehängt
+            alt = truhe_pfad(jahr, daten["profil"], vollstaendig=False)
+            if alt.exists():
+                alt.replace(alt.with_name(alt.stem + "-erste-Sendung.zip"))
         ziel = truhe.packen(
-            truhe_pfad(jahr, daten["profil"], vollstaendig=nachtrag),
+            truhe_pfad(jahr, daten["profil"], vollstaendig=nachtrag is not None),
             daten["profil"],
             daten["gebiete"],
             daten["stuecke"],
             quest.dateien(conn(), jahr),
             kennwort,
             quest.verweise(conn(), jahr),
+            nachtrag,
         )
         if kennwort and schon:
             # Lena (Runde 35): Das neue Passwort stand zwei Bildschirme tiefer, ungenannt
@@ -2371,6 +2429,7 @@ def register_steuer(
         p = profil_oder_404(jahr)
         beraterin_merken(p, form)
         p.save(quest.profil_datei(ws.root, jahr))
+        beraterin_teilen(jahr, p)
         if request.headers.get("x-frits-leise"):
             return JSONResponse({"ok": True})  # automatisch gespeichert, ohne Seitenwechsel
         if p.beraterin_termin:
@@ -2405,8 +2464,10 @@ def register_steuer(
         text = str(form.get("text") or "")
         result = system.compose_email(p.beraterin_email, betreff, text, zip_pfad)
         if result.opened:
+            app.state.steuer_mailto.pop(jahr, None)
             flash("Die Mail ist in deinem Mail-Programm. Du drückst dort auf Senden.", cue="sent")
             return back(f"/steuer/{jahr}/sieg")
-        app.state.mailto = result.mailto
-        flash(f"Hänge die Fundkiste bitte selbst an: {zip_pfad}")
-        return back("/mailto")
+        # Lena (Runde 48): Der Ausweg führte auf die Rechnungsseite („Das PDF hängst du selbst
+        # an“, „Rechnungsordner öffnen“). Er bleibt jetzt am Brief, mit Weg zur Zip.
+        app.state.steuer_mailto[jahr] = result.mailto
+        return back(f"/steuer/{jahr}/sieg#brief")
