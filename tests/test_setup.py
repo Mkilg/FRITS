@@ -268,3 +268,26 @@ def test_wrong_number_points_at_its_field(client, ws):
         follow_redirects=True,
     )
     assert 'data-feld="payment_days"' in page.text
+
+
+def test_no_key_says_frits_works_without_ai(client):
+    """Lena Runde 55: „Nimm Claude“ ohne Schlüssel lief still ohne KI weiter."""
+    post(client, "choose_ai", provider="claude")
+    assert "Erst mal ohne KI?" in client.get("/setup/store_key").text
+    page = post(client, "store_key", action="next")
+    assert "Noch kein Schlüssel: FRITS arbeitet erst mal ohne KI" in page.text
+    assert "Einstellungen › KI" in page.text
+
+
+def test_key_given_no_without_ai_note(client):
+    post(client, "choose_ai", provider="claude")
+    page = post(client, "store_key", api_key="sk-ant-api03-abc", action="next")
+    assert "arbeitet erst mal ohne KI" not in page.text
+    assert "Erst mal ohne KI?" not in client.get("/setup/store_key").text
+
+
+def test_inbox_path_is_shown_as_it_really_is(client, ws):
+    """Lena Runde 55: „Dokumente › FRITS › inbox“ stand da, obwohl der Ordner woanders lag."""
+    page = client.get("/setup/first_invoice").text
+    assert "Dokumente › FRITS › inbox" not in page  # tmp_path, not ~/Documents/FRITS
+    assert str(ws.inbox) in page

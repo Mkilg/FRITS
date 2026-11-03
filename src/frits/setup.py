@@ -42,7 +42,7 @@ FALLBACK_STEPS = {
         "Hallo, ich bin FRITS!",
         (
             "Ich kümmere mich um den Papierkram. Die "
-            "Das Wichtigste dauert etwa drei Minuten, den Lern-Teil kannst du überspringen."
+            "Das Wichtigste dauert etwa fünf Minuten, den Lern-Teil kannst du überspringen."
         ),
     ),
     "choose_ai": (
