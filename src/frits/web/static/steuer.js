@@ -901,6 +901,24 @@
     });
   });
   // "Passwort kopieren": es wird nur einmal gezeigt
+  // „Fundkiste im Finder zeigen“ am Brief: ohne Neuladen, damit der Mailtext bleibt (Lena, R49)
+  Array.prototype.forEach.call(document.querySelectorAll("button[data-leise][formaction]"), function (knopf) {
+    var beschriftung = knopf.textContent;
+    knopf.addEventListener("click", function (e) {
+      if (!window.fetch) return;
+      e.preventDefault();
+      var token = knopf.form && knopf.form.querySelector("input[name=token]");
+      var daten = new FormData();
+      if (token) daten.append("token", token.value);
+      fetch(knopf.getAttribute("formaction"), { method: "POST", body: daten, headers: { "x-frits-leise": "1" } })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          knopf.textContent = j.ok ? "✓ im Finder" : "Liegt hier: " + j.pfad;
+          if (j.ok) setTimeout(function () { knopf.textContent = beschriftung; }, 2500);
+        })
+        .catch(function () { knopf.form.submit(); });
+    });
+  });
   // „Text kopieren“ beim Ausweg am Brief nimmt den Mailtext, so wie er gerade im Feld steht
   Array.prototype.forEach.call(document.querySelectorAll("[data-kopieren], [data-kopieren-aus]"), function (knopf) {
     var beschriftung = knopf.textContent;

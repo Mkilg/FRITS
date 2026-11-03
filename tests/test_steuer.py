@@ -3682,7 +3682,7 @@ def test_runde_47_mail_ausweg_bleibt_an_der_fundkiste(client, ws, monkeypatch):
                     follow_redirects=False)  # fmt: skip
     assert r.headers["location"].endswith("/steuer/2025/sieg#brief")
     seite = client.get("/steuer/2025/sieg").text
-    assert "sq-mail-ausweg" in seite and "mailto:x@example.org" in seite
+    assert "sq-mail-ausweg" in seite and 'href="mailto:' in seite
     assert "Text kopieren" in seite and "Steuer-2025-Kim.zip" in seite
     assert "Das PDF" not in seite and "Rechnungsordner" not in seite
 
@@ -3706,3 +3706,62 @@ def test_runde_47_beraterin_gilt_fuer_alle_jahre(client, ws):
          beraterin_email="weber@example.org")  # fmt: skip
     p25 = Profil.load(quest.profil_datei(ws.root, 2025))
     assert (p25.beraterin_name, p25.anrede) == ("Frau Weber", "sie")
+
+
+def test_runde_48_ausweg_link_ist_immer_frisch(client, ws, monkeypatch):
+    """Lena (Runde 49): Nach dem Finale öffnete der Ausweg noch die alte, halbe Mail."""
+    from urllib.parse import unquote
+
+    monkeypatch.setattr(
+        system, "compose_email", lambda *a, **k: system.Composed(False, "mailto:alt")
+    )
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    post(client, "/steuer/2025/drache/notausgang")
+    post(client, "/steuer/2025/truhe", schloss="ohne")
+    post(client, "/steuer/2025/mail", text="Hallo")
+    seite = client.get("/steuer/2025/sieg").text
+    assert "sq-mail-ausweg" in seite and "mailto:alt" not in seite
+    for s in spiel.pflicht(quest.stuecke(conn, 2025)):
+        quest.setze_status(conn, s["id"], "fragen")
+    erste = spiel.pflicht(quest.stuecke(conn, 2025))[0]
+    (ws.root / "beleg.pdf").write_bytes(b"%PDF beleg")
+    quest.sammeln(conn, ws.root, erste["id"], ws.root / "beleg.pdf")
+    quest.notiere(conn, 2025, "sieg", "Der Papierdrache ist besiegt")
+    seite = post(client, "/steuer/2025/truhe", schloss="ohne").text
+    link = re.search(r'href="(mailto:[^"]+)"', seite).group(1)
+    assert "vollständig" in unquote(link.replace("&amp;", "&"))
+
+
+def test_runde_48_finder_ohne_neuladen(client, ws):
+    _conn, _bonus = _besiegt_mit_bonus(client, ws)
+    post(client, "/steuer/2025/truhe", schloss="ohne")
+    r = client.post("/steuer/2025/truhe/zeigen", data={"token": client.token},
+                    headers={"x-frits-leise": "1"})  # fmt: skip
+    assert r.headers["content-type"].startswith("application/json")
+    assert r.json()["pfad"].endswith("Steuer-2025-Kim.zip")
+
+
+def test_runde_48_beraterin_feld_fuer_feld(client, ws):
+    """Lena (Runde 49): Das stille Speichern kommt Feld für Feld, die Mail kam nicht mit."""
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    fragebogen(client, jahr=2024, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    leise = {"x-frits-leise": "1"}
+    client.post("/steuer/2024/beraterin/daten", headers=leise,
+                data={"token": client.token, "beraterin_name": "Frau Weber"})  # fmt: skip
+    client.post("/steuer/2024/beraterin/daten", headers=leise,
+                data={"token": client.token, "anrede": "sie"})  # fmt: skip
+    client.post("/steuer/2024/beraterin/daten", headers=leise,
+                data={"token": client.token, "beraterin_email": "weber@example.org"})  # fmt: skip
+    p25 = Profil.load(quest.profil_datei(ws.root, 2025))
+    assert (p25.beraterin_name, p25.beraterin_email, p25.anrede) == (
+        "Frau Weber",
+        "weber@example.org",
+        "sie",
+    )
+    # Eine andere Beraterin in einem anderen Jahr bleibt, wie sie ist
+    client.post("/steuer/2025/beraterin/daten", headers=leise,
+                data={"token": client.token, "beraterin_name": "Herr Kurz",
+                      "beraterin_email": "kurz@example.org"})  # fmt: skip
+    p24 = Profil.load(quest.profil_datei(ws.root, 2024))
+    assert p24.beraterin_name == "Frau Weber"
