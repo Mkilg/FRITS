@@ -722,6 +722,11 @@ button.info-i-knopf { display: inline-flex; align-items: center; justify-content
   background: transparent; box-shadow: none; font: italic 700 var(--fs-mini)/1 Georgia, serif; cursor: pointer; }
 button.info-i-knopf:hover, .info-i.offen > button.info-i-knopf { border-color: currentColor; color: inherit; background: transparent; }
 button.info-i-knopf:focus-visible { outline: 2px solid var(--ocker); outline-offset: 2px; }
+/* Lena (Runde 61): the round "i" is small, but a finger needs 44 px. An invisible ring makes
+   the tap area 44 × 44 without making the "i" bigger. */
+button.info-i-knopf { position: relative; }
+button.info-i-knopf::after { content: ""; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px;
+  transform: translate(-50%, -50%); border-radius: 50%; }
 .info-i-text { display: none; position: absolute; z-index: 30; left: 50%; transform: translateX(-50%); top: 1.7rem;
   width: max-content; max-width: min(22rem, 80vw); padding: 0.6rem 0.8rem; border-radius: 8px;
   background: var(--papier); color: var(--ink-papier); border: 1px solid var(--papier-schatten);
