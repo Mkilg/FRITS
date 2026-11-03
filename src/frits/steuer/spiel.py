@@ -581,10 +581,11 @@ def auftrag(
         if danach:
             text += f" Danach noch {'eine Karte' if danach == 1 else f'{danach} Karten'}."
         if zettel:
+            # Lena (Runde 58): Die Zettel stammen oft aus anderen Jahren; der Korb gilt für alle
             text += (
-                " Im Korb liegt noch ein Zettel, den legst du danach auf seine Provinz."
+                " Im Korb liegt noch ein Zettel, vielleicht aus einem anderen Jahr. Den schaust du danach an."
                 if zettel == 1
-                else f" Im Korb liegen noch {zettel} Zettel, die legst du danach auf ihre Provinz."
+                else f" Im Korb liegen noch {zettel} Zettel, vielleicht aus anderen Jahren. Die schaust du danach an."
             )
         ziel_url += f"?karte={sid['id']}"
     return Auftrag(
@@ -1068,6 +1069,8 @@ _SCHWACH = {
     # "Brief_vom_Arbeitgeber" ist kein Arbeitszimmer und keine Fahrt: Das gemeinsame "arbeit"
     # allein reicht nur für die Provinz (Marie-Durchlauf 7)
     "arbeit",
+    # Lena (Runde 58): Krankenkasse, KSK und Verbände schreiben alle „Beitragsbescheinigung“
+    "beitragsbescheinigung",
 }
 STARK = 3  # ab so vielen Punkten traut sich FRITS eine Karte vorzuschlagen
 
@@ -1109,6 +1112,9 @@ class Ahnung:
 
     stueck: dict | None = None
     gebiet: str | None = None
+    # Eine freiwillige Karte, die auf der Insel noch fehlt, weil ihr Haken im Fragebogen
+    # nicht gesetzt ist: (Haken, Kartenname, Provinzname). Lena (Runde 58).
+    dazu: tuple[str, str, str] | None = None
 
 
 def ahnung(dateiname: str, stuecke: list[dict]) -> Ahnung:
@@ -1124,16 +1130,23 @@ def ahnung(dateiname: str, stuecke: list[dict]) -> Ahnung:
     def bestes(wort: str, ziel: set[str]) -> int:
         return max((_naehe(wort, b) for b in ziel), default=0)
 
-    # Je Gebiet und Wort: wie gut das Wort zu den Stichworten der Provinz passt
-    provinz_wort: dict[str, dict[str, int]] = {}
-    for gid in dict.fromkeys(s["gebiet"] for s in stuecke):
-        p = provinzen.get(gid.split("-")[0])
-        stich = {w for x in (p.woerter if p else ()) for w in _woerter(x)}
-        provinz_wort[gid] = {a: bestes(a, stich) for a in woerter}
+    # Je Provinz des Katalogs und Wort: wie gut das Wort zu ihren Stichworten passt, auch für
+    # Provinzen, die auf dieser Insel fehlen (Lena, Runde 58: ohne Haken keine Burg, und die
+    # Krankenkasse landete beim Presseausweis)
+    katalog_wort = {
+        key: {a: bestes(a, {w for x in p.woerter for w in _woerter(x)}) for a in woerter}
+        for key, p in provinzen.items()
+    }
+    leer = dict.fromkeys(woerter, 0)
+    provinz_wort: dict[str, dict[str, int]] = {
+        gid: katalog_wort.get(gid.split("-")[0], leer)
+        for gid in dict.fromkeys(s["gebiet"] for s in stuecke)
+    }
     beste, punkte = None, 0
     # Bei Gleichstand gewinnt die Provinz, die im Katalog zuerst kommt: "UStVA" ohne "GbR"
     # gehört zum eigenen Betrieb, nicht zur Gesellschaft
     reihe = {key: i for i, key in enumerate(provinzen)}
+    dazu, dazu_wert = _fehlende_karte(woerter, stuecke)
     for s in sorted(stuecke, key=lambda s: (reihe.get(s["gebiet"].split("-")[0], 99), s["id"])):
         p = provinzen.get(s["gebiet"].split("-")[0])
         karte = next((k for k in (p.stuecke if p else ()) if k.key == s["key"]), None)
@@ -1141,7 +1154,8 @@ def ahnung(dateiname: str, stuecke: list[dict]) -> Ahnung:
         ziel = _woerter(f"{s['name']} {s['key'].replace('-', ' ')} {extra}")
         treffer = {a: bestes(a, ziel) for a in woerter}
         wert = max(treffer.values())
-        if not wert:
+        if not wert or (dazu is not None and dazu_wert > wert):
+            # Eine fehlende Karte passt besser (TK_… ist nicht die KSK, Lena Runde 58)
             continue
         # Die Provinz zählt nur mit Wörtern, die nicht schon die Karte erklärt haben:
         # "GbR_Rechnung" gehört zur Gilde, auch wenn "Rechnung" ein Werkstatt-Wort ist
@@ -1157,8 +1171,8 @@ def ahnung(dateiname: str, stuecke: list[dict]) -> Ahnung:
         fremd = max(
             (
                 w[a]
-                for g, w in provinz_wort.items()
-                if g.split("-")[0] != s["gebiet"].split("-")[0]
+                for key, w in katalog_wort.items()
+                if key != s["gebiet"].split("-")[0]
                 for a, t in treffer.items()
                 if w[a] > t
             ),
@@ -1173,9 +1187,31 @@ def ahnung(dateiname: str, stuecke: list[dict]) -> Ahnung:
         return Ahnung(beste, beste["gebiet"])
     wert = {gid: max(w.values()) for gid, w in provinz_wort.items()}
     gid = max(wert, key=wert.__getitem__, default=None)
+    if dazu is not None and (gid is None or dazu_wert >= wert[gid]):
+        return Ahnung(None, None, dazu)
     if gid is not None and wert[gid] >= STARK:
         return Ahnung(None, gid)
     return Ahnung()
+
+
+def _fehlende_karte(
+    woerter: set[str], stuecke: list[dict]
+) -> tuple[tuple[str, str, str] | None, int]:
+    """Die freiwillige Karte einer Provinz, die es immer gibt (Burg), die aber fehlt, weil ihr
+    Haken nicht gesetzt ist: ((Haken, Karte, Provinz), Punkte) oder (None, 0)."""
+    da = {(s["gebiet"].split("-")[0], s.get("key")) for s in stuecke}
+    beste, punkte = None, 0
+    for key, p in katalog().items():
+        if p.frage != "immer":
+            continue
+        for k in p.stuecke:
+            if not k.wenn or (key, k.key) in da:
+                continue
+            ziel = _woerter(f"{k.name} {k.key.replace('-', ' ')} {' '.join(k.woerter)}")
+            wert = max((max((_naehe(a, b) for b in ziel), default=0) for a in woerter), default=0)
+            if wert >= STARK and wert > punkte:
+                beste, punkte = (k.wenn, k.name, p.name), wert
+    return beste, punkte
 
 
 def vermute(dateiname: str, stuecke: list[dict]) -> dict | None:

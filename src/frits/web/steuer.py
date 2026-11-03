@@ -832,6 +832,18 @@ def register_steuer(
                     " Du kannst es wieder holen, sobald du sie neu verdient hast.",
                     "hinweis",
                 )
+        # Lena (Runde 57/58): Gold wurde Silber, FRITS feierte einen „Aufstieg“, und die ehrliche
+        # Meldung kam als dritte im Stapel. Sie kommt jetzt zuerst und allein.
+        gold_zu_silber = (
+            nachher["zeitalter"][0] > vorher["zeitalter"][0]
+            and nachher["zeitalter"][1] == spiel.SILBER[0]
+            and quest.hat_notiz(c, jahr, "zeitalter", spiel.aufstieg(spiel.ZEITALTER[-1][1]) + "!")
+        )
+        if gold_zu_silber:
+            flash(
+                "Aus Gold wird Silber: Eine wichtige Unterlage ist jetzt als „Gibt's nicht“ "
+                "gestempelt. Findest du sie doch, wird es wieder Gold."
+            )
         alt_siegel = {p.gebiet.id for p in vorher["provinzen"] if p.stand.siegel}
         for p in nachher["provinzen"]:
             if p.stand.siegel and p.gebiet.id not in alt_siegel:
@@ -852,7 +864,8 @@ def register_steuer(
                         c, jahr, f"siegel:{p.gebiet.id}", wert, f"Siegel: {titel}"
                     )
                 if schon:
-                    flash(f"{titel} ist wieder komplett.", "beute")  # kein zweites Fest
+                    if not gold_zu_silber:
+                        flash(f"{titel} ist wieder komplett.", "beute")  # kein zweites Fest
                     continue
                 quest.notiere(c, jahr, "siegel", text)
                 if p.silber:
@@ -886,6 +899,11 @@ def register_steuer(
             )
         heute, ziel = nachher["tagwerk"]
         tag = f"tagwerk:{date.today()}"
+        # Lena (Runde 58): Nach dem Sieg, aber vor der Mail, kam „Für heute Schluss“ bei jeder
+        # Karten-Aktion zurück (Beleg zurückgelegt, erster Schatz). Erst die Mail, dann Feierabend.
+        tagwerk_wartet = im_kampf or (
+            nachher["drache"].besiegt and not quest.hat_notiz(c, jahr, "mail")
+        )
         gemeinsam = nachher["tagesziel_info"] is not None
         # Mit dem gemeinsamen Tagesziel kann es auch bei Fritte erreicht worden sein:
         # Dann zahlt die Insel ihr Gold beim nächsten Quest-Schritt dieses Tages.
@@ -905,25 +923,16 @@ def register_steuer(
             text += (f", +{spiel.koerner(lohn)}." if lohn else ".") + (
                 " Mehr muss nicht sein, aber du darfst."
             )
-            if im_kampf:
+            if tagwerk_wartet:
                 # Lena (Runde 56): Mitten im Kampf verdeckte der Zettel einen Schlag-Knopf und
                 # sagte „Für heute Schluss“. Er wartet jetzt, bis der Kampf vorbei ist.
                 app.state.steuer_tagwerk_spaeter[jahr] = text
             else:
                 flash(text, "tagwerk")
-        elif not im_kampf and jahr in app.state.steuer_tagwerk_spaeter:
+        elif not tagwerk_wartet and jahr in app.state.steuer_tagwerk_spaeter:
             flash(app.state.steuer_tagwerk_spaeter.pop(jahr), "tagwerk")
-        gold_text = spiel.aufstieg(spiel.ZEITALTER[-1][1]) + "!"
-        if (
-            nachher["zeitalter"][0] > vorher["zeitalter"][0]
-            and nachher["zeitalter"][1] == spiel.SILBER[0]
-            and quest.hat_notiz(c, jahr, "zeitalter", gold_text)
-        ):
-            # Lena (Runde 57): Gold wurde Silber, und FRITS feierte einen „Aufstieg“
-            flash(
-                "Aus Gold wird Silber: Eine wichtige Unterlage ist jetzt als „Gibt's nicht“ "
-                "gestempelt. Findest du sie doch, wird es wieder Gold."
-            )
+        if gold_zu_silber:
+            pass  # schon oben gesagt
         elif nachher["zeitalter"][0] > vorher["zeitalter"][0]:
             text = spiel.aufstieg(nachher["zeitalter"][1]) + "!"
             if not quest.hat_notiz(c, jahr, "zeitalter", text):
@@ -963,7 +972,8 @@ def register_steuer(
             app.state.steuer_combo[jahr]["beute"] = {"basis": basis, "mult": faktor, "plus": plus}
         if sieg and quest.hat_notiz(c, jahr, "sieg"):
             # Lena (Runde 37): Nach Zurücklegen und Wiederablegen kam ein zweites Fest ohne Beute
-            flash("Der Drache ist wieder besiegt. Deine Beute von vorhin bleibt.", "beute")
+            if not gold_zu_silber:
+                flash("Der Drache ist wieder besiegt. Deine Beute von vorhin bleibt.", "beute")
             app.state.steuer_combo.pop(jahr, None)
             return False  # kein Sprung zur Drachenseite
         if sieg:
@@ -1536,6 +1546,45 @@ def register_steuer(
         if belohnen(jahr, vorher):
             return back(f"/steuer/{jahr}/drache")
         return back(str(form.get("back") or f"/steuer/{jahr}"))
+
+    @app.post("/steuer/{jahr}/lager/karte-dazu", dependencies=guarded)
+    async def lager_karte_dazu(request: Request, jahr: int):
+        """Fritte erkennt einen freiwilligen Zettel (Krankenkasse, Spende), dessen Karte fehlt,
+        weil der Haken im Fragebogen nicht gesetzt ist: Karte dazunehmen und den Zettel gleich
+        darauf legen (Lena, Runde 58)."""
+        form = await request.form()
+        name = Path(str(form.get("name", ""))).name
+        quelle = quest.lager(ws.root) / name
+        haken = str(form.get("haken") or "")
+        zurueck = str(form.get("back") or f"/steuer/{jahr}")
+        if not name or not quelle.is_file() or haken not in HAKEN:
+            raise HTTPException(404)
+        p = profil_oder_404(jahr)
+        if haken not in p.haken:
+            p.haken = [*p.haken, haken]
+            p.save(quest.profil_datei(ws.root, jahr))
+            quest.start(conn(), p)
+        c = conn()
+        karte = spiel.ahnung(name, quest.stuecke(c, jahr)).stueck
+        if karte is None:
+            flash("Die Karte ist jetzt auf deiner Insel. Leg den Zettel selbst darauf.")
+            return back(zurueck)
+        vorher = lage(jahr)
+        fund = quest.sammeln(c, ws.root, karte["id"], quelle, verschieben=True)
+        app.state.steuer_stutzen.pop(name, None)
+        if fund.neu:
+            quest.notiere(c, jahr, "fund", f"{karte['name']}: {name}")
+            flash(
+                f"Neue Karte „{karte['name']}“ in der {titel_von(jahr, karte['gebiet'])}."
+                f" +1 Beleg! {name} liegt darauf.",
+                "beute",
+                "done",
+            )
+        else:
+            doppelt_melden(jahr, fund, karte, zurueck)
+        if belohnen(jahr, vorher):
+            return back(f"/steuer/{jahr}/drache")
+        return back(zurueck)
 
     @app.post("/steuer/{jahr}/lager/vorschlaege", dependencies=guarded)
     async def lager_vorschlaege(request: Request, jahr: int):
@@ -2687,6 +2736,20 @@ def register_steuer(
             app.state.steuer_mailtext.pop(jahr, None)  # wieder wie von FRITS: nichts zu merken
         else:
             app.state.steuer_mailtext[jahr] = {"basis": basis, "eigen": eigen, "frueher": frueher}
+
+    @app.post("/steuer/{jahr}/mail/geoeffnet", dependencies=guarded)
+    def mail_geoeffnet(jahr: int):
+        """Der Ausweg: „E-Mail öffnen“ von Hand geklickt. Dann ist die Mail auch offen, und
+        das Tagesziel darf kommen (Lena, Runde 58)."""
+        p = profil_oder_404(jahr)
+        kiste = lage(jahr)["kiste"]
+        if (
+            truhe_pfad(jahr, p).exists()
+            and not (kiste and spiel.kiste_aenderung(*kiste))
+            and not quest.hat_notiz(conn(), jahr, "mail")
+        ):
+            quest.notiere(conn(), jahr, "mail", "Mail an die Beraterin geöffnet")
+        return Response(status_code=204)
 
     @app.post("/steuer/{jahr}/mail", dependencies=guarded)
     async def mail_oeffnen(request: Request, jahr: int):

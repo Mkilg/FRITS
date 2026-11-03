@@ -443,7 +443,7 @@ def mail(
             elif ist_kern(s["gebiet"], s["key"]):
                 # Lena (Runde 57): Bei der Jahressteuerbescheinigung heißt „Lieber fragen“ meist
                 # „hab ich noch nicht“, nicht „brauchst du das?“. Die hat fast jede:r.
-                text = "Habe ich noch nicht. Reicht es, wenn ich es nachreiche?"
+                text = "Habe ich noch nicht. Reicht es, wenn ich das nachreiche?"
             else:
                 text = f"Ich bin unsicher. {brauchst}"
             if sie:
