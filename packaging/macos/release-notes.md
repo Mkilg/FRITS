@@ -15,6 +15,12 @@ Sagt der Mac stattdessen, die App sei „beschädigt“: Terminal öffnen, `xatt
 
 Läuft ohne Internet, auf Macs mit Apple-Chip und Intel, ab macOS 13. Deine Daten liegen in `Dokumente/FRITS`, nicht im App-Ordner.
 
+### Neu in 1.7.6
+
+- **Steuer-Quest: Sicherung zurückholen.** Unter „Neu beginnen“ holst du eine frühere Sicherung zurück. Dabei gehen keine Belege verloren. Der Eingangskorb kennt das Jahr jedes Belegs.
+- **Kleines i am Handy:** Es lässt sich leicht antippen und öffnet sich als Zettel unten am Bildschirm, auch unter schiefen Überschriften. Escape schließt nur das i, nicht den ganzen Dialog.
+- **Am Handy:** Knöpfe und Klapp-Zeilen sind groß genug für den Finger. Die Steuer-Quest nutzt dieselben sechs Schriftgrößen wie der Rest.
+
 ### Neu in 1.7.5
 
 - **Viel weniger Text:** Die Seiten sind um bis zu zwei Drittel kürzer, es gibt nur noch sechs Schriftgrößen. Was man nicht jedes Mal braucht, steht hinter einem kleinen **i** zum Antippen.
