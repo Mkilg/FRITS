@@ -628,5 +628,27 @@
     if (fold) fold.open = true;
   }, true);
 
+  // Info-i (Marie, 3.11.): a tap on the little "i" opens its text, a tap anywhere else or
+  // Escape closes it again. Only one is open at a time.
+  function infoZu(ausser) {
+    document.querySelectorAll(".info-i.offen").forEach(function (i) {
+      if (i === ausser) return;
+      i.classList.remove("offen");
+      var k = i.querySelector(".info-i-knopf");
+      if (k) k.setAttribute("aria-expanded", "false");
+    });
+  }
+  document.addEventListener("click", function (e) {
+    var knopf = e.target.closest && e.target.closest(".info-i-knopf");
+    if (!knopf) { if (!(e.target.closest && e.target.closest(".info-i-text"))) infoZu(null); return; }
+    e.preventDefault();  // inside a <label> the tap must not tick the box
+    e.stopPropagation();
+    var info = knopf.parentNode;
+    infoZu(info);
+    var auf = info.classList.toggle("offen");
+    knopf.setAttribute("aria-expanded", auf ? "true" : "false");
+  });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") infoZu(null); });
+
   window.Frits = { feedback: feedback, stampSound: stampSound, playful: playful };
 })();
