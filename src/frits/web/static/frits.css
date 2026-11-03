@@ -414,7 +414,11 @@ input[type=checkbox], input[type=radio] { width: 1.15rem; height: 1.15rem; verti
   /* Links inside a sentence or a table cell: a taller hit area without moving the text */
   :where(p, td, .bottom, .hint, ul.plain li) a:not(.button) { padding-block: 0.8rem; }
   .kapitel-leiste a { min-height: 44px; }
+  /* Two links side by side: each its own 44 px box, so the padding of one never covers the
+     other when it wraps (Lena R66: „Zur Insel“ opened the market) */
+  .link-reihe a { display: inline-flex; align-items: center; min-height: 44px; padding-block: 0; }
 }
+.link-reihe { display: flex; flex-wrap: wrap; column-gap: 1.2rem; }
 
 /* First setup: the logo left, "Später einrichten" on the right */
 .top > .brand + .top-actions { margin-left: auto; }
