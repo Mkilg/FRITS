@@ -51,7 +51,7 @@
     {% elif fund.art == "gewuerz" %}<a class="button{{ '' if weitere else ' primary' }}" href="/fritte/laden#regal">Zum Gewürzregal</a>
     {% else %}<a class="button{{ '' if weitere else ' primary' }}" href="/fritte#kassensturz">Zu Fritte</a>{% endif %}
   </div>
-  <p class="hint truhe-fair">Chancen: {% for name, p in chancen.prozent %}{{ p }} % {{ name }}{{ ", " if not loop.last }}{% endfor %}. Die nächste seltene kommt spätestens in {{ chancen.selten_in }}, die nächste legendäre spätestens in {{ chancen.legendaer_in }} {{ "Truhe" if chancen.legendaer_in == 1 else "Truhen" }}.</p>
+  <p class="hint truhe-fair">Chancen: {% for name, p in chancen.prozent %}{{ p }} % {{ name }}{{ ", " if not loop.last }}{% endfor %} {{ info_i("Die nächste seltene kommt spätestens in " ~ chancen.selten_in ~ ", die nächste legendäre spätestens in " ~ chancen.legendaer_in ~ (" Truhe." if chancen.legendaer_in == 1 else " Truhen."), "Wann kommt die nächste seltene?") }}</p>
 </section>
 <script src="/static/truhe.js"></script>
 {% endblock %}

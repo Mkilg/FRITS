@@ -707,10 +707,9 @@ def create_app(
         if rest:
             app.state.liste_rest = "\n".join(rest)
             flash(
-                (f"{neu} von {neu + len(rest)} Punkten stehen jetzt auf der Liste. " if neu else "")
-                + f"Mehr als {aufgaben.MAX_OFFEN} offene Punkte auf einmal helfen nicht mehr. "
-                "Hak erst ein paar ab oder streich, was nicht mehr wichtig ist; der Rest "
-                "wartet unten im Feld." + ki
+                (f"{neu} von {neu + len(rest)} Punkten stehen auf der Liste. " if neu else "")
+                + f"Mehr als {aufgaben.MAX_OFFEN} offene Punkte helfen nicht. "
+                "Der Rest wartet unten im Feld." + ki
             )
         elif neu:
             flash(
@@ -887,8 +886,8 @@ def create_app(
                 flash(f"Im Eingang: {names}. Drück „Jetzt lesen lassen“, wenn du so weit bist.")
             else:
                 flash(
-                    f"Im Eingang: {names}. Sobald die KI verbunden ist, lese ich es. Ein Beleg "
-                    "geht auch ohne KI: Zieh ihn unter Ausgaben auf das Feld."
+                    f"Im Eingang: {names}. Ich lese es, sobald die KI verbunden ist. "
+                    "Belege gehen auch ohne KI, unter Ausgaben."
                 )
         for problem in problems:
             flash(problem, "error")
@@ -949,8 +948,8 @@ def create_app(
         path = _check_me_file((await request.form()).get("name"))
         _, job_id = _check_me_done(path, "receipt")
         flash(
-            "Als Beleg übernommen. Betrag und Datum lese ich hier auf deinem Computer, ganz "
-            "ohne KI. Bitte prüfen und speichern, dann zählt er in der EÜR."
+            "Als Beleg übernommen. Ich lese ihn hier auf deinem Computer, ohne KI. "
+            "Bitte prüfen und speichern."
         )
         return back(f"/expenses?receipt={job_id}#neu")
 
@@ -1413,8 +1412,8 @@ def create_app(
             shutil.rmtree(folder, ignore_errors=True)  # filed with the invoices now, if a PDF
         row = db().execute("SELECT gross FROM invoices WHERE number = ?", (number,)).fetchone()
         flash(
-            f"Rechnung {number} ist nachgetragen: {eur(Decimal(row['gross']))} brutto. Bitte kurz mit "
-            "dem Original vergleichen. Sie zählt jetzt in EÜR und Umsatzsteuer mit.",
+            f"Rechnung {number} ist nachgetragen: {eur(Decimal(row['gross']))} brutto. "
+            "Sie zählt jetzt in EÜR und Umsatzsteuer mit.",
             cue="done",
             stamp="Gebucht",
         )
@@ -1443,9 +1442,8 @@ def create_app(
             issued = date.fromisoformat(row["issue_date"]) if row else paid
             if paid.year < issued.year:
                 flash(
-                    f"Das Zahldatum {paid:%d.%m.%Y} liegt vor der Rechnung, im Jahr {paid.year}. "
-                    f"So zählt das Geld in der EÜR {paid.year}. War das eine Vorauszahlung? "
-                    "Sonst bitte unter Rechnungen prüfen.",
+                    f"Das Zahldatum {paid:%d.%m.%Y} liegt vor der Rechnung: Das Geld zählt in "
+                    f"der EÜR {paid.year}. Eine Vorauszahlung? Sonst bitte prüfen.",
                     "error",
                 )
         except BillingError as exc:
@@ -2185,9 +2183,8 @@ def create_app(
         )
         if twin:
             flash(
-                "Eine Ausgabe mit demselben Tag, Laden und Betrag gab es schon. Wenn das "
-                "derselbe Beleg war, lösch die neue unten in der Liste. Zwei gleiche Tickets "
-                "dürfen natürlich bleiben.",
+                "Diese Ausgabe (Tag, Laden, Betrag) gibt es schon. War es derselbe Beleg, "
+                "lösch die neue unten in der Liste.",
                 "error",
             )
         return back(f"/expenses?year={year}")
@@ -2608,9 +2605,8 @@ def create_app(
         flash(f"Gesichert: {path.name} in {path.parent}.", cue="saved", stamp="Gesichert")
         if sicherung.selbe_platte(ws, Path(ziel)):
             flash(
-                "Achtung: Diese Sicherung liegt auf derselben Festplatte wie FRITS. Geht der Mac "
-                "kaputt, ist sie mit weg. Nimm besser einen USB-Stick, eine externe Festplatte "
-                "oder iCloud Drive.",
+                "Achtung: Die Sicherung liegt auf derselben Festplatte wie FRITS und ginge mit "
+                "dem Mac kaputt. Besser: USB-Stick, externe Festplatte oder iCloud Drive.",
                 "error",
             )
         return back(str(form.get("back") or "/sicherung"))

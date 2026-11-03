@@ -10,7 +10,7 @@
   </div>
 
   <div class="ks-regal" aria-label="Gewürzregal">
-    {% for g in k.gewuerze %}<span class="glas-mit-wirkung{{ ' wirkt' if g.wirkt else (' wartet' if g.wirkung is defined else '') }}">{{ spiel.glas(g) }}{% if g.wirkung is defined %}<span class="glas-wirkung">{{ g.wirkung }}</span>{% endif %}</span>{% else %}<p class="hint">Kein Gewürz im Regal. Im <a href="/fritte/laden#markt">Laden</a> gibt es welche, die machen aus Körnern viel mehr.</p>{% endfor %}
+    {% for g in k.gewuerze %}<span class="glas-mit-wirkung{{ ' wirkt' if g.wirkt else (' wartet' if g.wirkung is defined else '') }}">{{ spiel.glas(g) }}{% if g.wirkung is defined %}<span class="glas-wirkung">{{ g.wirkung }}</span>{% endif %}</span>{% else %}<p class="hint">Kein Gewürz im Regal. Welche gibt es im <a href="/fritte/laden#markt">Laden</a>.</p>{% endfor %}
   </div>
 
   <div class="ks-tisch">
@@ -39,7 +39,7 @@
   {% if k.saison %}
   <div class="ks-ausbau ks-saison" data-ks="saison">
     <span class="sticker-rund" aria-hidden="true">{{ zeichen("pokal", "🏆") }}</span>
-    <div><strong>Saisonziel {{ k.saison.name }} geschafft!</strong><br><span>{% if k.saison.wochen %}In {{ k.saison.erreicht or k.saison.ziel }} Wochen dieser Saison hast du Papierkram gemacht.{% else %}{{ k.saison.erreicht or k.saison.ziel }} von {{ k.saison.ziel }} Salzkörnern in dieser Saison.{% endif %} Dafür gibt es {{ k.saison.bonus }} Salzkörner extra und einen Pokal für Frittes Zimmer.</span></div>
+    <div><strong>Saisonziel {{ k.saison.name }} geschafft!</strong><br><span>+{{ k.saison.bonus }} Salzkörner und ein Pokal für Frittes Zimmer. {{ info_i(("In " ~ (k.saison.erreicht or k.saison.ziel) ~ " Wochen dieser Saison hast du Papierkram gemacht.") if k.saison.wochen else ((k.saison.erreicht or k.saison.ziel) ~ " von " ~ k.saison.ziel ~ " Salzkörnern in dieser Saison.")) }}</span></div>
   </div>
   {% endif %}
   {% if k.erfolge %}
@@ -54,8 +54,8 @@
     <span class="truhe-klein{{ ' voll' if tr.neu }}" aria-hidden="true">{% if picture('truhe-zu') %}<img src="{{ picture('truhe-zu') }}" alt="">{% else %}<i class="truhe-deckel"></i><i class="truhe-kiste"></i>{% endif %}</span>
     <div>
       {% set anzahl = tr.anzahl or tr.neu | length %}{% if tr.neu %}<strong>{{ "Eine neue Truhe!" if anzahl == 1 else anzahl ~ " neue Truhen!" }}</strong> <span>{{ tr.neu | join(" · ") }}.</span><br>{% endif %}
-      {% if tr.willkommen %}<span>Dein erster Kassensturz ist ein Geschenk. Ab jetzt füllt jede neue Karte echter Papierkram die Truhe.</span> {% endif %}
-      {% if tr.dazu %}<span>{{ tr.dazu }} {{ "Karte" if tr.dazu == 1 else "Karten" }} echter Papierkram {{ "kam" if tr.dazu == 1 else "kamen" }} in die Truhe.</span> {% endif %}
+      {% if tr.willkommen %}<span>Dein erster Kassensturz ist ein Geschenk. {{ info_i("Ab jetzt füllt jede neue Karte echter Papierkram die Truhe.") }}</span> {% endif %}
+      {% if tr.dazu %}<span>+{{ tr.dazu }} {{ "Karte" if tr.dazu == 1 else "Karten" }} in die Truhe.</span> {% endif %}
       <span class="truhe-fuellung" aria-label="Nächste Truhe: {{ tr.jetzt }} von 5 Karten">{% for i in range(5) %}<i class="{{ 'voll' if i < tr.jetzt }}"></i>{% endfor %}</span> <span class="hint">Nächste Truhe: {{ tr.jetzt }} von 5</span>
       {% if offene_truhen %}
       <div class="row truhe-auf-form">
@@ -74,7 +74,7 @@
     </div>
   </div>
   {% endif %}
-  {% if k.nummer == 1 %}<p class="hint ks-tipp">Ab dem nächsten Kassensturz kocht Fritte jedes Mal ein Gericht dazu, und du wählst, welches.</p>{% endif %}
+  {% if k.nummer == 1 %}<p class="hint ks-tipp">Ab dem nächsten Mal kocht Fritte ein Gericht dazu, du wählst.</p>{% endif %}
   <div class="row ks-aktionen">
     <button type="button" class="quiet" data-ks="nochmal" hidden>Noch einmal ansehen</button>
     <button type="button" class="quiet" data-ks="weiter" hidden>Überspringen</button>

@@ -20,6 +20,6 @@
   {% endfor %}
 </ul>
 {% else %}
-<p class="muted">Keine offenen Entwürfe. Neue entstehen, wenn du Dateien in den Eingang legst.</p>
+<p class="muted">Keine offenen Entwürfe. {{ info_i("Neue entstehen, wenn du Dateien in den Eingang legst.") }}</p>
 {% endif %}
 {% endblock %}

@@ -6,15 +6,13 @@
 {% if not customer %}
 {% with dz_action="/customers/new/einlesen", dz_class="card form", dz_id="kontakt",
         dz_back=back_to, dz_title="Signatur oder Kontakt hierher ziehen oder einfügen",
-        dz_hint="Eine E-Mail-Signatur, eine Visitenkarte oder ein Kontakt aus der Kontakte-App.",
+        dz_hint="Signatur, Visitenkarte oder Kontakt. Gelesen wird nur hier, ohne KI.",
         dz_accept=".vcf,.txt,.eml,.pdf,.jpg,.jpeg,.png,.heic", dz_send="Felder ausfüllen",
         dz_busy="Ich suche die Kontaktdaten heraus.", dz_text_label="Signatur oder Adresse einfügen" %}{% include "_dropzone.html" %}{% endwith %}
-<p class="hint">Das Herauslesen passiert nur auf diesem Computer, ohne KI. Du prüfst jedes Feld, bevor etwas gespeichert wird.</p>
 {% endif %}
 {% if customer and (customer.gutschrift or credits) %}
 <section class="card" id="gutschriften">
-  <h2>Gutschriften von {{ customer.display_name }}</h2>
-  <p class="hint">Hier trägst du jede Gutschrift (Honorarabrechnung) ein, die dir dieser Kunde schickt. So zählt das Geld in der EÜR{% if credit_rates %} und in der Umsatzsteuer-Voranmeldung{% endif %}, obwohl du keine eigene Rechnung schreibst.</p>
+  <h2>Gutschriften von {{ customer.display_name }} {{ info_i("Hier trägst du jede Gutschrift (Honorarabrechnung) ein, die dir dieser Kunde schickt. So zählt das Geld in der EÜR" ~ (" und in der Umsatzsteuer-Voranmeldung" if credit_rates else "") ~ ", obwohl du keine eigene Rechnung schreibst.") }}</h2>
   {% if credits %}
   <div class="table-wrap"><table class="table">
     <thead><tr><th>Gutschrift</th><th class="amount">Betrag</th><th>Status</th><th></th></tr></thead>
@@ -50,7 +48,7 @@
     <div class="row actions"><button class="primary">Gutschrift eintragen</button></div>
   </form>
   {% if not credit_rates and customer.umsatzsteuer not in ("eu", "drittland") %}
-  <p class="hint">Als Kleinunternehmer darf auf der Gutschrift keine Umsatzsteuer stehen. Steht doch welche drauf, widersprich der Gutschrift beim Kunden, sonst schuldest du die Steuer dem Finanzamt (§ 14c UStG).</p>
+  <p class="hint">Als Kleinunternehmer ohne Umsatzsteuer. {{ info_i("Als Kleinunternehmer darf auf der Gutschrift keine Umsatzsteuer stehen. Steht doch welche drauf, widersprich der Gutschrift beim Kunden, sonst schuldest du die Steuer dem Finanzamt (§ 14c UStG).") }}</p>
   {% endif %}
 </section>
 {% endif %}
@@ -60,14 +58,13 @@
   <input type="hidden" name="id" value="{{ customer.id if customer else '' }}">
   <input type="hidden" name="back" value="{{ back_to or '' }}">
   <label class="field">Name der Ansprechperson <input name="name" required value="{{ customer.name if customer else p.name or '' }}"></label>
-  <label class="field">Firma (falls es eine gibt) <input name="company" value="{{ customer.company or '' if customer else p.company or '' }}"></label>
+  <label class="field"><span>Firma <span class="muted">(falls es eine gibt)</span></span> <input name="company" value="{{ customer.company or '' if customer else p.company or '' }}"></label>
   <label class="field">Adresse <textarea name="address" rows="3" placeholder="Straße Nr.&#10;PLZ Ort">{{ (customer.address or '').replace(', ', '\n') if customer else (p.address or '').replace(', ', '\n') }}</textarea></label>
   <label class="field">E-Mail <input name="email" type="email" value="{{ customer.email or '' if customer else p.email or '' }}"></label>
   <label class="field">Telefon <input name="phone" value="{{ customer.phone or '' if customer else p.phone or '' }}"></label>
-  <label class="field">Eigener Stundensatz (leer = dein normaler) <input name="hourly_rate" inputmode="decimal" value="{{ customer.hourly_rate | qty if customer and customer.hourly_rate else '' }}"></label>
-  <label class="field">Andere Schreibweisen, mit Komma getrennt <input name="aliases" value="{{ customer.aliases | join(', ') if customer else '' }}" placeholder="z. B. Frau M., Bäckerei S."></label>
-  <p class="hint">Andere Schreibweisen helfen beim Schwärzen: Auch „Frau M.“ wird dann zum Platzhalter.</p>
-  <label class="field">Referenz auf jeder Rechnung (falls der Kunde eine verlangt, z. B. Bestellnummer oder Leitweg-ID) <input name="referenz" value="{{ customer.referenz or '' if customer else '' }}"></label>
+  <label class="field"><span>Eigener Stundensatz <span class="muted">(leer = dein normaler)</span></span> <input name="hourly_rate" inputmode="decimal" value="{{ customer.hourly_rate | qty if customer and customer.hourly_rate else '' }}"></label>
+  <label class="field"><span>Andere Schreibweisen {{ info_i("Mit Komma getrennt. Andere Schreibweisen helfen beim Schwärzen: Auch „Frau M.“ wird dann zum Platzhalter.") }}</span> <input name="aliases" value="{{ customer.aliases | join(', ') if customer else '' }}" placeholder="z. B. Frau M., Bäckerei S."></label>
+  <label class="field"><span>Referenz auf jeder Rechnung {{ info_i("Falls der Kunde eine verlangt, z. B. Bestellnummer oder Leitweg-ID.") }}</span> <input name="referenz" value="{{ customer.referenz or '' if customer else '' }}"></label>
   {% set land = customer.land if customer else "DE" %}
   <details class="abroad" {{ "open" if land != "DE" or (customer and customer.gutschrift) }}>
     <summary>Kunde im Ausland oder mit Gutschrift?</summary>
@@ -75,10 +72,8 @@
       <select name="land">{% for code, label in countries.items() %}<option value="{{ code }}" {{ "selected" if code == land }}>{{ label }}</option>{% endfor %}{% if land not in countries %}<option value="{{ land }}" selected>{{ land }}</option>{% endif %}</select>
     </label>
     <label class="choice"><input type="checkbox" name="privat" {{ "checked" if customer and customer.privat }}> Privatperson, keine Firma</label>
-    <label class="field">USt-IdNr oder UID des Kunden (bei Firmen in der EU Pflicht) <input name="ust_id" value="{{ customer.ust_id or '' if customer else '' }}" placeholder="z. B. ATU12345678 oder CHE-123.456.789 MWST"></label>
-    <p class="hint">Bei einer Firma im Ausland schreibt FRITS mit Regelbesteuerung keine deutsche Umsatzsteuer auf die Rechnung, sondern den passenden Hinweis: in der EU Reverse Charge (dann gehören die Umsätze auch in die Zusammenfassende Meldung), außerhalb der EU „nicht im Inland steuerbar“. Bei Privatpersonen bleibt es bei deutscher Umsatzsteuer; frag bei Privatleuten im Ausland im Zweifel deine Steuerberatung. Als Kleinunternehmer ändert sich nichts.</p>
-    <label class="choice"><input type="checkbox" name="gutschrift" {{ "checked" if customer and customer.gutschrift }}> Dieser Kunde rechnet selbst ab und schickt mir eine Gutschrift (Honorarabrechnung)</label>
-    <p class="hint">Viele Sender machen das so. Dann schreibst du keine eigene Rechnung, sonst gibt es zwei Rechnungen über dieselbe Leistung und du schuldest die Umsatzsteuer womöglich doppelt (§ 14c UStG). FRITS warnt dich dann bei Entwürfen für diesen Kunden.</p>
+    <label class="field"><span>USt-IdNr oder UID des Kunden {{ info_i("Bei Firmen in der EU Pflicht. Bei einer Firma im Ausland schreibt FRITS mit Regelbesteuerung keine deutsche Umsatzsteuer auf die Rechnung, sondern den passenden Hinweis: in der EU Reverse Charge (dann gehören die Umsätze auch in die Zusammenfassende Meldung), außerhalb der EU „nicht im Inland steuerbar“. Bei Privatpersonen bleibt es bei deutscher Umsatzsteuer; frag bei Privatleuten im Ausland im Zweifel deine Steuerberatung. Als Kleinunternehmer ändert sich nichts.") }}</span> <input name="ust_id" value="{{ customer.ust_id or '' if customer else '' }}" placeholder="z. B. ATU12345678 oder CHE-123.456.789 MWST"></label>
+    <label class="choice"><input type="checkbox" name="gutschrift" {{ "checked" if customer and customer.gutschrift }}> Kunde schickt mir eine Gutschrift (Honorarabrechnung) {{ info_i("Viele Sender machen das so. Dann schreibst du keine eigene Rechnung, sonst gibt es zwei Rechnungen über dieselbe Leistung und du schuldest die Umsatzsteuer womöglich doppelt (§ 14c UStG). FRITS warnt dich dann bei Entwürfen für diesen Kunden.") }}</label>
   </details>
   <div class="row actions"><button class="primary">Speichern</button></div>
 </form>

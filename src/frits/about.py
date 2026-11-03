@@ -16,28 +16,23 @@ BUG_SUBJECT_TAG = "[FRITS Fehler]"
 ABOUT = {
     "projekt": [
         (
-            "FRITS ist ein experimentelles, nicht-kommerzielles Projekt. "
-            "Marie Kilg entwickelt es privat, in ihrer Freizeit, zuerst für einen Freund."
+            "Ein experimentelles, nicht-kommerzielles Projekt. Marie Kilg baut es privat, "
+            "in ihrer Freizeit, zuerst für einen Freund."
         ),
-        (
-            "Buchhaltung stresst viele Selbstständige, und Marie kann das gut nachfühlen. "
-            "Deshalb soll FRITS den Papierkram leichter machen: Rechnungen, Angebote, "
-            "Erinnerungen und die Steuer, Schritt für Schritt."
-        ),
-        (
-            "FRITS ist noch in Arbeit. Wenn etwas hakt oder komisch aussieht, "
-            'sag gern Bescheid, unten unter "Fehler melden".'
-        ),
+        "FRITS soll den Papierkram leichter machen: Rechnungen, Angebote und die Steuer.",
     ],
+    # Shown on the page; "hinweis_mehr" sits behind the info-i next to it.
     "hinweis": [
         (
-            "FRITS ist ein kostenloses, nicht-kommerzielles Hobbyprojekt. Es hilft dir, deine "
-            "eigenen Rechnungen und Unterlagen zu ordnen, und rechnet Zahlen für dich zusammen."
+            "FRITS ist keine Steuer-, Rechts- oder Finanzberatung. Prüf bitte alle Zahlen, "
+            "bevor du sie ans Finanzamt schickst."
         ),
+    ],
+    "hinweis_mehr": [
         (
-            "FRITS ist keine Steuer-, Rechts- oder Finanzberatung und ersetzt sie nicht. "
-            "Prüf bitte alle Zahlen, bevor du sie ans Finanzamt schickst, und frag im Zweifel "
-            "deine Steuerberatung."
+            "FRITS ist ein kostenloses, nicht-kommerzielles Hobbyprojekt. Es hilft dir, deine "
+            "eigenen Rechnungen und Unterlagen zu ordnen, und rechnet Zahlen für dich zusammen. "
+            "Frag im Zweifel deine Steuerberatung."
         ),
         (
             "Du nutzt FRITS auf eigene Verantwortung. Es gilt die MIT-Lizenz; für Schäden haftet "
@@ -47,10 +42,9 @@ ABOUT = {
     ],
     "podcast_name": "Ein privates Projekt",
     "podcast_text": (
-        "Die Idee zu FRITS ist rund um eine Live-Folge vom KI-Podcast der ARD entstanden, "
-        "den Marie mitmoderiert. FRITS selbst ist aber kein Projekt der ARD und keins ihrer "
-        "Sender: Marie hat es als Privatperson gebaut, in ihrer Freizeit und auf eigene "
-        "Verantwortung."
+        "Die Idee entstand rund um eine Live-Folge vom KI-Podcast der ARD, den Marie "
+        "mitmoderiert. FRITS ist aber kein Projekt der ARD und keins ihrer Sender: Marie hat "
+        "es als Privatperson gebaut."
     ),
     "podcast_link": "https://www.ardsounds.de/sendung/der-ki-podcast/urn:ard:show:65505255c703e51e/",
 }

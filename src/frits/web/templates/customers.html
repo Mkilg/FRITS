@@ -2,13 +2,12 @@
 {% block title %}Kunden · FRITS{% endblock %}
 {% block content %}
 <div class="head-row">
-  <h1>Kunden</h1>
+  <h1>Kunden {{ info_i("Jeder Kunde ist eine Markdown-Notiz im Ordner „customers“. Du kannst sie auch in Obsidian oder einem Texteditor öffnen und eigene Notizen darunter schreiben.") }}</h1>
   <div class="row">
     {% if not im_browser() %}<form method="post" action="/open/customers"><input type="hidden" name="token" value="{{ token }}"><button class="quiet">Ordner öffnen</button></form>{% endif %}
     <a class="button primary" href="/customers/new">Neuer Kunde</a>
   </div>
 </div>
-<p class="hint">Jeder Kunde ist eine Markdown-Notiz im Ordner „customers“. Du kannst sie auch in Obsidian oder einem Texteditor öffnen und eigene Notizen darunter schreiben.</p>
 {% if customers %}
 <ul class="cards">
   {% for c in customers %}
