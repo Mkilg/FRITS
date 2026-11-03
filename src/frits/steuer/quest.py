@@ -88,7 +88,8 @@ CREATE TABLE IF NOT EXISTS steuer_kiste (
     jahr INTEGER PRIMARY KEY,      -- Stand beim letzten Packen der Fundkiste: höchste Datei-id
     bis_datei INTEGER NOT NULL,    -- und Anzahl, damit „neu packen“ auffällt (Lena, Runde 33)
     anzahl INTEGER NOT NULL,
-    inhalt TEXT                    -- Karte:Prüfsumme je Datei, sortiert (Lena, Runde 44)
+    inhalt TEXT,                   -- Karte:Prüfsumme je Datei, sortiert (Lena, Runde 44)
+    stati TEXT                     -- Karte:Status je Karte, sortiert (Lena, Runde 56)
 );
 CREATE TABLE IF NOT EXISTS steuer_halb (
     jahr INTEGER PRIMARY KEY,      -- Inhalt der letzten Kiste vor dem Sieg (Notausgang), damit
@@ -117,6 +118,9 @@ def ensure_schema(conn: sqlite3.Connection) -> sqlite3.Connection:
     spalten = {r[1] for r in conn.execute("PRAGMA table_info(steuer_kiste)")}
     if "inhalt" not in spalten:  # Kisten von vor Runde 44
         conn.execute("ALTER TABLE steuer_kiste ADD COLUMN inhalt TEXT")
+        conn.commit()
+    if "stati" not in spalten:  # Kisten von vor Runde 56
+        conn.execute("ALTER TABLE steuer_kiste ADD COLUMN stati TEXT")
         conn.commit()
     return conn
 
@@ -761,6 +765,29 @@ def hat_notiz(
     return conn.execute(sql, args).fetchone() is not None
 
 
+def _kiste_stati(conn: sqlite3.Connection, jahr: int) -> set[str]:
+    """Wie jede Karte beim Packen gestempelt war: Das Inhaltsverzeichnis der Zip und der Brief
+    sagen „fehlt noch“, „gibt es nicht“ oder „frag ich dich“ (Lena, Runde 56)."""
+    rows = conn.execute("SELECT id, status FROM steuer_stuecke WHERE jahr = ?", (jahr,))
+    return {f"{r[0]}:{r[1]}" for r in rows}
+
+
+def kiste_karten(conn: sqlite3.Connection, jahr: int) -> int:
+    """Wie viele Karten seit dem Packen anders gestempelt sind (ohne Datei-Änderungen)."""
+    ensure_schema(conn)
+    row = conn.execute("SELECT stati FROM steuer_kiste WHERE jahr = ?", (jahr,)).fetchone()
+    if row is None or row[0] is None:
+        return 0
+    damals = dict(x.split(":", 1) for x in filter(None, row[0].split("\n")))
+    jetzt = dict(x.split(":", 1) for x in _kiste_stati(conn, jahr))
+    # Ein neuer Beleg ändert den Status von selbst (offen → gesammelt); das zählt schon als Beleg
+    return sum(
+        1
+        for k, v in jetzt.items()
+        if k in damals and damals[k] != v and "gesammelt" not in (v, damals[k])
+    )
+
+
 def kiste_gepackt(conn: sqlite3.Connection, jahr: int) -> None:
     """Merkt sich, welche Dateien in der eben gepackten Fundkiste liegen."""
     ensure_schema(conn)
@@ -768,12 +795,13 @@ def kiste_gepackt(conn: sqlite3.Connection, jahr: int) -> None:
         "SELECT COALESCE(MAX(id), 0), COUNT(*) FROM steuer_dateien WHERE jahr = ?", (jahr,)
     ).fetchone()
     inhalt = "\n".join(sorted(_kiste_inhalt(conn, jahr)))
+    stati = "\n".join(sorted(_kiste_stati(conn, jahr)))
     vor_dem_sieg = not hat_notiz(conn, jahr, "sieg")
     with transaction(conn):
         conn.execute(
-            "INSERT OR REPLACE INTO steuer_kiste (jahr, bis_datei, anzahl, inhalt)"
-            " VALUES (?, ?, ?, ?)",
-            (jahr, bis, anzahl, inhalt),
+            "INSERT OR REPLACE INTO steuer_kiste (jahr, bis_datei, anzahl, inhalt, stati)"
+            " VALUES (?, ?, ?, ?, ?)",
+            (jahr, bis, anzahl, inhalt, stati),
         )
         if vor_dem_sieg:
             conn.execute(

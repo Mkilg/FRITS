@@ -4117,3 +4117,38 @@ def test_runde_55_crlf_ist_keine_eigene_fassung(client, ws):
                       "text": html.unescape(t.group(1)).replace("\n", "\r\n")})  # fmt: skip
     assert 2025 not in client.app.state.steuer_mailtext
     assert "Noch keine Mail-Adresse deiner Beraterin" in seite
+
+
+def test_runde_56_anders_gestempelt_heisst_neu_packen(client, ws):
+    """Lena (Runde 56): Nach dem Packen „Gibt's nicht“ gestempelt: Brief und Zip widersprachen sich."""
+    conn, _bonus = _besiegt_mit_bonus(client, ws)
+    post(client, "/steuer/2025/truhe", schloss="ohne")
+    assert quest.kiste_karten(conn, 2025) == 0
+    frage = next(s for s in spiel.pflicht(quest.stuecke(conn, 2025)) if s["status"] == "fragen")
+    quest.setze_status(conn, frage["id"], "gibts_nicht")
+    assert quest.kiste_karten(conn, 2025) == 1
+    seite = client.get("/steuer/2025/sieg").text
+    assert "1 Karte anders gestempelt seit dem Packen" in seite
+    assert 'disabled title="Erst die Fundkiste neu packen"' in seite
+    post(client, "/steuer/2025/truhe", schloss="ohne")
+    assert quest.kiste_karten(conn, 2025) == 0
+
+
+def test_runde_56_krankenversicherung_nicht_presseausweis():
+    st = [
+        {"id": 1, "gebiet": "werkstatt", "key": "beitraege", "status": "offen", "art": "bonus",
+         "name": "Verbände, Presseausweis, Berufshaftpflicht"},
+        {"id": 2, "gebiet": "burg", "key": "spenden", "status": "offen", "art": "bonus",
+         "name": "Spenden und Mitgliedsbeiträge"},
+    ]  # fmt: skip
+    a = spiel.ahnung("Beitragsbescheinigung Krankenversicherung 2025.pdf", st)
+    assert a.stueck is None and a.gebiet == "burg"
+
+
+def test_runde_56_tagesziel_wartet_bis_nach_dem_kampf(client, ws):
+    app = client.app
+    app.state.steuer_tagwerk_spaeter[2025] = "Tagesziel geschafft: 3 Karten heute."
+    _conn, _bonus = _besiegt_mit_bonus(client, ws)
+    seite = client.get("/steuer/2025/sieg").text
+    assert "Tagesziel geschafft: 3 Karten heute." in seite
+    assert 2025 not in app.state.steuer_tagwerk_spaeter

@@ -149,7 +149,7 @@
       </details>
       {% endif %}
       <p class="sq-anrede-hinweis muted">{{ "Per Sie" if profil.anrede == "sie" else "Per du" }}{% if profil.beraterin_name %} an {{ profil.beraterin_name }}{% endif %}. <a href="/steuer/{{ jahr }}/beraterin">Ändern</a></p>
-      <label>An <input type="email" name="an" enterkeyhint="next" value="{{ profil.beraterin_email }}" placeholder="E-Mail deiner Beraterin"></label>
+      <label>An <input type="email" id="sq-an" name="an" enterkeyhint="next" value="{{ profil.beraterin_email }}" placeholder="E-Mail deiner Beraterin"></label>
       <label>Betreff <input name="betreff" enterkeyhint="next" value="{{ betreff }}"></label>
       <label class="sr-only" for="sq-mailtext">Text (alles änderbar)</label>
       <textarea id="sq-mailtext" name="text" rows="16">{{ mailtext }}</textarea>
@@ -158,7 +158,7 @@
       {# Lena (Runde 54): Mit der alten Kiste passte der Text nicht zur Zip. Erst packen, dann senden. #}
       {% if zip_pfad and kiste_aenderung %}<p class="sq-erst-packen muted">Erst oben neu packen: Der Brief beschreibt schon den neuen Stand, die alte Fundkiste passt nicht mehr dazu. <a href="#kiste">↑ Zur Fundkiste</a></p>{% endif %}
       {# Lena (Runde 55): Ohne Beraterin ging die Mail ohne ein Wort auf, mit leerem „An“ #}
-      {% if zip_pfad and not profil.beraterin_email %}<p class="sq-ohne-an muted">Noch keine Mail-Adresse deiner Beraterin. Trag sie oben bei „An“ ein, dann merke ich sie mir. Du kannst sie auch erst im Mail-Programm eintragen.</p>{% endif %}
+      {% if zip_pfad and not profil.beraterin_email %}<p class="sq-ohne-an muted">Noch keine Mail-Adresse deiner Beraterin. Trag sie bei <a href="#sq-an">„An“ ↑</a> ein, dann merke ich sie mir. Du kannst sie auch erst im Mail-Programm eintragen.</p>{% endif %}
       <p><button name="oeffnen" value="1" class="{{ 'sq-stempelknopf' if (mail_ausweg or kiste_aenderung or finale_offen) and zip_pfad else 'sq-siegelknopf' }}" {% if not zip_pfad %}disabled title="Erst die Fundkiste packen"{% elif kiste_aenderung %}disabled title="Erst die Fundkiste neu packen"{% endif %}>{% if mail_ausweg and zip_pfad %}Noch einmal in Mail öffnen{% else %}In Mail öffnen{% endif %}</button></p>
       <p class="muted">Gesendet wird erst, wenn du in deinem Mail-Programm auf Senden drückst.</p>
     </form>

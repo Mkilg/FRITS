@@ -205,7 +205,7 @@ def fritte_tipp(daten: dict, lager: list) -> tuple[str, str]:
     if daten["drache"].besiegt and daten["stuecke"]:
         # Lena (Runde 34): Fritte sagte nach dem Packen weiter „Die Fundkiste wartet“
         kiste = daten.get("kiste")
-        if kiste == (0, 0):
+        if kiste is not None and not any(kiste):
             return "done", "Die Fundkiste ist gepackt. Jetzt nur noch ab damit zu deiner Beraterin."
         if kiste:
             return "thinking", "Seit dem Packen hat sich etwas getan. Pack die Fundkiste neu."
@@ -424,6 +424,8 @@ def register_steuer(
     # Der eigene Brieftext, still gemerkt beim Verlassen des Felds (Lena, Runde 51), je Jahr:
     # was FRITS schrieb ("basis") und was daraus wurde ("eigen"). Nur im Speicher, nie auf Platte.
     app.state.steuer_mailtext = {}
+    # Das Tagesziel, im Drachenkampf erreicht: gezeigt nach dem Kampf (Lena, Runde 56)
+    app.state.steuer_tagwerk_spaeter = {}
 
     def conn():
         return quest.ensure_schema(store.connect(ws.db))
@@ -522,6 +524,8 @@ def register_steuer(
         wach = spiel.drache_wach(alle) or jahr in app.state.steuer_notausgang
         besitz = quest.besitz(c, jahr)
         kiste = quest.kiste_stand(c, jahr)
+        if kiste is not None:
+            kiste = (*kiste, quest.kiste_karten(c, jahr))
         return {
             "jahr": jahr,
             "profil": p,
@@ -566,7 +570,7 @@ def register_steuer(
                     "Was schon in FRITS steckt, ist von selbst dabei.",
                     "knopf": "Zur Steuer-Quest", "ziel": "/steuer"}  # fmt: skip
         for jahr in jahre:
-            if quest.kiste_stand(c, jahr) == (0, 0):
+            if quest.kiste_stand(c, jahr) == (0, 0) and not quest.kiste_karten(c, jahr):
                 continue  # gepackt und aktuell; neue Belege danach melden sich (Lena, Runde 33)
             a = lage(jahr)["auftrag"]
             ziel = a.ziel if a.ziel.startswith("/") else f"/steuer/{jahr}{a.ziel}"
@@ -725,7 +729,12 @@ def register_steuer(
         )
 
     def belohnen(
-        jahr: int, vorher: dict, ferne: bool = True, mult: int = 1, auftraege: bool = False
+        jahr: int,
+        vorher: dict,
+        ferne: bool = True,
+        mult: int = 1,
+        auftraege: bool = False,
+        im_kampf: bool = False,
     ) -> bool:
         """Nach jeder Änderung: neue Siegel, neues Zeitalter, neue Orden und den Sieg feiern.
 
@@ -893,12 +902,17 @@ def register_steuer(
                 text = f"Tagesziel geschafft: {ziel} echte Erledigungen heute"
             else:
                 text = f"Tagesziel geschafft: {ziel} Karten heute"
-            flash(
-                text
-                + (f", +{spiel.koerner(lohn)}." if lohn else ".")
-                + " Mehr muss nicht sein, aber du darfst.",
-                "tagwerk",
+            text += (f", +{spiel.koerner(lohn)}." if lohn else ".") + (
+                " Mehr muss nicht sein, aber du darfst."
             )
+            if im_kampf:
+                # Lena (Runde 56): Mitten im Kampf verdeckte der Zettel einen Schlag-Knopf und
+                # sagte „Für heute Schluss“. Er wartet jetzt, bis der Kampf vorbei ist.
+                app.state.steuer_tagwerk_spaeter[jahr] = text
+            else:
+                flash(text, "tagwerk")
+        elif not im_kampf and jahr in app.state.steuer_tagwerk_spaeter:
+            flash(app.state.steuer_tagwerk_spaeter.pop(jahr), "tagwerk")
         if nachher["zeitalter"][0] > vorher["zeitalter"][0]:
             text = spiel.aufstieg(nachher["zeitalter"][1]) + "!"
             if not quest.hat_notiz(c, jahr, "zeitalter", text):
@@ -2240,7 +2254,7 @@ def register_steuer(
             flash(spiel.SCHON_GEWERTET, "hinweis")
         quest.notiere(conn(), jahr, "treffer", f"{s['name']} ({ruf})")
         mult = spiel.multiplikator(combo, vorher["helfer"])
-        if belohnen(jahr, vorher, ferne=False, mult=mult):
+        if belohnen(jahr, vorher, ferne=False, mult=mult, im_kampf=True):
             return back(f"/steuer/{jahr}/drache")  # der Falt-Moment
         return back(f"/steuer/{jahr}/drache#karte")
 
@@ -2393,6 +2407,8 @@ def register_steuer(
         if not daten["drache"].besiegt and jahr not in app.state.steuer_notausgang:
             flash("Erst der Drache, dann die Beute. Oder nimm den Notausgang, wenn es eilt.")
             return back(f"/steuer/{jahr}/drache")
+        if jahr in app.state.steuer_tagwerk_spaeter:
+            flash(app.state.steuer_tagwerk_spaeter.pop(jahr), "tagwerk")  # nach dem Kampf
         zip_pfad = truhe_pfad(jahr, daten["profil"])
         frisch_gepackt = jahr in app.state.steuer_gepackt
         app.state.steuer_gepackt.discard(jahr)
