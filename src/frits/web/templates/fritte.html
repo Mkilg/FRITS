@@ -40,6 +40,7 @@
     <p class="speech">{{ f.satz }}</p>
     <div class="haus-zahlen">
       <p class="salz">{{ salz }} <strong data-zaehlen>{{ f.guthaben }}</strong> {{ "Salzkorn" if f.guthaben == 1 else "Salzkörner" }}{% if f.bereit %} <a class="hint" href="#kassensturz">(+{{ f.bereit }} warten)</a>{% endif %}{% if truhen_zu %} <a class="truhe-wartet" href="#truhen">{{ zeichen("truhe", "🎁") }} {{ "1 Truhe wartet" if truhen_zu | length == 1 else truhen_zu | length ~ " Truhen warten" }}</a>{% endif %}</p>
+      <p>{% include "_serie.html" %}</p>
     </div>
   </div>
 </section>

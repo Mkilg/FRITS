@@ -1072,3 +1072,10 @@ def test_serie_counts_kept_vorsaetze_in_a_row():
     assert serie(tage, mi, "taeglich") == 5
     assert serie_text(1, "taeglich") == "1 Tag in Folge"
     assert serie_text(3) == "3 Wochen in Folge"
+
+
+def test_flamme_steht_bei_fritte(client, ws):  # noqa: F811
+    """Marie 3.11.: „Irgendwo bei Fritte sollte ein Streak-Symbol gezeigt werden.“"""
+    for seite in (client.get("/").text, client.get("/fritte").text):
+        assert 'class="serie' in seite and "Deine Serie beginnt" in seite
+        assert "Dein Vorsatz: Einmal pro Woche." in seite

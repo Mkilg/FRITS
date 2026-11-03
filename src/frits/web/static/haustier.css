@@ -784,3 +784,8 @@ h2 .hint .aussicht-mini { width: 36px; height: 24px; object-fit: cover; border-r
 .ks-zettel small { color: var(--muted-papier); font-size: var(--fs-mini); }
 .ks-zettel strong { font-family: var(--schrift); font-size: var(--fs-gross); color: var(--terrakotta-dunkel); }
 .ks-zettel em { font-style: normal; font-size: var(--fs-mini); color: var(--muted-papier); }
+
+/* Frittes Flamme (Marie, 3.11.): the streak of kept Vorsätze */
+.serie { display: inline-flex; align-items: center; gap: .3rem; flex-wrap: wrap; }
+.serie.aus { color: var(--muted); }
+.serie.aus .zeichen-emoji, .serie.aus .zeichen-bild { filter: grayscale(1); opacity: .6; }

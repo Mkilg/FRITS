@@ -1,0 +1,4 @@
+{# Frittes Flamme (Marie, 3.11.): how often in a row the Vorsatz was kept. Calm: no red, no
+   countdown; a missed one just starts again at null. Variable: f (haustier.Fritte). #}
+<span class="serie{{ ' aus' if not f.serie }}">{{ zeichen("serie", "🔥") }} {% if f.serie %}<strong>{{ f.serie_satz }}</strong>{% else %}Deine Serie beginnt mit dem nächsten Papierkram{% endif %}
+{{- info_i("Dein Vorsatz: " ~ f.vorsatz_name ~ ". Jedes Mal, wenn du ihn schaffst, wächst die Flamme um eins. Verpasst du ihn, fängt sie ruhig wieder bei null an. Ändern unter Einstellungen › Spiel und Fritte.") }}</span>
