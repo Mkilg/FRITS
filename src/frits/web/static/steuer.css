@@ -1918,4 +1918,4 @@ details.sq-mehr-marken .kurz { display: none; }
 .sq .sq-karte h3, .sq .sq-erzaehler, .sq .sq-siegelknopf.gross { font-size: 1.35rem; }
 .sq .sq-nah-insel h1 { font-size: 1.75rem; }
 .sq .sq-akte.stapel > .sq-karte.vorn h3 { font-size: 1.75rem; }
-.sq .sq-rand-titel .info-i > summary { color: var(--tinte); border-color: var(--tinte); text-shadow: none; opacity: .75; }
+.sq .sq-rand-titel .info-i > :is(summary, .info-i-knopf) { color: var(--tinte); border-color: var(--tinte); text-shadow: none; opacity: .75; }
