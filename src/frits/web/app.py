@@ -8,6 +8,7 @@ FRITS's buttons for him (that attack is called CSRF).
 from __future__ import annotations
 
 import hashlib
+import itertools
 import json
 import os
 import re
@@ -355,11 +356,16 @@ def info_i(text, titel: str = "Mehr dazu") -> Markup:
     "i". Only inline elements (span, button), so it may stand inside a sentence, a <p>, a
     label or a legend without breaking it. frits.js opens and closes it on a tap.
     text is escaped unless it is Markup (``info_i("<b>…</b>" | safe)``)."""
+    nr = f"info-{next(_INFO_NR)}"
     return Markup(
         '<span class="info-i"><button type="button" class="info-i-knopf" aria-expanded="false"'
-        ' title="{0}" aria-label="{0}">i</button><span class="info-i-text" role="note">{1}'
-        "</span></span>"
-    ).format(titel, text)
+        ' aria-controls="{2}" title="{0}" aria-label="{0}">i</button>'
+        '<span class="info-i-text" role="note" id="{2}">{1}</span></span>'
+    ).format(titel, text, nr)
+
+
+# every "i" gets its own id, so the button can name its text (aria-controls, Lena Runde 62)
+_INFO_NR = itertools.count(1)
 
 
 # ---------- the app ----------
