@@ -140,6 +140,9 @@ class Profil:
     beraterin_termin: str = ""
     beraterin_name: str = ""  # für die Anrede in der Mail
     anrede: str = "du"  # du | sie: wie du mit deiner Beraterin sprichst
+    # [Name, Mail], wie sie zuletzt mit den anderen Jahren geteilt wurden (Lena, Runde 51)
+    beraterin_geteilt: list[str] = field(default_factory=list)
+    beraterin_von: int = 0  # aus welchem Jahr die Beraterin übernommen wurde (0 = selbst getippt)
     namen: dict[str, str] = field(default_factory=dict)  # Gebiet -> eigener Name ("Lindenstraße")
 
     @property

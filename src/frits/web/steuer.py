@@ -419,7 +419,10 @@ def register_steuer(
     # Fritte stutzt: Die Rückfrage bleibt am Zettel im Eingangskorb, auch nach dem Neuladen
     app.state.steuer_stutzen = {}
     # Ließ sich die Mail nicht öffnen: der mailto-Link für den Ausweg am Brief, je Jahr
-    app.state.steuer_mailto = {}  # je Jahr: was FRITS schrieb ("basis") und was abging ("eigen")
+    app.state.steuer_mailto = {}  # je Jahr: {"basis": die Mail, die sich nicht öffnen ließ}
+    # Der eigene Brieftext, still gemerkt beim Verlassen des Felds (Lena, Runde 51), je Jahr:
+    # was FRITS schrieb ("basis") und was daraus wurde ("eigen"). Nur im Speicher, nie auf Platte.
+    app.state.steuer_mailtext = {}
 
     def conn():
         return quest.ensure_schema(store.connect(ws.db))
@@ -603,28 +606,55 @@ def register_steuer(
     def beraterin_teilen(jahr: int, p: Profil) -> None:
         """Lena (Runde 48): „Sie, Frau Weber“ galt nur für ein Jahr. Jahre, die noch nichts über
         die Beraterin wissen, übernehmen Name, Mail und Anrede. Lena (Runde 50): Nur fertige
-        Werte, und halbe Reste von früher („Frau“, „weber@kanzlei“) werden vervollständigt."""
-        name = p.beraterin_name if fertiger_name(p.beraterin_name) else ""
-        mail = p.beraterin_email if fertige_mail(p.beraterin_email) else ""
-        if not (name or mail):
+        Werte, und halbe Reste von früher („Frau“, „weber@kanzlei“) werden vervollständigt.
+
+        Lena (Runde 51): Name und Mail sind ein Paar. Ein anderes Jahr zieht nur mit, wenn es
+        noch gar nichts weiß, oder wenn es seine Beraterin von hier hat und genau das Paar, das
+        dieses Jahr zuletzt geteilt hat. Sonst bekam beim Wechsel Feld für Feld ein Jahr
+        „Frau Lange“ mit Brauns Mail und behielt sie. Ein Jahr mit selbst getippter Beraterin
+        bleibt, wie es ist: Wer 2025 zu Herrn Kurz wechselt, hat 2024 noch Frau Weber.
+        """
+        alt = tuple(p.beraterin_geteilt) if len(p.beraterin_geteilt) == 2 else None
+
+        def wert(jetzt: str, fertig: bool, vorher: str) -> str:
+            # Fertig oder bewusst geleert: so teilen. Halb getippt: das Alte bleibt stehen.
+            return jetzt if fertig or not jetzt else vorher
+
+        name = wert(p.beraterin_name, fertiger_name(p.beraterin_name), alt[0] if alt else "")
+        mail = wert(p.beraterin_email, fertige_mail(p.beraterin_email), alt[1] if alt else "")
+        paar = (name, mail)
+        if alt is None and not (name or mail):
             return
 
-        def passt(alt: str, neu: str) -> bool:
-            return not alt or not neu or neu.startswith(alt)
+        def passt(alt_wert: str, neu: str) -> bool:
+            return not alt_wert or not neu or neu.startswith(alt_wert)
 
         for j in quest_jahre():
             q = profil(j) if j != jahr else None
             if q is None:
                 continue
-            # Dieselbe Beraterin (oder noch keine, oder ein halber Rest davon)
-            if not (passt(q.beraterin_name, name) and passt(q.beraterin_email, mail)):
+            hat = (q.beraterin_name, q.beraterin_email)
+            von_hier = q.beraterin_von == jahr
+            if hat == ("", "") or (von_hier and hat in (paar, alt)):
+                neu = paar
+            elif passt(hat[0], name) and passt(hat[1], mail):
+                # Noch nie geteilt (Profile von früher): leere Jahre und halbe Reste derselben
+                # Beraterin; was hier fehlt, bleibt dort stehen
+                neu = (name or hat[0], mail or hat[1])
+            else:
+                neu = None
+            if neu is None:
                 continue
-            vorher = (q.beraterin_name, q.beraterin_email, q.anrede)
-            q.beraterin_name = name or q.beraterin_name
-            q.beraterin_email = mail or q.beraterin_email
+            vorher = (*hat, q.anrede, q.beraterin_von)
+            q.beraterin_name, q.beraterin_email = neu
             q.anrede = p.anrede
-            if (q.beraterin_name, q.beraterin_email, q.anrede) != vorher:
+            q.beraterin_von = jahr
+            if (q.beraterin_name, q.beraterin_email, q.anrede, q.beraterin_von) != vorher:
                 q.save(quest.profil_datei(ws.root, j))
+        if (list(paar), p.beraterin_von) != (p.beraterin_geteilt, 0):
+            p.beraterin_geteilt = list(paar)
+            p.beraterin_von = 0  # hier getippt: dieses Jahr ist jetzt die Quelle
+            p.save(quest.profil_datei(ws.root, jahr))
 
     def beraterin_vom_nachbarn(jahr: int, p: Profil) -> None:
         """Ein neues Jahr übernimmt die Beraterin aus dem nächstgelegenen Quest-Jahr."""
@@ -639,6 +669,7 @@ def register_steuer(
                     q.beraterin_email,
                     q.anrede,
                 )
+                p.beraterin_von = j
                 return
 
     def titel_von(jahr: int, gebiet_id: str) -> str:
@@ -2321,6 +2352,13 @@ def register_steuer(
             nachtrag=nachtrag_aus(jahr, quest.nachtrag_seit(conn(), jahr)),
         )
 
+    def mail_basis(jahr: int, daten: dict) -> tuple[str, str]:
+        """Die Mail, wie FRITS sie gerade schreiben würde (wie auf der Siegseite)."""
+        zip_pfad = truhe_pfad(jahr, daten["profil"])
+        return mail_entwurf(
+            jahr, daten, truhe.verschluesselt(zip_pfad) if zip_pfad.exists() else True
+        )
+
     @app.get("/steuer/{jahr}/sieg", response_class=HTMLResponse)
     def sieg(request: Request, jahr: int):
         daten = lage(jahr)
@@ -2339,12 +2377,19 @@ def register_steuer(
             except Exception:  # noqa: BLE001 - der Hinweis auf Fritte ist ein Extra
                 fritte_warten = 0
         mit_passwort = truhe.verschluesselt(zip_pfad) if zip_pfad.exists() else True
-        betreff, text = mail_entwurf(jahr, daten, mit_passwort)
-        eigen = app.state.steuer_mailto.get(jahr)
-        if eigen and eigen["basis"] == (betreff, text):
-            # Lena (Runde 50): Wer den Text geändert hatte, verlor ihn nach dem Ausweg. Er bleibt,
-            # solange FRITS dieselbe Mail schreiben würde; nach dem Finale gilt die neue.
+        betreff, text = basis = mail_entwurf(jahr, daten, mit_passwort)
+        eigen = app.state.steuer_mailtext.get(jahr)
+        alter_text = ""
+        if eigen and eigen["basis"] == basis:
+            # Lena (Runde 50/51): Der eigene Text bleibt, solange FRITS dieselbe Mail schreiben
+            # würde, auch nach dem Neuladen.
             betreff, text = eigen["eigen"]
+        elif eigen and eigen["eigen"] != eigen["basis"]:
+            # Nach dem Finale gilt die neue Mail; der alte eigene Text verschwindet nicht stumm
+            alter_text = eigen["eigen"][1]
+        # Der Ausweg gilt nur für die Mail, die sich nicht öffnen ließ, nicht nach dem Finale
+        ausweg = app.state.steuer_mailto.get(jahr)
+        ausweg_gilt = bool(ausweg and ausweg["basis"] == basis)
         return seite(
             request,
             "steuer_sieg.html",
@@ -2372,9 +2417,10 @@ def register_steuer(
             # Finale noch die alte, halbe Mail, während daneben schon die vollständige Zip lag.
             mail_ausweg=(
                 system.mailto_link(daten["profil"].beraterin_email, betreff, text)
-                if jahr in app.state.steuer_mailto
+                if ausweg_gilt
                 else ""
             ),
+            alter_text=alter_text,
             **daten,
         )
 
@@ -2493,6 +2539,21 @@ def register_steuer(
             flash(f"Deine Fundkiste liegt hier: {zip_pfad}")
         return back(f"/steuer/{jahr}/sieg")
 
+    @app.post("/steuer/{jahr}/mail/merken", dependencies=guarded)
+    async def mail_merken(request: Request, jahr: int):
+        """Lena (Runde 51): Wer den Brief ändert und neu lädt, verlor den Text, außer er drückte
+        noch einmal „In Mail öffnen“. Jetzt merkt FRITS ihn still beim Verlassen des Felds."""
+        form = await request.form()
+        profil_oder_404(jahr)
+        betreff = str(form.get("betreff") or "")
+        text = str(form.get("text") or "")
+        basis = mail_basis(jahr, lage(jahr))
+        if (betreff, text) == basis:
+            app.state.steuer_mailtext.pop(jahr, None)  # wieder wie von FRITS: nichts zu merken
+        else:
+            app.state.steuer_mailtext[jahr] = {"basis": basis, "eigen": (betreff, text)}
+        return JSONResponse({"ok": True})
+
     @app.post("/steuer/{jahr}/mail", dependencies=guarded)
     async def mail_oeffnen(request: Request, jahr: int):
         form = await request.form()
@@ -2507,6 +2568,8 @@ def register_steuer(
             p.save(quest.profil_datei(ws.root, jahr))
         betreff = str(form.get("betreff") or f"Steuerunterlagen {jahr}")
         text = str(form.get("text") or "")
+        basis = mail_entwurf(jahr, lage(jahr), truhe.verschluesselt(zip_pfad))
+        app.state.steuer_mailtext[jahr] = {"basis": basis, "eigen": (betreff, text)}
         result = system.compose_email(p.beraterin_email, betreff, text, zip_pfad)
         if result.opened:
             app.state.steuer_mailto.pop(jahr, None)
@@ -2514,8 +2577,5 @@ def register_steuer(
             return back(f"/steuer/{jahr}/sieg")
         # Lena (Runde 48): Der Ausweg führte auf die Rechnungsseite („Das PDF hängst du selbst
         # an“, „Rechnungsordner öffnen“). Er bleibt jetzt am Brief, mit Weg zur Zip.
-        app.state.steuer_mailto[jahr] = {
-            "basis": mail_entwurf(jahr, lage(jahr), truhe.verschluesselt(zip_pfad)),
-            "eigen": (betreff, text),
-        }
+        app.state.steuer_mailto[jahr] = {"basis": basis}
         return back(f"/steuer/{jahr}/sieg#brief")
