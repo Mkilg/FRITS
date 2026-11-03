@@ -15,6 +15,7 @@ from __future__ import annotations
 import re
 import secrets
 import zipfile
+from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 
@@ -139,12 +140,29 @@ _STATUS_TEXT = {
 }
 
 
+@dataclass(frozen=True)
+class Nachtrag:
+    """Die vollständige Kiste nach einer halben Sendung über den Notausgang (Lena, Runde 47/48):
+    Mail, Zip und Inhaltsverzeichnis sagen, dass sie die früheren ersetzt und was neu ist."""
+
+    datum: str  # die letzte halbe Sendung, "2. November 2026"
+    mehrere: bool = False  # gab es mehr als eine halbe Sendung?
+    neu: tuple[str, ...] = ()  # Karten mit Belegen, die seitdem dazukamen
+    neue_dateien: frozenset[int] = field(default_factory=frozenset)
+
+    def ersetzt(self) -> str:
+        if self.mehrere:
+            return f"meine bisherigen Sendungen (zuletzt vom {self.datum})"
+        return f"meine Sendung vom {self.datum}"
+
+
 def inhaltsverzeichnis(
     profil: Profil,
     gebiete: list[Gebiet],
     stuecke: list[dict],
     dateien: list[dict],
     verweise: list[dict] | None = None,
+    nachtrag: Nachtrag | None = None,
 ) -> str:
     """Was in der Truhe liegt, nach Bereich. Bei jeder Datei steht ihr ursprünglicher Name,
     und mitbenutzte Dateien (eine Mietliste für zwei Wohnungen) sagen, wo sie liegen."""
@@ -154,10 +172,17 @@ def inhaltsverzeichnis(
         f"Steuerunterlagen {profil.jahr}" + (f" von {profil.name}" if profil.name else ""),
         "",
     ]
+    if nachtrag:
+        zeilen[-1:] = [
+            f"Vollständiger Stand. Ersetzt {nachtrag.ersetzt()}."
+            + (" Was seitdem dazukam, ist mit (neu) markiert." if nachtrag.neue_dateien else ""),
+            "",
+        ]
     for nr, g in enumerate(gebiete, start=1):
         eigene = [s for s in stuecke if s["gebiet"] == g.id]
         if not eigene:
             continue
+        kopf = len(zeilen)
         zeilen.append(f"{nr:02d} {g.bereich}")
         for s in eigene:
             if s.get("art") == "bonus" and s["status"] == "offen" and not s.get("wunsch"):
@@ -173,6 +198,8 @@ def inhaltsverzeichnis(
                     name = Path(d["pfad"]).name
                     original = d.get("original") or ""
                     zusatz = f" (Original: {original})" if original and original != name else ""
+                    if nachtrag and d.get("id") in nachtrag.neue_dateien:
+                        zusatz += " (neu)"
                     zeilen.append(f"       {name}{zusatz}")
             for v in verweise:
                 if v["stueck_id"] == s["id"]:
@@ -181,6 +208,9 @@ def inhaltsverzeichnis(
             if s["frage"] and s["frage"] != MACHT_BERATERIN:
                 frage = siezen(s["frage"]) if profil.anrede == "sie" else s["frage"]
                 zeilen.append(f"       Frage: {frage}")
+        if len(zeilen) == kopf + 1:
+            del zeilen[kopf]  # Lena (Runde 48): kein Bereich ohne eine Zeile darunter
+            continue
         zeilen.append("")
     zeilen.append(f"Erstellt am {date.today().strftime('%d.%m.%Y')} mit FRITS.")
     return "\n".join(zeilen)
@@ -199,6 +229,7 @@ def packen(
     dateien: list[dict],
     kennwort: str | None,
     verweise: list[dict] | None = None,
+    nachtrag: Nachtrag | None = None,
 ) -> Path:
     """Baut das Zip: ein Ordner pro Gebiet, dazu das Inhaltsverzeichnis.
 
@@ -210,26 +241,27 @@ def packen(
     ziel.parent.mkdir(parents=True, exist_ok=True)
     tmp = ziel.with_suffix(".zip.tmp")
     if not kennwort:
-        _packe_unterlagen(tmp, profil, gebiete, stuecke, dateien, verweise)
+        _packe_unterlagen(tmp, profil, gebiete, stuecke, dateien, verweise, nachtrag)
         tmp.replace(ziel)
         return ziel
     innen = ziel.with_suffix(".innen.tmp")
     try:
-        _packe_unterlagen(innen, profil, gebiete, stuecke, dateien, verweise)
+        _packe_unterlagen(innen, profil, gebiete, stuecke, dateien, verweise, nachtrag)
         with pyzipper.AESZipFile(
             tmp, "w", compression=pyzipper.ZIP_STORED, encryption=pyzipper.WZ_AES
         ) as zf:
             zf.setpassword(kennwort.encode("utf-8"))
-            zf.write(innen, innen_name(profil.jahr))
+            zf.write(innen, innen_name(profil.jahr, vollstaendig=nachtrag is not None))
     finally:
         innen.unlink(missing_ok=True)
     tmp.replace(ziel)
     return ziel
 
 
-def innen_name(jahr: int) -> str:
-    """Der einzige Name, den man außen an einer verschlossenen Truhe sieht."""
-    return f"Unterlagen-{jahr}.zip"
+def innen_name(jahr: int, vollstaendig: bool = False) -> str:
+    """Der einzige Name, den man außen an einer verschlossenen Truhe sieht. Ein Nachtrag
+    heißt anders, sonst überschreibt er beim Entpacken die erste Sendung (Lena, Runde 48)."""
+    return f"Unterlagen-{jahr}{'-vollstaendig' if vollstaendig else ''}.zip"
 
 
 def _packe_unterlagen(
@@ -239,13 +271,16 @@ def _packe_unterlagen(
     stuecke: list[dict],
     dateien: list[dict],
     verweise: list[dict] | None,
+    nachtrag: Nachtrag | None = None,
 ) -> None:
     ordner_von = {g.id: ordnername(nr, g) for nr, g in enumerate(gebiete, start=1)}
     gebiet_von = {s["id"]: s["gebiet"] for s in stuecke}
     with zipfile.ZipFile(ziel, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         zf.writestr(
             "00 Inhaltsverzeichnis.txt",
-            inhaltsverzeichnis(profil, gebiete, stuecke, dateien, verweise).encode("utf-8"),
+            inhaltsverzeichnis(profil, gebiete, stuecke, dateien, verweise, nachtrag).encode(
+                "utf-8"
+            ),
         )
         for d in dateien:
             pfad = Path(d["pfad"])
@@ -309,7 +344,7 @@ def mail(
     gebiete: list[Gebiet],
     stuecke: list[dict],
     mit_passwort: bool = True,
-    nachtrag: str = "",
+    nachtrag: Nachtrag | None = None,
 ) -> tuple[str, str]:
     """Betreff und Text der Mail an die Beraterin. Du kannst alles ändern, bevor du sendest.
 
@@ -365,11 +400,11 @@ def mail(
 
     zeilen = [gruss, "", f"anbei meine Unterlagen für {profil.jahr} als Zip-Datei."]
     if nachtrag:
-        # nachtrag: wann die erste, halbe Kiste kam ("2. November 2026")
         brauchst = "brauchen Sie" if sie else "brauchst du"
+        frueher = "früheren Zip-Dateien" if nachtrag.mehrere else "erste Zip-Datei"
         zeilen[-1] = (
             f"anbei der vollständige Stand meiner Unterlagen für {profil.jahr} als Zip-Datei."
-            f" Er ersetzt meine Sendung vom {nachtrag}, die erste Zip-Datei {brauchst} nicht mehr."
+            f" Er ersetzt {nachtrag.ersetzt()}, die {frueher} {brauchst} nicht mehr."
         )
     if mit_passwort:
         zeilen[-1] += f" Das Passwort schicke ich {dir_} getrennt."
@@ -379,6 +414,9 @@ def mail(
             "Unterlagen, das sich dann ohne Passwort öffnet."
         )
     zeilen.append("")
+    if nachtrag and nachtrag.neu:
+        # Lena (Runde 48): Die Beraterin sollte nicht zwei Listen vergleichen müssen
+        zeilen += ["Neu dabei seit der letzten Sendung: " + ", ".join(nachtrag.neu) + ".", ""]
     if dabei:
         zeilen += ["Drin sind: " + ", ".join(dabei) + ". Ein Inhaltsverzeichnis liegt bei.", ""]
     if macht_sie:
@@ -418,5 +456,8 @@ def mail(
     zeilen += ["Viele Grüße", profil.name or ""]
     betreff = f"Steuerunterlagen {profil.jahr}"
     if nachtrag:
-        betreff += " (vollständig, ersetzt die erste Sendung)"
+        # „vollständig“ nach vorn: Am Handy wurde der Betreff abgeschnitten (Lena, Runde 48)
+        betreff += " – vollständig (ersetzt " + (
+            "frühere Sendungen)" if nachtrag.mehrere else "die erste Sendung)"
+        )
     return betreff, "\n".join(zeilen).rstrip() + "\n"

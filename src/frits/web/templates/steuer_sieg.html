@@ -117,6 +117,17 @@
     <form method="post" action="/steuer/{{ jahr }}/mail" class="sq-papier sq-brief" id="brief">
       <input type="hidden" name="token" value="{{ token }}">
       <h2>2. Brief an deine Beraterin</h2>
+      {% if mail_ausweg and zip_pfad %}
+      <div class="sq-mail-ausweg" role="status">
+        <p><strong>Die Mail ließ sich nicht von selbst öffnen. So geht es trotzdem:</strong></p>
+        <ol>
+          <li><a class="sq-siegelknopf" href="{{ mail_ausweg }}">E-Mail öffnen</a> Betreff und Text sind schon drin.</li>
+          <li>{% if not im_browser() %}<button class="sq-stempelknopf" formaction="/steuer/{{ jahr }}/truhe/zeigen" formmethod="post">Fundkiste im Finder zeigen</button> {% endif %}Die Fundkiste <b>{{ zip_pfad.name }}</b> hängst du selbst an.</li>
+          <li><button type="button" class="sq-stempelknopf" data-kopieren-aus="#sq-mailtext">Text kopieren</button> Falls dein Mail-Programm den Text nicht übernimmt, zum Beispiel bei Googlemail im Browser.</li>
+        </ol>
+        {% if mit_passwort %}<p class="muted">Das Passwort schickst du getrennt, nicht in dieselbe Mail.</p>{% endif %}
+      </div>
+      {% endif %}
       <p class="sq-anrede-hinweis muted">{{ "Per Sie" if profil.anrede == "sie" else "Per du" }}{% if profil.beraterin_name %} an {{ profil.beraterin_name }}{% endif %}. <a href="/steuer/{{ jahr }}/beraterin">Ändern</a></p>
       <label>An <input type="email" name="an" value="{{ profil.beraterin_email }}" placeholder="E-Mail deiner Beraterin"></label>
       <label>Betreff <input name="betreff" value="{{ betreff }}"></label>

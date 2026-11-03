@@ -901,10 +901,14 @@
     });
   });
   // "Passwort kopieren": es wird nur einmal gezeigt
-  Array.prototype.forEach.call(document.querySelectorAll("[data-kopieren]"), function (knopf) {
+  // „Text kopieren“ beim Ausweg am Brief nimmt den Mailtext, so wie er gerade im Feld steht
+  Array.prototype.forEach.call(document.querySelectorAll("[data-kopieren], [data-kopieren-aus]"), function (knopf) {
+    var beschriftung = knopf.textContent;
     knopf.addEventListener("click", function () {
-      var text = knopf.getAttribute("data-kopieren");
-      function fertig() { knopf.textContent = "✓ kopiert"; setTimeout(function () { knopf.textContent = "Passwort kopieren"; }, 1800); }
+      var quelle = knopf.getAttribute("data-kopieren-aus");
+      var feldQuelle = quelle && document.querySelector(quelle);
+      var text = feldQuelle ? feldQuelle.value : knopf.getAttribute("data-kopieren");
+      function fertig() { knopf.textContent = "✓ kopiert"; setTimeout(function () { knopf.textContent = beschriftung; }, 1800); }
       function vonHand() {
         var feld = document.createElement("textarea");
         feld.value = text; document.body.appendChild(feld); feld.select();
@@ -912,11 +916,14 @@
         try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
         document.body.removeChild(feld);
         if (ok) { fertig(); return; }
-        // Kopieren ist hier gesperrt: das Passwort markieren, dann reicht Cmd+C
-        var b = document.querySelector("[data-passwort]");
-        if (b) { var r = document.createRange(); r.selectNodeContents(b); var sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); }
+        // Kopieren ist hier gesperrt: den Text markieren, dann reicht Cmd+C
+        if (feldQuelle) { feldQuelle.focus(); feldQuelle.select(); }
+        else {
+          var b = document.querySelector("[data-passwort]");
+          if (b) { var r = document.createRange(); r.selectNodeContents(b); var sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); }
+        }
         knopf.textContent = "Markiert: jetzt Cmd+C drücken";
-        setTimeout(function () { knopf.textContent = "Passwort kopieren"; }, 4000);
+        setTimeout(function () { knopf.textContent = beschriftung; }, 4000);
       }
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text).then(fertig, vonHand);

@@ -2543,7 +2543,7 @@ def test_runde_21_orden_stellen_zierden_auf_die_insel(client, ws):
     s = next(s for s in quest.stuecke(conn, 2025) if s["status"] == "offen")
     seite = post(client, f"/steuer/2025/stueck/{s['id']}/status", status="fragen")
     assert "Neuer Orden: Mutig gefragt." in seite.text
-    assert "Dafür steht jetzt Kirschbaum auf deiner Insel." in seite.text
+    assert "Neu auf deiner Insel: Kirschbaum." in seite.text
     assert "kirschbaum" in quest.besitz(conn, 2026)
     assert 'class="sq-zier kirschbaum' in client.get("/steuer/2025").text
 
@@ -3589,7 +3589,7 @@ def test_runde_46_nachtrag_mail_nach_dem_notausgang(client, ws):
     assert "Steuer-2025-Kim-vollstaendig.zip" in seite
     assert (quest.ordner(ws.root, 2025) / "Steuer-2025-Kim-vollstaendig.zip").exists()
     assert "vollständige Stand meiner Unterlagen" in seite and "ersetzt meine Sendung vom" in seite
-    assert "ersetzt die erste Sendung" in seite  # im Betreff
+    assert "– vollständig (ersetzt die erste Sendung)" in seite  # im Betreff
     # Neu packen bleibt beim neuen Namen, ohne zweites Finale
     seite = post(client, "/steuer/2025/truhe", schloss="ohne").text
     assert "Steuer-2025-Kim-vollstaendig.zip" in seite and 'class="sq-kiste-finale"' not in seite
@@ -3611,3 +3611,98 @@ def test_runde_46_steuer_id_mehr_schreibweisen():
     ]  # fmt: skip
     for name in ("Steuer-IDs_Familie.pdf", "BZSt-Brief.pdf"):
         assert spiel.ahnung(name, alle).stueck["id"] == 1, name
+
+
+def _notausgang_dann_sieg(client, ws, schloss="ohne"):
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    post(client, "/steuer/2025/drache/notausgang")
+    post(client, "/steuer/2025/truhe", schloss="ohne")
+    for s in spiel.pflicht(quest.stuecke(conn, 2025)):
+        quest.setze_status(conn, s["id"], "fragen")
+    erste = spiel.pflicht(quest.stuecke(conn, 2025))[0]
+    (ws.root / "beleg.pdf").write_bytes(b"%PDF beleg")
+    quest.sammeln(conn, ws.root, erste["id"], ws.root / "beleg.pdf")
+    # Der Beleg kam nach der halben Kiste
+    conn.execute("UPDATE steuer_dateien SET hinzugefuegt = '2999-01-01T00:00:00'")
+    conn.commit()
+    quest.notiere(conn, 2025, "sieg", "Der Papierdrache ist besiegt")
+    return conn, erste, post(client, "/steuer/2025/truhe", schloss=schloss).text
+
+
+def test_runde_47_nachtrag_innen_und_was_neu_ist(client, ws):
+    """Lena (Runde 48): Innen sah die vollständige Kiste aus wie die erste, die Mail nannte
+    nicht, was neu ist, und die halbe Zip lag gleich daneben."""
+    import zipfile
+
+    _conn, erste, seite = _notausgang_dann_sieg(client, ws)
+    assert f"Neu dabei seit der letzten Sendung: {erste['name']}." in seite
+    ordner = quest.ordner(ws.root, 2025)
+    assert (ordner / "Steuer-2025-Kim-erste-Sendung.zip").exists()
+    assert not (ordner / "Steuer-2025-Kim.zip").exists()
+    with zipfile.ZipFile(ordner / "Steuer-2025-Kim-vollstaendig.zip") as zf:
+        inhalt = zf.read("00 Inhaltsverzeichnis.txt").decode()
+    assert "Vollständiger Stand. Ersetzt meine Sendung vom" in inhalt
+    assert "(neu)" in inhalt
+
+
+def test_runde_47_innen_name_beim_nachtrag(client, ws):
+    import zipfile
+
+    _notausgang_dann_sieg(client, ws, schloss="passwort")
+    zip_pfad = quest.ordner(ws.root, 2025) / "Steuer-2025-Kim-vollstaendig.zip"
+    with zipfile.ZipFile(zip_pfad) as zf:
+        assert zf.namelist() == ["Unterlagen-2025-vollstaendig.zip"]
+
+
+def test_runde_47_zwei_halbe_sendungen(client, ws):
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    quest.notiere(conn, 2025, "truhe", "a.zip")
+    quest.notiere(conn, 2025, "truhe", "b.zip")
+    conn.execute("UPDATE steuer_chronik SET zeit = '2026-10-20T10:00:00' WHERE text = 'a.zip'")
+    conn.execute("UPDATE steuer_chronik SET zeit = '2026-10-28T10:00:00' WHERE text = 'b.zip'")
+    conn.commit()
+    quest.notiere(conn, 2025, "sieg", "Der Papierdrache ist besiegt")
+    assert quest.halbe_sendungen(conn, 2025) == ("2026-10-28T10:00:00", 2)
+    n = truhe.Nachtrag(datum="28. Oktober 2026", mehrere=True)
+    assert n.ersetzt() == "meine bisherigen Sendungen (zuletzt vom 28. Oktober 2026)"
+
+
+def test_runde_47_mail_ausweg_bleibt_an_der_fundkiste(client, ws, monkeypatch):
+    """Lena (Runde 48): Ließ sich die Mail nicht öffnen, landete man auf der Rechnungsseite."""
+    _conn, _bonus = _besiegt_mit_bonus(client, ws)
+    post(client, "/steuer/2025/truhe", schloss="passwort")
+    monkeypatch.setattr(
+        system,
+        "compose_email",
+        lambda *a, **k: system.Composed(False, "mailto:x@example.org?subject=S"),
+    )
+    r = client.post("/steuer/2025/mail", data={"token": client.token, "text": "Hallo"},
+                    follow_redirects=False)  # fmt: skip
+    assert r.headers["location"].endswith("/steuer/2025/sieg#brief")
+    seite = client.get("/steuer/2025/sieg").text
+    assert "sq-mail-ausweg" in seite and "mailto:x@example.org" in seite
+    assert "Text kopieren" in seite and "Steuer-2025-Kim.zip" in seite
+    assert "Das PDF" not in seite and "Rechnungsordner" not in seite
+
+
+def test_runde_47_inhaltsverzeichnis_ohne_leere_bereiche(client, ws):
+    conn, _bonus = _besiegt_mit_bonus(client, ws)
+    p = Profil.load(quest.profil_datei(ws.root, 2025))
+    inhalt = truhe.inhaltsverzeichnis(
+        p, reich(p), quest.stuecke(conn, 2025), quest.dateien(conn, 2025)
+    )
+    zeilen = inhalt.splitlines()
+    for i, z in enumerate(zeilen):
+        if z[:2].isdigit() and z[2:3] == " ":
+            assert zeilen[i + 1].startswith("   "), z
+
+
+def test_runde_47_beraterin_gilt_fuer_alle_jahre(client, ws):
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    fragebogen(client, jahr=2024, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    post(client, "/steuer/2024/beraterin/daten", beraterin_name="Frau Weber", anrede="sie",
+         beraterin_email="weber@example.org")  # fmt: skip
+    p25 = Profil.load(quest.profil_datei(ws.root, 2025))
+    assert (p25.beraterin_name, p25.anrede) == ("Frau Weber", "sie")
