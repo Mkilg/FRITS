@@ -4248,6 +4248,20 @@ def test_runde_58_ohne_haken_karte_dazunehmen(client, ws):
     assert "vorsorge" in p.haken
     kv = next(s for s in quest.stuecke(conn, 2025) if s["key"] == "krankenversicherung")
     assert kv["status"] == "gesammelt"
+    # Lena (Runde 60): Eine zweite Karte in die schon komplette Burg ist kein „wieder komplett“
+    for s in quest.stuecke(conn, 2025):
+        if s["gebiet"] == kv["gebiet"] and s["status"] == "offen":
+            quest.setze_status(conn, s["id"], "gesammelt")
+    titel = re.search(r"<h1>([^<]+)</h1>", client.get(f"/steuer/2025/gebiet/{kv['gebiet']}").text)[
+        1
+    ]
+    quest.notiere(conn, 2025, "siegel", f"Gold-Siegel! {titel} ist komplett.")
+    (quest.lager(ws.root) / "Spendenquittung_2025.pdf").write_bytes(b"%PDF spende")
+    seite = post(client, "/steuer/2025/lager/karte-dazu", name="Spendenquittung_2025.pdf",
+                 haken="spenden").text  # fmt: skip
+    spende = next(s for s in quest.stuecke(conn, 2025) if s["key"] == "spenden")
+    assert spende["gebiet"] == kv["gebiet"] and spende["status"] == "gesammelt"
+    assert "wieder komplett" not in seite
 
 
 def test_runde_58_tagesziel_wartet_auch_bei_anderen_karten(client, ws):
@@ -4281,6 +4295,65 @@ def test_runde_59_karte_dazu_landet_auch_im_fragebogen_entwurf(client, ws):
     post(client, "/steuer/2025/fragebogen", teil="3", haken="spenden")
     assert "spenden" in Profil.load(quest.profil_datei(ws.root, 2025)).haken
     assert any(s["key"] == "spenden" for s in quest.stuecke(conn, 2025))
+
+
+def test_runde_60_alter_fragebogen_tab_nimmt_dazugenommene_karte_nicht_weg(client, ws):
+    """Lena (Runde 60, P2): Ein alter Tab mit Teil 3 schickte beim Tippen seine alten Haken,
+    und die über „Karte dazunehmen“ geholten Karten verschwanden wieder."""
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    alt = client.get("/steuer/2025/fragebogen?teil=3").text
+    geladen = re.search(r'name="geladen" value="([0-9.]+)"', alt).group(1)
+    quest.lager(ws.root).mkdir(parents=True, exist_ok=True)
+    (quest.lager(ws.root) / "Spendenquittung_2025.pdf").write_bytes(b"%PDF spende")
+    post(client, "/steuer/2025/lager/karte-dazu", name="Spendenquittung_2025.pdf", haken="spenden")
+    # Der alte Tab merkt sich beim Tippen und speichert dann, ohne den neuen Haken
+    client.post(
+        "/steuer/2025/fragebogen",
+        data={"token": client.token, "teil": "3", "geladen": geladen, "merken": "1"},
+    )
+    post(client, "/steuer/2025/fragebogen", teil="3", geladen=geladen)
+    assert "spenden" in Profil.load(quest.profil_datei(ws.root, 2025)).haken
+    # Wer den Fragebogen neu lädt und den Haken selbst wegnimmt, darf das
+    neu = client.get("/steuer/2025/fragebogen?teil=3").text
+    assert re.search(r'name="haken" value="spenden"[^>]*checked', neu)
+    assert "Reich gründen!" not in neu and ">Speichern</button>" in neu  # Lena (Runde 60, P3)
+    geladen = re.search(r'name="geladen" value="([0-9.]+)"', neu).group(1)
+    post(client, "/steuer/2025/fragebogen", teil="3", geladen=geladen)
+    assert "spenden" not in Profil.load(quest.profil_datei(ws.root, 2025)).haken
+
+
+def test_runde_60_aus_gold_wird_silber_ersetzt_zaehlt_trotzdem(client, ws):
+    """Lena (Runde 60): Nach „Aus Gold wird Silber“ stand „Zählt trotzdem!“ noch 9 Sekunden."""
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    pflicht = [s for s in quest.stuecke(conn, 2025) if s["art"] != "bonus"]
+    for s in pflicht[1:]:
+        quest.setze_status(conn, s["id"], "gesammelt")
+    post(
+        client,
+        f"/steuer/2025/stueck/{pflicht[0]['id']}/datei",
+        files=[("datei", ("beleg.pdf", b"%PDF beleg"))],
+    )
+    assert quest.hat_notiz(conn, 2025, "zeitalter", "Aufstieg ins Goldene Zeitalter!")
+    wichtig = next(
+        s
+        for s in quest.stuecke(conn, 2025)
+        if s["key"] in ("belege", "ausgangsrechnungen") and s["status"] == "gesammelt"
+    )
+    quest.setze_status(conn, wichtig["id"], "offen")  # Beleg zurückgelegt
+    seite = post(client, f"/steuer/2025/stueck/{wichtig['id']}/status", status="gibts_nicht").text
+    assert "Aus Gold wird Silber" in seite and "Zählt trotzdem!" not in seite
+
+
+def test_runde_60_steuer_id_aus_dem_vorjahr(client, ws):
+    """Lena (Runde 60): Im zweiten Jahr war die Steuer-ID leer, dabei ändert sie sich nie."""
+    fragebogen(client, jahr=2024, teil1={"name": "Kim"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    sid = next(s for s in quest.stuecke(conn, 2024, "rathaus") if s["key"] == "steuer-id")
+    post(client, f"/steuer/2024/stueck/{sid['id']}/angabe", text="Steuer-ID: 12 345 678 901")
+    fragebogen(client, jahr=2025, teil1={"name": "Kim"})
+    seite = client.get("/steuer/2025/gebiet/rathaus").text
+    assert "Aus 2024 übernehmen" in seite and ">Steuer-ID: 12 345 678 901</textarea>" in seite
 
 
 def test_runde_59_tagesziel_wartet_auch_beim_pflicht_beleg(client, ws):

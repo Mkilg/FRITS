@@ -10,6 +10,7 @@ import hashlib
 import math
 import re
 import shutil
+import time
 from collections.abc import Callable
 from dataclasses import replace
 from datetime import date
@@ -506,6 +507,19 @@ def register_steuer(
             **context,
         )
 
+    def steuer_id_frueher(jahr: int) -> tuple[int, str] | None:
+        """Lena (Runde 60): Im zweiten Jahr war die Steuer-ID wieder leer, dabei ändert sie
+        sich nie. (Jahr, Text) der letzten eingetippten Steuer-ID aus einem früheren Jahr."""
+        c = conn()
+        for j in sorted((j for j in quest_jahre() if j < jahr), reverse=True):
+            for st in quest.stuecke(c, j):
+                if st["key"] != "steuer-id":
+                    continue
+                for d in quest.dateien(c, j, st["id"]):
+                    if quest.ist_angabe(d["original"]) and (text := angabe_text(d)):
+                        return j, text
+        return None
+
     def quest_jahre() -> list[int]:
         """Die Jahre, für die es schon eine Quest (einen Fragebogen) gibt."""
         basis = ws.root / "steuer"
@@ -861,8 +875,14 @@ def register_steuer(
                 "Aus Gold wird Silber: Eine wichtige Unterlage ist jetzt als „Gibt's nicht“ "
                 "gestempelt. Findest du sie doch, wird es wieder Gold."
             )
-            # Lena (Runde 59): Sie kam nach „Zählt trotzdem!“ erst nach fast 5 Sekunden
-            app.state.flashes.insert(0, app.state.flashes.pop())
+            # Lena (Runde 59): Sie kam nach „Zählt trotzdem!“ erst nach fast 5 Sekunden.
+            # Lena (Runde 60): Und „Zählt trotzdem!“ stand daneben noch 9 Sekunden. Die
+            # ehrliche Meldung ersetzt es.
+            silber = app.state.flashes.pop()
+            app.state.flashes[:] = [
+                f for f in app.state.flashes if "Zählt trotzdem!" not in str(f.get("text"))
+            ]
+            app.state.flashes.insert(0, silber)
         alt_siegel = {p.gebiet.id for p in vorher["provinzen"] if p.stand.siegel}
         for p in nachher["provinzen"]:
             if p.stand.siegel and p.gebiet.id not in alt_siegel:
@@ -1309,6 +1329,7 @@ def register_steuer(
         return p
 
     app.state.steuer_entwurf = {}
+    app.state.steuer_haken_dazu = {}  # jahr -> {haken: Zeitpunkt von „Karte dazunehmen“}
     app.state.steuer_uebernommen = set()  # Jahre, deren Fragebogen FRITS vorbelegt hat
 
     def ausweg(jahr: int) -> tuple[str, str]:
@@ -1354,6 +1375,8 @@ def register_steuer(
             familienstaende=FAMILIENSTAND,
             provinz_fragen=fragen(),
             haken=HAKEN,
+            geladen=f"{math.floor(time.time() * 1000) / 1000:.3f}",
+            neu=profil(jahr) is None,
             uebernommen=jahr in app.state.steuer_uebernommen,
         )
 
@@ -1385,7 +1408,16 @@ def register_steuer(
             ust = str(form.get("umsatzsteuer") or "keine")
             p.umsatzsteuer = ust if ust in ("keine", "monatlich", "quartal") else "keine"
         else:
-            p.haken = [h for h in form.getlist("haken") if h in HAKEN]
+            jetzt = [h for h in form.getlist("haken") if h in HAKEN]
+            # Lena (Runde 60, P2): Ein alter Tab kennt die Karten nicht, die Fritz inzwischen
+            # über „Karte dazunehmen“ geholt hat, und hätte ihre Haken wieder gelöscht.
+            # Was nach dem Laden dieses Tabs dazukam, bleibt.
+            try:
+                geladen = float(str(form.get("geladen") or 0))
+            except ValueError:
+                geladen = 0.0
+            dazu = app.state.steuer_haken_dazu.get(jahr, {})
+            p.haken = jetzt + [h for h, wann in dazu.items() if wann > geladen and h not in jetzt]
         if form.get("merken"):
             # Zwischenspeichern beim Tippen: nichts geht verloren, auch nicht beim Tab-Wechsel.
             p.save(entwurf_datei(jahr))
@@ -1468,6 +1500,9 @@ def register_steuer(
             spaeter=spaeter,
             aus_frits=ernte.aus_frits(g.provinz.key),
             von_frits_ids=quest.von_frits(c, jahr),
+            steuer_id_alt=steuer_id_frueher(jahr)
+            if any(s["key"] == "steuer-id" and s["status"] != "gesammelt" for s in eigene)
+            else None,
             schatz_salz=schatz_salz(jahr, daten),
             **daten,
         )
@@ -1620,6 +1655,10 @@ def register_steuer(
         if not name or not quelle.is_file() or haken not in HAKEN:
             raise HTTPException(404)
         p = profil_oder_404(jahr)
+        # Lena (Runde 60): Vorher erst nach der neuen Karte gemessen, darum hieß es danach
+        # „Burg ist wieder komplett“. Gemessen wird vor der neuen Karte.
+        vorher = lage(jahr)
+        app.state.steuer_haken_dazu.setdefault(jahr, {})[haken] = time.time()
         if haken not in p.haken:
             p.haken = [*p.haken, haken]
             p.save(quest.profil_datei(ws.root, jahr))
@@ -1640,7 +1679,6 @@ def register_steuer(
         if karte is None:
             flash("Die Karte ist jetzt auf deiner Insel. Leg den Zettel selbst darauf.")
             return back(zurueck)
-        vorher = lage(jahr)
         fund = quest.sammeln(c, ws.root, karte["id"], quelle, verschieben=True)
         app.state.steuer_stutzen.pop(name, None)
         if fund.neu:

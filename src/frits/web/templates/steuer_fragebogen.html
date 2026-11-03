@@ -18,6 +18,7 @@
   <form method="post" action="/steuer/{{ jahr }}/fragebogen" data-merken>
     <input type="hidden" name="token" value="{{ token }}">
     <input type="hidden" name="teil" value="{{ teil }}">
+    <input type="hidden" name="geladen" value="{{ geladen }}">
     <ol class="sq-schritte" aria-label="Fortschritt">
       {% for n, t in [(1, "Dein Wappen"), (2, "Deine Provinzen"), (3, "Schatzsuche")] %}
       <li class="{{ 'jetzt' if n == teil else ('fertig' if n < teil else '') }}">{% if n != teil %}<button type="submit" name="weiter" value="{{ n }}" formnovalidate>{{ t }}</button>{% else %}<span aria-current="step">{{ t }}</span>{% endif %}</li>
@@ -102,7 +103,7 @@
     <div class="sq-fb-fuss">
       {% if teil > 1 %}<button type="submit" class="quiet" name="weiter" value="{{ teil - 1 }}" formnovalidate>← Zurück</button>{% else %}<a class="quiet" href="{{ ausweg }}">{{ ausweg_text }}</a>{% endif %}
       <span class="sq-gemerkt" data-gemerkt aria-live="polite"></span>
-      <button class="sq-siegelknopf">{% if teil < 3 %}Weiter{% else %}Reich gründen!{% endif %}</button>
+      <button class="sq-siegelknopf">{% if teil < 3 %}Weiter{% elif neu %}Reich gründen!{% else %}Speichern{% endif %}</button>
     </div>
   </form>
 </section>
