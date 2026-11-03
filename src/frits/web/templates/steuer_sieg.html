@@ -6,6 +6,9 @@
 {% set truhe_bild = bild("truhe") %}
 <div class="sq sq-tisch" data-klang="{{ 'an' if klang else 'aus' }}" {% if drache.besiegt and kiste is none %}data-konfetti{% endif %}{% include "_steuer_stil.html" %}>
 {% include "_steuer_meldungen.html" %}
+{# Lena (Runde 53): Enter in „Betreff“ oder „An“ schickte den Brief ab. Ein gesperrter erster
+   Knopf des Briefs fängt das ab: Mail geht nur mit einem echten Klick auf. #}
+<button type="submit" form="brief" disabled hidden aria-hidden="true" tabindex="-1"></button>
 {% include "_steuer_kopf.html" %}
 <h1 class="sq-sieg-titel{% if drache.besiegt and zweifel %} silber{% endif %}">{% if drache.besiegt and zweifel %}Silber-Sieg!{% elif drache.besiegt %}Goldenes Zeitalter!{% else %}Heute nur senden{% endif %}</h1>
 {% if not drache.besiegt %}<p class="sq-sieg-unter">{{ drache.max_lp - drache.lp }} von {{ drache.max_lp }} Karten erledigt. Was fehlt, steht als Liste in der Mail. Der Drache wartet, bis du weitermachst.</p>{% endif %}
@@ -74,7 +77,8 @@
           <p class="sq-kiste-finale-titel">Die Fundkiste {{ jahr }} ist zu!</p>
           <p>Alles, was deine Beraterin braucht, liegt darin{% if mit_passwort %}, sicher hinter einem Passwort{% endif %}. Jetzt nur noch abschicken.</p>
           {# Lena (Runde 46): Der Hauptweg nach dem Packen ist der Brief, Fritte kommt danach #}
-          <p class="sq-kiste-wege"><a class="sq-stempelknopf" href="#brief">Weiter zum Brief ↓</a>{% if fritte_warten %} <a class="sq-stempelknopf" href="/fritte">Zu Fritte: {{ fritte_warten }} Karte{{ "n" if fritte_warten != 1 }} warte{{ "n" if fritte_warten != 1 else "t" }} →</a>{% endif %}</p>
+          {# Lena (Runde 53): Der rote Knopf gehört in den Blick; er schickt den Brief, wie er unten steht #}
+          <p class="sq-kiste-wege"><button form="brief" name="oeffnen" value="1" class="sq-siegelknopf">In Mail öffnen</button> <a class="sq-stempelknopf" href="#brief">Erst den Brief lesen ↓</a>{% if fritte_warten %} <a class="sq-stempelknopf" href="/fritte">Zu Fritte: {{ fritte_warten }} Karte{{ "n" if fritte_warten != 1 }} warte{{ "n" if fritte_warten != 1 else "t" }} →</a>{% endif %}</p>
         </div>
       </div>
       {% endif %}
@@ -130,13 +134,16 @@
         {% if mit_passwort %}<p class="muted">Das Passwort schickst du getrennt, nicht in dieselbe Mail.</p>{% endif %}
       </div>
       {% endif %}
-      {% if alter_text %}
-      {# Lena (Runde 51): Nach dem Finale war der eigene Text ohne ein Wort weg #}
+      <input type="hidden" name="kennung" value="{{ kennung }}">
+      {% if alte_texte %}
+      {# Lena (Runde 51/53): Nach dem Finale war der eigene Text weg; über zwei Wechsel blieb nur die letzte Fassung #}
       <details class="sq-alter-text">
-        <summary>Die Fundkiste hat sich geändert, darum habe ich den Brief neu geschrieben. Dein geänderter Text von vorher ist noch da.</summary>
-        <label class="sr-only" for="sq-alter-text">Dein Text von vorher</label>
-        <textarea id="sq-alter-text" rows="8" readonly>{{ alter_text }}</textarea>
-        <p><button type="button" class="sq-stempelknopf" data-kopieren-aus="#sq-alter-text">Alten Text kopieren</button></p>
+        <summary>Die Fundkiste hat sich geändert, darum habe ich den Brief neu geschrieben. Dein geänderter Text von vorher ist noch da{% if alte_texte | length > 1 %} ({{ alte_texte | length }} Fassungen, die neueste zuerst){% endif %}.</summary>
+        {% for alt in alte_texte %}
+        <label class="sr-only" for="sq-alter-text-{{ loop.index }}">Dein Text von vorher, Fassung {{ loop.index }}</label>
+        <textarea id="sq-alter-text-{{ loop.index }}" rows="{{ 8 if loop.first else 5 }}" readonly>{{ alt }}</textarea>
+        <p><button type="button" class="sq-stempelknopf" data-kopieren-aus="#sq-alter-text-{{ loop.index }}">{{ "Alten Text kopieren" if loop.length == 1 else "Fassung " ~ loop.index ~ " kopieren" }}</button></p>
+        {% endfor %}
       </details>
       {% endif %}
       <p class="sq-anrede-hinweis muted">{{ "Per Sie" if profil.anrede == "sie" else "Per du" }}{% if profil.beraterin_name %} an {{ profil.beraterin_name }}{% endif %}. <a href="/steuer/{{ jahr }}/beraterin">Ändern</a></p>
@@ -146,8 +153,8 @@
       <textarea id="sq-mailtext" name="text" rows="16">{{ mailtext }}</textarea>
       {# Lena (Runde 50): Mit Ausweg gibt es nur einen roten Mail-Knopf, oben #}
       {# Lena (Runde 52): Solange „Neu packen“ offen ist, ginge die alte Kiste raus: dann nicht rot #}
-      {% if zip_pfad and kiste_aenderung %}<p class="sq-erst-packen muted">Erst oben neu packen, sonst hängt die alte Fundkiste an der Mail.</p>{% endif %}
-      <p><button name="oeffnen" value="1" class="{{ 'sq-stempelknopf' if (mail_ausweg or kiste_aenderung) and zip_pfad else 'sq-siegelknopf' }}" {% if not zip_pfad %}disabled title="Erst die Fundkiste packen"{% endif %}>{{ "Noch einmal in Mail öffnen" if mail_ausweg and zip_pfad else "In Mail öffnen" }}</button></p>
+      {% if zip_pfad and kiste_aenderung %}<p class="sq-erst-packen muted">Erst oben neu packen, sonst hängt die alte Fundkiste an der Mail. <a href="#kiste">↑ Zur Fundkiste</a></p><input type="hidden" name="alte_kiste" value="1">{% endif %}
+      <p><button name="oeffnen" value="1" class="{{ 'sq-stempelknopf' if (mail_ausweg or kiste_aenderung or finale_offen) and zip_pfad else 'sq-siegelknopf' }}" {% if not zip_pfad %}disabled title="Erst die Fundkiste packen"{% endif %}>{% if zip_pfad and kiste_aenderung %}Mit der alten Kiste in Mail öffnen{% elif mail_ausweg and zip_pfad %}Noch einmal in Mail öffnen{% else %}In Mail öffnen{% endif %}</button></p>
       <p class="muted">Gesendet wird erst, wenn du in deinem Mail-Programm auf Senden drückst.</p>
     </form>
   </div>
