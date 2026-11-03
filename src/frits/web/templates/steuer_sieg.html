@@ -13,7 +13,7 @@
 <h1 class="sq-sieg-titel{% if drache.besiegt and zweifel %} silber{% endif %}">{% if drache.besiegt and zweifel %}Silber-Sieg!{% elif drache.besiegt %}Goldenes Zeitalter!{% else %}Heute nur senden{% endif %}</h1>
 {% if not drache.besiegt %}<p class="sq-sieg-unter">{{ drache.max_lp - drache.lp }} von {{ drache.max_lp }} Karten erledigt. Was fehlt, steht als Liste in der Mail. Der Drache wartet, bis du weitermachst.</p>{% endif %}
 {# Lena (Runde 57): Das Tagesziel sagte nach dem Sieg „Für heute Schluss“, drei Klicks vor dem Ende #}
-{% if tagwerk_wartet and not frisch_gepackt %}<p class="sq-fast-fertig" role="status"><span class="sq-tagwerk-ring" style="--anteil: 1" aria-hidden="true"><b>✓</b></span><span>Tagesziel geschafft. Fast fertig: {% if zip_pfad and not kiste_aenderung %}nur noch die Mail öffnen{% else %}Fundkiste packen und Mail öffnen{% endif %}, dann ist Schluss für heute. <a href="#kiste">Zur Fundkiste ↓</a></span></p>{% endif %}
+{% if tagwerk_wartet and not frisch_gepackt %}<p class="sq-fast-fertig" role="status"><span class="sq-tagwerk-ring" style="--anteil: 1" aria-hidden="true"><b>✓</b></span><span>Tagesziel geschafft. Fast fertig: {% if zip_pfad and not kiste_aenderung %}{% if mail_ausweg %}nur noch die Mail abschicken, wie im Kasten beim Brief beschrieben{% else %}nur noch die Mail öffnen{% endif %}, dann ist Schluss für heute. <a href="#brief">Zum Brief ↓</a>{% else %}Fundkiste packen und Mail öffnen, dann ist Schluss für heute. <a href="#kiste">Zur Fundkiste ↓</a>{% endif %}</span></p>{% endif %}
 <div class="sq-sieg">
   <aside class="sq-rand">
     {# Lena (Runde 46): Über den Notausgang zeigte die Seite eine volle Kiste, auch bei 0 Belegen #}
@@ -129,7 +129,7 @@
       <div class="sq-mail-ausweg" role="status">
         <p><strong>Die Mail ließ sich nicht von selbst öffnen. So geht es trotzdem:</strong></p>
         <ol>
-          <li><a class="{{ 'sq-stempelknopf' if kiste_aenderung else 'sq-siegelknopf' }}" href="{{ mail_ausweg }}" data-mailto>E-Mail öffnen</a> Betreff und Text sind schon drin.</li>
+          <li><a class="{{ 'sq-stempelknopf' if kiste_aenderung else 'sq-siegelknopf' }}" href="{{ mail_ausweg }}" data-mailto{% if not kiste_aenderung %} data-geoeffnet="/steuer/{{ jahr }}/mail/geoeffnet"{% endif %}>E-Mail öffnen</a> Betreff und Text sind schon drin.</li>
           <li>{% if not im_browser() %}<button class="sq-stempelknopf" formaction="/steuer/{{ jahr }}/truhe/zeigen" formmethod="post" data-leise>Fundkiste im Finder zeigen</button> <small class="sq-pfad" data-pfad hidden><span>Liegt hier:</span> <code></code></small> {% endif %}Die Fundkiste <b>{{ zip_pfad.name }}</b> hängst du selbst an.</li>
           <li><button type="button" class="sq-stempelknopf" data-kopieren-aus="#sq-mailtext">Text kopieren</button> Falls dein Mail-Programm den Text nicht übernimmt, zum Beispiel bei Googlemail im Browser.</li>
         </ol>

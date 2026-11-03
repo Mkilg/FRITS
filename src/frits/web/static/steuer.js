@@ -985,6 +985,13 @@
       if (!brief) return;
       function wert(name) { var f = brief.querySelector("[name=" + name + "]"); return f ? f.value : ""; }
       link.href = "mailto:" + encodeURIComponent(wert("an")) + "?subject=" + encodeURIComponent(wert("betreff")) + "&body=" + encodeURIComponent(wert("text"));
+      // Lena (Runde 58): Auch beim Ausweg ist die Mail jetzt offen; erst danach kommt das Tagesziel
+      var ziel = link.getAttribute("data-geoeffnet");
+      if (ziel && window.fetch) {
+        var daten = new FormData();
+        daten.append("token", wert("token"));
+        fetch(ziel, { method: "POST", body: daten, headers: { "x-frits-leise": "1" }, credentials: "same-origin", keepalive: true }).catch(function () {});
+      }
     });
   });
   // „Text kopieren“ beim Ausweg am Brief nimmt den Mailtext, so wie er gerade im Feld steht

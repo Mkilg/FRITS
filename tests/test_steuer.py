@@ -4149,7 +4149,8 @@ def test_runde_56_krankenversicherung_nicht_presseausweis():
          "name": "Spenden und Mitgliedsbeiträge"},
     ]  # fmt: skip
     a = spiel.ahnung("Beitragsbescheinigung Krankenversicherung 2025.pdf", st)
-    assert a.stueck is None and a.gebiet == "burg"
+    # Seit Runde 58: Fritte bietet die fehlende Karte an, statt nur die Burg zu nennen
+    assert a.stueck is None and a.dazu[:2] == ("vorsorge", "Kranken- und Pflegeversicherung")
 
 
 def test_runde_56_tagesziel_wartet_bis_nach_dem_kampf(client, ws):
@@ -4181,10 +4182,14 @@ def test_runde_57_fritte_raet_kv_spenden_zahnarzt():
     for name in ("KV-Beitragsbescheinigung_2025.pdf", "TK_Beitragsbescheinigung.pdf"):
         assert spiel.ahnung(name, st).stueck["key"] == "krankenversicherung", name
     assert spiel.ahnung("Riester_Bescheinigung_2025.pdf", st).stueck["key"] == "altersvorsorge"
-    # Ohne Spenden- und Krankheits-Karte: lieber nur die Burg als die falsche Werkstatt-Karte
-    for name in ("Spendenquittung_2025.pdf", "Zahnarzt_Rechnung_2025.pdf"):
+    # Ohne Spenden- und Krankheits-Karte: nie die falsche Werkstatt-Karte, sondern die fehlende
+    # Burg-Karte zum Dazunehmen (Runde 58)
+    for name, haken in (
+        ("Spendenquittung_2025.pdf", "spenden"),
+        ("Zahnarzt_Rechnung_2025.pdf", "krankheit"),
+    ):
         a = spiel.ahnung(name, st)
-        assert a.stueck is None and a.gebiet == "burg", name
+        assert a.stueck is None and a.dazu[0] == haken, name
 
 
 def test_runde_57_lieber_fragen_bei_kernkarte_heisst_noch_nicht_da():
@@ -4197,7 +4202,10 @@ def test_runde_57_lieber_fragen_bei_kernkarte_heisst_noch_nicht_da():
                        "status": "fragen" if k.key == "steuerbescheinigung" else "gesammelt",
                        "frage": "", "wunsch": "", "dateien": 1})  # fmt: skip
     _betreff, text = truhe.mail(p, gebiete, st, mit_passwort=False)
-    assert "Jahressteuerbescheinigung: Habe ich noch nicht." in text
+    assert (
+        "Jahressteuerbescheinigung: Habe ich noch nicht. Reicht es, wenn ich das nachreiche?"
+        in text
+    )
     assert "Ich bin unsicher" not in text
 
 
@@ -4213,3 +4221,46 @@ def test_runde_57_umstempeln_nach_dem_packen_nennt_auch_den_stempel(client, ws):
     quest.setze_status(conn, zweite["id"], "gibts_nicht")
     seite = client.get("/steuer/2025/sieg").text
     assert "1 Beleg herausgenommen und 1 Karte anders gestempelt seit dem Packen" in seite
+
+
+def test_runde_58_ohne_haken_karte_dazunehmen(client, ws):
+    """Lena (Runde 58): Ohne Haken riet Fritte 0 von 5, die Krankenkasse ging zum Presseausweis."""
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    alle = quest.stuecke(conn, 2025)
+    assert not any(s["gebiet"] == "burg" for s in alle)
+    for name, haken in (
+        ("KV-Beitragsbescheinigung_2022.pdf", "vorsorge"),
+        ("TK_Jahresmeldung_2022.pdf", "vorsorge"),
+        ("Riester_Bescheinigung_2022.pdf", "vorsorge"),
+        ("Spendenquittung_2022.png", "spenden"),
+        ("Zahnarzt_Rechnung_2022.pdf", "krankheit"),
+    ):
+        a = spiel.ahnung(name, alle)
+        assert a.stueck is None and a.dazu and a.dazu[0] == haken, name
+    quest.lager(ws.root).mkdir(parents=True, exist_ok=True)
+    (quest.lager(ws.root) / "KV-Beitragsbescheinigung_2025.pdf").write_bytes(b"%PDF tk")
+    insel = client.get("/steuer/2025").text
+    assert "Karte dazunehmen" in insel and "Kranken- und Pflegeversicherung" in insel
+    post(client, "/steuer/2025/lager/karte-dazu", name="KV-Beitragsbescheinigung_2025.pdf",
+         haken="vorsorge")  # fmt: skip
+    p = Profil.load(quest.profil_datei(ws.root, 2025))
+    assert "vorsorge" in p.haken
+    kv = next(s for s in quest.stuecke(conn, 2025) if s["key"] == "krankenversicherung")
+    assert kv["status"] == "gesammelt"
+
+
+def test_runde_58_tagesziel_wartet_auch_bei_anderen_karten(client, ws):
+    """Lena (Runde 58): Nach dem Sieg, vor der Mail, kam „Für heute Schluss“ beim Zurücklegen."""
+    app = client.app
+    conn, bonus = _besiegt_mit_bonus(client, ws)
+    app.state.steuer_tagwerk_spaeter[2025] = "Tagesziel geschafft: 3 Karten heute."
+    post(client, f"/steuer/2025/stueck/{bonus['id']}/datei",
+         files=[("datei", ("spende.pdf", b"%PDF spende"))])  # fmt: skip
+    assert 2025 in app.state.steuer_tagwerk_spaeter
+    post(client, "/steuer/2025/truhe", schloss="ohne")
+    client.post("/steuer/2025/mail/geoeffnet", data={"token": client.token})
+    assert quest.hat_notiz(conn, 2025, "mail")
+    seite = client.get("/steuer/2025/sieg").text
+    assert 'class="sq-meldung tagwerk"' in seite and "Tagesziel geschafft" in seite
+    assert 2025 not in app.state.steuer_tagwerk_spaeter

@@ -17,7 +17,7 @@
   {% set a = ahnungen[f.name] %}{% set spur = a.stueck %}
   <div class="sq-zettel-reihe">
   <details class="sq-zettel" style="--r: {{ [-2.5, 1.5, -1, 2.2, -1.8, 0.8][loop.index0 % 6] }}deg" data-name="{{ f.name }}">
-    <summary draggable="true" title="{{ f.name }}: auf eine Provinz ziehen"><span class="art{% if endung in ['jpg', 'jpeg', 'png', 'heic'] %} bild{% endif %}">{{ (endung or "?")[:4] | upper }}</span><strong lang="de">{{ umbruch(f.name) if umbruch is defined else f.name }}</strong>{% set fj = fremdes_jahr(f.name, jahr, spur.key if spur else None) if fremdes_jahr is defined else None %}{# Lena (Runde 38): Das Schild steht in der zweiten Zeile, sonst bricht es das Raster des Zettels #}{% set schild %}{% if fj %}<span class="sq-anderes-jahr" title="Der Eingangskorb ist für alle Steuerjahre gemeinsam">aus {{ fj }}?</span> {% endif %}{% endset %}{% if spur %}<small class="sq-spur" title="Geraten nach dem Dateinamen">{{ schild }}Vielleicht: {{ spur.name }}{% if titel_von | length > 1 %} · {{ titel_von.get(spur.gebiet, "") }}{% endif %}?</small>{% elif a.gebiet %}<small class="sq-spur" title="Geraten nach dem Dateinamen">{{ schild }}Vielleicht: {{ titel_von.get(a.gebiet, "") }}?</small>{% else %}<small>{{ schild }}<span class="nur-maus">ziehen oder klicken</span><span class="nur-touch">antippen</span></small>{% endif %}</summary>
+    <summary draggable="true" title="{{ f.name }}: auf eine Provinz ziehen"><span class="art{% if endung in ['jpg', 'jpeg', 'png', 'heic'] %} bild{% endif %}">{{ (endung or "?")[:4] | upper }}</span><strong lang="de">{{ umbruch(f.name) if umbruch is defined else f.name }}</strong>{% set fj = fremdes_jahr(f.name, jahr, spur.key if spur else None) if fremdes_jahr is defined else None %}{# Lena (Runde 38): Das Schild steht in der zweiten Zeile, sonst bricht es das Raster des Zettels #}{% set schild %}{% if fj %}<span class="sq-anderes-jahr" title="Der Eingangskorb ist für alle Steuerjahre gemeinsam">aus {{ fj }}?</span> {% endif %}{% endset %}{% if spur %}<small class="sq-spur" title="Geraten nach dem Dateinamen">{{ schild }}Vielleicht: {{ spur.name }}{% if titel_von | length > 1 %} · {{ titel_von.get(spur.gebiet, "") }}{% endif %}?</small>{% elif a.gebiet %}<small class="sq-spur" title="Geraten nach dem Dateinamen">{{ schild }}Vielleicht: {{ titel_von.get(a.gebiet, "") }}?</small>{% elif a.dazu %}<small class="sq-spur" title="Geraten nach dem Dateinamen">{{ schild }}Vielleicht: {{ a.dazu[1] }} · {{ a.dazu[2] }}?</small>{% else %}<small>{{ schild }}<span class="nur-maus">ziehen oder klicken</span><span class="nur-touch">antippen</span></small>{% endif %}</summary>
     <form method="post" action="/steuer/{{ jahr }}/lager/zuordnen" data-stempel="GESICHERT">
       <input type="hidden" name="token" value="{{ token }}">
       <input type="hidden" name="name" value="{{ f.name }}">
@@ -57,6 +57,16 @@
     <input type="hidden" name="name" value="{{ f.name }}">
     <input type="hidden" name="back" value="{{ zurueck }}">
     <button name="stueck_id" value="{{ spur.id }}" title="„{{ f.name }}“ zu „{{ spur.name }}“ legen">✓ Ja, passt</button>
+  </form>
+  {% elif a.dazu %}
+  {# Lena (Runde 58): Ohne Haken im Fragebogen fehlte die Karte, und Fritte riet daneben #}
+  <form method="post" action="/steuer/{{ jahr }}/lager/karte-dazu" class="sq-ahnung sq-dazu" data-stempel="GESICHERT">
+    <input type="hidden" name="token" value="{{ token }}">
+    <input type="hidden" name="name" value="{{ f.name }}">
+    <input type="hidden" name="back" value="{{ zurueck }}">
+    <input type="hidden" name="haken" value="{{ a.dazu[0] }}">
+    <small>Die Karte „{{ a.dazu[1] }}“ fehlt noch in der {{ a.dazu[2] }}. Freiwillig, spart oft Steuern.</small>
+    <button title="Karte dazunehmen und „{{ f.name }}“ darauf legen">＋ Karte dazunehmen</button>
   </form>
   {% endif %}
   </div>
