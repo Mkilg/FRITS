@@ -4,27 +4,27 @@
     "welcome": {
       "mood": "welcome",
       "title": "Hallo, ich bin FRITS!",
-      "text": "Ich kümmere mich um den Papierkram, damit du dich um deine eigentliche Arbeit kümmern kannst. Das Wichtigste dauert etwa fünf Minuten. Danach zeige ich dir kurz, wie ich deine Daten schütze. Diesen Lern-Teil kannst du auch überspringen."
+      "text": "Ich kümmere mich um den Papierkram. Das Wichtigste dauert etwa fünf Minuten. Danach zeige ich dir kurz, wie ich deine Daten schütze, wenn du magst."
     },
     "choose_ai": {
       "mood": "thinking",
       "title": "Welche KI soll mir helfen?",
-      "text": "Ich kann mit Claude, OpenAI oder OpenRouter arbeiten, oder ganz ohne Internet mit einer KI auf deinem Rechner. Wenn du unsicher bist: Nimm Claude. Du kannst das später jederzeit ändern."
+      "text": "Wenn du unsicher bist: Nimm Claude. Du kannst das später ändern."
     },
     "store_key": {
       "mood": "thinking",
       "title": "Dein Schlüssel bleibt bei dir",
-      "text": "Füge hier deinen API-Schlüssel ein. Ich speichere ihn nur auf diesem Computer. Er landet nie in einer Datei, die du verschickst."
+      "text": "Ich speichere ihn nur auf diesem Computer, nie in einer Datei."
     },
     "business_details": {
       "mood": "welcome",
       "title": "Wer schreibt die Rechnungen?",
-      "text": "Dein Name, deine Adresse und deine Bankverbindung. Das steht später auf jeder Rechnung, also lieber einmal in Ruhe prüfen."
+      "text": "Das steht später auf jeder Rechnung. Lieber einmal in Ruhe prüfen."
     },
     "tax_status": {
       "mood": "thinking",
       "title": "Kleinunternehmer oder mit Umsatzsteuer?",
-      "text": "Als Kleinunternehmer (Paragraf 19 UStG) weise ich keine Umsatzsteuer aus. Sonst rechne ich 19 Prozent drauf. Wenn du es nicht genau weißt, frag kurz deine Steuerberatung, das ist völlig in Ordnung."
+      "text": "Nicht sicher? Frag kurz deine Steuerberatung. Du kannst es später ändern."
     },
     "redaction_test": {
       "mood": "thinking",
@@ -39,17 +39,17 @@
     "permissions": {
       "mood": "warning",
       "title": "Was darf ich, was nicht?",
-      "text": "Ich darf Entwürfe schreiben. Verschicken, Löschen und Rechnungsnummern vergeben passiert nur, wenn du auf den Knopf drückst. Du hast immer das letzte Wort."
+      "text": "Ich schreibe Entwürfe. Du hast immer das letzte Wort."
     },
     "first_invoice": {
       "mood": "thinking",
       "title": "Deine erste Rechnung",
-      "text": "Gib mir über das Feld unten eine Notiz, eine E-Mail oder ein Foto. Ich mache daraus einen Entwurf, den du in Ruhe prüfen kannst."
+      "text": "Gib mir eine Notiz, eine E-Mail oder ein Foto. Ich mache daraus einen Entwurf zum Prüfen."
     },
     "done": {
       "mood": "done",
       "title": "Erledigt!",
-      "text": "Alles eingerichtet. Ab jetzt reicht ein Blick pro Woche. Ich sage dir Bescheid, wenn etwas auf dich wartet."
+      "text": "Ab jetzt reicht ein Blick pro Woche. Ich sage Bescheid, wenn etwas wartet."
     }
   },
   "moments": {

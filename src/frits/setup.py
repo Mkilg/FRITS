@@ -92,12 +92,11 @@ FALLBACK_STEPS = {
 }
 
 AI_CHOICES = {
-    "claude": "Claude von Anthropic. Sehr gut mit deutschen Texten. Kostet pro Notiz "
-    "Bruchteile eines Cents.",
+    "claude": "Claude von Anthropic. Sehr gut mit Deutsch, Bruchteile eines Cents pro Notiz.",
     "openai": "OpenAI (die Firma hinter ChatGPT). Ähnlich gut, ähnlich günstig.",
-    "openrouter": "OpenRouter: ein Schlüssel für viele KI-Modelle. Praktisch zum Ausprobieren.",
-    "ollama": "Eine KI auf deinem eigenen Computer (Ollama). Nichts verlässt den Rechner, "
-    "dafür etwas langsamer und weniger genau. Braucht einen Mac mit viel Speicher.",
+    "openrouter": "Ein Schlüssel für viele KI-Modelle. Praktisch zum Ausprobieren.",
+    "ollama": "Eine KI auf deinem Computer. Nichts verlässt den Rechner, aber langsamer. "
+    "Braucht viel Speicher.",
 }
 
 KEY_LINKS = {
