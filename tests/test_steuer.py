@@ -4264,3 +4264,35 @@ def test_runde_58_tagesziel_wartet_auch_bei_anderen_karten(client, ws):
     seite = client.get("/steuer/2025/sieg").text
     assert 'class="sq-meldung tagwerk"' in seite and "Tagesziel geschafft" in seite
     assert 2025 not in app.state.steuer_tagwerk_spaeter
+
+
+def test_runde_59_karte_dazu_landet_auch_im_fragebogen_entwurf(client, ws):
+    """Lena (Runde 59, P1): Fragebogen offen, dann „Karte dazunehmen“, dann Fragebogen
+    speichern: Der neue Haken war weg und die leere Karte mit ihm."""
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    client.get("/steuer/2025/fragebogen?teil=3")  # Entwurf liegt jetzt im Speicher
+    client.post("/steuer/2025/fragebogen", data={"token": client.token, "teil": "3", "merken": "1"})
+    quest.lager(ws.root).mkdir(parents=True, exist_ok=True)
+    (quest.lager(ws.root) / "Spendenquittung_2025.pdf").write_bytes(b"%PDF spende")
+    post(client, "/steuer/2025/lager/karte-dazu", name="Spendenquittung_2025.pdf", haken="spenden")
+    seite = client.get("/steuer/2025/fragebogen?teil=3").text
+    assert re.search(r'name="haken" value="spenden"[^>]*checked', seite)
+    post(client, "/steuer/2025/fragebogen", teil="3", haken="spenden")
+    assert "spenden" in Profil.load(quest.profil_datei(ws.root, 2025)).haken
+    assert any(s["key"] == "spenden" for s in quest.stuecke(conn, 2025))
+
+
+def test_runde_59_tagesziel_wartet_auch_beim_pflicht_beleg(client, ws):
+    """Lena (Runde 59): Pflicht-Beleg nach dem Sieg zurückgelegt: „Für heute Schluss“ kam."""
+    app = client.app
+    conn, _bonus = _besiegt_mit_bonus(client, ws)
+    quest.notiere(conn, 2025, "sieg", "Der Papierdrache ist besiegt")
+    app.state.steuer_tagwerk_spaeter[2025] = (date.today(), "Tagesziel geschafft: 3 Karten heute.")
+    d = quest.dateien(conn, 2025)[0]
+    seite = post(client, f"/steuer/2025/datei/{d['id']}/entfernen").text
+    assert "Tagesziel geschafft" not in seite and 2025 in app.state.steuer_tagwerk_spaeter
+    # Ein Zettel von gestern kommt nicht mehr
+    app.state.steuer_tagwerk_spaeter[2025] = (date(2020, 1, 1), "Tagesziel geschafft: alt.")
+    quest.notiere(conn, 2025, "mail", "Mail an die Beraterin geöffnet")
+    assert "Tagesziel geschafft: alt." not in client.get("/steuer/2025/sieg").text
