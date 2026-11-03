@@ -2479,7 +2479,7 @@ def test_laden_zeigt_wirkungen_als_kleine_formel(client, ws):
     quest.verdiene(conn, 2025, "test", 20, "Testgold")
     for seite in (client.get("/fritte/laden").text, client.get("/steuer/2025/markt").text):
         karte = seite.split(">Brieftaube ")[1].split("</form>")[0]
-        info, rest = karte.split('<div class="info-i-text">')[1].split("</details>", 1)
+        info, rest = karte.split('<span class="info-i-text" role="note">')[1].split("</span>", 1)
         # der ganze Satz steht nur noch hinter dem Info-i, sichtbar ist die Formel
         assert "Fragen an die Beraterin bringen 2 Salzkörner statt 1." in info
         assert "Fragen an die Beraterin" not in rest
