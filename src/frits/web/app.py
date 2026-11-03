@@ -357,6 +357,14 @@ def _stop_server() -> None:
     threading.Timer(0.5, os.kill, args=(os.getpid(), signal.SIGINT)).start()
 
 
+def kurzer_pfad(pfad: Path) -> str:
+    """Ein Pfad so, wie ihn der Finder-Nutzer kennt: ~/Documents/FRITS statt /Users/fritz/..."""
+    try:
+        return "~/" + str(pfad.relative_to(Path.home()))
+    except ValueError:
+        return str(pfad)
+
+
 def create_app(
     ws: Workspace | None = None,
     provider_factory: Callable[[Settings], object] | None = None,
@@ -2372,7 +2380,8 @@ def create_app(
             if current.provider in KEY_ENV
             else False,
             "billing_links": setup.BILLING_LINKS,
-            "inbox": ws.inbox,
+            "inbox": kurzer_pfad(ws.inbox),
+            "inbox_in_dokumente": ws.inbox == Path.home() / "Documents" / "FRITS" / "inbox",
             "sample": setup.sample_note(current),
             "learning": step in setup.LEARNING_STEPS,
             "lern_nr": setup.LEARNING_STEPS.index(step) + 1 if step in setup.LEARNING_STEPS else 0,
@@ -2447,6 +2456,19 @@ def create_app(
             else:
                 key_not_saved(updated.provider, key, following)
                 return back(f"/setup/{step}")
+        elif (
+            step == "store_key"
+            and action == "next"
+            and updated.provider in KEY_ENV
+            and not get_api_key(updated.provider)
+        ):
+            # Not silently: Fritz must know he is working without an AI for now.
+            flash(
+                "Noch kein Schlüssel: FRITS arbeitet erst mal ohne KI. Die Steuer-Quest und "
+                "das Nachtragen alter Rechnungen brauchen keine. Den Schlüssel kannst du "
+                "jederzeit nachtragen:",
+                link=("/settings#ki", "Einstellungen › KI"),
+            )
         if action == "test":
             try:
                 sent, result, usage = setup.connection_test(provider_for(updated), updated, nlp())
