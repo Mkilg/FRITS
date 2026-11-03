@@ -151,7 +151,7 @@ Steuer-ID: {% endif %}</textarea></label>
           <form method="post" action="/steuer/{{ jahr }}/stueck/{{ s.id }}/status" data-stempel="FRAGE" data-farbe="blau">
             <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back" value="{{ zurueck }}">
             <input name="frage" placeholder="Deine Frage an die Beraterin (darf leer bleiben)" aria-label="Frage an die Beraterin">
-            <button class="sq-stempelknopf" name="status" value="fragen">In die Mail aufnehmen</button> {{ info_i("Deine Frage kommt in die Mail an deine Beraterin. Die schickst du am Ende selbst ab.") }}
+            <button class="sq-stempelknopf" name="status" value="fragen">Kommt in die Mail an deine Beraterin</button> {{ info_i("Deine Frage kommt in die Mail an deine Beraterin. Die schickst du am Ende selbst ab.") }}
             <a class="sq-frage-ki" href="/chat">Erst die KI fragen →</a>
           </form>
         </details>

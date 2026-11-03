@@ -4376,6 +4376,65 @@ def test_runde_60_steuer_id_aus_dem_vorjahr(client, ws):
     assert "Aus 2024 übernehmen" in seite and ">Steuer-ID: 12 345 678 901</textarea>" in seite
 
 
+def test_runde_61_neu_beginnen_zurueckholen_und_korb_kennt_das_jahr(client, ws):
+    """Lena (Runde 61): Kein Zurück, das nächste Jahr war vorgewählt, und die Belege aus 2025
+    lagen auf der Insel 2024 mit „Ja, passt“."""
+    fragebogen(client, jahr=2024, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn, _bonus = _besiegt_mit_bonus(client, ws)
+    beleg = quest.dateien(conn, 2025)[0]
+    gold = quest.gold(conn, 2025)
+    quest.notiere(conn, 2025, "erfolg", spiel.erfolge([], [])[0].name)
+    orden = quest.chronik(conn, 2025, 50)
+    # Ohne Jahr ist nichts vorgewählt; von der Insel aus steht das Jahr im Knopf
+    seite = client.get("/steuer/neu-beginnen").text
+    assert " selected" not in seite and 'name="jahr" required' in seite
+    assert "2025 neu beginnen" in client.get("/steuer/neu-beginnen?jahr=2025").text
+    post(client, "/steuer/neu-beginnen", jahr="2025")
+    # Orden bleiben verdient
+    assert {e["text"] for e in orden if e["art"] == "erfolg"} <= {
+        e["text"] for e in quest.chronik(conn, 2025, 50) if e["art"] == "erfolg"
+    }
+    # Das Intro sagt, was passiert ist
+    assert "2025 beginnt von vorn" in client.get("/steuer/2025/intro").text
+    # Auf der Insel 2024 trägt der Beleg sein Jahr und kein „Ja, passt“
+    insel = client.get("/steuer/2024").text
+    assert "Aus 2025." in insel and "Zur Insel 2025" in insel
+    assert f"„{beleg['original']}“ zu" not in insel
+    # Zurückholen: alles wie gesichert, der Stand davor ist auch gesichert
+    seite = client.get("/steuer/neu-beginnen").text
+    assert "2025 zurückholen" in seite
+    name = quest.sicherungs_liste(ws.root)[0]["name"]
+    post(client, "/steuer/sicherung/zurueckholen", name=name)
+    assert quest.profil_datei(ws.root, 2025).exists()
+    zurueck = quest.dateien(conn, 2025)
+    assert [d["sha256"] for d in zurueck] == [beleg["sha256"]]
+    assert Path(quest.heile_pfad(conn, zurueck[0]["pfad"])).is_file()
+    assert not (quest.lager(ws.root) / beleg["original"]).exists()
+    assert quest.gold(conn, 2025) == gold
+    assert len(quest.sicherungs_liste(ws.root)) == 2
+    # Unbekannte Namen tun nichts
+    seite = post(client, "/steuer/sicherung/zurueckholen", name="../../frits.db").text
+    assert "gibt es nicht" in seite
+
+
+def test_runde_61_zweites_spiel_sagt_warum_kein_salz(client, ws):
+    """Lena (Runde 61): Im zweiten Spiel kam kein Salz, und niemand sagte warum."""
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    karte = spiel.pflicht(quest.stuecke(conn, 2025))[0]["id"]
+    post(client, f"/steuer/2025/stueck/{karte}/datei",
+         files=[("datei", ("beleg.pdf", b"%PDF beleg"))])  # fmt: skip
+    assert quest.schon_bezahlt(conn, 2025, f"fund:{karte}") or quest.gold(conn, 2025) > 0
+    post(client, "/steuer/neu-beginnen", jahr="2025")
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    seite = post(
+        client,
+        f"/steuer/2025/stueck/{karte}/datei",
+        files=[("datei", ("beleg.pdf", b"%PDF beleg"))],
+    ).text
+    assert "Kein Salz für diese Karte" in seite
+
+
 def test_runde_59_tagesziel_wartet_auch_beim_pflicht_beleg(client, ws):
     """Lena (Runde 59): Pflicht-Beleg nach dem Sieg zurückgelegt: „Für heute Schluss“ kam."""
     app = client.app

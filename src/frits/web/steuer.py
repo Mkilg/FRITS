@@ -10,6 +10,7 @@ import hashlib
 import math
 import re
 import shutil
+import sqlite3
 import time
 from collections.abc import Callable
 from dataclasses import replace
@@ -486,6 +487,7 @@ def register_steuer(
             warum=warum,
             macht_beraterin=macht_beraterin,
             angabe=angabe,
+            aus_jahr=lambda datei: quest.korb_jahr(conn(), datei),
             steuernummer=settings().steuernummer,
             MACHT_BERATERIN=MACHT_BERATERIN,
             datum=schoenes_datum,
@@ -793,6 +795,7 @@ def register_steuer(
             if war and war["status"] == "gibts_nicht" and s["status"] == "gesammelt":
                 quest.storniere(c, jahr, spiel.karten_grund(war, "antwort"), war["name"])
         frueher = quest.stornierte_gruende(c, jahr)  # zurückgelegt und neu: ohne Serie
+        schon_bezahlt = False
         for v in spiel.verdienste(vorher["stuecke"], nachher["stuecke"], mult, helfer, frueher):
             if not goldjahr:
                 break
@@ -800,8 +803,22 @@ def register_steuer(
                 if wuensche >= spiel.WUNSCH_DECKEL:
                     continue  # Wünsche zahlen nur bis zum Deckel (man kann sie selbst erfinden)
                 wuensche += 1
+            schon_bezahlt = schon_bezahlt or quest.schon_bezahlt(c, jahr, v.grund)
             if quest.verdiene(c, jahr, v.grund, v.betrag, v.text):
                 basis, faktor, plus = basis + v.basis, v.mult, plus + v.betrag
+        if (
+            schon_bezahlt
+            and not plus
+            and not quest.hat_notiz(c, jahr, "salz-schon")
+            and any(s["jahr"] == jahr for s in quest.sicherungs_liste(ws.root))
+        ):
+            # Lena (Runde 61): Im zweiten Spiel eines Jahres kam kein Salz, und keiner sagte warum
+            quest.notiere(c, jahr, "salz-schon", "Salz gab es schon im ersten Spiel")
+            flash(
+                f"Kein Salz für diese Karte: Sie hat im ersten Spiel von {jahr} schon welches"
+                " gebracht. So bleibt es fair.",
+                "hinweis",
+            )
         if plus and ferne and app.state.flashes and app.state.flashes[-1]["kind"] == "beute":
             # Lena (Runde 33): Das Banner zum Fund nannte die Körner nicht
             app.state.flashes[-1]["text"] += f" · +{spiel.koerner(plus)}"
@@ -1230,16 +1247,51 @@ def register_steuer(
     @app.get("/steuer/neu-beginnen", response_class=HTMLResponse)
     def neu_beginnen_seite(request: Request, jahr: int = 0):
         jahre = quest_jahre()
-        ordner = quest.sicherungen(ws.root)
-        alte = sorted(d.name for d in ordner.iterdir() if d.is_dir()) if ordner.is_dir() else []
         return page(
             request,
             "steuer_neu.html",
             jahre=jahre,
-            gewaehlt=jahr if jahr in jahre else (jahre[-1] if jahre else 0),
-            sicherungen=alte[-5:],
+            # Lena (Runde 61): Nach dem Neu-Beginnen war das nächste Jahr vorgewählt, ein
+            # zweiter Klick hätte es ohne Rückfrage zurückgesetzt. Vorgewählt ist nur, was
+            # Fritz von seiner Insel aus mitbringt.
+            gewaehlt=jahr if jahr in jahre else 0,
+            sicherungen=quest.sicherungs_liste(ws.root)[:6],
             nav="/steuer",
         )
+
+    def jahr_vergessen(jahr: int) -> None:
+        """Was sich die Seiten für dieses Jahr gemerkt haben (Mail, Passwort, Tagesziel …)."""
+        for name, wert in list(vars(app.state).get("_state", {}).items()):
+            if not name.startswith("steuer_"):
+                continue
+            if isinstance(wert, dict):
+                wert.pop(jahr, None)
+            elif isinstance(wert, set):
+                wert.discard(jahr)
+
+    @app.post("/steuer/sicherung/zurueckholen", dependencies=guarded)
+    async def sicherung_zurueckholen(request: Request):
+        """Lena (Runde 61): Neu beginnen ging, zurück nicht. Vorher wird wieder gesichert."""
+        form = await request.form()
+        name = Path(str(form.get("name") or "")).name
+        if not any(s["name"] == name for s in quest.sicherungs_liste(ws.root)):
+            flash("Diese Sicherung gibt es nicht (mehr).", "hinweis")
+            return back("/steuer/neu-beginnen")
+        try:
+            jahr, _davor = quest.zurueckholen(conn(), ws.root, name)
+        except sqlite3.IntegrityError:
+            flash(
+                "Das ging nicht: Die Sicherung passt nicht mehr zu deinen anderen Jahren."
+                " Es hat sich nichts geändert.",
+                "hinweis",
+            )
+            return back("/steuer/neu-beginnen")
+        jahr_vergessen(jahr)
+        flash(
+            f"{jahr} ist zurück, wie es gesichert war. Den Stand davor habe ich auch gesichert.",
+            "ok",
+        )
+        return back(f"/steuer/{jahr}")
 
     @app.post("/steuer/neu-beginnen", dependencies=guarded)
     async def neu_beginnen(request: Request):
@@ -1250,14 +1302,7 @@ def register_steuer(
             flash("Für dieses Jahr gibt es keine Quest.")
             return back("/steuer/neu-beginnen")
         ziel = quest.neu_beginnen(conn(), ws.root, jahr)
-        # Was sich die Seiten für dieses Jahr gemerkt haben (Mail, Passwort, Tagesziel …)
-        for name, wert in list(vars(app.state).get("_state", {}).items()):
-            if not name.startswith("steuer_"):
-                continue
-            if isinstance(wert, dict):
-                wert.pop(jahr, None)
-            elif isinstance(wert, set):
-                wert.discard(jahr)
+        jahr_vergessen(jahr)
         flash(
             f"Die Steuer-Quest {jahr} beginnt von vorn. Deine Belege liegen im Eingangskorb, "
             f"die Sicherung in steuer/sicherungen/{ziel.name}.",
@@ -1355,6 +1400,8 @@ def register_steuer(
             ausweg_text=weg_text,
             kurz=bool(quest_jahre()) or angefangen,
             angefangen=angefangen,
+            # Lena (Runde 61): Nach „Neu beginnen“ hieß es „Für 2025 gibt es noch keine Quest“
+            neu_begonnen=any(s["jahr"] == jahr for s in quest.sicherungs_liste(ws.root)),
         )
 
     @app.get("/steuer/{jahr}/fragebogen", response_class=HTMLResponse)
@@ -1709,8 +1756,9 @@ def register_steuer(
         gestempelt, doppelt = 0, 0
         for quelle in quest.lager_dateien(ws.root):
             karte = spiel.ahnung(quelle.name, alle).stueck
-            if karte is None:
-                continue
+            aus = quest.korb_jahr(c, quelle)
+            if karte is None or (aus and aus != jahr):
+                continue  # Lena (Runde 61): ein Beleg aus einem neu begonnenen anderen Jahr
             fund = quest.sammeln(c, ws.root, karte["id"], quelle, verschieben=True)
             if fund.neu:
                 quest.notiere(c, jahr, "fund", f"{karte['name']}: {quelle.name}")
