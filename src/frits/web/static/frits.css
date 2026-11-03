@@ -720,3 +720,10 @@ ul.wartet-frueher li { display: flex; flex-wrap: wrap; align-items: center; gap:
   .info-i-text { position: fixed; left: 16px; right: 16px; top: auto; bottom: 16px; transform: none;
     width: auto; max-width: none; }
 }
+
+/* "Für Techies" (Einführung 6 und 7): code stays as written and scrolls sideways in its box */
+.techie pre.code { white-space: pre; overflow-x: auto; max-width: 100%; font-size: 0.88rem; line-height: 1.4; }
+.techie ol { padding-left: 1.3rem; }
+.bibliotheken li { margin: 0.3rem 0; }
+fieldset.vorsatz { border: 0; padding: 0; margin: 0 0 1rem; }
+fieldset.vorsatz legend { margin-bottom: 0.4rem; }

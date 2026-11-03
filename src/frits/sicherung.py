@@ -329,3 +329,23 @@ def _auspacken(zf, ziel: Path) -> None:
             continue  # never write outside the new folder
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_bytes(zf.read(name))
+
+
+def neustart_ziel(root: Path, jetzt: datetime) -> Path:
+    """Where "Neu anfangen" puts the current folder: FRITS-alt-2026-11-03_0912 next to it."""
+    ziel = root.with_name(f"{root.name}-alt-{jetzt:%Y-%m-%d_%H%M}")
+    n = 2
+    while ziel.exists():
+        ziel = root.with_name(f"{root.name}-alt-{jetzt:%Y-%m-%d_%H%M}-{n}")
+        n += 1
+    return ziel
+
+
+def neu_anfangen(ws: Workspace, jetzt: datetime) -> Path:
+    """Start over with an empty FRITS (Marie, 3.11.). Nothing is deleted: the whole folder is
+    renamed to FRITS-alt-<datum> right next to it, and an empty one takes its place. To go back,
+    swap the names. Keys and the backup password stay in the keychain."""
+    ziel = neustart_ziel(ws.root, jetzt)
+    ws.root.rename(ziel)
+    ws.ensure()
+    return ziel

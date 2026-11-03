@@ -2,12 +2,12 @@
 {% block title %}Einstellungen · FRITS{% endblock %}
 {% block content %}
 <h1>Einstellungen</h1>
-<p class="einstellungen-intro">Alles in Fächern. Klick ein Fach auf, ändere, was du willst, und speichere unten.</p>
 <form method="post" action="/settings" class="form" data-merken="einstellungen">
   <input type="hidden" name="token" value="{{ token }}">
   <input type="hidden" name="checkboxes" value="strict_local">
   <input type="hidden" name="checkboxes" value="sound">
   <input type="hidden" name="checkboxes" value="haustier">
+  <input type="hidden" name="checkboxes" value="auto_read">
   <h2 class="fach-gruppe">Für deine Rechnungen</h2>
   <details class="card fach" id="ueber-dich"{% if not settings.name or not settings.address %} open{% endif %}>
     <summary><span class="fach-titel">Über dich</span><span class="fach-stand">{{ settings.name or "Noch leer" }}{% if settings.company %} · {{ settings.company }}{% endif %}</span></summary>
@@ -61,6 +61,7 @@
     </label>
     <p class="hint">Der Schlüssel kommt {{ "nur in den Speicher dieses Browsers (nie in eine Sicherung)" if im_browser() else "in den Schlüsselbund dieses Macs" }}, nicht in eine Datei. FRITS zeigt ihn nie wieder an.</p>
     <label class="choice"><input type="checkbox" name="strict_local" {{ "checked" if settings.strict_local }}> Strikter Modus: nur die lokale KI benutzen, nichts verlässt diesen Computer</label>
+    <label class="choice"><input type="checkbox" name="auto_read" {{ "checked" if settings.auto_read }}> Was ich auf „Heute“ ablege, gleich lesen lassen {{ info_i("Aus: Alles wartet im Eingang, bis du „Jetzt lesen lassen“ drückst. Praktisch, wenn du erst sammeln willst. Geschwärzt wird in beiden Fällen vorher auf diesem Computer.") }}</label>
     {% include "_ki_kosten.html" %}
   </details>
   <h2 class="fach-gruppe">Klang und Spiel</h2>
@@ -91,8 +92,31 @@
       </div>
     </div>
     <label class="choice"><input type="checkbox" name="haustier" {{ "checked" if settings.haustier }}> Fritte als Haustier auf der Seite „Heute“: ihr Zimmer, Salzkörner für erledigten Papierkram und ein kleiner Laden</label>
+    <fieldset class="vorsatz">
+      <legend>Dein Vorsatz für den Papierkram {{ info_i("Schaffst du ihn, wächst Frittes Flamme um eins. Verpasst du ihn, fängt sie ruhig wieder bei null an.") }}</legend>
+      {% for key, v in vorsaetze.items() %}
+      <label class="choice"><input type="radio" name="vorsatz" value="{{ key }}" {{ "checked" if key == settings.vorsatz }}> {{ v[0] }}</label>
+      {% endfor %}
+    </fieldset>
   </details>
   <div class="row actions speichern-leiste"><button class="primary">Speichern</button></div>
 </form>
-<p class="hint">Deine Daten liegen in {{ folder }}. Die Einrichtung mit KI-Test und Sicherheits-Lektionen kannst du jederzeit <a href="/setup/welcome">wiederholen</a>.</p>
+<p class="hint">Deine Daten liegen in {{ folder }}. <a href="/setup/welcome">Einführung wiederholen</a></p>
+
+{% if not im_browser() %}
+<details class="card fach" id="neustart">
+  <summary><span class="fach-titel">Neu anfangen</span><span class="fach-stand">mit Sicherung, nichts wird gelöscht</span></summary>
+  <p>FRITS legt deinen jetzigen Ordner beiseite und fängt mit einem leeren an. Danach kommt die Einführung.</p>
+  <ul class="plain">
+    <li>Dein alter Ordner heißt dann <code>{{ neustart_ziel }}</code> und bleibt in <em>Dokumente</em>.</li>
+    <li>Zurück geht es jederzeit: FRITS beenden, den neuen Ordner <code>FRITS</code> umbenennen, den alten wieder <code>FRITS</code> nennen.</li>
+    <li>Dein KI-Schlüssel bleibt im Schlüsselbund.</li>
+  </ul>
+  <form method="post" action="/neu-anfangen" data-confirm="Wirklich mit einem leeren FRITS neu anfangen? Dein jetziger Ordner wird zu {{ neustart_ziel }} und bleibt erhalten.">
+    <input type="hidden" name="token" value="{{ token }}">
+    <button>Mit leerem FRITS neu anfangen</button>
+  </form>
+  <p class="hint">Nur die Steuer-Quest neu beginnen? Das geht <a href="/steuer/neu-beginnen">auf der Insel</a>.</p>
+</details>
+{% endif %}
 {% endblock %}
