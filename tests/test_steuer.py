@@ -3293,7 +3293,8 @@ def test_runde_40_kein_umweg_ueber_fragen_und_helfer(client, ws):
     assert quest.stueck(conn, karte["id"])["status"] == "gesammelt"
     assert quest.gold(conn, 2025) == start  # netto 0
 
-    schatz = quest.stuecke(conn, 2025, "burg")[0]
+    # Seit Runde 57 erkennt Fritte Riester: Die Datei kommt auf die passende Karte
+    schatz = next(s for s in quest.stuecke(conn, 2025, "burg") if s["key"] == "altersvorsorge")
     riester = [("datei", ("riester.pdf", b"%PDF riester"))]
     post(client, f"/steuer/2025/stueck/{schatz['id']}/datei", files=riester)
     quest.verdiene(conn, 2025, "test", 100, "Testgold")
