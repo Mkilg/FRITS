@@ -933,10 +933,13 @@
   });
   // Lena (Runde 51): Der eigene Brieftext wird still gemerkt, wenn man das Feld verlässt,
   // und zur Sicherheit auch nach einer Tipp-Pause. So übersteht er ein Neuladen.
-  Array.prototype.forEach.call(document.querySelectorAll("form[data-merken]"), function (brief) {
-    var uhr = null;
+  // Lena (Runde 52): eigenes Attribut, sonst hielt der Fragebogen den Brief für sich
+  Array.prototype.forEach.call(document.querySelectorAll("form[data-brief-merken]"), function (brief) {
+    var uhr = null, offen = false;
     function merken() {
-      if (!window.fetch) return;
+      clearTimeout(uhr);
+      if (!window.fetch || !offen) return;
+      offen = false;
       var token = brief.querySelector("input[name=token]");
       var daten = new FormData();
       if (token) daten.append("token", token.value);
@@ -944,10 +947,16 @@
         var feld = brief.querySelector("[name=" + name + "]");
         if (feld) daten.append(name, feld.value);
       });
-      fetch(brief.getAttribute("data-merken"), { method: "POST", body: daten, headers: { "x-frits-leise": "1" }, credentials: "same-origin" }).catch(function () {});
+      fetch(brief.getAttribute("data-brief-merken"), { method: "POST", body: daten, headers: { "x-frits-leise": "1" }, credentials: "same-origin", keepalive: true }).catch(function () {});
     }
-    brief.addEventListener("change", function () { clearTimeout(uhr); merken(); });
-    brief.addEventListener("input", function () { clearTimeout(uhr); uhr = setTimeout(merken, 1500); });
+    brief.addEventListener("change", function () { offen = true; merken(); });
+    brief.addEventListener("input", function () { offen = true; clearTimeout(uhr); uhr = setTimeout(merken, 800); });
+    // Wer gleich neu lädt, verliert die letzte Zeile nicht (Lena, R52). beforeunload kommt
+    // vor der neuen Anfrage, pagehide erst danach; beide schaden nicht, gemerkt wird einmal.
+    window.addEventListener("beforeunload", merken);
+    window.addEventListener("pagehide", merken);
+    document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden") merken(); });
+    brief.addEventListener("submit", function () { offen = false; clearTimeout(uhr); });
   });
   // „E-Mail öffnen“ nimmt, was gerade in den Feldern steht, auch spätere Änderungen (Lena, R50)
   Array.prototype.forEach.call(document.querySelectorAll("a[data-mailto]"), function (link) {
