@@ -55,7 +55,8 @@
     var meine = ++fahrt; // a new drive ends the one before
     if (!dy) return 0;
     if (reduced) { window.scrollBy(0, dy); return 0; }
-    var von = window.scrollY, ms = Math.min(1600, Math.max(500, Math.abs(dy) * 1.3)), t0 = null;
+    // up to 2.4 s: a long hand of 14 cards is 2000 px, at 1.6 s that was 40 px a frame (Lena R78)
+    var von = window.scrollY, ms = Math.min(2400, Math.max(500, Math.abs(dy) * 1.3)), t0 = null;
     function schritt(now) {
       if (meine !== fahrt) return;
       t0 = t0 || now;
