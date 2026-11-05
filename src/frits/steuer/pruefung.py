@@ -45,8 +45,17 @@ _ECHT = ("urlaubsgeld", "urlaubsanspruch", "urlaubsbescheinigung", "ferienjob", 
 # Konten, die nicht das Geschäftskonto sind (Lena, Runde 78: die Spürnase legte Sparkonto-,
 # Tagesgeld- und Kreditkarten-Auszüge still zu „Kontoauszüge Geschäftskonto“).
 # „Sparkasse“ ist eine Bank und steht darum nicht hier.
-# Lena (Runde 81): „Sparbuchung“ ist kein Sparbuch, und eine Geschäftskarte ist geschäftlich
-_KEIN_PRIVATES_KONTO = ("sparbuchung", "geschaeft", "firma", "firmen", "business")
+# Lena (Runde 81): „Sparbuchung“ ist kein Sparbuch, und eine Geschäftskarte ist geschäftlich.
+# Lena (Runde 83): nur Karten und Konten, nicht „Geschäftsjahr“ oder „Firmenjubiläum“
+_KEIN_PRIVATES_KONTO = (
+    "sparbuchung",
+    "geschaeftskart",
+    "geschaeftskredit",
+    "firmenkart",
+    "firmenkredit",
+    "businesscard",
+    "corporatecard",
+)
 PRIVATE_KONTEN = {
     "sparkonto": "Sparkonto",
     "sparbuch": "Sparbuch",
@@ -67,6 +76,8 @@ class Zweifel:
     text: str  # was Fritte fragt
     # Die Karte, nach der der Name klingt (nur bei "andere_karte"): Dorthin führt ein Knopf
     besser: dict | None = None
+    # Kurz für den Kasten am Zettel, wo der Dateiname schon steht (Lena, Runde 83)
+    kurz: str = ""
 
 
 def _tokens(name: str) -> list[str]:
@@ -126,9 +137,12 @@ def pruefe(
     karte = stueck["name"]
     # Vor der Quellen-Prüfung: „Sparkonto Kontoauszug.pdf“ nennt die Karte und ist doch privat
     tokens = _tokens(Path(original).stem)
-    if stueck.get("key") == "kontoauszuege" and not any(
-        t.startswith(_KEIN_PRIVATES_KONTO) for t in tokens
-    ):
+    # „Business Card“ und „Geschäfts-Kreditkarte“ sind zwei Wörter, darum auch zusammengezogen
+    kette = "".join(tokens)
+    geschaeftlich = any(t.startswith(_KEIN_PRIVATES_KONTO) for t in tokens) or any(
+        k in kette for k in _KEIN_PRIVATES_KONTO[1:]
+    )
+    if stueck.get("key") == "kontoauszuege" and not geschaeftlich:
         konto = next(
             (n for t in tokens for w, n in PRIVATE_KONTEN.items() if t.startswith(w)), None
         )
@@ -136,6 +150,7 @@ def pruefe(
             return Zweifel(
                 "privates_konto",
                 f"„{original}“ klingt nach {konto}. Gehört das wirklich zu „{karte}“?",
+                kurz=f"Klingt nach {konto}. Wirklich Geschäftskonto?",
             )
     if quellen and nennt_die_karte(original, quellen):
         return None
@@ -144,6 +159,7 @@ def pruefe(
         return Zweifel(
             "privat",
             f"„{original}“ klingt nach einem privaten Foto, nicht nach „{karte}“.",
+            kurz="Klingt nach einem privaten Foto.",
         )
     # Passt der Name klar zu einer anderen Karte, aber gar nicht zu dieser?
     if not ausdruecklich and spiel.ahnung(original, [stueck]).stueck is None:
@@ -153,6 +169,7 @@ def pruefe(
                 "andere_karte",
                 f"„{original}“ klingt eher nach „{andere['name']}“ als nach „{karte}“.",
                 besser=andere,
+                kurz=f"Klingt eher nach „{andere['name']}“.",
             )
     if bild_lesen and Path(original).suffix.lower() in BILDER:
         n = lesbare_woerter(pfad)
@@ -161,5 +178,6 @@ def pruefe(
                 "kein_text",
                 f"Auf „{original}“ finde ich keinen Text. Das sieht aus wie ein Foto,"
                 f" nicht wie „{karte}“.",
+                kurz="Kein Text darauf, eher ein Foto.",
             )
     return None

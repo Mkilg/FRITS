@@ -178,9 +178,7 @@ def textname(text: str) -> str:
     name = ""
     for w in woerter:
         if len(name) + 1 + len(w) > 48:
-            if name:
-                break
-            continue  # Lena (Runde 81): Schon das erste Wort war zu lang, also das nächste
+            continue  # Lena (Runde 81/83): Ein zu langes Wort fällt weg, die nächsten passen
         name = f"{name} {w}".strip()
     name = name.strip(" .-")
     return f"{name or 'Eingefügter Text'}.txt"
@@ -513,10 +511,10 @@ def register_steuer(
         return p
 
     def offene_stutzen() -> dict:
-        """Rückfragen am Korb nur, solange die Karte noch offen ist (Lena, Runde 35): Sonst
-        legte „Trotzdem zu …“ eine zweite Datei auf eine erledigte Karte. Was Fritte schon am
-        Namen sieht (Sparkonto auf dem Geschäftskonto), fragt zweifel_am_namen weiter nach,
-        auch wenn die Karte inzwischen etwas hat (Lena, Runde 81)."""
+        """Rückfragen am Korb, solange die Karte noch Dateien nimmt. Bei „gibt es nicht“ oder
+        „Beraterin fragen“ fallen sie weg (Lena, Runde 35). Lena (Runde 81/83): Bekam die
+        Karte einen anderen Beleg, verschwand die Rückfrage, und der Zettel bot wieder
+        „✓ Ja, passt“ an. Jetzt bleibt sie und sagt, dass die Karte schon etwas hat."""
         if not app.state.steuer_stutzen:
             return {}
         c = conn()
@@ -525,8 +523,8 @@ def register_steuer(
             row = c.execute(
                 "SELECT status FROM steuer_stuecke WHERE id = ?", (st["stueck_id"],)
             ).fetchone()
-            if row and row[0] == "offen":
-                offen[name] = st
+            if row and row[0] in ("offen", "gesammelt"):
+                offen[name] = {**st, "voll": row[0] == "gesammelt"}
         return offen
 
     def zweifel_am_namen(datei: Path, jahr: int, s: dict) -> pruefung.Zweifel | None:
@@ -559,6 +557,7 @@ def register_steuer(
             aus_jahr=lambda datei: quest.korb_jahr(conn(), datei),
             schon_da=lambda datei, jahr: quest.schon_abgelegt(conn(), jahr, datei),
             zweifel_am_namen=zweifel_am_namen,
+            bild_endungen=pruefung.BILDER,
             steuernummer=settings().steuernummer,
             MACHT_BERATERIN=MACHT_BERATERIN,
             datum=schoenes_datum,
@@ -1960,7 +1959,7 @@ def register_steuer(
             z = zweifel_an(jahr, karte, quelle, quelle.name)
             if z is not None:
                 # Lena (Runde 81): Die Rückfrage steht dann gleich am Zettel im Korb
-                merke_stutzen(jahr, karte, quelle.name, z, z.text)
+                merke_stutzen(jahr, karte, quelle.name, z, z.kurz or z.text)
                 gefragt += 1
                 continue
             fund = quest.sammeln(c, ws.root, karte["id"], quelle, verschieben=True)
@@ -2325,7 +2324,8 @@ def register_steuer(
         ablage.mkdir(parents=True, exist_ok=True)
         gelegt, zu_gross, bekannt = [], [], 0
         c = conn()
-        im_korb = {quest.datei_hash(p) for p in quest.lager_dateien(ws.root)}
+        # Lena (Runde 83): Die Meldung nennt den Namen, unter dem der Inhalt schon im Korb liegt
+        im_korb = {quest.datei_hash(p): p.name for p in quest.lager_dateien(ws.root)}
         for upload in [*form.getlist("files"), *form.getlist("datei")]:
             name = upload_name(getattr(upload, "filename", ""))
             if not name or name.startswith("."):
@@ -2348,12 +2348,15 @@ def register_steuer(
                 continue
             if sha in im_korb:
                 flash(
-                    f"{name}: Genau diese Datei liegt schon im Eingangskorb.",
+                    f"{name}: Genau diese Datei liegt schon im Eingangskorb."
+                    if im_korb[sha] == name
+                    else f"{name}: Genau diese Datei liegt schon im Eingangskorb,"
+                    f" dort heißt sie „{im_korb[sha]}“.",
                     link=(f"/steuer/{jahr}#sq-korb", "Zum Korb"),
                 )
                 bekannt += 1
                 continue
-            im_korb.add(sha)
+            im_korb[sha] = name
             ziel, n = ablage / name, 1
             while ziel.exists():
                 ziel = ablage / f"{Path(name).stem} ({n}){Path(name).suffix}"
@@ -2377,7 +2380,7 @@ def register_steuer(
                 bekannt += 1
             elif sha in im_korb:
                 flash(
-                    "Genau diesen Text gibt es schon als Zettel im Eingangskorb.",
+                    f"Genau diesen Text gibt es schon als Zettel im Eingangskorb: „{im_korb[sha]}“.",
                     link=(f"/steuer/{jahr}#sq-korb", "Zum Korb"),
                 )
                 bekannt += 1
@@ -2401,7 +2404,11 @@ def register_steuer(
             )
         if not gelegt and not zu_gross and not bekannt:
             # Lena (Runde 37): Nach „Kenne ich schon“ wirkte diese Meldung wie ein Fehler
-            flash("Es wurde keine Datei mitgeschickt.", "error")
+            if "text" in form and not form.getlist("files") and not form.getlist("datei"):
+                # Lena (Runde 83): Ein leeres Textfeld ist kein Fehler, nur nichts zu tun
+                flash("Das Textfeld war leer. Füg erst etwas ein, dann lege ich es in den Korb.")
+            else:
+                flash("Es wurde keine Datei mitgeschickt.", "error")
         return back(f"/steuer/{jahr}#sq-korb")
 
     @app.post("/steuer/{jahr}/lager/beiseite", dependencies=guarded)
