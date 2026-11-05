@@ -4750,3 +4750,28 @@ def test_runde_71_doppel_nicht_auf_der_hand_und_nie_still_geloescht(client, ws):
     assert "Die Kopie aus dem Korb liegt jetzt im Ordner" in seite
     assert not (lager / "scan-02-kopie.pdf").exists()
     assert (quest.beiseite(ws.root) / "scan-02-kopie.pdf").read_bytes() == b"%PDF-1 konto"
+
+
+def test_runde_73_spuernase_sagt_wohin_und_stutzen_nennt_den_korb_namen(client, ws):
+    """Lena (Runde 73): Die Spürnase sagte nicht, wo die Kopien hin sind; Fritte nannte beim
+    Stutzen den neuen Namen, obwohl derselbe Inhalt im Korb anders hieß."""
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    lager = quest.lager(ws.root)
+    lager.mkdir(parents=True, exist_ok=True)
+    (lager / "Strand_alt.png").write_bytes(b"strand")
+    sid = next(s for s in quest.stuecke(conn, 2025) if s["key"] == "steuer-id")
+    seite = post(client, f"/steuer/2025/stueck/{sid['id']}/datei",
+                 files={"datei": ("urlaubsfoto.png", b"strand", "image/png")}).text  # fmt: skip
+    assert "Fritte stutzt" in seite and "dort heißt es „Strand_alt.png“" in seite
+    assert sorted(d.name for d in quest.lager_dateien(ws.root)) == ["Strand_alt.png"]
+    (lager / "Strand_alt.png").unlink()
+    # Spürnase mit einer Kopie
+    (lager / "Kontoauszug_Juni.pdf").write_bytes(b"%PDF konto")
+    quest.verdiene(conn, 2025, "test", 50, "Testgold")
+    post(client, "/steuer/2025/markt/kaufen", ware="spuernase")
+    post(client, "/steuer/2025/lager/vorschlaege")
+    (lager / "Kontoauszug_Kopie.pdf").write_bytes(b"%PDF konto")
+    seite = post(client, "/steuer/2025/lager/vorschlaege").text
+    assert "1 war eine Kopie" in seite and "Sie liegt jetzt im Ordner" in seite
+    assert (quest.beiseite(ws.root) / "Kontoauszug_Kopie.pdf").exists()
