@@ -253,6 +253,8 @@ table { width: 100%; border-collapse: collapse; }
   .lines tr:has(> td.l-ust) td.amount { grid-column: 1 / -1; }
 }
 .lines .zeile-weg { display: none; }
+/* „Entfernen“ blendet die Karte aus; display: grid am Handy überstimmte sonst hidden (Runde 82) */
+.lines tbody tr[hidden] { display: none; }
 @media (max-width: 600px) { .lines .zeile-weg:not([hidden]) { display: inline-flex; } }
 
 .review { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 1rem; align-items: start; }
