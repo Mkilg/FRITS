@@ -488,6 +488,7 @@ def register_steuer(
             macht_beraterin=macht_beraterin,
             angabe=angabe,
             aus_jahr=lambda datei: quest.korb_jahr(conn(), datei),
+            schon_da=lambda datei, jahr: quest.schon_abgelegt(conn(), jahr, datei),
             steuernummer=settings().steuernummer,
             MACHT_BERATERIN=MACHT_BERATERIN,
             datum=schoenes_datum,
@@ -1345,18 +1346,31 @@ def register_steuer(
         if jahr not in quest_jahre():
             flash("Für dieses Jahr gibt es keine Quest.")
             return back("/steuer/neu-beginnen")
-        vorher = len(quest.lager_dateien(ws.root))
-        quest.neu_beginnen(conn(), ws.root, jahr)
+        c = conn()
+        quest.ensure_schema(c)
+        belege = {
+            r[0] for r in c.execute("SELECT sha256 FROM steuer_dateien WHERE jahr = ?", (jahr,))
+        }
+        quest.neu_beginnen(c, ws.root, jahr)
         jahr_vergessen(jahr)
         # Lena (Runde 65): Die Meldung nannte Belege im Korb, auch wenn keine dort lagen,
         # und einen Ordnerpfad. Jetzt zählt sie nach und sagt, wo es zurückgeht.
-        im_korb = len(quest.lager_dateien(ws.root)) - vorher
+        # Lena (Runde 69): Sie zählte nur, was umzog, nicht was schon im Korb lag
+        korb = quest.lager_dateien(ws.root)
+        im_korb = sum(1 for d in korb if quest._sha_gemerkt(d) in belege)
+        andere = len(korb) - im_korb
         text = f"Die Steuer-Quest {jahr} beginnt von vorn."
         if im_korb:
             text += (
                 " Dein Beleg liegt im Eingangskorb."
                 if im_korb == 1
                 else f" Deine {im_korb} Belege liegen im Eingangskorb."
+            )
+        if andere:
+            text += (
+                " Dort lag schon ein anderer Zettel."
+                if andere == 1
+                else f" Dort lagen schon {andere} andere Zettel."
             )
         flash(text + " Zurückholen kannst du alles unter „Neu beginnen“.", "ok")
         return back(f"/steuer/{jahr}/intro")

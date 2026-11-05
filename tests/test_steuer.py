@@ -4694,3 +4694,30 @@ def test_runde_68_kein_doppelter_zettel_und_kein_finder_am_handy(client, ws):
     css = client.get("/static/steuer.css").text
     assert ".sq-ahnung.sq-anderes-jahr a { display: inline-flex" in css
     assert "a.vorn::before { inset: -12px" not in css
+
+
+def test_runde_69_doppel_im_korb_und_ausweg_bei_fremdem_jahr(client, ws):
+    """Lena (Runde 69): Schon abgelegte Doppel warben im Korb und bei „Lohnt sich noch“;
+    „aus 2024?“ ohne passende Karte hatte keinen Ausweg; die Neu-beginnen-Meldung zählte nur,
+    was umzog."""
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    lager = quest.lager(ws.root)
+    lager.mkdir(parents=True, exist_ok=True)
+    karte = spiel.pflicht(quest.stuecke(conn, 2025))[0]
+    post(client, f"/steuer/2025/stueck/{karte['id']}/datei",
+         files=[("datei", ("bescheid.png", b"\x89PNG bescheid"))])  # fmt: skip
+    (lager / "bescheid-kopie.png").write_bytes(b"\x89PNG bescheid")
+    (lager / "Belege_2024.png").write_bytes(b"\x89PNG anderes")
+    insel = client.get("/steuer/2025").text
+    zettel = insel[insel.index('data-name="bescheid-kopie.png"') :]
+    zettel = zettel[: zettel.index("sq-zettel-reihe") if "sq-zettel-reihe" in zettel else 4000]
+    assert f"Schon abgelegt bei „{karte['name']}“" in zettel and "Beiseite legen" in zettel
+    zettel = insel[insel.index('data-name="Belege_2024.png"') :]
+    zettel = zettel[: zettel.index("sq-zettel-reihe") if "sq-zettel-reihe" in zettel else 4000]
+    assert "Zur Insel 2024" in zettel
+    post(client, "/steuer/2025/lager/beiseite", name="bescheid-kopie.png")
+    assert not (lager / "bescheid-kopie.png").exists()
+    # Neu beginnen: zählt die Belege und sagt, was schon im Korb lag
+    seite = post(client, "/steuer/neu-beginnen", jahr="2025").text
+    assert "Dein Beleg liegt im Eingangskorb. Dort lag schon ein anderer Zettel." in seite

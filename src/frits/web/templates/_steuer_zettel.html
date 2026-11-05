@@ -3,7 +3,7 @@
 {% set alle_karten = provinzen | map(attribute="stuecke") | sum(start=[]) %}
 {% set titel_von = {} %}{% for p in provinzen %}{% set _ = titel_von.update({p.gebiet.id: p.gebiet.titel}) %}{% endfor %}
 {% set ahnungen = {} %}{% for f in lager %}{% set _ = ahnungen.update({f.name: ahnung(f.name, alle_karten)}) %}{% endfor %}
-{% set sichere = [] %}{% for f in lager %}{% if ahnungen[f.name].stueck and (aus_jahr is not defined or aus_jahr(f) in (none, jahr)) and not (fremdes_jahr is defined and fremdes_jahr(f.name, jahr, ahnungen[f.name].stueck.key)) %}{% set _ = sichere.append(f) %}{% endif %}{% endfor %}
+{% set sichere = [] %}{% for f in lager %}{% if ahnungen[f.name].stueck and not (schon_da is defined and schon_da(f, jahr)) and (aus_jahr is not defined or aus_jahr(f) in (none, jahr)) and not (fremdes_jahr is defined and fremdes_jahr(f.name, jahr, ahnungen[f.name].stueck.key)) %}{% set _ = sichere.append(f) %}{% endif %}{% endfor %}
 {% if "spuernase" in helfer and sichere | length > 1 %}
 <form method="post" action="/steuer/{{ jahr }}/lager/vorschlaege" class="sq-spuernase" data-stempel="GESICHERT">
   <input type="hidden" name="token" value="{{ token }}">
@@ -42,8 +42,19 @@
     </form>
   </details>
   {% set stutz = stutzen.get(f.name) if stutzen is defined else None %}
-  {% if anderes %}
-  <p class="sq-ahnung sq-anderes-jahr"><small>Aus {{ aus }}.</small> <a href="/steuer/{{ aus }}">Zur Insel {{ aus }} →</a></p>
+  {% set schon = schon_da(f, jahr) if schon_da is defined else none %}
+  {% if schon %}
+  {# Lena (Runde 69): Doppel im Korb sahen aus wie Arbeit. Beiseite legen löscht nichts #}
+  <form method="post" action="/steuer/{{ jahr }}/lager/beiseite" class="sq-ahnung sq-anderes-jahr sq-schon">
+    <input type="hidden" name="token" value="{{ token }}">
+    <input type="hidden" name="name" value="{{ f.name }}">
+    <input type="hidden" name="back" value="{{ zurueck }}">
+    <small>Schon abgelegt bei „{{ schon.name }}“.</small> <a href="/steuer/{{ jahr }}/belege#karte-{{ schon.id }}">Zum Beleg</a>
+    <button class="quiet" title="Kommt in den Ordner „beiseite gelegt“. Nichts wird gelöscht.">Beiseite legen</button>
+  </form>
+  {% elif anderes %}
+  {# Lena (Runde 69): als <p> bekam der Kasten den Holz-Schatten von .sq-korb p #}
+  <div class="sq-ahnung sq-anderes-jahr"><small>Aus {{ aus }}.</small> <a href="/steuer/{{ aus }}">Zur Insel {{ aus }} →</a></div>
   {% elif stutz and stutz.jahr == jahr %}
   {# Fritte hat gestutzt: Die Rückfrage bleibt hier stehen, auch nach dem Neuladen #}
   <form method="post" action="/steuer/{{ jahr }}/lager/zuordnen" class="sq-ahnung sq-stutzt" data-stempel="GESICHERT">
@@ -64,6 +75,9 @@
     <small>Der Name nennt {{ fj }}.</small> <a href="/steuer/{{ fj }}">Zur Insel {{ fj }} →</a>
     <button class="quiet" name="stueck_id" value="{{ spur.id }}" title="„{{ f.name }}“ doch zu „{{ spur.name }}“ legen">Doch hier</button>
   </form>
+  {% elif fj %}
+  {# Lena (Runde 69): Ohne passende Karte gab es bei „aus 2024?“ keinen Ausweg #}
+  <div class="sq-ahnung sq-anderes-jahr"><small>Der Name nennt {{ fj }}.</small> <a href="/steuer/{{ fj }}">Zur Insel {{ fj }} →</a></div>
   {% elif spur %}
   <form method="post" action="/steuer/{{ jahr }}/lager/zuordnen" class="sq-ahnung" data-stempel="GESICHERT">
     <input type="hidden" name="token" value="{{ token }}">
