@@ -436,19 +436,40 @@ def limit_notes_after(
     notes = []
     if year >= 2025:
         before, after = limit_crossing(conn, year, without=key), limit_crossing(conn, year)
-        if after and after != before:
+        if after and after == before and _counts_after(conn, year, key, after):
+            # Lena (Runde 82): the year was over 100,000 € already, so this one needs VAT too.
+            art = label.split()[0]
+            notes.append(
+                f"Dein Umsatz {year} {'liegt' if jetzt else 'lag'} schon seit der {after[0]} vom "
+                f"{after[1]:%d.%m.%Y} über 100.000 €. Deshalb braucht auch diese {art} "
+                + (
+                    "Umsatzsteuer: Bitte deinen Kunden um eine berichtigte Gutschrift mit "
+                    "Umsatzsteuer, die Umsatzsteuer schuldest du ohnehin."
+                    if art == "Gutschrift"
+                    else "Umsatzsteuer und muss berichtigt werden."
+                )
+                + " Sprich bitte mit deiner Steuerberatung."
+            )
+        elif after and after != before:
             wer, tag = after
             wer = (
                 f"Mit dieser {label.split()[0]}"
                 if wer == label
                 else f"Mit der {wer} vom {tag:%d.%m.%Y}"
             )
-            notes.append(
+            text = (
                 f"{wer} {'liegt' if jetzt else 'lag'} dein Umsatz {year} über 100.000 €. Ab "
                 "dort gilt die Kleinunternehmerregelung (§ 19 UStG) nicht mehr. "
                 f"{_correct_from(conn, year, after)} {year + 1} bist du auch kein "
-                "Kleinunternehmer. Sprich bitte mit deiner Steuerberatung."
+                "Kleinunternehmer."
             )
+            # Lena (Runde 82): a year that jumps straight over 100,000 € also makes the next
+            # year a VAT year, so the invoices already written in it need the list too.
+            if year + 1 <= today.year:
+                text += _next_year_correction(conn, year + 1, today)
+            else:
+                text += " Sprich bitte mit deiner Steuerberatung."
+            notes.append(text)
     grenze = _prior_limit(year)
     if grenze is not None and not notes:
         total = turnover(conn, year)
@@ -465,32 +486,60 @@ def limit_notes_after(
                     f" Hast du erst {year} angefangen, gilt die Grenze schon jetzt, ab der "
                     "Rechnung, mit der du darüber kamst."
                 )
-            folgejahr = year + 1
-            if folgejahr > today.year:
-                text += " Prüf bitte die Einstellungen mit deiner Steuerberatung."
-            else:
-                # Lena (Runde 80): for a year already running or over, "check the settings"
-                # misses the point. The invoices already sent without VAT need correcting.
-                raus = _kleinunternehmer_invoices(conn, folgejahr)
-                if raus:
-                    namen = ", ".join(raus[:5]) + (
-                        f" und {len(raus) - 5} weitere" if len(raus) > 5 else ""
-                    )
-                    text += (
-                        f" {'Diese Rechnung' if len(raus) == 1 else 'Diese Rechnungen'} von "
-                        f"{folgejahr} {'ist' if len(raus) == 1 else 'sind'} ohne Umsatzsteuer "
-                        f"rausgegangen und {'muss' if len(raus) == 1 else 'müssen'} berichtigt "
-                        f"werden: {namen}."
-                    )
-                if folgejahr == today.year:
-                    text += (
-                        " Stell in den Einstellungen auf „Mit Umsatzsteuer“ um und sprich bitte "
-                        "mit deiner Steuerberatung."
-                    )
-                else:
-                    text += " Sprich bitte mit deiner Steuerberatung über die Berichtigung."
+            text += _next_year_correction(conn, year + 1, today)
             notes.append(text)
     return notes
+
+
+def _counts_after(conn, year: int, key: str, crossing: tuple[str, date]) -> bool:
+    """Does `key` count after the item that crossed 100,000 € (so it needed VAT too)?"""
+    seen = False
+    for _, k, label, day, _net in _year_items(conn, year):
+        if k == key:
+            return seen
+        seen = seen or (label, day) == crossing
+    return False
+
+
+def _names(items: list[str], most: int = 10) -> str:
+    shown = ", ".join(items[:most])
+    return shown + (f" und {len(items) - most} weitere" if len(items) > most else "")
+
+
+def _next_year_correction(conn, folgejahr: int, today: date) -> str:
+    """What to do about `folgejahr` when it turns out not to be a Kleinunternehmer year."""
+    if folgejahr > today.year:
+        return " Prüf bitte die Einstellungen mit deiner Steuerberatung."
+    # Lena (Runde 80/82): for a year already running or over, "check the settings" misses
+    # the point. What already went out without VAT needs correcting, Gutschriften included.
+    text = ""
+    raus = _kleinunternehmer_invoices(conn, folgejahr)
+    if raus:
+        eine = len(raus) == 1
+        text += (
+            f" {'Diese Rechnung' if eine else f'Diese {len(raus)} Rechnungen'} von {folgejahr} "
+            f"{'ist' if eine else 'sind'} ohne Umsatzsteuer rausgegangen und "
+            f"{'muss' if eine else 'müssen'} berichtigt werden: {_names(raus)}."
+        )
+    gs = [
+        c.their_number
+        for c in gutschriften.listing(
+            conn, start=date(folgejahr, 1, 1), end=date(folgejahr, 12, 31)
+        )
+        if not c.vat
+    ]
+    if gs:
+        text += (
+            f" {'Die Gutschrift' if len(gs) == 1 else 'Die Gutschriften'} von {folgejahr} "
+            f"ohne Umsatzsteuer ({_names(sorted(gs, key=_natural))}) berichtigt dein Kunde, "
+            "bitte ihn darum."
+        )
+    if folgejahr == today.year:
+        return text + (
+            " Stell in den Einstellungen auf „Mit Umsatzsteuer“ um und sprich bitte mit deiner "
+            "Steuerberatung."
+        )
+    return text + " Sprich bitte mit deiner Steuerberatung über die Berichtigung."
 
 
 def storno_limit_note(conn, settings: Settings, year: int, before) -> list[str]:
@@ -503,10 +552,10 @@ def storno_limit_note(conn, settings: Settings, year: int, before) -> list[str]:
         return []
     if after is None:
         text = (
-            f"Mit dem Storno liegt dein Umsatz {year} wieder unter 100.000 €. Die Grenze war "
-            f"aber mit der {before[0]} vom {before[1]:%d.%m.%Y} schon überschritten. Ob die "
-            "Kleinunternehmerregelung (§ 19 UStG) damit wieder gilt, klär bitte mit deiner "
-            "Steuerberatung, bevor du Rechnungen ohne Umsatzsteuer schreibst."
+            f"Mit dem Storno liegt dein Umsatz {year} wieder unter 100.000 €. Vorher lag er ab "
+            f"der {before[0]} vom {before[1]:%d.%m.%Y} darüber. Ob die "
+            "Kleinunternehmerregelung (§ 19 UStG) für die Zeit dazwischen galt, klär bitte mit "
+            "deiner Steuerberatung, bevor du wieder Rechnungen ohne Umsatzsteuer schreibst."
         )
         return [text]
     text = (

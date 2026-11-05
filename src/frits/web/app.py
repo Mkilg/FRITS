@@ -1456,7 +1456,7 @@ def create_app(
             # "warnung", not "error": an error would put the form values back after a
             # successful entry. And no jump to the invoice, or the note sits out of sight
             # above it (Lena Runde 75).
-            flash(" ".join(grenzen), "warnung", link=("/settings#steuern", "Zu den Einstellungen"))
+            flash(" ".join(grenzen), "warnung", link=_einstellungen_link(grenzen))
             return back("/invoices")
         return back(f"/invoices#r-{number}")
 
@@ -1807,7 +1807,7 @@ def create_app(
             today(),
         )
         if grenzen:
-            flash(" ".join(grenzen), "warnung", link=("/settings#steuern", "Zu den Einstellungen"))
+            flash(" ".join(grenzen), "warnung", link=_einstellungen_link(grenzen))
             return back(f"/customers/{customer.id}")
         return back(url)
 
@@ -3206,6 +3206,14 @@ def _in_der_steuer_quest(conn, path: Path) -> int | None:
     except sqlite3.OperationalError:  # the Steuer-Quest was never opened
         return None
     return row["jahr"] if row else None
+
+
+def _einstellungen_link(notes: list[str]) -> tuple[str, str] | None:
+    """The button to the settings, only where the note asks to change them: for a year long
+    over it is about correcting invoices, the settings don't help (Lena Runde 82)."""
+    if any("Einstellungen" in note for note in notes):
+        return ("/settings#steuern", "Zu den Einstellungen")
+    return None
 
 
 _ZURUECK = re.compile(r"/drafts/\d{1,9}")

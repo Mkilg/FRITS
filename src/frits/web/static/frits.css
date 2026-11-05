@@ -197,7 +197,7 @@ ul.list a:hover { background: var(--creme); }
   ul.list a:has(> .badge) { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.15rem 0.6rem; }
   ul.list a:has(> .badge)::after { content: ""; flex-basis: 100%; order: 1; }
   ul.list a:has(> .badge) > :nth-child(1) { flex: 1 1 0; min-width: 0; overflow-wrap: break-word; }
-  ul.list a:has(> .badge) > :nth-child(2) { order: 2; flex: 1 1 8rem; min-width: 0; overflow-wrap: anywhere; }
+  ul.list a:has(> .badge) > :nth-child(2) { order: 2; flex: 1 1 6rem; min-width: 0; overflow-wrap: anywhere; }
   ul.list a:has(> .badge) > .amount { margin-left: auto; text-align: right; white-space: nowrap; }
   ul.list a:has(> .badge) > .badge { order: 2; margin-left: auto; }
 }
@@ -227,35 +227,36 @@ table { width: 100%; border-collapse: collapse; }
   .table-wrap:has(> .lines) { overflow-x: visible; }
   .lines, .lines tbody, .lines tfoot { display: block; width: 100%; }
   .lines thead { display: none; }
-  .lines tbody tr { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.35rem 0.5rem;
+  .lines tbody tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.35rem 0.5rem;
     padding: 0.6rem 0; border-bottom: 1px solid var(--line); }
   .lines tbody td { display: block; padding: 0; border: 0; min-width: 0; }
   .lines tbody td[data-k]::before { content: attr(data-k); display: block; font-size: var(--fs-mini); color: var(--muted); margin-bottom: 0.1rem; }
   .lines td.l-leistung { grid-column: 1 / -1; }
-  .lines td.l-preis { grid-column: 1; }
-  .lines td.l-ust { grid-column: 2; }
-  .lines tbody td.amount { grid-column: 3; text-align: right; align-self: end; font-weight: 600; }
+  /* Runde 82: zwei Spalten statt drei. Bei drei passten Datum, Menge und Einheit bei 320 px nie
+     gleichzeitig ganz hinein („12,2“, „pauscha“). */
+  .lines tbody tr:has(> td.l-ust) td.amount { grid-column: 2; }
+  .lines tbody td.amount { grid-column: 1 / -1; text-align: right; align-self: end; font-weight: 600; }
   .lines select { min-width: 0; }
   .lines tr.blank td.l-leistung::before { content: none; }
   .lines tfoot tr { display: flex; justify-content: space-between; gap: 0.6rem; }
   .lines tfoot td { padding: 0.3rem 0; }
   .lines .note, .lines td .tiny { margin-top: 0.2rem; }
-  /* Lena (Runde 80): bei 320 px wurde „pauschal“ zu „pausc“; der Pfeil braucht weniger Platz */
-  .lines tbody tr { grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.5fr) minmax(0, 1.2fr); }
+  /* Lena (Runde 80): schmaler Pfeil und wenig Innenabstand, damit „pauschal“ ganz lesbar ist */
   .lines input { padding-left: 0.3rem; padding-right: 0.3rem; }
   .lines select { appearance: none; -webkit-appearance: none; padding: 0.3rem 1.2rem 0.3rem 0.35rem;
     background: #fffdf6 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%235b4a3a' stroke-width='1.6'/%3E%3C/svg%3E") no-repeat right 0.4rem center; }
   .lines td.l-leistung { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 0.4rem; align-items: center; }
   .lines td.l-leistung::before { grid-column: 1 / -1; }
   .lines td.l-leistung .zeile-weg { margin-top: 0; }
-  /* Mit USt-Spalte: „normal“ braucht Platz, der Betrag bekommt dann eine eigene Zeile */
-  .lines tr:has(> td.l-ust) td.l-ust { grid-column: 2 / 4; }
-  .lines tr:has(> td.l-ust) td.amount { grid-column: 1 / -1; }
 }
 .lines .zeile-weg { display: none; }
 /* „Entfernen“ blendet die Karte aus; display: grid am Handy überstimmte sonst hidden (Runde 82) */
 .lines tbody tr[hidden] { display: none; }
-@media (max-width: 600px) { .lines .zeile-weg:not([hidden]) { display: inline-flex; } }
+@media (max-width: 600px) {
+  .lines .zeile-weg:not([hidden]) { display: inline-flex; }
+  /* Die letzte leere Zeile ist der Platz für die nächste Position: da gibt es nichts zu entfernen */
+  .lines tr.blank:last-child .zeile-weg { display: none; }
+}
 
 .review { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 1rem; align-items: start; }
 .review.single { grid-template-columns: minmax(0, 1fr); }
@@ -767,7 +768,8 @@ ul.wartet-frueher li { display: flex; flex-wrap: wrap; align-items: center; gap:
 /* Lena (Runde 78b): am Mac sind die kleinen Knöpfe in der Liste mindestens 32 px hoch */
 .table.rechnungen td.actions button.tiny { min-height: 32px; }
 /* Knopf in einer Meldung: Text in der Mitte, nicht oben (Lena Runde 78b) */
-.flash .button, .flash button { display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; min-height: 32px; }
+.flash .button, .flash button { display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; }
+@media (pointer: fine) { .flash .button, .flash button { min-height: 32px; } }
 /* Rechnungen am Handy (Lena Runde 69): jede Rechnung eine Karte. Nummer und Betrag oben,
    Kunde und Datum darunter, dann der Status und die Knöpfe in eigener Zeile. Vorher war
    die Tabelle 747 px breit und „Bezahlt am“ lag unsichtbar rechts neben dem Bildschirm. */

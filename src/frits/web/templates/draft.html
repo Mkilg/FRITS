@@ -81,7 +81,7 @@
         {% endfor %}
         {% if editable %}
           <tr class="blank">
-            <td class="l-leistung" data-k="Leistung"><input name="description" placeholder="Neue Position"></td>
+            <td class="l-leistung" data-k="Leistung"><input name="description" placeholder="Neue Position"><button type="button" class="tiny quiet zeile-weg" data-zeile-weg hidden>Entfernen</button></td>
             <td class="l-datum" data-k="Datum"><input name="date" size="10"></td>
             <td class="l-menge" data-k="Menge"><input name="quantity" size="5" inputmode="decimal"></td>
             <td class="l-einheit" data-k="Einheit"><select name="unit">{% for u in units %}<option>{{ u }}</option>{% endfor %}</select></td>
@@ -105,7 +105,7 @@
         </tfoot>
       </table>
       </div>
-      <p class="hint">{% if sums.note and limit_blocked %}Den Satz „{{ sums.note }}“ darf diese Rechnung nicht tragen, siehe unten. {% elif sums.note %}Auf der Rechnung: „{{ sums.note }}“ {% endif %}{{ info_i("Preise kommen aus der Kundennotiz oder deinen Einstellungen, nie von der KI. Du kannst jeden Wert ändern.", "Woher die Preise kommen") }}</p>
+      <p class="hint">{% if sums.note and limit_blocked %}Den Satz „{{ sums.note }}“ darf diese Rechnung nicht tragen, siehe unten. {% elif sums.note %}Auf {{ "dem Angebot" if is_quote else "der Rechnung" }}: „{{ sums.note }}“ {% endif %}{{ info_i("Preise kommen aus der Kundennotiz oder deinen Einstellungen, nie von der KI. Du kannst jeden Wert ändern.", "Woher die Preise kommen") }}</p>
       {% if rate_column and editable %}<details class="hint"{% if sums.groups|length > 1 %} open{% endif %}><summary>Wann 7 %?</summary>USt „normal“ ist dein Satz aus den Einstellungen. 7 % gilt zum Beispiel, wenn du Nutzungsrechte an Texten, Beiträgen oder Fotos einräumst (§ 12 Abs. 2 Nr. 7c UStG). Fahrt- und Recherchekosten zu so einem Artikel bekommen meist denselben Satz wie der Artikel selbst, weil sie dazugehören. Bahntickets rechnest du netto weiter, also ohne die Umsatzsteuer, die auf dem Ticket steht. Im Zweifel frag deine Steuerberatung.</details>{% endif %}
       {% for w in draft_hints or [] %}<p class="hint warn-text">{{ w }}</p>{% endfor %}
       {% for w in limit_warnings or [] %}<p class="hint warn-text">{{ w }}</p>{% endfor %}
@@ -146,7 +146,7 @@
         {% set gewaehlt = customers | selectattr("id", "equalto", draft.customer_id) | first %}
         {% set empfaenger = (draft.customer_name or "den Kunden") ~ ("\nz. Hd. " ~ draft.customer_contact if draft.customer_contact else "") ~ ("\n" ~ draft.customer_address | replace(", ", "\n") if draft.customer_address else "") %}
         {% set firma_hinweis = ("\n\nAchtung: Hier steht keine Firma, die Rechnung geht an die Person selbst. Die E-Mail-Adresse gehört zu " ~ gewaehlt.firmen_domain ~ ". Soll die Rechnung an die Firma gehen, trag sie vorher beim Kunden ein.") if gewaehlt and gewaehlt.firmen_domain else "" %}
-        <button class="primary" name="action" value="approve" data-customer="{{ empfaenger }}" data-confirm="Rechnung über {{ sums.gross | eur }} jetzt erstellen? Sie geht an:&#10;{{ empfaenger }}&#10;&#10;Sie bekommt eine feste Nummer. Später ändern geht nur noch per Storno.{{ firma_hinweis }}" data-confirm-live="Rechnung über {gross} jetzt erstellen? Sie geht an:&#10;{customer}&#10;&#10;Sie bekommt eine feste Nummer. Später ändern geht nur noch per Storno.{firma}" data-confirm-ja="Rechnung erstellen">Rechnung erstellen</button>
+        <button class="{{ 'quiet' if limit_blocked else 'primary' }}" name="action" value="approve" data-customer="{{ empfaenger }}" data-confirm="Rechnung über {{ sums.gross | eur }} jetzt erstellen? Sie geht an:&#10;{{ empfaenger }}&#10;&#10;Sie bekommt eine feste Nummer. Später ändern geht nur noch per Storno.{{ firma_hinweis }}" data-confirm-live="Rechnung über {gross} jetzt erstellen? Sie geht an:&#10;{customer}&#10;&#10;Sie bekommt eine feste Nummer. Später ändern geht nur noch per Storno.{firma}" data-confirm-ja="Rechnung erstellen">Rechnung erstellen</button>
         <button class="quiet" name="action" value="quote">Lieber als Angebot</button>
         {% endif %}
       </div>
