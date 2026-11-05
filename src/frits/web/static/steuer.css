@@ -1970,7 +1970,9 @@ details.sq-mehr-marken .kurz { display: none; }
   .sq-fb-fuss a.quiet, .sq-pruefen li a, .sq-ohne-an a { display: inline-flex; align-items: center; min-height: 44px; }
   /* Lena (Runde 67): „Burg“ war 38 breit, der Nachbar des vorderen Punkts 41 */
   .sq-noch-liste li a { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; justify-content: center; }
-  .sq-zettel-punkte a.vorn::before { inset: -12px; }
+  /* Lena (Runde 68): vergrößert nahm der vordere Punkt dem Nachbarn 1 px. Am Handy bleibt er gleich groß */
+  .sq-zettel-punkte a.vorn { transform: none; }
+  .sq-ahnung.sq-anderes-jahr a { display: inline-flex; align-items: center; min-height: 44px; }
   .sq label.sq-wahl { min-height: 44px; min-width: 44px; }
   .sq-anrede label { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; }
   .sq-orden > li { min-width: 44px; min-height: 44px; }

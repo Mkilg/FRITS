@@ -79,7 +79,8 @@
       {% endif %}
       {% if zip_pfad %}
       <p>Gepackt: <strong>{{ zip_pfad.name }}</strong> ({{ "mit Passwort" if mit_passwort else "ohne Passwort" }})</p>
-      <form method="post" action="/steuer/{{ jahr }}/truhe/zeigen" class="reihe">
+      {# Lena (Runde 68): Am Handy gibt es keinen Finder, also auch hier keinen Knopf #}
+      <form method="post" action="/steuer/{{ jahr }}/truhe/zeigen" class="reihe nur-maus-geraet">
         <input type="hidden" name="token" value="{{ token }}">
         {# Lena (Runde 51): Auch dieser Knopf ohne Neuladen, sonst sprang die Seite nach oben #}
         <button class="sq-stempelknopf" data-leise>Im Finder zeigen</button>
