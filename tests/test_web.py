@@ -5,6 +5,7 @@ import time
 from dataclasses import replace
 from datetime import date
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 from conftest import FIXTURES
@@ -1254,3 +1255,22 @@ def test_phones_get_a_tab_bar_but_not_during_the_first_setup(client, ws):
     settings = Settings.load(ws.settings_file)
     replace(settings, setup_done=False).save(ws.settings_file)
     assert 'class="tabs"' not in client.get("/setup/welcome").text
+
+
+def test_phone_lists_and_the_category_that_follows_the_vendor(client):
+    """Lena Runde 69: the invoice list is a card per invoice on the phone (classes for the
+    grid), and the expense form knows the receipt reader's words, so "Deutsche Bahn"
+    becomes a business trip while typing."""
+    import json
+    from html import unescape
+
+    from frits.beleg import category_patterns, guess_category
+
+    seite = client.get("/expenses").text
+    roh = seite.split('data-raten="')[1].split('"')[0]
+    muster = json.loads(unescape(roh))
+    assert muster == category_patterns()
+    assert guess_category("Deutsche Bahn") == "reisekosten"
+    assert "reisekosten" in [k for k, _ in muster]
+    vorlage = Path(__file__).parents[1] / "src/frits/web/templates/invoices.html"
+    assert vorlage.read_text(encoding="utf-8").count('class="table rechnungen"') == 2
