@@ -1937,7 +1937,7 @@ details.sq-mehr-marken .kurz { display: none; }
 .sq-ahnung.sq-anderes-jahr { margin: -4px 6px 0 0; padding: 0.3rem 0.55rem; background: #fff4d6; border-left: 3px solid #d8a640; border-radius: 2px; font-size: var(--fs-klein); color: #6b4a0e; }
 .sq-ahnung.sq-anderes-jahr a { color: #6b4a0e; }
 /* Lena (Runde 69): Am Mac klebte „Zur Insel 2024 →“ an „Doch hier“, ein Klick knapp darunter legte den Beleg ab */
-.sq-ahnung.sq-anderes-jahr { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.sq-ahnung.sq-anderes-jahr { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; align-self: stretch; }
 .sq-ahnung.sq-anderes-jahr a { display: inline-flex; align-items: center; min-height: 32px; }
 /* Lena (Runde 63): Am Handy gibt es kein Darüberfahren. Der Name sieht immer wie ein Link aus */
 .sq .sq-beleg-name { color: inherit; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }

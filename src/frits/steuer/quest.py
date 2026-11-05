@@ -422,6 +422,7 @@ class Fund:
     pfad: Path
     stueck: dict
     verweis: dict | None = None  # die Karte, bei der die Datei liegt (wird mitbenutzt)
+    beiseite: Path | None = None  # dorthin kam die doppelte Kopie aus dem Korb
 
 
 def _hash(path: Path) -> str:
@@ -477,8 +478,12 @@ def sammeln(
         "SELECT d.pfad, d.stueck_id FROM steuer_dateien d WHERE d.jahr = ? AND d.sha256 = ?",
         (jahr, sha),
     ).fetchone()
+    weg = None
     if vorhanden:
-        if verschieben:
+        if verschieben and quelle.parent == lager(root):
+            # Lena (Runde 71): Die Kopie aus dem Korb verschwand still. Nichts wird gelöscht
+            weg = lege_beiseite(root, quelle.name)
+        elif verschieben:
             quelle.unlink()
         bei = stueck(conn, vorhanden["stueck_id"])
         if bei["id"] != s["id"] and darf_mitbenutzen(s, bei):
@@ -501,8 +506,9 @@ def sammeln(
                 Path(heile_pfad(conn, vorhanden["pfad"])),
                 stueck(conn, s["id"]),
                 bei,
+                weg,
             )
-        return Fund(False, Path(heile_pfad(conn, vorhanden["pfad"])), bei)
+        return Fund(False, Path(heile_pfad(conn, vorhanden["pfad"])), bei, beiseite=weg)
 
     ziel_ordner = ordner(root, jahr) / s["gebiet"]
     ziel_ordner.mkdir(parents=True, exist_ok=True)
