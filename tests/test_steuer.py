@@ -1088,10 +1088,22 @@ def test_falsche_adressen_sind_freundlich(client, ws):
     seite = client.get("/steuer/2023/drache", follow_redirects=False)
     assert seite.status_code == 303 and seite.headers["location"] == "/steuer/2023/intro"
     # Lena (Runde 75): ein Jahr ohne Sinn ist keine Quest-Seite
-    for adresse in ("/steuer/-1/intro", "/steuer/1999/drache", "/steuer/9999", "/steuer/0/belege"):
+    # Lena (Runde 77): auch, was erst beim Umwandeln zur Zahl wird
+    for adresse in (
+        "/steuer/-1/intro", "/steuer/1999/drache", "/steuer/9999", "/steuer/0/belege",
+        "/steuer/-1.0/intro", "/steuer/2025.0/intro", "/steuer/%2B2025/intro",
+        "/steuer/%20-1/intro", "/steuer/-1234567890123456789/intro", "/steuer/2025abc",
+        "/steuer/02025/intro",
+    ):  # fmt: skip
         seite = client.get(adresse, follow_redirects=False)
         assert seite.status_code == 404 and "Diese Seite gibt es nicht" in seite.text, adresse
+    seite = client.post("/steuer/2025abc/fragebogen", data={"merken": "1"})
+    assert seite.status_code == 404 and "Diese Seite gibt es nicht" in seite.text
     assert not (ws.root / "steuer" / "-1").exists()
+    assert client.get("/steuer/2025/intro").status_code == 200
+    # Nur ansehen heißt noch nicht angefangen
+    client.get("/steuer/2026/fragebogen")
+    assert "schon angefangen" not in client.get("/steuer/2026/intro").text
 
 
 def test_eingefuegter_text_heisst_nach_seinen_ersten_woertern():

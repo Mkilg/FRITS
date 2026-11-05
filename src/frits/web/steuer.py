@@ -309,7 +309,20 @@ def beleg_info(d: dict) -> dict:
 
 # Steuerjahre, für die es eine Quest geben kann (Lena, Runde 75: /steuer/-1 ging durch)
 ERSTES_STEUERJAHR = 2000
-_STEUER_JAHR = re.compile(r"^/steuer/(-?\d{1,18})(?=/|$)")
+_STEUER_ABSCHNITT = re.compile(r"^/steuer/([^/]*)(?=/|$)")
+
+
+def steuerjahr_aus_pfad(pfad: str) -> str | None:
+    """Der Abschnitt nach /steuer/, wenn er wie ein Jahr aussieht (Ziffer, Vorzeichen,
+    Leerzeichen oder %-kodiert), sonst None. Lena (Runde 77): „-1.0“, „+9999“, „ -1“ und
+    „2025abc“ wurden erst beim Umwandeln zur Zahl und rutschten so an der Prüfung vorbei."""
+    from urllib.parse import unquote
+
+    m = _STEUER_ABSCHNITT.match(pfad)
+    if not m:
+        return None
+    teil = unquote(m.group(1))
+    return teil if teil[:1] and (teil[:1] in "+-.%" or not teil[:1].isalpha()) else None
 
 
 def upload_name(filename: object) -> str:
@@ -336,8 +349,10 @@ def register_steuer(
     async def nur_echte_steuerjahre(request: Request, call_next):
         """Lena (Runde 75): /steuer/-1/intro war eine Quest-Seite mit 200. Ein Jahr ohne Sinn
         bekommt die freundliche 404-Seite, bevor irgendetwas angelegt wird."""
-        m = _STEUER_JAHR.match(request.url.path)
-        if m and not ERSTES_STEUERJAHR <= int(m.group(1)) <= today().year + 1:
+        teil = steuerjahr_aus_pfad(request.url.path)
+        if teil is not None and not (
+            re.fullmatch(r"[0-9]{4}", teil) and ERSTES_STEUERJAHR <= int(teil) <= today().year + 1
+        ):
             antwort = page(
                 request,
                 "fehler.html",
@@ -1525,7 +1540,9 @@ def register_steuer(
             return back(f"/steuer/{jahr}")
         weg, weg_text = ausweg(jahr)
         # Wer schon angefangen hat, sieht nicht den ganzen Film noch einmal
-        angefangen = jahr in app.state.steuer_entwurf or entwurf_datei(jahr).exists()
+        # Lena (Runde 77): Schon das Ansehen des Fragebogens zählte als „angefangen“. Jede
+        # Änderung landet in der Entwurfs-Datei, nur die zählt
+        angefangen = entwurf_datei(jahr).exists()
         return seite(
             request,
             "steuer_intro.html",
