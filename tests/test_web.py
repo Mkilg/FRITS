@@ -1453,3 +1453,23 @@ def test_draft_cards_and_limit_hints_on_the_draft(client, ws):
     saved = post(client, "/settings", name="Fritz Beispiel", zurueck=f"/drafts/{draft_id}")
     assert f'href="/drafts/{draft_id}">Zurück zum Entwurf</a>' in saved.text
     assert "Zurück zum Entwurf" not in post(client, "/settings", zurueck="https://x.de").text
+
+
+def test_settings_button_only_where_the_settings_help():
+    """Lena (Runde 82): for a year long over the note is about correcting invoices; a button
+    to the settings would lead nowhere. Quotes don't promise the sentence "on the invoice"."""
+    from frits.web.app import _einstellungen_link
+
+    assert (
+        _einstellungen_link(["… Sprich bitte mit deiner Steuerberatung über die Berichtigung."])
+        is None
+    )
+    assert _einstellungen_link(["Stell in den Einstellungen auf „Mit Umsatzsteuer“ um."]) == (
+        "/settings#steuern",
+        "Zu den Einstellungen",
+    )
+    draft = (
+        Path(__file__).parent.parent / "src" / "frits" / "web" / "templates" / "draft.html"
+    ).read_text()
+    assert 'Auf {{ "dem Angebot" if is_quote else "der Rechnung" }}' in draft
+    assert "'quiet' if limit_blocked else 'primary'" in draft

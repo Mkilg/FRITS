@@ -356,7 +356,7 @@ def test_entering_last_year_names_the_invoices_to_correct(tmp_path):
     [note] = earlier_limit_notes(conn, klein, "2025-9", date(2026, 11, 5))
     assert "Damit lag dein Umsatz 2025 über 25.000 €. 2026 bist du dann kein" in note
     assert (
-        "Diese Rechnungen von 2026 sind ohne Umsatzsteuer rausgegangen und müssen berichtigt "
+        "Diese 2 Rechnungen von 2026 sind ohne Umsatzsteuer rausgegangen und müssen berichtigt "
         "werden: 2026-2, 2026-10." in note
     )
     assert "„Mit Umsatzsteuer“ um" in note and "Prüf bitte die Einstellungen" not in note
@@ -377,7 +377,55 @@ def test_a_storno_back_under_100k_says_so(tmp_path):
     _row(conn, "2026-3", "2026-11-05", "-500", cancels="2026-2")
     [note] = storno_limit_note(conn, klein, 2026, before)
     assert note.startswith("Mit dem Storno liegt dein Umsatz 2026 wieder unter 100.000 €.")
-    assert "mit der Rechnung 2026-2 vom 01.03.2026 schon überschritten" in note
+    assert "Vorher lag er ab der Rechnung 2026-2 vom 01.03.2026 darüber" in note
     assert limit_crossing(conn, 2026) is None  # the cancelled invoice crosses nothing now
     assert storno_limit_note(conn, _settings(), 2026, before) == []
     assert storno_limit_note(conn, klein, 2026, None) == []
+
+
+def test_last_year_straight_over_100k_and_entries_after_the_line(tmp_path):
+    """Lena (Runde 82): a Vorjahr that jumps over 100,000 € at once also lists this year's
+    invoices and Gutschriften to correct; and once a year is over the line, a Gutschrift or
+    an invoice entered after it says that it needs VAT as well."""
+    from frits import gutschriften
+    from frits.billing import earlier_limit_notes, limit_notes_after
+
+    conn = store.connect(tmp_path / "frits.db")
+    klein = _settings(tax_mode="kleinunternehmer")
+    _row(conn, "2026-0003", "2026-03-01", "97500")
+    gutschriften.add(
+        conn,
+        customer_id="sender",
+        customer="Sender",
+        their_number="GS-1",
+        issue_date=date(2026, 2, 1),
+        gross=Decimal(800),
+        vat_rate=None,
+    )
+    _row(conn, "2025-1", "2025-04-01", "120000")
+    [note] = earlier_limit_notes(conn, klein, "2025-1", date(2026, 11, 5))
+    assert "Mit dieser Rechnung lag dein Umsatz 2025 über 100.000 €" in note
+    assert "Diese Rechnung von 2026 ist ohne Umsatzsteuer rausgegangen" in note
+    assert "2026-0003" in note and "(GS-1) berichtigt dein Kunde" in note
+    # 2026 goes over the line with A-1; a Gutschrift after it needs VAT too.
+    _row(conn, "A-1", "2026-04-01", "3000")
+    credit = gutschriften.add(
+        conn,
+        customer_id="sender",
+        customer="Sender",
+        their_number="GS-2",
+        issue_date=date(2026, 5, 1),
+        gross=Decimal(100),
+        vat_rate=None,
+    )
+    [note] = limit_notes_after(
+        conn, klein, f"c:{credit}", "Gutschrift GS-2", date(2026, 5, 1), Decimal(100), DAY
+    )
+    assert note.startswith("Dein Umsatz 2026 liegt schon seit der Rechnung A-1 vom 01.04.2026")
+    assert "Bitte deinen Kunden um eine berichtigte Gutschrift" in note
+    # An entry before the line changes nothing about the line: no note of that kind.
+    _row(conn, "A-0", "2026-01-05", "10")
+    notes = limit_notes_after(
+        conn, klein, "r:A-0", "Rechnung A-0", date(2026, 1, 5), Decimal(10), DAY
+    )
+    assert not any("schon seit" in n for n in notes)
