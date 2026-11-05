@@ -138,6 +138,19 @@
     box.scrollIntoView({ behavior: "smooth", block: "center" });
   }, true);
 
+  // Lena (Runde 80): am Handy war eine Position nur durch Leeren aller Felder wegzubekommen.
+  // "Entfernen" leert sie und blendet sie aus; weg ist sie, sobald Fritz speichert.
+  table.querySelectorAll("[data-zeile-weg]").forEach(function (b) { b.hidden = false; });
+  table.addEventListener("click", function (e) {
+    var b = e.target.closest("[data-zeile-weg]");
+    if (!b) return;
+    var tr = b.closest("tr");
+    tr.querySelectorAll("input").forEach(function (i) { i.value = ""; });
+    tr.hidden = true;
+    var next = tr.parentNode.querySelector("tr:not([hidden]) input");
+    update();
+    if (next) next.focus({ preventScroll: true });
+  });
   table.addEventListener("input", function () { growIfNeeded(); update(); });
   table.addEventListener("change", update);
   var customerSelect = document.querySelector('select[name="customer"]');

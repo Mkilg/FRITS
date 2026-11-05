@@ -1331,10 +1331,20 @@ def test_train_tickets_suggest_seven_percent_but_coaches_do_not():
         assert not re.search(pattern, text, re.IGNORECASE), text
 
 
+def test_music_button_on_small_phones():
+    """Lena (Runde 79): the short ♪ button holds up to 419 px (the playing label pushed
+    "Feierabend" out at 380-393), the note is not read twice, and playing shows clearly."""
+    css = (
+        Path(__file__).parent.parent / "src" / "frits" / "web" / "static" / "frits.css"
+    ).read_text()
+    kurz = css.split("@media (max-width: 419px) {")[1].split("}\n}")[0]
+    assert 'content: "♪" / "";' in kurz and '[aria-pressed="true"]' in kurz
+
+
 def test_phone_cards_for_customer_credits_and_settings_at_the_limit():
     templates = Path(__file__).parent.parent / "src" / "frits" / "web" / "templates"
     assert 'class="table rechnungen"' in (templates / "customer.html").read_text()
-    assert 'href="/settings#steuern"' in (templates / "draft.html").read_text()
+    assert '#steuern">Zu den Einstellungen</a>' in (templates / "draft.html").read_text()
     assert (
         "data-raten" in (templates / "expenses.html").read_text().split('name="vat_rate"')[1][:80]
     )
@@ -1423,5 +1433,23 @@ def test_draft_cards_and_limit_hints_on_the_draft(client, ws):
     for label in ("Leistung", "Datum", "Menge", "Einheit", "Einzelpreis", "Betrag"):
         assert f'data-k="{label}"' in page, label
     assert re.search(r"<li data-elsewhere>2025 lag dein Umsatz laut FRITS über 25\.000 €", page)
-    assert 'href="/settings#steuern"' in page
+    draft_id = latest_draft(ws)
+    assert f'href="/settings?zurueck=/drafts/{draft_id}#steuern"' in page
     assert client.get("/expenses?year=-1").status_code == 404
+    # Lena (Runde 80): the blocked draft doesn't promise the § 19 sentence, a line can be
+    # removed with a button on the phone, and after saving the settings a link leads back.
+    assert "Auf der Rechnung: „Gemäß § 19" not in page
+    assert "darf diese Rechnung nicht tragen" in page
+    assert (
+        "data-zeile-weg hidden>Entfernen</button>"
+        in (
+            Path(__file__).parent.parent / "src" / "frits" / "web" / "templates" / "draft.html"
+        ).read_text()
+    )
+    settings_page = client.get(f"/settings?zurueck=/drafts/{draft_id}").text
+    assert f'name="zurueck" value="/drafts/{draft_id}"' in settings_page
+    for fremd in ("https://example.com", "//example.com", "/drafts/1/../../x", "/settings"):
+        assert 'name="zurueck"' not in client.get("/settings", params={"zurueck": fremd}).text
+    saved = post(client, "/settings", name="Fritz Beispiel", zurueck=f"/drafts/{draft_id}")
+    assert f'href="/drafts/{draft_id}">Zurück zum Entwurf</a>' in saved.text
+    assert "Zurück zum Entwurf" not in post(client, "/settings", zurueck="https://x.de").text
