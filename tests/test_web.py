@@ -1327,7 +1327,7 @@ def test_train_tickets_suggest_seven_percent_but_coaches_do_not():
     ):
         assert re.search(pattern, text, re.IGNORECASE), text
         assert guess_vat(text) == "0.07"
-    for text in ("Flixbus", "Aral Tankstelle", "Adobe"):
+    for text in ("Flixbus", "Aral Tankstelle", "Adobe", "Ice Cream Factory", "DB Schenker"):
         assert not re.search(pattern, text, re.IGNORECASE), text
 
 
@@ -1365,6 +1365,23 @@ def test_quotes_as_cards_and_their_own_folder(client, ws, monkeypatch):
     )
     page = post(client, "/quotes/AN-2026-0001/email").text
     assert 'action="/open/quotes"' in page and "Angebotsordner öffnen" in page
+    assert "<h2>Angebot AN-2026-0001</h2>" in page and 'name="back" value="/mailto"' in page
     assert 'href="/quotes/AN-2026-0001/pdf" download' in page
-    for url in ("/reminders/99999999999999999999/pdf", "/drafts/123456789012345678901"):
+    for url in (
+        "/reminders/99999999999999999999/pdf",
+        "/reminders/-99999999999999999999/pdf",
+        "/reminders/+99999999999999999999/pdf",
+        "/drafts/123456789012345678901",
+        "/drafts/-123456789012345678901",
+        "/euer/0.csv",
+        "/euer/-1.pdf",
+        "/euer/1_000.csv",
+        "/euer/99999999999999999999.csv",
+        "/euer/-1/verfahrensdoku.pdf",
+        "/euer/0/buchungsliste.csv",
+        "/euer?year=-1",
+    ):
         assert client.get(url).status_code == 404, url
+    assert not (ws.root / "euer").exists() or not any(
+        "-1" in p.name or "1000" in p.name or "_0." in p.name for p in (ws.root / "euer").iterdir()
+    )

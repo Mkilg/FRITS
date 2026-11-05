@@ -29,7 +29,7 @@
     <td class="actions">
       {% if q.status == "open" %}
       <form method="post" action="/quotes/{{ q.number }}/email"><input type="hidden" name="token" value="{{ token }}"><button class="tiny">In Mail öffnen</button></form>
-      <form method="post" action="/quotes/{{ q.number }}/accept"><input type="hidden" name="token" value="{{ token }}"><button class="tiny">Angenommen, Rechnung vorbereiten</button></form>
+      <form method="post" action="/quotes/{{ q.number }}/accept" class="annehmen"><input type="hidden" name="token" value="{{ token }}"><button class="tiny">Angenommen, Rechnung vorbereiten</button></form>
       <form method="post" action="/quotes/{{ q.number }}/decline"><input type="hidden" name="token" value="{{ token }}"><button class="tiny quiet">Abgelehnt</button></form>
       {% elif q.draft_id %}<a href="/drafts/{{ q.draft_id }}">Rechnungsentwurf</a>{% endif %}
     </td>
