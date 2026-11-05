@@ -145,9 +145,10 @@ def test_limits_for_kleinunternehmer(tmp_path):
     problems, warnings = limit_check(conn, klein, 2026, Decimal(2000))
     assert not problems and "ab 2027" in warnings[0]
     _issued(conn, 2025, 30_000)
-    assert "kein Kleinunternehmer mehr" in limit_check(conn, klein, 2026)[1][0]
+    # Lena (Runde 78b): last year over 25,000 € stops the invoice, like 100,000 € do.
+    assert "2026 kein Kleinunternehmer" in limit_check(conn, klein, 2026)[0][0]
     _issued(conn, 2026, 75_000)
-    assert "100.000" in limit_check(conn, klein, 2026, Decimal(2000))[0][0]
+    assert len(limit_check(conn, klein, 2026, Decimal(2000))[0]) == 1  # one message, not two
     assert limit_check(conn, _settings(), 2026, Decimal(2000)) == ([], [])
 
 
@@ -187,7 +188,7 @@ def test_over_100k_says_one_thing_only(tmp_path):
     _issued(conn, 2026, 99_000)
     problems, warnings = limit_check(conn, klein, 2026, Decimal(2000))
     assert "Mit dieser Rechnung kommst du" in problems[0] and warnings == []
-    assert not any("100.000" in n for n in earlier_limit_notes(conn, klein, "2026-99000"))
+    assert not any("100.000" in n for n in earlier_limit_notes(conn, klein, "2026-99000", DAY))
     # A later invoice (November) and then an earlier one entered afterwards (February):
     conn.execute(
         "INSERT INTO invoices (number, customer, issue_date, net, vat, gross)"
@@ -199,10 +200,11 @@ def test_over_100k_says_one_thing_only(tmp_path):
         " VALUES ('A-18', 'x', '2026-02-01', '800', '0', '800')"
     )
     assert limit_crossing(conn, 2026) == ("Rechnung 2026-0001", date(2026, 11, 5))
-    [note] = earlier_limit_notes(conn, klein, "A-18")
+    [note] = earlier_limit_notes(conn, klein, "A-18", DAY)
     assert "Rechnung 2026-0001 vom 05.11.2026" in note
-    assert "schon über 100.000" in limit_check(conn, klein, 2026, Decimal(10))[0][0]
-    assert earlier_limit_notes(conn, _settings(), "A-18") == []
+    [problem] = limit_check(conn, klein, 2026, Decimal(10))[0]
+    assert "seit der Rechnung 2026-0001 vom 05.11.2026 über 100.000" in problem
+    assert earlier_limit_notes(conn, _settings(), "A-18", DAY) == []
 
 
 def test_limit_texts_fit_the_case(tmp_path):
@@ -232,13 +234,13 @@ def test_earlier_invoices_follow_the_rules_of_their_year(tmp_path):
         "INSERT INTO invoices (number, customer, issue_date, net, vat, gross)"
         " VALUES ('A-1', 'x', '2024-03-01', '500', '0', '500')"
     )
-    assert not any("100.000" in n for n in earlier_limit_notes(conn, klein, "A-1"))
+    assert not any("100.000" in n for n in earlier_limit_notes(conn, klein, "A-1", DAY))
     _issued(conn, 2025, 24_900)
     conn.execute(
         "INSERT INTO invoices (number, customer, issue_date, net, vat, gross)"
         " VALUES ('A-2', 'x', '2025-03-01', '500', '0', '500')"
     )
-    [note] = earlier_limit_notes(conn, klein, "A-2")
+    [note] = earlier_limit_notes(conn, klein, "A-2", DAY)
     assert "2026 bist du dann kein Kleinunternehmer" in note
 
 
@@ -254,3 +256,79 @@ def test_a_draft_over_the_limit_is_not_ready(tmp_path):
     _issued(conn, 2026, 99_500)
     [d] = _open_drafts(conn, klein, 2026)
     assert not d["ready"] and d["grenze"]
+
+
+def _row(conn, number, day, net, cancels=None):
+    conn.execute(
+        "INSERT INTO invoices (number, customer, issue_date, net, vat, gross, cancels)"
+        " VALUES (?, 'x', ?, ?, '0', ?, ?)",
+        (number, day, str(net), str(net), cancels),
+    )
+
+
+def test_a_storno_counts_with_the_invoice_it_cancels(tmp_path):
+    """Lena (Runde 78b): after cancelling A-18, entering A-19 took the year over 100,000 €
+    without a word, because the Storno counted on its own later day."""
+    from frits.billing import earlier_limit_notes, limit_crossing
+
+    conn = store.connect(tmp_path / "frits.db")
+    klein = _settings(tax_mode="kleinunternehmer")
+    _row(conn, "2026-0000", "2026-03-01", "99715.43")
+    _row(conn, "A-18", "2026-02-01", "300")
+    _row(conn, "2026-0001", "2026-11-05", "200")
+    _row(conn, "2026-0002", "2026-11-05", "-300", cancels="A-18")
+    assert limit_crossing(conn, 2026) is None  # 99,915.43 €, A-18 and its Storno cancel out
+    _row(conn, "A-19", "2026-02-02", "200")
+    [note] = earlier_limit_notes(conn, klein, "A-19", DAY)
+    assert "Rechnung 2026-0001 vom 05.11.2026" in note and "berichtigt" in note
+
+
+def test_same_day_invoices_count_in_number_order(tmp_path):
+    from frits.billing import limit_crossing
+
+    conn = store.connect(tmp_path / "frits.db")
+    _row(conn, "2025-1", "2025-05-01", "99950")
+    _row(conn, "2025-10", "2025-06-01", "30")
+    _row(conn, "2025-9", "2025-06-01", "30")
+    assert limit_crossing(conn, 2025)[0] == "Rechnung 2025-10"
+
+
+def test_a_gutschrift_and_older_years_are_checked_too(tmp_path):
+    from frits import gutschriften
+    from frits.billing import limit_notes_after
+
+    conn = store.connect(tmp_path / "frits.db")
+    klein = _settings(tax_mode="kleinunternehmer")
+    _row(conn, "2026-0001", "2026-01-10", "99900")
+    credit = gutschriften.add(
+        conn,
+        customer_id="sender",
+        customer="Sender",
+        their_number="GS-7",
+        issue_date=date(2026, 3, 1),
+        gross=Decimal(500),
+        vat_rate=None,
+    )
+    [note] = limit_notes_after(
+        conn, klein, f"c:{credit}", "Gutschrift GS-7", date(2026, 3, 1), Decimal(500), DAY
+    )
+    assert note.startswith("Damit ändert sich etwas: Mit dieser Gutschrift")
+    # 2023 still had the old 22,000 € line for the next year.
+    _row(conn, "2023-1", "2023-04-01", "21900")
+    _row(conn, "A-3", "2023-05-01", "200")
+    [note] = limit_notes_after(
+        conn, klein, "r:A-3", "Rechnung A-3", date(2023, 5, 1), Decimal(200), DAY
+    )
+    assert "über 22.000 €" in note and "2024 warst du dann kein" in note
+
+
+def test_entering_in_the_founding_year_says_what_it_means_now(tmp_path):
+    from frits.billing import earlier_limit_notes
+
+    conn = store.connect(tmp_path / "frits.db")
+    klein = _settings(tax_mode="kleinunternehmer")
+    _row(conn, "2026-0001", "2026-03-01", "24900")
+    _row(conn, "A-1", "2026-04-01", "200")
+    [note] = earlier_limit_notes(conn, klein, "A-1", date(2026, 11, 5))
+    assert "Damit liegt dein Umsatz 2026 über 25.000 €" in note
+    assert "Hast du erst 2026 angefangen, gilt die Grenze schon jetzt" in note

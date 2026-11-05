@@ -189,6 +189,16 @@ ul.list li:first-child { border-top: 0; }
 ul.list a { display: grid; grid-template-columns: 1.3fr 1.5fr auto auto; gap: 1rem; align-items: center;
   padding: 0.6rem 0.2rem; color: var(--ink); text-decoration: none; }
 ul.list a:hover { background: var(--creme); }
+/* Lena (Runde 78b): bei 320 px ragte „fällig seit …“ auf Heute über den Rand. Am Handy:
+   Nummer und Betrag oben, Kunde und Stempel darunter. */
+@media (max-width: 600px) {
+  ul.list a:has(> .badge) { grid-template-columns: minmax(0, 1fr) auto; gap: 0.15rem 0.6rem;
+    grid-template-areas: "nr betrag" "kunde stempel"; }
+  ul.list a:has(> .badge) > :nth-child(1) { grid-area: nr; }
+  ul.list a:has(> .badge) > :nth-child(2) { grid-area: kunde; min-width: 0; overflow-wrap: anywhere; }
+  ul.list a:has(> .badge) > .amount { grid-area: betrag; text-align: right; }
+  ul.list a:has(> .badge) > .badge { grid-area: stempel; justify-self: end; }
+}
 ul.list li.split { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.6rem 0; }
 ul.cards { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem; }
 ul.cards a { display: flex; flex-direction: column; color: var(--ink); text-decoration: none; }
@@ -207,6 +217,28 @@ table { width: 100%; border-collapse: collapse; }
 .lines th:nth-child(1) { width: 38%; }
 .lines select { min-width: 6.2rem; }
 .table-wrap { overflow-x: auto; }
+
+/* Entwurf am Handy (Lena Runde 78b): die Tabelle war 538 px breit, Preis und Summe lagen
+   außer Sicht. Jetzt ist jede Position eine Karte: Leistung oben, darunter Datum, Menge und
+   Einheit, dann Einzelpreis (USt) und Betrag. Die Summen stehen als Zeilen darunter. */
+@media (max-width: 600px) {
+  .table-wrap:has(> .lines) { overflow-x: visible; }
+  .lines, .lines tbody, .lines tfoot { display: block; width: 100%; }
+  .lines thead { display: none; }
+  .lines tbody tr { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.35rem 0.5rem;
+    padding: 0.6rem 0; border-bottom: 1px solid var(--line); }
+  .lines tbody td { display: block; padding: 0; border: 0; min-width: 0; }
+  .lines tbody td[data-k]::before { content: attr(data-k); display: block; font-size: var(--fs-mini); color: var(--muted); margin-bottom: 0.1rem; }
+  .lines td.l-leistung { grid-column: 1 / -1; }
+  .lines td.l-preis { grid-column: 1; }
+  .lines td.l-ust { grid-column: 2; }
+  .lines tbody td.amount { grid-column: 3; text-align: right; align-self: end; font-weight: 600; }
+  .lines select { min-width: 0; }
+  .lines tr.blank td.l-leistung::before { content: none; }
+  .lines tfoot tr { display: flex; justify-content: space-between; gap: 0.6rem; }
+  .lines tfoot td { padding: 0.3rem 0; }
+  .lines .note, .lines td .tiny { margin-top: 0.2rem; }
+}
 
 .review { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 1rem; align-items: start; }
 .review.single { grid-template-columns: minmax(0, 1fr); }
@@ -708,6 +740,10 @@ ul.wartet-frueher li { display: flex; flex-wrap: wrap; align-items: center; gap:
 .table.rechnungen .nur-karte { display: none; }
 /* Lena (Runde 72/75): Kopieren, Stornieren, Abgelehnt sehen auch am Mac wie Knöpfe aus */
 .table.rechnungen td.actions button.quiet { border-color: var(--line); }
+/* Lena (Runde 78b): am Mac sind die kleinen Knöpfe in der Liste mindestens 32 px hoch */
+.table.rechnungen td.actions button.tiny { min-height: 32px; }
+/* Knopf in einer Meldung: Text in der Mitte, nicht oben (Lena Runde 78b) */
+.flash .button, .flash button { display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; }
 /* Rechnungen am Handy (Lena Runde 69): jede Rechnung eine Karte. Nummer und Betrag oben,
    Kunde und Datum darunter, dann der Status und die Knöpfe in eigener Zeile. Vorher war
    die Tabelle 747 px breit und „Bezahlt am“ lag unsichtbar rechts neben dem Bildschirm. */
