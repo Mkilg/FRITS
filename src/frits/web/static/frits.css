@@ -189,15 +189,17 @@ ul.list li:first-child { border-top: 0; }
 ul.list a { display: grid; grid-template-columns: 1.3fr 1.5fr auto auto; gap: 1rem; align-items: center;
   padding: 0.6rem 0.2rem; color: var(--ink); text-decoration: none; }
 ul.list a:hover { background: var(--creme); }
-/* Lena (Runde 78b): bei 320 px ragte „fällig seit …“ auf Heute über den Rand. Am Handy:
-   Nummer und Betrag oben, Kunde und Stempel darunter. */
+/* Lena (Runde 78b/79): bei 320 px ragte „fällig seit …“ auf Heute über den Rand, und im
+   Raster teilte sich die Nummer die Spalte mit dem Kunden: „RE-2026-18“ brach am Bindestrich.
+   Am Handy jetzt zwei Zeilen als Flex: Nummer und Betrag oben, Kunde und Stempel darunter;
+   reicht der Platz nicht, rutscht der Stempel in eine eigene Zeile. */
 @media (max-width: 600px) {
-  ul.list a:has(> .badge) { grid-template-columns: minmax(0, 1fr) auto; gap: 0.15rem 0.6rem;
-    grid-template-areas: "nr betrag" "kunde stempel"; }
-  ul.list a:has(> .badge) > :nth-child(1) { grid-area: nr; }
-  ul.list a:has(> .badge) > :nth-child(2) { grid-area: kunde; min-width: 0; overflow-wrap: anywhere; }
-  ul.list a:has(> .badge) > .amount { grid-area: betrag; text-align: right; }
-  ul.list a:has(> .badge) > .badge { grid-area: stempel; justify-self: end; }
+  ul.list a:has(> .badge) { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.15rem 0.6rem; }
+  ul.list a:has(> .badge)::after { content: ""; flex-basis: 100%; order: 1; }
+  ul.list a:has(> .badge) > :nth-child(1) { flex: 1 1 0; min-width: 0; overflow-wrap: break-word; }
+  ul.list a:has(> .badge) > :nth-child(2) { order: 2; flex: 1 1 8rem; min-width: 0; overflow-wrap: anywhere; }
+  ul.list a:has(> .badge) > .amount { margin-left: auto; text-align: right; white-space: nowrap; }
+  ul.list a:has(> .badge) > .badge { order: 2; margin-left: auto; }
 }
 ul.list li.split { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.6rem 0; }
 ul.cards { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem; }
@@ -238,7 +240,20 @@ table { width: 100%; border-collapse: collapse; }
   .lines tfoot tr { display: flex; justify-content: space-between; gap: 0.6rem; }
   .lines tfoot td { padding: 0.3rem 0; }
   .lines .note, .lines td .tiny { margin-top: 0.2rem; }
+  /* Lena (Runde 80): bei 320 px wurde „pauschal“ zu „pausc“; der Pfeil braucht weniger Platz */
+  .lines tbody tr { grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.5fr) minmax(0, 1.2fr); }
+  .lines input { padding-left: 0.3rem; padding-right: 0.3rem; }
+  .lines select { appearance: none; -webkit-appearance: none; padding: 0.3rem 1.2rem 0.3rem 0.35rem;
+    background: #fffdf6 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%235b4a3a' stroke-width='1.6'/%3E%3C/svg%3E") no-repeat right 0.4rem center; }
+  .lines td.l-leistung { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 0.4rem; align-items: center; }
+  .lines td.l-leistung::before { grid-column: 1 / -1; }
+  .lines td.l-leistung .zeile-weg { margin-top: 0; }
+  /* Mit USt-Spalte: „normal“ braucht Platz, der Betrag bekommt dann eine eigene Zeile */
+  .lines tr:has(> td.l-ust) td.l-ust { grid-column: 2 / 4; }
+  .lines tr:has(> td.l-ust) td.amount { grid-column: 1 / -1; }
 }
+.lines .zeile-weg { display: none; }
+@media (max-width: 600px) { .lines .zeile-weg:not([hidden]) { display: inline-flex; } }
 
 .review { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 1rem; align-items: start; }
 .review.single { grid-template-columns: minmax(0, 1fr); }
@@ -462,9 +477,14 @@ input[type=checkbox], input[type=radio] { width: 1.15rem; height: 1.15rem; verti
 /* Fritte-Thread/Lena (Runde 77): bei 320 px mit Musik-Knopf war jede Seite 25 px zu breit.
    Unter 380 px zeigt der Musik-Knopf nur die Note; der Text bleibt für Screenreader da
    (frits-sound.js tauscht ihn beim Spielen gegen „♪ Musik läuft“). */
-@media (max-width: 379px) {
+/* Lena (Runde 79): „♪ Musik läuft“ schob „Feierabend“ bis 393 px an den Rand, deshalb gilt
+   die Kurzform bis 419 px. Die Note zählt nicht zum Namen (sonst las der Screenreader
+   „♪♪ Musik“), und ob Musik läuft, zeigt eine volle Fläche statt eines dünnen Rings. */
+@media (max-width: 419px) {
   .top-actions [data-frits-music-main] { font-size: 0; min-width: 44px; }
-  .top-actions [data-frits-music-main]::before { content: "♪"; font-size: var(--fs-text); }
+  .top-actions [data-frits-music-main]::before { content: "♪"; content: "♪" / ""; font-size: var(--fs-text); }
+  .top-actions [data-frits-music-main][aria-pressed="true"] { background: var(--fry); color: var(--ink);
+    border-color: var(--ocker-dunkel); }
 }
 
 /* Phone-sized windows: a compact header and a smaller Fritte */
@@ -636,6 +656,8 @@ nav.tabs { display: none; }
     radial-gradient(circle, var(--eiche-tief) 2.5px, transparent 3px) 0 50% / 9px 9px repeat-x; }
   nav.tabs .mehr-liste { top: auto; bottom: calc(100% + 0.4rem); right: 0; left: auto; }
   body:has(nav.tabs) { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+  /* Was Fritz antippt, rutscht nicht hinter die Tab-Leiste (Lena Runde 80) */
+  html:has(nav.tabs) { scroll-padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
   body:has(nav.tabs) .bottom { margin-bottom: 0.5rem; }
 }
 
@@ -743,7 +765,7 @@ ul.wartet-frueher li { display: flex; flex-wrap: wrap; align-items: center; gap:
 /* Lena (Runde 78b): am Mac sind die kleinen Knöpfe in der Liste mindestens 32 px hoch */
 .table.rechnungen td.actions button.tiny { min-height: 32px; }
 /* Knopf in einer Meldung: Text in der Mitte, nicht oben (Lena Runde 78b) */
-.flash .button, .flash button { display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; }
+.flash .button, .flash button { display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; min-height: 32px; }
 /* Rechnungen am Handy (Lena Runde 69): jede Rechnung eine Karte. Nummer und Betrag oben,
    Kunde und Datum darunter, dann der Status und die Knöpfe in eigener Zeile. Vorher war
    die Tabelle 747 px breit und „Bezahlt am“ lag unsichtbar rechts neben dem Bildschirm. */

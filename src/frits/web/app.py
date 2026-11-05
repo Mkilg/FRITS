@@ -75,6 +75,7 @@ from frits.billing import (
     draft_totals,
     earlier_limit_notes,
     limit_check,
+    limit_crossing,
     limit_notes_after,
     list_invoices,
     load_draft,
@@ -86,6 +87,7 @@ from frits.billing import (
     save_draft,
     service_period,
     set_customer,
+    storno_limit_note,
     unit_price,
     valid_pattern,
 )
@@ -1052,7 +1054,7 @@ def create_app(
                     original = extract_text(source).text
                 except IngestError:
                     original = None
-        problems, limit_warnings = [], []
+        problems, limit_warnings, limit_blocked = [], [], False
         if row["status"] == "draft":
             problems = blockers(draft, current)
             if draft.kind != "quote":
@@ -1060,6 +1062,7 @@ def create_app(
                     conn, current, today().year, draft_totals(draft, current).net
                 )
                 problems += extra
+                limit_blocked = bool(extra)
         return page(
             request,
             "draft.html",
@@ -1069,6 +1072,7 @@ def create_app(
             period=service_period(draft.lines),
             problems=problems,
             limit_warnings=limit_warnings,
+            limit_blocked=limit_blocked,
             vat_rates=DOMESTIC_RATES,
             draft_hints=_draft_hints(draft, customer_by(draft.customer_id)),
             customers=customers(),
@@ -1501,11 +1505,16 @@ def create_app(
 
     @app.post("/invoices/{number}/cancel", dependencies=guarded)
     def invoice_cancel(number: str):
+        conn, current, jahr = db(), settings(), today().year
+        vorher = limit_crossing(conn, jahr)
         try:
-            storno, _ = cancel(db(), number, settings(), ws.invoices, today())
+            storno, _ = cancel(conn, number, current, ws.invoices, today())
             flash(f"Rechnung {number} ist storniert. Die Stornorechnung hat die Nummer {storno}.")
         except BillingError as exc:
             flash(str(exc), "error")
+            return back("/invoices")
+        for note in storno_limit_note(conn, current, jahr, vorher):
+            flash(note, "warnung", link=("/settings#steuern", "Zu den Einstellungen"))
         return back("/invoices")
 
     @app.post("/invoices/{number}/email", dependencies=guarded)
@@ -1905,6 +1914,7 @@ def create_app(
             ki_kosten=store.ki_kosten(db()),
             vorsaetze=haustier.VORSATZ,
             neustart_ziel=sicherung.neustart_ziel(ws.root, datetime.now()).name,
+            zurueck=_zurueck(request.query_params.get("zurueck")),
         )
 
     @app.post("/neu-anfangen", dependencies=guarded)
@@ -1966,7 +1976,9 @@ def create_app(
             flash("Die übrigen Einstellungen sind gespeichert.")
             key_not_saved(updated.provider, key)
         else:
-            flash("Gespeichert.")
+            # Lena (Runde 80): from a blocked draft into the settings and then back again
+            zurueck = _zurueck(form.get("zurueck"))
+            flash("Gespeichert.", link=(zurueck, "Zurück zum Entwurf") if zurueck else None)
         return back("/settings")
 
     def save_key(provider: str, key: str) -> bool:
@@ -3194,6 +3206,16 @@ def _in_der_steuer_quest(conn, path: Path) -> int | None:
     except sqlite3.OperationalError:  # the Steuer-Quest was never opened
         return None
     return row["jahr"] if row else None
+
+
+_ZURUECK = re.compile(r"/drafts/\d{1,9}")
+
+
+def _zurueck(value) -> str | None:
+    """Where "Zurück" after saving the settings leads: only a draft of this FRITS, never an
+    address from outside."""
+    value = str(value or "")
+    return value if _ZURUECK.fullmatch(value) else None
 
 
 def _apply_form(draft: Draft, form, customer_by, current: Settings) -> None:

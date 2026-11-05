@@ -312,7 +312,12 @@ def test_a_gutschrift_and_older_years_are_checked_too(tmp_path):
     [note] = limit_notes_after(
         conn, klein, f"c:{credit}", "Gutschrift GS-7", date(2026, 3, 1), Decimal(500), DAY
     )
-    assert note.startswith("Damit ändert sich etwas: Mit dieser Gutschrift")
+    assert note.startswith("Mit dieser Gutschrift liegt dein Umsatz 2026 über 100.000 €.")
+    # The customer wrote the Gutschrift, so the customer corrects it (Lena Runde 80).
+    assert "Die Gutschriften ab dort muss dein Kunde berichtigen" in note
+    [problem], _ = limit_check(conn, klein, 2026)
+    assert "seit der Gutschrift GS-7" in problem
+    assert "Gutschriften ab dort muss dein Kunde" in problem and "Rechnungen ab dort" not in problem
     # 2023 still had the old 22,000 € line for the next year.
     _row(conn, "2023-1", "2023-04-01", "21900")
     _row(conn, "A-3", "2023-05-01", "200")
@@ -332,3 +337,47 @@ def test_entering_in_the_founding_year_says_what_it_means_now(tmp_path):
     [note] = earlier_limit_notes(conn, klein, "A-1", date(2026, 11, 5))
     assert "Damit liegt dein Umsatz 2026 über 25.000 €" in note
     assert "Hast du erst 2026 angefangen, gilt die Grenze schon jetzt" in note
+
+
+def test_entering_last_year_names_the_invoices_to_correct(tmp_path):
+    """Lena (Runde 80): an invoice entered for 2025 takes 2025 over 25,000 €. FRITS said
+    "2026 bist du dann kein Kleinunternehmer" but not which 2026 invoices already went out
+    without VAT and need correcting, and "check the settings" missed the point."""
+    from frits.billing import earlier_limit_notes
+
+    conn = store.connect(tmp_path / "frits.db")
+    klein = _settings(tax_mode="kleinunternehmer")
+    _row(conn, "2025-1", "2025-02-01", "24900")
+    _row(conn, "2026-10", "2026-03-01", "500")
+    _row(conn, "2026-2", "2026-02-01", "1000")
+    _row(conn, "2026-3", "2026-04-01", "300")
+    _row(conn, "2026-4", "2026-05-01", "-300", cancels="2026-3")
+    _row(conn, "2025-9", "2025-05-01", "200")
+    [note] = earlier_limit_notes(conn, klein, "2025-9", date(2026, 11, 5))
+    assert "Damit lag dein Umsatz 2025 über 25.000 €. 2026 bist du dann kein" in note
+    assert (
+        "Diese Rechnungen von 2026 sind ohne Umsatzsteuer rausgegangen und müssen berichtigt "
+        "werden: 2026-2, 2026-10." in note
+    )
+    assert "„Mit Umsatzsteuer“ um" in note and "Prüf bitte die Einstellungen" not in note
+    # A year that is long over: only the correction, no switch in the settings.
+    [old] = earlier_limit_notes(conn, klein, "2025-9", date(2027, 2, 1))
+    assert "über die Berichtigung" in old and "„Mit Umsatzsteuer“ um" not in old
+
+
+def test_a_storno_back_under_100k_says_so(tmp_path):
+    from frits.billing import limit_crossing, storno_limit_note
+
+    conn = store.connect(tmp_path / "frits.db")
+    klein = _settings(tax_mode="kleinunternehmer")
+    _row(conn, "2026-1", "2026-01-10", "99900")
+    _row(conn, "2026-2", "2026-03-01", "500")
+    before = limit_crossing(conn, 2026)
+    assert before == ("Rechnung 2026-2", date(2026, 3, 1))
+    _row(conn, "2026-3", "2026-11-05", "-500", cancels="2026-2")
+    [note] = storno_limit_note(conn, klein, 2026, before)
+    assert note.startswith("Mit dem Storno liegt dein Umsatz 2026 wieder unter 100.000 €.")
+    assert "mit der Rechnung 2026-2 vom 01.03.2026 schon überschritten" in note
+    assert limit_crossing(conn, 2026) is None  # the cancelled invoice crosses nothing now
+    assert storno_limit_note(conn, _settings(), 2026, before) == []
+    assert storno_limit_note(conn, klein, 2026, None) == []

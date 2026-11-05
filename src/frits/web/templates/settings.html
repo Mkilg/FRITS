@@ -4,6 +4,7 @@
 <h1>Einstellungen</h1>
 <form method="post" action="/settings" class="form" data-merken="einstellungen">
   <input type="hidden" name="token" value="{{ token }}">
+  {% if zurueck %}<input type="hidden" name="zurueck" value="{{ zurueck }}">{% endif %}
   <input type="hidden" name="checkboxes" value="strict_local">
   <input type="hidden" name="checkboxes" value="sound">
   <input type="hidden" name="checkboxes" value="haustier">
