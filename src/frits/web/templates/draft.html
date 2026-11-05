@@ -133,7 +133,7 @@
         <h3>Bevor daraus {{ "ein Angebot" if is_quote else "eine Rechnung" }} wird</h3>
         <ul>{% for p in problems %}<li{% if p.startswith("Die Rechnung hat keine Positionen") %} data-gone-when="lines"{% elif p.startswith("Kunde mit Adresse fehlt") %} data-gone-when="customer"{% elif p.startswith(("Deine eigenen Angaben", "Für Reverse Charge in der EU", "Deine Steuernummer")) %} data-elsewhere{% elif p.startswith("Für Reverse Charge fehlt") %} data-elsewhere="customer"{% endif %}>{{ p }}</li>{% endfor %}</ul>
         {# Lena (Runde 72): Der Hinweis zur 100.000-€-Grenze führt direkt zur Umstellung #}
-        {% for p in problems if "über 100.000 €" in p %}<p><a class="button tiny" href="/settings#steuern">Zu den Einstellungen</a></p>{% endfor %}
+        {% for p in problems if "über 100.000 €" in p %}<p><a class="button" href="/settings#steuern">Zu den Einstellungen</a></p>{% endfor %}
       </div>
       {% endif %}
 

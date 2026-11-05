@@ -1317,7 +1317,14 @@ def test_train_tickets_suggest_seven_percent_but_coaches_do_not():
 
     [[rate, pattern]] = reduced_pattern()
     assert rate == "0.07"
-    for text in ("Deutsche Bahn", "DB Fernverkehr", "BahnCard 25", "Fachbuch"):
+    for text in (
+        "Deutsche Bahn",
+        "DB Fernverkehr",
+        "BahnCard 25",
+        "Fachbuch",
+        "ICE 597",
+        "FlixTrain",
+    ):
         assert re.search(pattern, text, re.IGNORECASE), text
         assert guess_vat(text) == "0.07"
     for text in ("Flixbus", "Aral Tankstelle", "Adobe"):
@@ -1331,3 +1338,33 @@ def test_phone_cards_for_customer_credits_and_settings_at_the_limit():
     assert (
         "data-raten" in (templates / "expenses.html").read_text().split('name="vat_rate"')[1][:80]
     )
+
+
+def test_quotes_as_cards_and_their_own_folder(client, ws, monkeypatch):
+    """Lena (Runde 74): the quote list is a card on the phone too, a mail fallback for a
+    quote opens quotes/, and a number too big for SQLite is a missing page, not a 500."""
+    post(client, "/drafts/new", kind="quote", customer="baeckerei-sonnenschein")
+    post(
+        client,
+        f"/drafts/{latest_draft(ws)}",
+        action="quote",
+        customer="baeckerei-sonnenschein",
+        description=["Backofen-Abzug reinigen"],
+        date=[""],
+        quantity=["3"],
+        unit=["Std"],
+        price=["45"],
+    )
+    assert 'class="table rechnungen"' in client.get("/quotes").text
+    monkeypatch.setattr(
+        system,
+        "compose_email",
+        lambda to, subject, body, attachment: system.Composed(
+            False, system.mailto_link(to, subject, body)
+        ),
+    )
+    page = post(client, "/quotes/AN-2026-0001/email").text
+    assert 'action="/open/quotes"' in page and "Angebotsordner öffnen" in page
+    assert 'href="/quotes/AN-2026-0001/pdf" download' in page
+    for url in ("/reminders/99999999999999999999/pdf", "/drafts/123456789012345678901"):
+        assert client.get(url).status_code == 404, url
