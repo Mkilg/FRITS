@@ -698,9 +698,21 @@
         return [m[0], new RegExp(m[1], "iu")];
       });
     } catch (e) { return; }
-    var form = wahl.form, anfang = wahl.value, selbst = false;
+    var form = wahl.form;
     if (!form) return;
+    // What the page itself chose, not what came back from a form put back after an error.
+    var vorgabe = wahl.querySelector("option[selected]"), anfang = vorgabe ? vorgabe.value : (wahl.options[0] ? wahl.options[0].value : wahl.value);
+    // Lena (Runde 72): Fritz' own choice survives a "bitte prüfen" and the reload after it.
+    var schluessel = "frits-raten-selbst-" + (form.getAttribute("data-merken") || "") + "-" + wahl.name;
+    var selbst = false;
+    try {
+      selbst = !!document.querySelector(".flash.error") && sessionStorage.getItem(schluessel) === "1";
+      sessionStorage.removeItem(schluessel);
+    } catch (e) { selbst = false; }
     wahl.addEventListener("change", function () { selbst = true; });
+    form.addEventListener("submit", function () {
+      try { if (selbst) sessionStorage.setItem(schluessel, "1"); } catch (e) { /* ohne Speicher */ }
+    });
     function raten() {
       if (selbst) return;
       var text = ["vendor", "description"].map(function (n) {

@@ -56,7 +56,7 @@ from frits import (
     umgebung,
     ustva,
 )
-from frits.beleg import category_patterns
+from frits.beleg import category_patterns, reduced_pattern
 from frits.billing import (
     CUSTOMER_TAX,
     DEFAULT_PATTERN,
@@ -1492,7 +1492,9 @@ def create_app(
             body,
             ws.find(row["pdf_path"]) or Path(row["pdf_path"]),
         )
-        return _after_compose(conn, "invoices", number, result, "/invoices")
+        return _after_compose(
+            conn, "invoices", number, result, "/invoices", f"/invoices/{number}/pdf"
+        )
 
     @app.post("/invoices/{number}/remind", dependencies=guarded)
     def invoice_remind(number: str):
@@ -1530,9 +1532,16 @@ def create_app(
         result = system.compose_email(
             customer.email if customer and customer.email else "", subject, body, pdf
         )
-        return _after_compose(conn, "reminders", reminder_id, result, "/invoices")
+        return _after_compose(
+            conn, "reminders", reminder_id, result, "/invoices", f"/reminders/{reminder_id}/pdf"
+        )
 
-    def _after_compose(conn, table: str, key, result, url: str):
+    @app.get("/reminders/{reminder_id}/pdf")
+    def reminder_pdf(reminder_id: int):
+        row = db().execute("SELECT pdf_path FROM reminders WHERE id = ?", (reminder_id,)).fetchone()
+        return _pdf(ws.find(row["pdf_path"]) if row and row["pdf_path"] else None, ws.invoices)
+
+    def _after_compose(conn, table: str, key, result, url: str, pdf_url: str = ""):
         column = "id" if table == "reminders" else "number"
         if result.opened:
             conn.execute(
@@ -1545,6 +1554,8 @@ def create_app(
             )
         else:
             app.state.mailto = result.mailto
+            # Lena (Runde 72): Am Handy gibt es keinen Ordner, also das PDF zum Herunterladen
+            app.state.mailto_pdf = pdf_url
             return back("/mailto")
         return back(url)
 
@@ -1601,7 +1612,7 @@ def create_app(
             body,
             ws.find(row["pdf_path"]) or Path(row["pdf_path"]),
         )
-        return _after_compose(conn, "quotes", number, result, "/quotes")
+        return _after_compose(conn, "quotes", number, result, "/quotes", f"/quotes/{number}/pdf")
 
     # ----- Kunden -----
 
@@ -2026,6 +2037,7 @@ def create_app(
             chosen=chosen,
             categories=expenses.CATEGORIES,
             kategorie_muster=category_patterns(),
+            ust_muster=reduced_pattern(),
             today=today().isoformat(),
             guessed=guessed,
             own_invoice=own_invoice,
@@ -2733,7 +2745,12 @@ def create_app(
 
     @app.get("/mailto")
     def mailto_page(request: Request):
-        return page(request, "mailto.html", link=getattr(app.state, "mailto", ""))
+        return page(
+            request,
+            "mailto.html",
+            link=getattr(app.state, "mailto", ""),
+            pdf_url=getattr(app.state, "mailto_pdf", ""),
+        )
 
     @app.get("/ueber")
     def about_page(request: Request):

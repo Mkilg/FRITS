@@ -157,10 +157,16 @@ _ABROAD = re.compile(
 _RATE = re.compile(r"(?<![\d,.])(19|7)(?:[,.]0{1,2})?\s*%")
 _REDUCED = re.compile(
     r"\b(fach|hör)?(buch|bücher|buecher)\b|\bfachliteratur|\be-?books?\b|\bzeitschrift|"
-    r"\bzeitung|\bbuchhandlung|\bfahrkarte|\bfahrschein|\bdeutsche bahn\b|\bdb (fernverkehr|regio)\b"
+    r"\bzeitung|\bbuchhandlung|\bfahrkarte|\bfahrschein|\bdeutsche bahn\b|\bdb\b|\bbahncard"
     r"|\bdeutschlandticket",
     re.IGNORECASE,
 )
+
+
+def reduced_pattern() -> list[list[str]]:
+    """For the expense form: typing "Deutsche Bahn" suggests 7 % as well (Lena Runde 72).
+    A Fernbus (Flixbus) stays at 19 %: only rail travel and local transport are reduced."""
+    return [["0.07", _REDUCED.pattern]]
 
 
 def guess_vat(text: str) -> str | None:

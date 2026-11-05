@@ -1,13 +1,16 @@
 {% extends "base.html" %}
 {% block title %}E-Mail · FRITS{% endblock %}
 {% block content %}
+{% set mit_pdf = attachment is not defined or attachment %}
 <h1>E-Mail vorbereiten</h1>
 <section class="card">
-  <p>Mail ließ sich nicht automatisch öffnen. Mit diesem Link öffnet dein E-Mail-Programm eine fertige Nachricht.{% if attachment is not defined or attachment %} Das PDF hängst du selbst an.{% endif %}</p>
+  <p>Mail ließ sich nicht automatisch öffnen. Mit diesem Link öffnet dein E-Mail-Programm eine fertige Nachricht.{% if mit_pdf %}{% if pdf_url %} Das PDF lädst du hier herunter und hängst es selbst an.{% else %} Das PDF hängst du selbst an.{% endif %}{% endif %}</p>
   <div class="row">
     <a class="button primary" href="{{ link }}">E-Mail öffnen</a>
-    {% if attachment is not defined or attachment %}
-    {% if not im_browser() %}<form method="post" action="/open/invoices"><input type="hidden" name="token" value="{{ token }}"><button>Rechnungsordner öffnen</button></form>{% endif %}
+    {% if mit_pdf %}
+    {# Lena (Runde 72): Am Handy gibt es keinen Ordner, nur den Download #}
+    {% if pdf_url %}<a class="button" href="{{ pdf_url }}" download>PDF herunterladen</a>{% endif %}
+    {% if not im_browser() %}<form method="post" action="/open/invoices"{% if pdf_url %} class="nur-maus"{% endif %}><input type="hidden" name="token" value="{{ token }}"><button>Rechnungsordner öffnen</button></form>{% endif %}
     {% endif %}
   </div>
 </section>
