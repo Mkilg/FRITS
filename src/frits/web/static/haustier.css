@@ -738,6 +738,13 @@ details[open] > summary::before { content: "▾ "; }
   .ks-truhen > div { flex-basis: 9rem; } /* the bigger chest stays beside the text */
   .ks-truhen > .truhe-auf-form { margin-left: 0; }
 }
+@media (max-width: 359px) {
+  /* the chest box: a smaller chest stays beside the text, the buttons fit inside the box (Lena R78) */
+  .ks-truhen { padding: .7rem .8rem; gap: .7rem; }
+  .ks-truhen .truhe-klein { font-size: 14px; }
+  .ks-truhen > div { flex-basis: 8rem; }
+  .ks-truhen > .truhe-auf-form button { font-size: 14px; padding-left: 12px; padding-right: 12px; min-height: 44px; }
+}
 .ks-truhen.mit-neuer { border-color: var(--ocker-dunkel); }
 .truhe-auf-form { margin-top: .5rem; }
 .spielkarte.glueck { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold), 0 6px 18px rgba(233, 189, 79, .55); background: linear-gradient(170deg, #fff6d8, #f5dd9a); }
@@ -809,8 +816,10 @@ details[open] > summary::before { content: "▾ "; }
 .truhe-show.selten-legendaer .fund::before { left: -1.1rem; top: -1rem; }
 .truhe-show.selten-legendaer .fund::after { right: -1.1rem; bottom: -1rem; }
 [data-effekte="verspielt"] .truhe-show.selten-legendaer:not(.zu) .fund::before,
-[data-effekte="verspielt"] .truhe-show.selten-legendaer:not(.zu) .fund::after { animation: funkeln 1.6s ease-in-out infinite alternate; }
-@keyframes funkeln { from { transform: scale(.7) rotate(0); opacity: .5; } to { transform: scale(1.2) rotate(30deg); opacity: 1; } }
+[data-effekte="verspielt"] .truhe-show.selten-legendaer:not(.zu) .fund::after { animation: legendaer-funkeln 1.6s ease-in-out infinite alternate; }
+/* its own name: a second "funkeln" here replaced the stamp's sparkle in frits.css, and its dots
+   stayed on the stamp for good (Lena R78) */
+@keyframes legendaer-funkeln { from { transform: scale(.7) rotate(0); opacity: .5; } to { transform: scale(1.2) rotate(30deg); opacity: 1; } }
 .truhe-mehr { display: flex; flex-wrap: wrap; justify-content: center; gap: .4rem; align-items: center; margin-top: .4rem; }
 .truhe-knoepfe { gap: .6rem; align-items: center; }
 .drachen-bruecke { margin: .2rem 0 .8rem; padding: .4rem .7rem; border-left: 3px solid var(--terrakotta); background: rgba(196, 98, 58, .08); }
