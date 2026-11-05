@@ -307,6 +307,11 @@ def beleg_info(d: dict) -> dict:
     }
 
 
+# Steuerjahre, für die es eine Quest geben kann (Lena, Runde 75: /steuer/-1 ging durch)
+ERSTES_STEUERJAHR = 2000
+_STEUER_JAHR = re.compile(r"^/steuer/(-?\d{1,18})(?=/|$)")
+
+
 def register_steuer(
     app: FastAPI,
     *,
@@ -319,6 +324,23 @@ def register_steuer(
     today: Callable[[], date],
 ) -> None:
     app.state.steuer_combo = {}
+
+    @app.middleware("http")
+    async def nur_echte_steuerjahre(request: Request, call_next):
+        """Lena (Runde 75): /steuer/-1/intro war eine Quest-Seite mit 200. Ein Jahr ohne Sinn
+        bekommt die freundliche 404-Seite, bevor irgendetwas angelegt wird."""
+        m = _STEUER_JAHR.match(request.url.path)
+        if m and not ERSTES_STEUERJAHR <= int(m.group(1)) <= today().year + 1:
+            antwort = page(
+                request,
+                "fehler.html",
+                titel="Diese Seite gibt es nicht",
+                text=f"Eine Steuer-Quest gibt es für die Jahre {ERSTES_STEUERJAHR} bis"
+                f" {today().year + 1}.",
+            )
+            antwort.status_code = 404
+            return antwort
+        return await call_next(request)
 
     def tagesstand(alle: list[dict]) -> dict:
         """Ein Tagesziel für ganz FRITS: Mit Fritte zählt, was heute echt erledigt wurde
