@@ -1144,21 +1144,34 @@ def register_steuer(
         )
 
     def nachfragen(
-        jahr: int, s: dict, name: str, z: pruefung.Zweifel, zurueck: str, aus_korb: bool = False
+        jahr: int,
+        s: dict,
+        name: str,
+        z: pruefung.Zweifel,
+        zurueck: str,
+        aus_korb: bool = False,
+        hochgeladen: str = "",
     ) -> None:
         """Die Rückfrage als Zettel mit zwei Wegen. Bis dahin gibt es kein Gold.
-        Sie bleibt auch am Zettel im Eingangskorb stehen, damit ein Neuladen sie nicht verliert."""
+        Sie bleibt auch am Zettel im Eingangskorb stehen, damit ein Neuladen sie nicht verliert.
+        hochgeladen: der Name der Datei, falls derselbe Inhalt im Korb anders heißt."""
+        # Lena (Runde 73): Lag derselbe Inhalt schon unter anderem Namen im Korb, nannten
+        # Meldung und Kasten den neuen Namen, und den Zettel fand man nicht
+        anders = hochgeladen and hochgeladen != name
+        text = z.text.replace(hochgeladen, name) if anders else z.text
         app.state.steuer_stutzen[name] = {
             "jahr": jahr,
             "stueck_id": s["id"],
             "karte": s["name"],
-            "text": z.text,
+            "text": text,
             "besser_id": z.besser["id"] if z.besser else None,
             "besser": z.besser["name"] if z.besser else "",
         }
         wo = (
             "Es bleibt erst mal im Eingangskorb."
             if aus_korb
+            else f"Es liegt schon im Eingangskorb, dort heißt es „{name}“."
+            if anders
             else "Ich habe es erst mal in den Eingangskorb gelegt."
         )
         # Im Kampf ist „Trotzdem ablegen“ ein Schlag mit Datei, mit Serie (Lena, Runde 32)
@@ -1228,7 +1241,14 @@ def register_steuer(
             z = zweifel_an(jahr, s, tmp, name)
             if z is not None:
                 ziel = in_den_korb(tmp, name)
-                nachfragen(jahr, s, ziel.name, z, zurueck or f"/steuer/{jahr}/gebiet/{s['gebiet']}")
+                nachfragen(
+                    jahr,
+                    s,
+                    ziel.name,
+                    z,
+                    zurueck or f"/steuer/{jahr}/gebiet/{s['gebiet']}",
+                    hochgeladen=name,
+                )
                 geparkt += 1
                 continue
             fund = quest.sammeln(c, ws.root, stueck_id, tmp, original=name, verschieben=True)
@@ -1835,7 +1855,7 @@ def register_steuer(
             return back(zurueck)
         vorher = lage(jahr)
         alle = quest.stuecke(c, jahr)
-        gestempelt, doppelt = 0, 0
+        gestempelt, doppelt, weg = 0, 0, None
         for quelle in quest.lager_dateien(ws.root):
             karte = spiel.ahnung(quelle.name, alle).stueck
             aus = quest.korb_jahr(c, quelle)
@@ -1849,10 +1869,18 @@ def register_steuer(
                 gestempelt += 1
             else:
                 doppelt += 1  # dieselbe Datei lag schon bei einer Karte: der Zettel war eine Kopie
+            weg = fund.beiseite or weg
         if gestempelt or doppelt:
             extra = (
                 f" {doppelt} {'war eine Kopie' if doppelt == 1 else 'waren Kopien'} von Belegen,"
                 " die schon bei ihren Karten liegen."
+                # Lena (Runde 73): „Und wo sind die jetzt? Weg?“
+                + (
+                    f" {'Sie liegt' if doppelt == 1 else 'Sie liegen'} jetzt im Ordner"
+                    f" „{weg.parent.name}“."
+                    if weg
+                    else ""
+                )
                 if doppelt
                 else ""
             )

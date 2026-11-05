@@ -81,7 +81,7 @@ main:has(.sq-tisch) > .flash { max-width: 760px; margin: 0.8rem auto; position: 
 .sq-stapel { display: flex; flex-direction: column; gap: 0.5rem; }
 .sq-zettel { position: relative; transform: rotate(var(--r, 0deg)); }
 .sq-zettel > summary, .sq-zettel-griff {
-  list-style: none; cursor: grab; display: grid; grid-template-columns: auto 1fr; gap: 0.15rem 0.5rem; align-items: center;
+  list-style: none; cursor: grab; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0.15rem 0.5rem; align-items: center;
   background: var(--papier); padding: 0.55rem 0.7rem 0.55rem 0.6rem; border-radius: 2px;
   box-shadow: 0 1px 0 var(--papier-schatten), 0 6px 12px rgba(25, 12, 3, .35);
   clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%);
@@ -92,7 +92,7 @@ main:has(.sq-tisch) > .flash { max-width: 760px; margin: 0.8rem auto; position: 
 .sq-zettel.zieht > summary { opacity: .4; }
 .sq-zettel .art { grid-row: span 2; font: 700 var(--fs-mini)/1 var(--schrift); color: var(--papier); background: var(--terrakotta); padding: 0.3rem 0.25rem; border-radius: 2px; }
 .sq-zettel .art.bild { background: var(--moos-dunkel); }
-.sq-zettel strong { font-size: var(--fs-klein); overflow: hidden; overflow-wrap: anywhere; hyphens: auto; -webkit-hyphens: auto; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.sq-zettel strong { min-width: 0; font-size: var(--fs-klein); overflow: hidden; overflow-wrap: anywhere; hyphens: auto; -webkit-hyphens: auto; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
 .sq-zettel-reihe { display: flex; flex-direction: column; align-items: stretch; }
 .sq-ahnung { align-self: flex-end; margin: -4px 6px 0 0; position: relative; z-index: 1; }
 .sq-ahnung button { font: 600 var(--fs-mini)/1 system-ui, sans-serif; padding: 0.35rem 0.6rem; min-height: 32px; border-radius: 3px; border: 1.5px solid var(--moos-dunkel); background: #eef3e2; color: var(--moos-dunkel); cursor: pointer; box-shadow: 0 2px 4px rgba(25, 12, 3, .25); }
@@ -1975,6 +1975,8 @@ details.sq-mehr-marken .kurz { display: none; }
   .sq-noch-liste li a { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; justify-content: center; }
   /* Lena (Runde 68): vergrößert nahm der vordere Punkt dem Nachbarn 1 px. Am Handy bleibt er gleich groß */
   .sq-zettel-punkte a.vorn { transform: none; }
+  /* Lena (Runde 73): Der Stutz-Kasten stand am Handy 98 px eingerückt und schmal */
+  .sq-ahnung.sq-stutzt { align-self: stretch; max-width: none; margin-right: 0; }
   .sq-ahnung.sq-anderes-jahr a { display: inline-flex; align-items: center; min-height: 44px; }
   .sq label.sq-wahl { min-height: 44px; min-width: 44px; }
   .sq-anrede label { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; }
