@@ -15,6 +15,13 @@ Sagt der Mac stattdessen, die App sei „beschädigt“: Terminal öffnen, `xatt
 
 Läuft ohne Internet, auf Macs mit Apple-Chip und Intel, ab macOS 13. Deine Daten liegen in `Dokumente/FRITS`, nicht im App-Ordner.
 
+### Neu in 1.7.8
+
+- **Rechnungen am Handy:** Jede Rechnung ist eine Karte, alle Knöpfe passen ins Bild. Öffnet sich Mail nicht, lädst du das PDF direkt herunter.
+- **Ausgaben:** Die Kategorie folgt beim Tippen („Deutsche Bahn“ wird Geschäftsreise mit 7 %). Was du selbst wählst, bleibt, auch nach einer Fehlermeldung.
+- **Kassensturz:** Die Knöpfe bleiben in jedem Fenster sichtbar, „Überspringen“ ist gut lesbar.
+- **Steuer-Quest:** Keine doppelten Zettel mehr im Korb, kein Finder-Knopf am Handy, und Belege aus einem anderen Jahr bekommen einen klaren Ausweg.
+
 ### Neu in 1.7.7
 
 - **Erster Start ohne Fehler:** Beim allerersten Öffnen zeigte FRITS manchmal kurz „Internal Server Error“, bis man neu lud. Das passiert nicht mehr.

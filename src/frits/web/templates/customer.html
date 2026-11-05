@@ -14,14 +14,14 @@
 <section class="card" id="gutschriften">
   <h2>Gutschriften von {{ customer.display_name }} {{ info_i("Hier trägst du jede Gutschrift (Honorarabrechnung) ein, die dir dieser Kunde schickt. So zählt das Geld in der EÜR" ~ (" und in der Umsatzsteuer-Voranmeldung" if credit_rates else "") ~ ", obwohl du keine eigene Rechnung schreibst.") }}</h2>
   {% if credits %}
-  <div class="table-wrap"><table class="table">
+  <div class="table-wrap"><table class="table rechnungen">
     <thead><tr><th>Gutschrift</th><th class="amount">Betrag</th><th>Status</th><th></th></tr></thead>
     <tbody>
     {% for c in credits %}
     <tr>
-      <td>{{ c.their_number }}<br><small class="muted">vom {{ c.issue_date | de_date }}</small></td>
+      <td class="r-nr">{{ c.their_number }}<br><small class="muted">vom {{ c.issue_date | de_date }}</small></td>
       <td class="amount">{{ c.gross | eur }}{% if c.vat %}<br><small class="muted">davon USt {{ c.vat | eur }}</small>{% endif %}</td>
-      <td>{% if c.paid_date %}<span class="badge ok">bezahlt am {{ c.paid_date | de_date }}</span>{% else %}<span class="badge todo">noch nicht bezahlt</span>{% endif %}</td>
+      <td class="r-status">{% if c.paid_date %}<span class="badge ok">bezahlt am {{ c.paid_date | de_date }}</span>{% else %}<span class="badge todo">noch nicht bezahlt</span>{% endif %}</td>
       <td class="actions">
         {% if not c.paid_date %}
         <form method="post" action="/gutschriften/{{ c.id }}/bezahlt" class="paid-form"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="back" value="/customers/{{ customer.id }}#gutschriften"><button class="tiny">Bezahlt am</button> <input type="date" name="paid" value="{{ today_iso }}" max="{{ today_iso }}" aria-label="Zahlungseingang am"></form>

@@ -64,7 +64,7 @@
       <label class="field">Wofür? <input name="description" placeholder="z. B. Fahrt zum Kunden, Schrauben"></label>
       <label class="field"><span>Betrag in € <span class="muted">(mit Steuer)</span></span> <input name="gross" inputmode="decimal" required value="{{ g.gross or '' }}" {{ "class=imported" if g.gross }} {{ "autofocus" if chosen and not g.gross }}></label>
       <label class="field">Umsatzsteuer auf dem Beleg
-        <select name="vat_rate">
+        <select name="vat_rate"{% if g.vat_rate is not defined %} data-raten="{{ ust_muster | tojson | forceescape }}"{% endif %}>
           <option value="0.19">19 %</option>
           <option value="0.07" {{ "selected" if g.vat_rate == "0.07" }}>7 % (z. B. Bahnticket, Bücher)</option>
           <option value="0">0 %</option>

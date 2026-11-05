@@ -710,6 +710,10 @@ ul.wartet-frueher li { display: flex; flex-wrap: wrap; align-items: center; gap:
   .table.rechnungen td.actions form { margin: 0; }
   .table.rechnungen td.actions .paid-form { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
   .table.rechnungen td.actions details { flex-basis: 100%; }
+  /* Lena (Runde 72): In der Karte sehen auch Kopieren/Stornieren wie Knöpfe aus, und die
+     Nummer, die das PDF öffnet, ist groß genug für den Daumen. */
+  .table.rechnungen td.actions button.quiet { border-color: var(--line); }
+  .table.rechnungen .r-nr a { display: inline-flex; align-items: center; min-height: 44px; }
 }
 
 /* Ausgaben am Handy: jede Ausgabe eine Zeile wie ein Kassenzettel (Bei + Betrag oben,

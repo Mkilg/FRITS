@@ -1267,10 +1267,67 @@ def test_phone_lists_and_the_category_that_follows_the_vendor(client):
     from frits.beleg import category_patterns, guess_category
 
     seite = client.get("/expenses").text
-    roh = seite.split('data-raten="')[1].split('"')[0]
+    roh = seite.split('name="category" data-raten="')[1].split('"')[0]
     muster = json.loads(unescape(roh))
     assert muster == category_patterns()
     assert guess_category("Deutsche Bahn") == "reisekosten"
     assert "reisekosten" in [k for k, _ in muster]
     vorlage = Path(__file__).parents[1] / "src/frits/web/templates/invoices.html"
     assert vorlage.read_text(encoding="utf-8").count('class="table rechnungen"') == 2
+
+
+def test_mail_fallback_offers_the_pdf_to_download(client, ws, monkeypatch):
+    """Lena (Runde 72): on the phone there is no folder to open, so the page that appears
+    when Mail does not open offers the PDF itself, for the invoice and for a reminder."""
+    drop_and_read(client, ws, "01_notiz_meier.txt")
+    post(
+        client,
+        f"/drafts/{latest_draft(ws)}",
+        action="approve",
+        customer="erika-meier",
+        description=["Arbeit"],
+        date=[""],
+        quantity=["2"],
+        unit=["Std"],
+        price=["40"],
+    )
+    monkeypatch.setattr(
+        system,
+        "compose_email",
+        lambda to, subject, body, attachment: system.Composed(
+            False, system.mailto_link(to, subject, body)
+        ),
+    )
+    page = post(client, "/invoices/2026-0001/email").text
+    assert 'href="/invoices/2026-0001/pdf" download' in page
+    assert 'class="nur-maus"' in page  # the folder button stays for the Mac
+    store.connect(ws.db).execute("UPDATE invoices SET due_date = '2026-10-01'")
+    page = post(client, "/invoices/2026-0001/remind").text
+    link = re.search(r'href="(/reminders/\d+/pdf)" download', page).group(1)
+    pdf = client.get(link)
+    assert pdf.status_code == 200 and pdf.content.startswith(b"%PDF")
+    assert "Erinnerung_1.pdf" in pdf.headers["content-disposition"]
+    assert client.get("/reminders/999/pdf").status_code == 404
+
+
+def test_train_tickets_suggest_seven_percent_but_coaches_do_not():
+    """Lena (Runde 72): "Deutsche Bahn" also sets 7 %. A Fernbus keeps 19 % (§ 12 Abs. 2
+    Nr. 10 UStG reduces only rail and local transport)."""
+    from frits.beleg import guess_vat, reduced_pattern
+
+    [[rate, pattern]] = reduced_pattern()
+    assert rate == "0.07"
+    for text in ("Deutsche Bahn", "DB Fernverkehr", "BahnCard 25", "Fachbuch"):
+        assert re.search(pattern, text, re.IGNORECASE), text
+        assert guess_vat(text) == "0.07"
+    for text in ("Flixbus", "Aral Tankstelle", "Adobe"):
+        assert not re.search(pattern, text, re.IGNORECASE), text
+
+
+def test_phone_cards_for_customer_credits_and_settings_at_the_limit():
+    templates = Path(__file__).parent.parent / "src" / "frits" / "web" / "templates"
+    assert 'class="table rechnungen"' in (templates / "customer.html").read_text()
+    assert 'href="/settings#steuern"' in (templates / "draft.html").read_text()
+    assert (
+        "data-raten" in (templates / "expenses.html").read_text().split('name="vat_rate"')[1][:80]
+    )
