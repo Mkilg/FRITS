@@ -55,6 +55,15 @@
     {% if stutz.besser_id %}<button name="stueck_id" value="{{ stutz.besser_id }}" class="sq-besser">Zu „{{ stutz.besser }}“</button>{% endif %}
     <button name="stueck_id" value="{{ stutz.stueck_id }}">Trotzdem zu „{{ stutz.karte }}“</button>
   </form>
+  {% elif spur and fj %}
+  {# Lena (Runde 67): „Ja, passt“ stand auch bei „aus 2024?“. So landete der Riester-Brief in 2025 #}
+  <form method="post" action="/steuer/{{ jahr }}/lager/zuordnen" class="sq-ahnung sq-anderes-jahr" data-stempel="GESICHERT">
+    <input type="hidden" name="token" value="{{ token }}">
+    <input type="hidden" name="name" value="{{ f.name }}">
+    <input type="hidden" name="back" value="{{ zurueck }}">
+    <small>Der Name nennt {{ fj }}.</small> <a href="/steuer/{{ fj }}">Zur Insel {{ fj }} →</a>
+    <button class="quiet" name="stueck_id" value="{{ spur.id }}" title="„{{ f.name }}“ doch zu „{{ spur.name }}“ legen">Doch hier</button>
+  </form>
   {% elif spur %}
   <form method="post" action="/steuer/{{ jahr }}/lager/zuordnen" class="sq-ahnung" data-stempel="GESICHERT">
     <input type="hidden" name="token" value="{{ token }}">

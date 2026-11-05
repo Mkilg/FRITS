@@ -1372,7 +1372,7 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
 /* Runde 10: Kärtchen der Beraterin, Passwort kopieren, mitbenutzte Dateien */
 .sq-anrede { border: 0; padding: 0; margin: 0 0 0.6rem; min-width: 0; }
 .sq-anrede legend { padding: 0; margin-bottom: 0.2rem; font-size: var(--fs-klein); }
-.sq .sq-anrede label { display: inline-flex; width: auto; align-items: center; gap: 0.35rem; min-height: 36px; margin: 0 1.2rem 0 0; }
+.sq .sq-anrede label { display: inline-flex; width: auto; align-items: center; gap: 0.35rem; min-height: 44px; margin: 0 1.2rem 0 0; }
 .sq .sq-anrede input { width: auto; margin: 0; }
 .sq-passwort { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
 .sq-dateien li.verweis small { display: block; color: var(--tinte-hell, #6b5a40); font-style: italic; }
@@ -1967,7 +1967,10 @@ details.sq-mehr-marken .kurz { display: none; }
   .sq-buch a[href*="/gebiet/"] { display: inline-flex; align-items: center; min-height: 44px; }
   .sq details > summary { min-height: 44px; }
   /* Lena (Runde 66): die restlichen kleinen Ziele */
-  .sq-fb-fuss a.quiet, .sq-pruefen li a { display: inline-flex; align-items: center; min-height: 44px; }
+  .sq-fb-fuss a.quiet, .sq-pruefen li a, .sq-ohne-an a { display: inline-flex; align-items: center; min-height: 44px; }
+  /* Lena (Runde 67): „Burg“ war 38 breit, der Nachbar des vorderen Punkts 41 */
+  .sq-noch-liste li a { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; justify-content: center; }
+  .sq-zettel-punkte a.vorn::before { inset: -12px; }
   .sq label.sq-wahl { min-height: 44px; min-width: 44px; }
   .sq-anrede label { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; }
   .sq-orden > li { min-width: 44px; min-height: 44px; }
@@ -1986,3 +1989,9 @@ details.sq-mehr-marken .kurz { display: none; }
 .sq-neu a.sq-stempelknopf { display: inline-block; white-space: nowrap; }
 /* Lena (Runde 66): Am Mac lag das Werkstatt-Dach über dem „l“ von „Zur Insel“ */
 .sq .sq-nah-insel .sq-zurueck { z-index: 75; }
+
+/* Lena (Runde 67): „Doch nicht“ klebte am roten Knopf, „Zurückholen“ stand oben im Kasten */
+.sq-neu a.sq-stempelknopf { margin-top: 0.5rem; }
+.sq-sicherung-frage > summary { display: inline-flex; align-items: center; }
+/* Lena (Runde 67): Am Handy gibt es keinen Finder */
+@media (hover: none) and (pointer: coarse) { .sq .nur-maus-geraet { display: none; } }

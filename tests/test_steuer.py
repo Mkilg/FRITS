@@ -4630,3 +4630,28 @@ def test_runde_66_tab_leiste_liegt_ueber_der_insel(client):
     assert "scroll-padding-bottom" in css
     punkte = css[css.index("Lena (Runde 66): Ringe") :]
     assert "gap: 28px" in punkte[:300] and "inset: -14px" in punkte[:500]
+
+
+def test_runde_67_ja_passt_nicht_bei_fremdem_jahr_und_doppelte_zettel(client, ws):
+    """Lena (Runde 67): „Ja, passt“ stand auch bei „aus 2024?“; Zurückholen räumte doppelte
+    Zettel still aus dem Korb; „du“/„Sie“ waren 37 px hoch."""
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    lager = quest.lager(ws.root)
+    lager.mkdir(parents=True, exist_ok=True)
+    (lager / "Steuer-ID_2023.pdf").write_bytes(b"%PDF id alt")
+    insel = client.get("/steuer/2025").text
+    zettel = insel[insel.index("Steuer-ID_2023.pdf") :]
+    zettel = zettel[: zettel.index("</li>") if "</li>" in zettel else 3000]
+    assert "Zur Insel 2023" in zettel and "Ja, passt" not in zettel and "Doch hier" in zettel
+    # Zurückholen nennt die Zettel, die wieder an ihrer Karte liegen
+    karte = spiel.pflicht(quest.stuecke(conn, 2025))[0]
+    post(client, f"/steuer/2025/stueck/{karte['id']}/datei",
+         files=[("datei", ("beleg.pdf", b"%PDF beleg"))])  # fmt: skip
+    post(client, "/steuer/neu-beginnen", jahr="2025")
+    sicherung = quest.sicherungs_liste(ws.root)[0]["name"]
+    (lager / "kopie.pdf").write_bytes(b"%PDF beleg")
+    seite = post(client, "/steuer/sicherung/zurueckholen", name=sicherung).text
+    assert "Zettel aus dem Korb liegen wieder an ihren Karten" in seite
+    css = client.get("/static/steuer.css").text
+    assert "min-height: 36px" not in css

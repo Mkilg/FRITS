@@ -1439,6 +1439,7 @@ class Zurueck:
     davor: Path
     in_den_korb: int  # Belege, die neuer als die Sicherung sind: jetzt im Eingangskorb
     salz: int  # wie sich das Salz dadurch geändert hat (meist minus)
+    doppelt: int = 0  # Zettel im Korb, die sha-gleich wieder an ihrer Karte liegen
 
 
 def _umschreiben(text: str | None, karten: dict[int, int]) -> str | None:
@@ -1617,10 +1618,12 @@ def zurueckholen(conn: sqlite3.Connection, root: Path, name: str) -> Zurueck:
     herkunft = {sha for sha, name in gerettet if not _nennt_anderes_jahr(name, jahr)}
     herkunft |= herkunft_damals
     im_korb = []
+    doppelt = 0
     for datei in lager_dateien(root):
         sha = _sha(datei)
         if sha in zurueck:
             datei.unlink()  # liegt wieder an seiner Karte
+            doppelt += 1
         elif sha in herkunft:
             im_korb.append((sha, jahr))
     with transaction(conn):
@@ -1628,7 +1631,7 @@ def zurueckholen(conn: sqlite3.Connection, root: Path, name: str) -> Zurueck:
         conn.executemany(
             "INSERT OR REPLACE INTO steuer_korb_herkunft (sha256, jahr) VALUES (?, ?)", im_korb
         )
-    return Zurueck(jahr, davor, len(gerettet), salz)
+    return Zurueck(jahr, davor, len(gerettet), salz, doppelt)
 
 
 def _nennt_anderes_jahr(name: str, jahr: int) -> bool:
