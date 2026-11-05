@@ -174,7 +174,13 @@ def textname(text: str) -> str:
         for w in re.findall(r"[^\W_][\w.-]*", text)
         if not any(z.isdigit() for z in w) and w.lower().strip(".:") not in heikel
     ][:6]
-    name = " ".join(woerter)[:48].strip(" .-")
+    # Lena (Runde 78): „…Oktober Fr.txt“ brach mitten im Wort ab. Ganze Wörter bis 48 Zeichen
+    name = ""
+    for w in woerter:
+        if name and len(name) + 1 + len(w) > 48:
+            break
+        name = f"{name} {w}".strip()
+    name = name[:48].strip(" .-")
     return f"{name or 'Eingefügter Text'}.txt"
 
 
@@ -326,9 +332,10 @@ def steuerjahr_aus_pfad(pfad: str) -> str | None:
 
 
 def upload_name(filename: object) -> str:
-    """Der Dateiname eines Uploads. Browser schicken „"“ als %22 und Zeilenumbrüche als %0A
-    (HTML-Standard); Lena (Runde 76) fand so „%22“ im Korb und auf der Platte."""
-    name = str(filename or "").replace("%22", '"').replace("%0D", "").replace("%0A", "")
+    """Der Dateiname eines Uploads. Browser schicken „"“ als %22 (HTML-Standard); Lena
+    (Runde 76) fand so „%22“ im Korb und auf der Platte. Nur das wird zurückübersetzt: ein
+    echtes „%0A“ im Namen bleibt stehen (Runde 78)."""
+    name = str(filename or "").replace("%22", '"')
     return Path(name.replace("\\", "/")).name.strip()
 
 
@@ -1218,6 +1225,9 @@ def register_steuer(
             if aus_korb
             else f"Es liegt schon im Eingangskorb, dort heißt es „{name}“."
             if anders and schon_im_korb
+            # Lena (Runde 78): derselbe Name, derselbe Inhalt
+            else "Es liegt schon im Eingangskorb."
+            if schon_im_korb
             # Lena (Runde 76): Gleicher Name, anderer Inhalt: neu, nur unter neuem Namen
             else f"Ich habe es erst mal in den Eingangskorb gelegt, als „{name}“."
             if anders
@@ -1908,7 +1918,7 @@ def register_steuer(
             return back(zurueck)
         vorher = lage(jahr)
         alle = quest.stuecke(c, jahr)
-        gestempelt, doppelt, weg = 0, 0, None
+        gestempelt, doppelt, weg, gefragt = 0, 0, None, 0
         stutzt = offene_stutzen()
         for quelle in quest.lager_dateien(ws.root):
             if quelle.name in stutzt:
@@ -1919,6 +1929,11 @@ def register_steuer(
                 continue  # Lena (Runde 61): ein Beleg aus einem neu begonnenen anderen Jahr
             if fremdes_jahr(quelle.name, jahr, karte["key"]):
                 continue  # Lena (Runde 63): „aus 2024?“ lässt die Spürnase auch liegen
+            # Lena (Runde 78): Wo Fritte stutzen würde (etwa ein Sparkonto auf dem
+            # Geschäftskonto), entscheidet der Mensch
+            if zweifel_an(jahr, karte, quelle, quelle.name) is not None:
+                gefragt += 1
+                continue
             fund = quest.sammeln(c, ws.root, karte["id"], quelle, verschieben=True)
             if fund.neu:
                 quest.notiere(c, jahr, "fund", f"{karte['name']}: {quelle.name}")
@@ -1926,8 +1941,14 @@ def register_steuer(
             else:
                 doppelt += 1  # dieselbe Datei lag schon bei einer Karte: der Zettel war eine Kopie
             weg = fund.beiseite or weg
+        liegen = (
+            f" {'Einen Zettel' if gefragt == 1 else f'{gefragt} Zettel'} hat sie liegen lassen,"
+            f" da fragt Fritte lieber nach. Tipp {'ihn' if gefragt == 1 else 'sie'} im Korb an."
+            if gefragt
+            else ""
+        )
         if gestempelt or doppelt:
-            extra = (
+            extra = liegen + (
                 f" {doppelt} {'war eine Kopie' if doppelt == 1 else 'waren Kopien'} von Belegen,"
                 " die schon bei ihren Karten liegen."
                 # Lena (Runde 73): „Und wo sind die jetzt? Weg?“
@@ -1949,7 +1970,8 @@ def register_steuer(
                 aktion={
                     "url": f"/steuer/{jahr}/beiseite/oeffnen",
                     "knopf": "Ordner zeigen",
-                    "felder": {"back": zurueck},
+                    # Lena (Runde 78): ohne Anker sprang die Seite am Handy nach oben
+                    "felder": {"back": zurueck if "#" in zurueck else f"{zurueck}#sq-korb"},
                     "link": f"/steuer/{jahr}/belege",
                     "link_text": "Zum Belegbuch",
                 }
@@ -1957,7 +1979,7 @@ def register_steuer(
                 else None,
             )
         else:
-            flash("Die Spürnase hat keinen Zettel gefunden, bei dem sie sicher ist.")
+            flash("Die Spürnase hat keinen Zettel gefunden, bei dem sie sicher ist." + liegen)
         if belohnen(jahr, vorher):
             return back(f"/steuer/{jahr}/drache")
         return back(zurueck)
@@ -2312,12 +2334,31 @@ def register_steuer(
         text = str(form.get("text") or "").strip()
         if text:
             name = textname(text)
-            ziel, n = ablage / name, 1
-            while ziel.exists():
-                ziel = ablage / f"{Path(name).stem} ({n}).txt"
-                n += 1
-            ziel.write_text(text[:200_000].replace("\r\n", "\n") + "\n", encoding="utf-8")
-            gelegt.append(ziel.name)
+            daten = (text[:200_000].replace("\r\n", "\n") + "\n").encode("utf-8")
+            # Lena (Runde 78): Derselbe Text zweimal eingefügt gab zwei Zettel
+            sha = hashlib.sha256(daten).hexdigest()
+            schon = quest.datei_mit_hash(c, jahr, sha)
+            if schon:
+                bei = quest.stueck(c, schon["stueck_id"])
+                flash(
+                    f"Diesen Text kenne ich schon, er liegt bei „{bei['name']}“. Nichts zu tun.",
+                    "warn",
+                    aktion={"link": f"/steuer/{jahr}/belege#karte-{bei['id']}"},
+                )
+                bekannt += 1
+            elif sha in im_korb:
+                flash(
+                    "Genau diesen Text gibt es schon als Zettel im Eingangskorb.",
+                    link=(f"/steuer/{jahr}#sq-korb", "Zum Korb"),
+                )
+                bekannt += 1
+            else:
+                ziel, n = ablage / name, 1
+                while ziel.exists():
+                    ziel = ablage / f"{Path(name).stem} ({n}).txt"
+                    n += 1
+                ziel.write_bytes(daten)
+                gelegt.append(ziel.name)
         if gelegt:
             n = len(gelegt)
             flash(

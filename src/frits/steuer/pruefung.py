@@ -42,6 +42,19 @@ PRIVAT = (
 # Ausnahmen: echte Unterlagen, die mit einem der Wörter anfangen
 _ECHT = ("urlaubsgeld", "urlaubsanspruch", "urlaubsbescheinigung", "ferienjob", "ferienwohnung")
 
+# Konten, die nicht das Geschäftskonto sind (Lena, Runde 78: die Spürnase legte Sparkonto-,
+# Tagesgeld- und Kreditkarten-Auszüge still zu „Kontoauszüge Geschäftskonto“).
+# „Sparkasse“ ist eine Bank und steht darum nicht hier.
+PRIVATE_KONTEN = {
+    "sparkonto": "Sparkonto",
+    "sparbuch": "Sparbuch",
+    "tagesgeld": "Tagesgeld",
+    "festgeld": "Festgeld",
+    "kreditkart": "Kreditkarte",
+    "depot": "Depot",
+    "privatkonto": "Privatkonto",
+}
+
 BILDER = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".tif", ".tiff", ".heic", ".heif"}
 MIN_WOERTER = 3  # so viele lesbare Wörter hat selbst ein Parkschein
 
@@ -109,6 +122,18 @@ def pruefe(
     Zweifel. ausdruecklich: Die Karte wurde bewusst gewählt (Menü im Eingangskorb); dann rät
     Fritte nicht mehr nach dem Namen, ob eine andere Karte besser passt."""
     karte = stueck["name"]
+    # Vor der Quellen-Prüfung: „Sparkonto Kontoauszug.pdf“ nennt die Karte und ist doch privat
+    if stueck.get("key") == "kontoauszuege":
+        konto = next(
+            (n for t in _tokens(Path(original).stem) for w, n in PRIVATE_KONTEN.items()
+             if t.startswith(w)),
+            None,
+        )  # fmt: skip
+        if konto:
+            return Zweifel(
+                "privates_konto",
+                f"„{original}“ klingt nach {konto}. Gehört das wirklich zu „{karte}“?",
+            )
     if quellen and nennt_die_karte(original, quellen):
         return None
     wort = privat_wort(original)
