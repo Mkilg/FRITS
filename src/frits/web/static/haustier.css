@@ -588,6 +588,14 @@ details[open] > summary::before { content: "▾ "; }
   .kassensturz-show .ks-aktionen button.quiet { padding-left: 6px; padding-right: 6px; }
   .kassensturz-show .ks-aktionen .ks-lang { display: none; }
 }
+/* the smallest phones (320): still one line. During the show "Zu Fritte" waits (the tab bar's
+   "Mehr" has Fritte too), afterwards all three fit a little smaller (Lena R77) */
+@media (max-width: 359px) {
+  .kassensturz-show .ks-aktionen { gap: .3rem; }
+  .kassensturz-show .ks-aktionen > * { font-size: 14px; padding-left: 7px; padding-right: 7px; }
+  .kassensturz-show .ks-aktionen button.quiet { padding-left: 4px; padding-right: 4px; }
+  .kassensturz-show.laeuft .ks-aktionen a[href="/fritte"] { display: none; }
+}
 /* short windows: smaller cards, and room for the buttons below what comes into view */
 @media (max-height: 820px) {
   .kassensturz-show .ks-ausbau, .kassensturz-show .ks-ergebnis, .kassensturz-show .ks-rechnung, .kassensturz-show .ks-tisch, .kassensturz-show .ks-karten .spielkarte { scroll-margin-bottom: 8rem; } /* not under the buttons and the tab bar */
