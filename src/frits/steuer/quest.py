@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+from frits.dbspalte import spalte_dazu
 from frits.spiel import stand
 from frits.steuer.katalog import Gebiet, Profil, reich
 from frits.store import transaction
@@ -119,13 +120,9 @@ def _now() -> str:
 
 def ensure_schema(conn: sqlite3.Connection) -> sqlite3.Connection:
     conn.executescript(SCHEMA)
-    spalten = {r[1] for r in conn.execute("PRAGMA table_info(steuer_kiste)")}
-    if "inhalt" not in spalten:  # Kisten von vor Runde 44
-        conn.execute("ALTER TABLE steuer_kiste ADD COLUMN inhalt TEXT")
-        conn.commit()
-    if "stati" not in spalten:  # Kisten von vor Runde 56
-        conn.execute("ALTER TABLE steuer_kiste ADD COLUMN stati TEXT")
-        conn.commit()
+    spalte_dazu(conn, "steuer_kiste", "inhalt", "TEXT")  # Kisten von vor Runde 44
+    spalte_dazu(conn, "steuer_kiste", "stati", "TEXT")  # Kisten von vor Runde 56
+    conn.commit()
     return conn
 
 

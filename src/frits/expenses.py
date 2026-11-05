@@ -17,6 +17,8 @@ from datetime import date, datetime
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 
+from frits.dbspalte import spalte_dazu
+
 CENT = Decimal("0.01")
 
 
@@ -139,7 +141,8 @@ CREATE TABLE IF NOT EXISTS expenses (
     gross TEXT NOT NULL,
     vat_rate TEXT,
     category TEXT NOT NULL,
-    source_file TEXT
+    source_file TEXT,
+    struck TEXT
 )
 """
 
@@ -182,9 +185,7 @@ def _connect(db_path: str | Path) -> sqlite3.Connection:
 def prepare(conn: sqlite3.Connection) -> sqlite3.Connection:
     """Create or update the expense tables and their GoBD guards on this connection."""
     conn.execute(_SCHEMA)
-    columns = {row[1] for row in conn.execute("PRAGMA table_info(expenses)")}
-    if "struck" not in columns:  # databases from before v1.3
-        conn.execute("ALTER TABLE expenses ADD COLUMN struck TEXT")
+    spalte_dazu(conn, "expenses", "struck", "TEXT")  # databases from before v1.3
     for statement in _GOBD:
         conn.execute(statement)
     conn.commit()
