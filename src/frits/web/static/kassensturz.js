@@ -164,7 +164,9 @@
     // played round only once the stamp has landed and was seen (Lena: on the phone the page
     // jumped away right when the stamp came).
     // The lowest of them, so the ones above come along (Lena: the new chest stayed out of sight).
-    var banner = (el("truhen") && el("truhen").classList.contains("mit-neuer") ? el("truhen") : null) || el("erfolge") || el("saison") || el("ausbau");
+    // The chest box always counts, also without a new chest: its "+3 Karten" and "Truhe öffnen"
+    // lay behind the sticky buttons on the Mac (Lena R70).
+    var banner = el("truhen") || el("erfolge") || el("saison") || el("ausbau");
     if (banner && !gezeigt) {
       gezeigt = true;
       var zeigen = function () {
