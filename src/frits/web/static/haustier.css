@@ -550,11 +550,16 @@ details[open] > summary::before { content: "▾ "; }
 
 /* short windows: the buttons stay in reach while the show runs */
 @media (max-height: 820px) {
-  .kassensturz-show .ks-aktionen { position: sticky; bottom: 0; z-index: 5; padding: .5rem 0;
-    background: linear-gradient(180deg, transparent, var(--bg) 35%); }
+  .kassensturz-show .ks-aktionen { position: sticky; bottom: 0; z-index: 5; padding: 1rem 0 .5rem;
+    background: linear-gradient(180deg, transparent, var(--bg) 1rem); } /* opaque behind the buttons, text below did shine through */
   .kassensturz-show .ks-ausbau, .kassensturz-show .ks-ergebnis, .kassensturz-show .ks-rechnung, .kassensturz-show .ks-tisch, .kassensturz-show .ks-karten .spielkarte { scroll-margin-bottom: 8rem; } /* not under the buttons and the tab bar */
   .kassensturz-show .ks-karten .spielkarte { width: 5.9rem; min-height: 7.6rem; }
   .kassensturz-show .ks-karten .karte-detail { display: none; }
+}
+/* low phones: the sticky buttons sit on top of the tab bar, not under it (Lena R67: on 390×664
+   "In den Laden" and "Zu Fritte" lay under the bar during the whole show) */
+@media (max-height: 820px) and (max-width: 600px) {
+  body:has(nav.tabs) .kassensturz-show .ks-aktionen { bottom: calc(62px + env(safe-area-inset-bottom)); }
 }
 
 /* ---------- a season festival: a string of pennants across the room ---------- */
