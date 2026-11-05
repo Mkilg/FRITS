@@ -254,7 +254,7 @@
   }
 
   el("weiter").addEventListener("click", finish);
-  el("nochmal").addEventListener("click", function () { el("nochmal").hidden = true; el("weiter").hidden = false; (playful ? play : calm)(); });
+  el("nochmal").addEventListener("click", function () { gezeigt = false; el("nochmal").hidden = true; /* the chest comes into view again after the replay (Lena R73) */ el("weiter").hidden = false; (playful ? play : calm)(); });
   function start() {
     playful = !!(window.Frits && window.Frits.playful && window.Frits.playful());
     if (reduced) { finish(); return; }
