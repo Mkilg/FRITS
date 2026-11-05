@@ -15,6 +15,10 @@ Sagt der Mac stattdessen, die App sei „beschädigt“: Terminal öffnen, `xatt
 
 Läuft ohne Internet, auf Macs mit Apple-Chip und Intel, ab macOS 13. Deine Daten liegen in `Dokumente/FRITS`, nicht im App-Ordner.
 
+### Neu in 1.7.7
+
+- **Erster Start ohne Fehler:** Beim allerersten Öffnen zeigte FRITS manchmal kurz „Internal Server Error“, bis man neu lud. Das passiert nicht mehr.
+
 ### Neu in 1.7.6
 
 - **Steuer-Quest: Sicherung zurückholen.** Unter „Neu beginnen“ holst du eine frühere Sicherung zurück. Dabei gehen keine Belege verloren. Der Eingangskorb kennt das Jahr jedes Belegs.
