@@ -1659,6 +1659,41 @@ def _sha(pfad: Path) -> str:
     return h.hexdigest()
 
 
+_SHA_GEMERKT: dict[tuple[str, int, int], str] = {}
+
+
+def _sha_gemerkt(pfad: Path) -> str:
+    """sha256 einer Datei, gemerkt solange Größe und Zeit gleich bleiben (der Korb wird bei
+    jedem Seitenaufruf geprüft)."""
+    st = pfad.stat()
+    schluessel = (str(pfad), st.st_size, st.st_mtime_ns)
+    if schluessel not in _SHA_GEMERKT:
+        if len(_SHA_GEMERKT) > 2000:
+            _SHA_GEMERKT.clear()
+        _SHA_GEMERKT[schluessel] = _sha(pfad)
+    return _SHA_GEMERKT[schluessel]
+
+
+def schon_abgelegt(conn: sqlite3.Connection, jahr: int, datei: Path) -> dict | None:
+    """Die Karte, auf der derselbe Zettel (gleicher Inhalt) in diesem Jahr schon liegt.
+
+    Lena (Runde 69): Solche Doppel im Korb sahen aus wie Arbeit und zählten bei „Lohnt sich
+    noch“ mit."""
+    ensure_schema(conn)
+    if not conn.execute("SELECT 1 FROM steuer_dateien WHERE jahr = ? LIMIT 1", (jahr,)).fetchone():
+        return None
+    try:
+        sha = _sha_gemerkt(datei)
+    except OSError:
+        return None
+    row = conn.execute(
+        "SELECT s.id, s.name, s.gebiet FROM steuer_dateien d"
+        " JOIN steuer_stuecke s ON s.id = d.stueck_id WHERE d.jahr = ? AND d.sha256 = ?",
+        (jahr, sha),
+    ).fetchone()
+    return {"id": row[0], "name": row[1], "gebiet": row[2]} if row else None
+
+
 def korb_jahr(conn: sqlite3.Connection, datei: Path) -> int | None:
     """Aus welchem Jahr ein Zettel im Korb stammt, wenn „Neu beginnen“ ihn dort hingelegt hat."""
     ensure_schema(conn)

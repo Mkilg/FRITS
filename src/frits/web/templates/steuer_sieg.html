@@ -153,10 +153,12 @@
     {# Marie-Runde 8: Der Sieg kam früh, Freiwilliges und der Korb gingen unter.
        Lena (Runde 58): Zwischen „Fast fertig“ und der Kiste lockte der Schatz. Er steht jetzt unter dem Brief. #}
     {% set frei = noch_frei %}
-    {% if frei or lager %}
+    {# Lena (Runde 69): Zettel, die schon auf einer Karte liegen, lohnen sich nicht mehr #}
+    {% set korb_neu = [] %}{% for f in lager or [] %}{% if not (schon_da is defined and schon_da(f, jahr)) %}{% set _ = korb_neu.append(f) %}{% endif %}{% endfor %}
+    {% if frei or korb_neu %}
     <section class="sq-papier sq-noch-frei">
       <h2>Lohnt sich noch</h2>
-      {% if lager %}<p>Im Eingangskorb {{ "liegt noch ein Zettel" if lager | length == 1 else "liegen noch " ~ (lager | length) ~ " Zettel" }}: <b>{{ lager[0].name }}</b>{% if lager | length > 1 %} und {{ lager | length - 1 }} {{ "weiterer" if lager | length == 2 else "weitere" }}{% endif %}. <a href="/steuer/{{ jahr }}#sq-korb">Zum Korb</a></p>{% endif %}
+      {% if korb_neu %}<p>Im Eingangskorb {{ "liegt noch ein Zettel" if korb_neu | length == 1 else "liegen noch " ~ (korb_neu | length) ~ " Zettel" }}: <b>{{ korb_neu[0].name }}</b>{% if korb_neu | length > 1 %} und {{ korb_neu | length - 1 }} {{ "weiterer" if korb_neu | length == 2 else "weitere" }}{% endif %}. <a href="/steuer/{{ jahr }}#sq-korb">Zum Korb</a></p>{% endif %}
       {% if frei %}
       {% set sparen = noch_sparen %}
       <div class="sq-absatz">{% if sparen %}{{ sparen | length }} Zettel {{ "kann" if sparen | length == 1 else "können" }} Steuern sparen{% else %}{{ frei | length }} freiwillige Zettel{% endif %}{% if schatz_salz %}, jeder Fund <b>+{{ schatz_salz }} {{ salz }}</b>{% endif %}. {{ info_i("Freiwillig, blockiert nichts. " ~ ((frei | length - sparen | length) ~ " Zettel sind nur für die Ordnung. " if frei | length > sparen | length else "") ~ ("Mit der Goldwaage. " if "goldwaage" in helfer else "") ~ "Was du jetzt noch findest, packst du einfach neu in die Fundkiste.") }}</div>
