@@ -575,15 +575,18 @@ nav.tabs { display: none; }
   /* z-index 100: above the island and its layers (steuer.css 60–90), so a tap on a tab never
      lands on the map (Lena Runde 66); below toasts (200), bottom sheets (500) and stamps. */
   nav.tabs {
-    display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 100; flex-wrap: nowrap; gap: 0;
+    display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 100; flex-wrap: nowrap; gap: 2px;
     padding: 0.25rem 0.3rem calc(0.25rem + env(safe-area-inset-bottom)); background: var(--papierkarte);
     border-top: 1px solid var(--papier-schatten); box-shadow: 0 -4px 14px rgba(40, 20, 5, .18);
   }
   nav.tabs > a, nav.tabs > details > summary {
-    flex: 1 1 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.1rem;
+    flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.1rem;
     min-height: 52px; padding: 0.2rem 0; border-radius: 10px; color: var(--ink-papier); text-decoration: none;
-    font-size: var(--fs-mini); line-height: 1.1; }
-  nav.tabs > details { flex: 1 1 0; display: flex; position: relative; }
+    font-size: var(--fs-mini); line-height: 1.1; min-width: 0; }
+  nav.tabs > details { flex: 1 1 auto; display: flex; position: relative; min-width: 0; }
+  /* Lena (Runde 77): bei 320 px stießen „Rechnungen“ und „Ausgaben“ ohne Abstand aneinander */
+  /* Breite nach Inhalt plus gleich viel Luft für jeden, statt fünf gleich breite Felder */
+  @media (max-width: 339px) { nav.tabs > a, nav.tabs > details > summary { font-size: 0.68rem; } }
   nav.tabs > details > summary { width: 100%; list-style: none; cursor: pointer; margin: 0; }
   nav.tabs > details > summary::-webkit-details-marker { display: none; }
   nav.tabs > details > summary::before, nav.tabs > details > summary::after { content: none; }

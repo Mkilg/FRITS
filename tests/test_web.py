@@ -1385,3 +1385,22 @@ def test_quotes_as_cards_and_their_own_folder(client, ws, monkeypatch):
     assert not (ws.root / "euer").exists() or not any(
         "-1" in p.name or "1000" in p.name or "_0." in p.name for p in (ws.root / "euer").iterdir()
     )
+
+
+def test_odd_spellings_of_numbers_are_missing_pages(client, ws):
+    """Lena (Runde 77) and the Steuer thread: "-1.0", "%2B9999" and "%20-1" must not slip
+    past the year check either, and nothing gets written for them."""
+    for url in (
+        "/euer/-1.0.csv",
+        "/euer/%2B9999.csv",
+        "/euer/%20-1.csv",
+        "/euer/-1.0/verfahrensdoku.pdf",
+        "/euer/%2B9999/buchungsliste.csv",
+        "/euer/%20-1/verfahrensdoku.pdf",
+        "/reminders/-1.0/pdf",
+        "/reminders/%2B99999999999999999999/pdf",
+        "/reminders/%20-99999999999999999999/pdf",
+        "/drafts/1e30",
+    ):
+        assert client.get(url).status_code == 404, url
+    assert not (ws.root / "euer").exists() or not list((ws.root / "euer").iterdir())
