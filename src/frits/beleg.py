@@ -157,8 +157,8 @@ _ABROAD = re.compile(
 _RATE = re.compile(r"(?<![\d,.])(19|7)(?:[,.]0{1,2})?\s*%")
 _REDUCED = re.compile(
     r"\b(fach|hör)?(buch|bücher|buecher)\b|\bfachliteratur|\be-?books?\b|\bzeitschrift|"
-    r"\bzeitung|\bbuchhandlung|\bfahrkarte|\bfahrschein|\bdeutsche bahn\b|\bdb\b|\bbahncard"
-    r"|\bice\b|flixtrain|\bdeutschlandticket",
+    r"\bzeitung|\bbuchhandlung|\bfahrkarte|\bfahrschein|\bdeutsche bahn\b|\bdb\b(?!\s*schenker)"
+    r"|\bbahncard|\bice\b(?!\s*cream)|\bic\b|\bintercity|flixtrain|\bdeutschlandticket",
     re.IGNORECASE,
 )
 
@@ -239,7 +239,8 @@ _CATEGORY_WORDS = (
     (
         "reisekosten",
         (
-            r"deutsche bahn|\bdb\b|fahrkarte|bahncard|ticket|flixbus|flixtrain|\bice\b|\bic\b|hotel"
+            r"deutsche bahn|\bdb\b(?!\s*schenker)|fahrkarte|bahncard|ticket|flixbus|fernbus"
+            r"|flixtrain|intercity|\bice\b(?!\s*cream)|\bic\b|hotel"
             r"|übernachtung|parkhaus|parkschein|taxi|flug|lufthansa|\bbvg\b|\bmvg\b|\bhvv\b"
         ),
     ),

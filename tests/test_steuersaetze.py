@@ -177,19 +177,80 @@ def test_copying_an_invoice_makes_a_fresh_draft(tmp_path):
 
 
 def test_over_100k_says_one_thing_only(tmp_path):
-    """Lena (Runde 74): over 100,000 € the draft also said "dieses Jahr bleibst du
-    Kleinunternehmer". Now only the problem stays, and entering an earlier invoice that
-    crosses the line says so once."""
-    from frits.billing import earlier_limit_note
+    """Lena (Runde 74/75): over 100,000 € the draft also said "dieses Jahr bleibst du
+    Kleinunternehmer". Now one message fits the case, and entering an earlier invoice names
+    the invoice that crossed the line in the order they were written."""
+    from frits.billing import earlier_limit_notes, limit_crossing
 
     conn = store.connect(tmp_path / "frits.db")
     klein = _settings(tax_mode="kleinunternehmer")
     _issued(conn, 2026, 99_000)
     problems, warnings = limit_check(conn, klein, 2026, Decimal(2000))
-    assert "100.000" in problems[0] and warnings == []
-    assert earlier_limit_note(conn, klein, 2026, Decimal(99_000)) is None
-    _issued(conn, 2026, 2_000)
-    assert "über 100.000 €" in earlier_limit_note(conn, klein, 2026, Decimal(2_000))
-    _issued(conn, 2026, 500)
-    assert earlier_limit_note(conn, klein, 2026, Decimal(500)) is None  # crossed before
-    assert earlier_limit_note(conn, _settings(), 2026, Decimal(2_000)) is None
+    assert "Mit dieser Rechnung kommst du" in problems[0] and warnings == []
+    assert not any("100.000" in n for n in earlier_limit_notes(conn, klein, "2026-99000"))
+    # A later invoice (November) and then an earlier one entered afterwards (February):
+    conn.execute(
+        "INSERT INTO invoices (number, customer, issue_date, net, vat, gross)"
+        " VALUES ('2026-0001', 'x', '2026-11-05', '600', '0', '600')"
+    )
+    assert limit_crossing(conn, 2026) is None
+    conn.execute(
+        "INSERT INTO invoices (number, customer, issue_date, net, vat, gross)"
+        " VALUES ('A-18', 'x', '2026-02-01', '800', '0', '800')"
+    )
+    assert limit_crossing(conn, 2026) == ("Rechnung 2026-0001", date(2026, 11, 5))
+    [note] = earlier_limit_notes(conn, klein, "A-18")
+    assert "Rechnung 2026-0001 vom 05.11.2026" in note
+    assert "schon über 100.000" in limit_check(conn, klein, 2026, Decimal(10))[0][0]
+    assert earlier_limit_notes(conn, _settings(), "A-18") == []
+
+
+def test_limit_texts_fit_the_case(tmp_path):
+    conn = store.connect(tmp_path / "frits.db")
+    klein = _settings(tax_mode="kleinunternehmer")
+    _issued(conn, 2026, 24_000)
+    [w] = limit_check(conn, klein, 2026, Decimal(2000))[1]
+    # No turnover from 2025 known: it may be the founding year, so no firm promise.
+    assert w.startswith("Mit dieser Rechnung liegt") and "erst 2026 angefangen" in w
+    assert "erinnert dich" not in w
+    _issued(conn, 2025, 10_000)
+    [w] = limit_check(conn, klein, 2026, Decimal(2000))[1]
+    assert "Dieses Jahr bleibst du Kleinunternehmer" in w
+    _issued(conn, 2026, 3_000)
+    assert limit_check(conn, klein, 2026)[1][0].startswith("Dein Umsatz 2026 liegt")
+
+
+def test_earlier_invoices_follow_the_rules_of_their_year(tmp_path):
+    """Lena (Runde 75): 2024 had other limits without a switch during the year; crossing
+    25,000 € in 2025 by entering an invoice means 2026 is no Kleinunternehmer year."""
+    from frits.billing import earlier_limit_notes
+
+    conn = store.connect(tmp_path / "frits.db")
+    klein = _settings(tax_mode="kleinunternehmer")
+    _issued(conn, 2024, 99_900)
+    conn.execute(
+        "INSERT INTO invoices (number, customer, issue_date, net, vat, gross)"
+        " VALUES ('A-1', 'x', '2024-03-01', '500', '0', '500')"
+    )
+    assert not any("100.000" in n for n in earlier_limit_notes(conn, klein, "A-1"))
+    _issued(conn, 2025, 24_900)
+    conn.execute(
+        "INSERT INTO invoices (number, customer, issue_date, net, vat, gross)"
+        " VALUES ('A-2', 'x', '2025-03-01', '500', '0', '500')"
+    )
+    [note] = earlier_limit_notes(conn, klein, "A-2")
+    assert "2026 bist du dann kein Kleinunternehmer" in note
+
+
+def test_a_draft_over_the_limit_is_not_ready(tmp_path):
+    """Lena (Runde 75): Heute called a draft over 100,000 € "fertig", writing it then failed."""
+    from frits.web.app import _open_drafts
+
+    conn = store.connect(tmp_path / "frits.db")
+    klein = _settings(tax_mode="kleinunternehmer")
+    new_draft(conn, _draft(_line("Moderation", "800")))
+    [d] = _open_drafts(conn, klein, 2026)
+    assert d["ready"] and not d["grenze"]
+    _issued(conn, 2026, 99_500)
+    [d] = _open_drafts(conn, klein, 2026)
+    assert not d["ready"] and d["grenze"]

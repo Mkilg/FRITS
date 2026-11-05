@@ -161,7 +161,7 @@ form { margin: 0; }
 .flash { background: var(--papierkarte); border: 1px solid var(--papier-schatten);
   box-shadow: inset 4px 0 0 var(--moos), var(--karten-schatten);
   color: #2d4419; padding: 0.7rem 1rem; border-radius: var(--radius); margin-bottom: 1rem; }
-.flash.error { background: #fbeee6; border-color: #eac3b0; color: var(--terrakotta-dunkel);
+.flash.error, .flash.warnung { background: #fbeee6; border-color: #eac3b0; color: var(--terrakotta-dunkel);
   box-shadow: inset 4px 0 0 var(--terrakotta), var(--karten-schatten); }
 .busy { color: var(--muted); font-style: italic; margin: 0.4rem 0 0; }
 
@@ -695,6 +695,8 @@ ul.wartet-frueher { list-style: none; padding-left: 0; }
 ul.wartet-frueher li { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
 
 .table.rechnungen .nur-karte { display: none; }
+/* Lena (Runde 72/75): Kopieren, Stornieren, Abgelehnt sehen auch am Mac wie Knöpfe aus */
+.table.rechnungen td.actions button.quiet { border-color: var(--line); }
 /* Rechnungen am Handy (Lena Runde 69): jede Rechnung eine Karte. Nummer und Betrag oben,
    Kunde und Datum darunter, dann der Status und die Knöpfe in eigener Zeile. Vorher war
    die Tabelle 747 px breit und „Bezahlt am“ lag unsichtbar rechts neben dem Bildschirm. */
@@ -717,9 +719,11 @@ ul.wartet-frueher li { display: flex; flex-wrap: wrap; align-items: center; gap:
   .table.rechnungen td.actions details { flex-basis: 100%; }
   /* Lena (Runde 72): In der Karte sehen auch Kopieren/Stornieren wie Knöpfe aus, und die
      Nummer, die das PDF öffnet, ist groß genug für den Daumen. */
-  .table.rechnungen td.actions button.quiet { border-color: var(--line); }
   .table.rechnungen .r-nr a { display: inline-flex; align-items: center; min-height: 44px; }
   .table.rechnungen .nur-karte { display: inline; }
+  /* Angebote (Lena Runde 75): „Angenommen“ zuerst und allein, Mail und Abgelehnt teilen sich
+     die nächste Zeile, statt drei Zeilen untereinander */
+  .table.rechnungen td.actions .annehmen { order: -1; flex-basis: 100%; }
 }
 
 /* Ausgaben am Handy: jede Ausgabe eine Zeile wie ein Kassenzettel (Bei + Betrag oben,

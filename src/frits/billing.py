@@ -264,47 +264,130 @@ def turnover(conn, year: int) -> Decimal:
     )
 
 
+_SWITCH = (
+    "Stell in den Einstellungen auf Regelbesteuerung um und sprich am besten kurz mit deiner "
+    "Steuerberatung."
+)
+
+
 def limit_check(conn, settings: Settings, year: int, adding: Decimal = Decimal(0)):
-    """§ 19 UStG limits for Kleinunternehmer. Returns (blocking problems, gentle warnings)."""
+    """§ 19 UStG limits for Kleinunternehmer. Returns (blocking problems, gentle warnings).
+    `adding` is the draft about to become an invoice; 0 means nothing is being added."""
     if settings.tax_mode != "kleinunternehmer":
         return [], []
     last, this = turnover(conn, year - 1), turnover(conn, year)
+    after = this + adding
     problems, warnings = [], []
-    if this + adding > LIMIT_THIS_YEAR:
-        problems.append(
-            f"Mit dieser Rechnung kommst du {year} über 100.000 € Umsatz. Ab dieser Rechnung "
-            "giltst du nicht mehr als Kleinunternehmer (§ 19 UStG) und musst Umsatzsteuer "
-            "ausweisen. Stell in den Einstellungen auf Regelbesteuerung um und sprich am besten "
-            "kurz mit deiner Steuerberatung."
-        )
-    if last > LIMIT_LAST_YEAR:
+    # One message only: two that contradict each other ("dieses Jahr bleibst du" next to
+    # "ab dieser Rechnung nicht mehr") confused more than they helped (Lena Runde 74/75).
+    if after > LIMIT_THIS_YEAR:
+        if last > LIMIT_LAST_YEAR:
+            text = (
+                f"{year - 1} lag dein Umsatz über 25.000 €, damit bist du {year} kein "
+                f"Kleinunternehmer. Mit dieser Rechnung kommst du {year} außerdem über "
+                "100.000 €. Sie braucht Umsatzsteuer. "
+            )
+        elif this > LIMIT_THIS_YEAR:
+            text = (
+                f"Dein Umsatz {year} liegt schon über 100.000 €. Seit der Rechnung, mit der du "
+                "darüber kamst, giltst du nicht mehr als Kleinunternehmer (§ 19 UStG) und "
+                "musst Umsatzsteuer ausweisen. "
+            )
+        else:
+            text = (
+                f"Mit dieser Rechnung kommst du {year} über 100.000 € Umsatz. Ab dieser Rechnung "
+                "giltst du nicht mehr als Kleinunternehmer (§ 19 UStG) und musst Umsatzsteuer "
+                "ausweisen. "
+            )
+        problems.append(text + _SWITCH)
+    elif last > LIMIT_LAST_YEAR:
         warnings.append(
             f"{year - 1} hast du laut FRITS mehr als 25.000 € umgesetzt. Dann bist du {year} kein "
             "Kleinunternehmer mehr. Bitte prüfe deine Einstellungen mit deiner Steuerberatung."
         )
-    elif LIMIT_LAST_YEAR < this + adding <= LIMIT_THIS_YEAR:
-        # Over 100,000 € the problem above already says what applies; "dieses Jahr bleibst du
-        # Kleinunternehmer" next to it contradicted it (Lena Runde 74).
-        warnings.append(
-            f"Dein Umsatz {year} liegt jetzt über 25.000 €. Dieses Jahr bleibst du Kleinunternehmer, "
-            f"aber ab {year + 1} wohl nicht mehr. FRITS erinnert dich im Januar."
+    elif after > LIMIT_LAST_YEAR:
+        anfang = (
+            f"Mit dieser Rechnung liegt dein Umsatz {year} über 25.000 €."
+            if adding and this <= LIMIT_LAST_YEAR
+            else f"Dein Umsatz {year} liegt über 25.000 €."
         )
+        if last:
+            rest = (
+                f" Dieses Jahr bleibst du Kleinunternehmer, ab {year + 1} wohl nicht mehr. "
+                "Stell dann im Januar in den Einstellungen auf Regelbesteuerung um."
+            )
+        else:
+            # FRITS knows no turnover from last year, so this may be the founding year, in
+            # which 25,000 € already count for the running year (§ 19 Abs. 1 S. 2 UStG).
+            rest = (
+                f" Hast du erst {year} angefangen, gilt die 25.000-€-Grenze schon jetzt: Sprich "
+                f"dann bitte gleich mit deiner Steuerberatung. Sonst bleibst du {year} "
+                f"Kleinunternehmer und bist ab {year + 1} wohl keiner mehr."
+            )
+        warnings.append(anfang + rest)
     return problems, warnings
 
 
-def earlier_limit_note(conn, settings: Settings, year: int, net: Decimal) -> str | None:
-    """After entering an invoice from before FRITS: did exactly this one cross 100,000 €?
-    Nothing is blocked, the invoice was written long ago (Lena Runde 74)."""
-    if settings.tax_mode != "kleinunternehmer":
-        return None
-    total = turnover(conn, year)
-    if total > LIMIT_THIS_YEAR >= total - net:
-        return (
-            f"Mit dieser Rechnung lag dein Umsatz {year} über 100.000 €. Ab hier galt die "
-            "Kleinunternehmerregelung (§ 19 UStG) nicht mehr. Sprich bitte mit deiner "
-            "Steuerberatung und stell in den Einstellungen auf Regelbesteuerung um."
-        )
+def limit_crossing(conn, year: int, without: str | None = None) -> tuple[str, date] | None:
+    """The invoice (or Gutschrift) with which the year's turnover first went over 100,000 €,
+    in the order they were written. `without` leaves one invoice out, to compare."""
+    items = [
+        (date.fromisoformat(row[1][:10]), f"Rechnung {row[0]}", row[0], Decimal(row[2]))
+        for row in conn.execute(
+            "SELECT number, issue_date, net FROM invoices WHERE substr(issue_date, 1, 4) = ?",
+            (str(year),),
+        ).fetchall()
+    ]
+    items += [
+        (c.issue_date, f"Gutschrift {c.their_number}", None, c.net)
+        for c in gutschriften.listing(conn, start=date(year, 1, 1), end=date(year, 12, 31))
+    ]
+    total = Decimal(0)
+    for day, label, number, net in sorted(items, key=lambda item: (item[0], item[1])):
+        if number is not None and number == without:
+            continue
+        total += net
+        if total > LIMIT_THIS_YEAR:
+            return label, day
     return None
+
+
+def earlier_limit_notes(conn, settings: Settings, number: str) -> list[str]:
+    """After entering an invoice from before FRITS: which limit did it change? Nothing is
+    blocked, the invoice was written long ago (Lena Runde 74/75). The 100,000 € line counts
+    in the order the invoices were written, so an early invoice can make a later one the one
+    that crossed it. Before 2025 other limits applied without a switch during the year."""
+    if settings.tax_mode != "kleinunternehmer":
+        return []
+    row = conn.execute(
+        "SELECT issue_date, net FROM invoices WHERE number = ?", (number,)
+    ).fetchone()
+    if row is None:
+        return []
+    year, net = int(row[0][:4]), Decimal(row[1])
+    notes = []
+    if year >= 2025:
+        before, after = limit_crossing(conn, year, without=number), limit_crossing(conn, year)
+        if after and after != before:
+            label, day = after
+            wer = (
+                "Mit dieser Rechnung"
+                if label == f"Rechnung {number}"
+                else f"Mit der {label} vom {day:%d.%m.%Y}"
+            )
+            notes.append(
+                f"Durch diese Rechnung ändert sich etwas: {wer} lag dein Umsatz {year} über "
+                "100.000 €. Ab dort galt die Kleinunternehmerregelung (§ 19 UStG) nicht mehr. "
+                "Sprich bitte mit deiner Steuerberatung."
+            )
+    if year >= 2024:  # from 2025 on, last year's 25,000 € decide (2024 counts for 2025)
+        total = turnover(conn, year)
+        if total > LIMIT_LAST_YEAR >= total - net:
+            notes.append(
+                f"Damit lag dein Umsatz {year} über 25.000 €. {year + 1} bist du dann kein "
+                "Kleinunternehmer mehr. Prüf bitte die Einstellungen mit deiner Steuerberatung."
+            )
+    return notes
 
 
 _ISO_DAY = re.compile(r"\d{4}-\d{2}-\d{2}")

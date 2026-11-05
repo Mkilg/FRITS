@@ -73,7 +73,7 @@ from frits.billing import (
     copy_invoice,
     discard_draft,
     draft_totals,
-    earlier_limit_note,
+    earlier_limit_notes,
     limit_check,
     list_invoices,
     load_draft,
@@ -386,10 +386,6 @@ def kurzer_pfad(pfad: Path) -> str:
         return str(pfad)
 
 
-# A path segment that is a number too big for SQLite (more than 18 digits).
-_ZU_GROSS = re.compile(r"/\d{19,}(?=/|$)")
-
-
 def create_app(
     ws: Workspace | None = None,
     provider_factory: Callable[[Settings], object] | None = None,
@@ -534,17 +530,6 @@ def create_app(
         host = (request.headers.get("host") or "").rsplit(":", 1)[0]
         if host not in ("127.0.0.1", "localhost", "testserver"):
             return HTMLResponse("FRITS antwortet nur auf diesem Computer.", status_code=403)
-        # Lena (Runde 74): /reminders/99999999999999999999/pdf ended in an OverflowError (500)
-        # because SQLite stores at most 19 digits. Such a number is never a real entry.
-        if _ZU_GROSS.search(request.url.path):
-            response = page(
-                request,
-                "fehler.html",
-                titel="Diese Seite gibt es nicht",
-                text="Vielleicht ist sie umgezogen, oder der Link war nicht ganz vollständig.",
-            )
-            response.status_code = 404
-            return response
         return await call_next(request)
 
     @app.exception_handler(StarletteHTTPException)
@@ -565,6 +550,27 @@ def create_app(
         response = page(request, "fehler.html", titel=titel, text=text)
         response.status_code = exc.status_code
         return response
+
+    @app.exception_handler(OverflowError)
+    async def zu_grosse_zahl(request: Request, exc: OverflowError):
+        """Lena (Runde 74/75): /reminders/-99999999999999999999/pdf and the like ended in an
+        OverflowError (500), SQLite stores at most 19 digits. Such a number is never a real
+        entry, so it is a missing page."""
+        response = page(
+            request,
+            "fehler.html",
+            titel="Diese Seite gibt es nicht",
+            text="Vielleicht ist sie umgezogen, oder der Link war nicht ganz vollständig.",
+        )
+        response.status_code = 404
+        return response
+
+    def _jahr(year: int) -> int:
+        """A year FRITS can make sense of; anything else (0, -1, 1_000) is a missing page and
+        never writes files (Lena Runde 75)."""
+        if not 2000 <= year <= today().year + 1:
+            raise HTTPException(404)
+        return year
 
     @app.exception_handler(RequestValidationError)
     async def wrong_address(request: Request, exc: RequestValidationError):
@@ -595,7 +601,7 @@ def create_app(
         current = settings()
         if not current.setup_done and not current.is_complete:
             return back("/setup/welcome")
-        drafts = _open_drafts(conn, current)
+        drafts = _open_drafts(conn, current, today().year)
         invoices = list_invoices(conn, today())
         overdue = [i for i in invoices if i["status"] == "überfällig"]
         waiting = _inbox_files(ws)
@@ -1017,7 +1023,7 @@ def create_app(
 
     @app.get("/drafts", response_class=HTMLResponse)
     def drafts_page(request: Request):
-        return page(request, "drafts.html", drafts=_open_drafts(db(), settings()))
+        return page(request, "drafts.html", drafts=_open_drafts(db(), settings(), today().year))
 
     @app.post("/drafts/new", dependencies=guarded)
     async def drafts_new(request: Request):
@@ -1433,23 +1439,20 @@ def create_app(
             return back(retry)
         if folder:
             shutil.rmtree(folder, ignore_errors=True)  # filed with the invoices now, if a PDF
-        row = (
-            db()
-            .execute("SELECT gross, net, issue_date FROM invoices WHERE number = ?", (number,))
-            .fetchone()
-        )
+        row = db().execute("SELECT gross FROM invoices WHERE number = ?", (number,)).fetchone()
         flash(
             f"Rechnung {number} ist nachgetragen: {eur(Decimal(row['gross']))} brutto. "
             "Sie zählt jetzt in EÜR und Umsatzsteuer mit.",
             cue="done",
             stamp="Gebucht",
         )
-        grenze = earlier_limit_note(
-            db(), settings(), int(row["issue_date"][:4]), Decimal(row["net"])
-        )
-        if grenze:
-            # not "error": that would put the form values back after a successful entry
-            flash(grenze, link=("/settings#steuern", "Zu den Einstellungen"))
+        grenzen = earlier_limit_notes(db(), settings(), number)
+        if grenzen:
+            # "warnung", not "error": an error would put the form values back after a
+            # successful entry. And no jump to the invoice, or the note sits out of sight
+            # above it (Lena Runde 75).
+            flash(" ".join(grenzen), "warnung", link=("/settings#steuern", "Zu den Einstellungen"))
+            return back("/invoices")
         return back(f"/invoices#r-{number}")
 
     @app.get("/invoices/{number}/pdf")
@@ -1584,6 +1587,14 @@ def create_app(
             app.state.mailto_pdf = pdf_url
             # Lena (Runde 74): ein Angebot liegt in quotes/, nicht bei den Rechnungen
             app.state.mailto_ordner = "quotes" if table == "quotes" else "invoices"
+            # Lena (Runde 75): die Seite sagt, worum es geht
+            if table == "reminders":
+                zu = conn.execute(
+                    "SELECT invoice_number FROM reminders WHERE id = ?", (key,)
+                ).fetchone()
+                app.state.mailto_was = f"Erinnerung zu Rechnung {zu[0] if zu else ''}".strip()
+            else:
+                app.state.mailto_was = f"{'Angebot' if table == 'quotes' else 'Rechnung'} {key}"
             return back("/mailto")
         return back(url)
 
@@ -2310,7 +2321,7 @@ def create_app(
 
     @app.get("/euer", response_class=HTMLResponse)
     def euer_page(request: Request, year: int | None = None):
-        year = year or today().year - (1 if today().month <= 3 else 0)
+        year = _jahr(year) if year is not None else today().year - (1 if today().month <= 3 else 0)
         expenses.init_db(ws.db)
         db()  # make sure the invoices table exists
         summary = euer.summarize(ws.db, year, settings().tax_mode)
@@ -2320,6 +2331,7 @@ def create_app(
     def euer_export(year: int, kind: str):
         if kind not in ("csv", "pdf"):
             raise HTTPException(404)
+        _jahr(year)
         expenses.init_db(ws.db)
         db()
         summary = euer.summarize(ws.db, year, settings().tax_mode)
@@ -2332,6 +2344,7 @@ def create_app(
     def euer_buchungsliste(year: int):
         from frits.export import buchungsliste
 
+        _jahr(year)
         expenses.init_db(ws.db)
         db()
         path = buchungsliste(ws, year, ws.root / "euer")
@@ -2341,6 +2354,7 @@ def create_app(
     def euer_verfahrensdoku(year: int):
         from frits.export import verfahrensdoku
 
+        _jahr(year)
         path = verfahrensdoku(ws, year, ws.root / "euer", today())
         return FileResponse(path, filename=path.name)
 
@@ -2779,6 +2793,7 @@ def create_app(
             link=getattr(app.state, "mailto", ""),
             pdf_url=getattr(app.state, "mailto_pdf", ""),
             ordner=getattr(app.state, "mailto_ordner", "invoices"),
+            was=getattr(app.state, "mailto_was", ""),
         )
 
     @app.get("/ueber")
@@ -3091,18 +3106,26 @@ def _price_rows(form) -> list[dict]:
     return rows
 
 
-def _open_drafts(conn, current: Settings) -> list[dict]:
+def _open_drafts(conn, current: Settings, year: int | None = None) -> list[dict]:
     rows = conn.execute("SELECT * FROM drafts WHERE status = 'draft' ORDER BY id DESC").fetchall()
+    year = year or date.today().year
     result = []
     for row in rows:
         draft = Draft.from_json(row["data"])
+        sums = draft_totals(draft, current)
+        ready, grenze = not blockers(draft, current), False
+        if ready and draft.kind != "quote":
+            # Lena (Runde 75): over 100,000 € a draft is not "bereit", writing it would fail
+            grenze = bool(limit_check(conn, current, year, sums.net)[0])
+            ready = not grenze
         result.append(
             {
                 "id": row["id"],
                 "created": row["created"],
                 "draft": draft,
-                "sums": draft_totals(draft, current),
-                "ready": not blockers(draft, current),
+                "sums": sums,
+                "ready": ready,
+                "grenze": grenze,
             }
         )
     return result

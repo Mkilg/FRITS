@@ -386,3 +386,33 @@ def test_known_file_again_on_heute_has_no_nothing_new_note(client, ws):
     page = post(client, "/inbox/process").text
     assert "Sie wartet aufs Nachtragen" in page
     assert "nichts Neues" not in page
+
+
+def test_entering_an_invoice_that_moves_the_limit_says_so_where_it_is_seen(client, ws):
+    """Lena (Runde 75): the 100,000 € note after entering an earlier invoice stood out of
+    sight above the invoice and looked like a success. Now the page stays at the top and the
+    note looks like a warning, without putting the form back."""
+    from dataclasses import replace
+
+    from frits.settings import Settings as S
+
+    replace(S.load(ws.settings_file), tax_mode="kleinunternehmer").save(ws.settings_file)
+    conn = store.connect(ws.db)
+    conn.execute(
+        "INSERT INTO invoices (number, customer, issue_date, net, vat, gross)"
+        " VALUES ('2026-0001', 'x', '2026-06-01', '99900', '0', '99900')"
+    )
+    entered = post(
+        client,
+        "/invoices/frueher",
+        number="A-18",
+        customer="Radio Süd",
+        issue_date="2026-02-01",
+        net="500",
+        tax="klein",
+        bezahlt="nein",
+    )
+    assert "ist nachgetragen" in entered.text
+    assert 'class="flash warnung"' in entered.text
+    assert "Rechnung 2026-0001 vom 01.06.2026" in entered.text
+    assert str(entered.url).endswith("/invoices")
