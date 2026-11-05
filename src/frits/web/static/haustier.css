@@ -548,21 +548,23 @@ details[open] > summary::before { content: "▾ "; }
   .kassensturz-show .ks-regal .glas-koerper { height: 4rem; }
 }
 
-/* short windows: the buttons stay in reach while the show runs */
+/* The buttons stay in reach while the show runs, in every window (Lena R69: in tall windows
+   "Überspringen" was in sight 0 of 23 times, after the show "Noch einmal ansehen" lay under the
+   tab bar or below the edge). */
+.kassensturz-show .ks-aktionen { position: sticky; bottom: 0; z-index: 5; padding: 1rem 0 .5rem;
+  background: linear-gradient(180deg, transparent, var(--bg) 1rem); } /* opaque behind the buttons, text below did shine through */
+/* on that light ground the quiet buttons take paper ink, not the pale board colour (Lena R68: 1.18 : 1) */
+.kassensturz-show .ks-aktionen button.quiet { color: var(--muted-papier); text-decoration: underline; text-underline-offset: 3px; }
+.kassensturz-show .ks-aktionen button.quiet:hover { color: var(--ink-papier); }
+/* phones: the sticky buttons sit on top of the tab bar, not under it (Lena R67) */
+@media (max-width: 600px) {
+  body:has(nav.tabs) .kassensturz-show .ks-aktionen { bottom: calc(62px + env(safe-area-inset-bottom)); }
+}
+/* short windows: smaller cards, and room for the buttons below what comes into view */
 @media (max-height: 820px) {
-  .kassensturz-show .ks-aktionen { position: sticky; bottom: 0; z-index: 5; padding: 1rem 0 .5rem;
-    background: linear-gradient(180deg, transparent, var(--bg) 1rem); } /* opaque behind the buttons, text below did shine through */
-  /* on that light ground the quiet buttons take paper ink, not the pale board colour (Lena R68: 1.18 : 1) */
-  .kassensturz-show .ks-aktionen button.quiet { color: var(--muted-papier); text-decoration: underline; text-underline-offset: 3px; }
-  .kassensturz-show .ks-aktionen button.quiet:hover { color: var(--ink-papier); }
   .kassensturz-show .ks-ausbau, .kassensturz-show .ks-ergebnis, .kassensturz-show .ks-rechnung, .kassensturz-show .ks-tisch, .kassensturz-show .ks-karten .spielkarte { scroll-margin-bottom: 8rem; } /* not under the buttons and the tab bar */
   .kassensturz-show .ks-karten .spielkarte { width: 5.9rem; min-height: 7.6rem; }
   .kassensturz-show .ks-karten .karte-detail { display: none; }
-}
-/* low phones: the sticky buttons sit on top of the tab bar, not under it (Lena R67: on 390×664
-   "In den Laden" and "Zu Fritte" lay under the bar during the whole show) */
-@media (max-height: 820px) and (max-width: 600px) {
-  body:has(nav.tabs) .kassensturz-show .ks-aktionen { bottom: calc(62px + env(safe-area-inset-bottom)); }
 }
 
 /* ---------- a season festival: a string of pennants across the room ---------- */
@@ -610,7 +612,9 @@ details[open] > summary::before { content: "▾ "; }
 
 /* ---------- Tagesgericht: one small choice before the Kassensturz ---------- */
 .tagesgericht { border: 0; padding: 0; margin: 0 0 1rem; }
-.tagesgericht legend { font-family: var(--schrift); font-weight: 700; color: var(--eiche-tief); margin-bottom: .5rem; padding: 0; }
+.tagesgericht legend { font-family: var(--schrift); font-weight: 700; color: var(--eiche-tief); margin-bottom: .9rem; padding: 0; }
+/* the i's 44 px ring above the dish cards, so a tap on it never picks a dish (Lena R69: 44 × 41) */
+.tagesgericht legend .info-i { z-index: 2; }
 .tagesgericht legend .hint { font-family: inherit; font-weight: 400; display: block; }
 .gerichte { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: .6rem; }
 .gericht { position: relative; display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto auto; column-gap: .55rem;
