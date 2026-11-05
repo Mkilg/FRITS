@@ -6,11 +6,13 @@
 {# Lena (Runde 81): Was Fritte schon am Namen bezweifelt (etwa ein Sparkonto auf dem Geschäftskonto), bekommt kein „Ja, passt“ und zählt nicht für die Spürnase #}
 {% set am_namen = {} %}{% for f in lager %}{% if ahnungen[f.name].stueck and zweifel_am_namen is defined and not (stutzen is defined and f.name in stutzen) %}{% set z = zweifel_am_namen(f, jahr, ahnungen[f.name].stueck) %}{% if z %}{% set _ = am_namen.update({f.name: z}) %}{% endif %}{% endif %}{% endfor %}
 {% set sichere = [] %}{% for f in lager %}{% if ahnungen[f.name].stueck and f.name not in am_namen and not (stutzen is defined and f.name in stutzen) and not (schon_da is defined and schon_da(f, jahr)) and (aus_jahr is not defined or aus_jahr(f) in (none, jahr)) and not (fremdes_jahr is defined and fremdes_jahr(f.name, jahr, ahnungen[f.name].stueck.key)) %}{% set _ = sichere.append(f) %}{% endif %}{% endfor %}
+{# Lena (Runde 83): Ob auf einem Foto Text steht, prüft Fritte erst beim Stempeln. Darum „bis zu“ #}
+{% set fotos = [] %}{% for f in sichere %}{% if bild_endungen is defined and f.suffix.lower() in bild_endungen %}{% set _ = fotos.append(f) %}{% endif %}{% endfor %}
 {% if "spuernase" in helfer and sichere | length > 1 %}
 <form method="post" action="/steuer/{{ jahr }}/lager/vorschlaege" class="sq-spuernase" data-stempel="GESICHERT">
   <input type="hidden" name="token" value="{{ token }}">
   <input type="hidden" name="back" value="{{ zurueck }}">
-  <button class="sq-stempelknopf gruen">Spürnase: alle {{ sichere | length }} Vorschläge stempeln</button>
+  <button class="sq-stempelknopf gruen"{% if fotos %} title="Bei Fotos schaut Fritte erst, ob Text darauf steht"{% endif %}>Spürnase: {% if fotos %}bis zu{% else %}alle{% endif %} {{ sichere | length }} Vorschläge stempeln</button>
 </form>
 {% endif %}
 <div class="sq-stapel">
@@ -64,7 +66,7 @@
     <input type="hidden" name="name" value="{{ f.name }}">
     <input type="hidden" name="back" value="{{ zurueck }}">
     <input type="hidden" name="trotzdem" value="1">
-    <small>Fritte stutzt: {{ stutz.text }}</small>
+    <small>Fritte stutzt: {{ stutz.text }}{% if stutz.voll %} Die Karte hat schon etwas.{% endif %}</small>
     {% if stutz.besser_id %}<button name="stueck_id" value="{{ stutz.besser_id }}" class="sq-besser">Zu „{{ stutz.besser }}“</button>{% endif %}
     <button name="stueck_id" value="{{ stutz.stueck_id }}">Trotzdem zu „{{ stutz.karte }}“</button>
   </form>
@@ -75,8 +77,9 @@
     <input type="hidden" name="name" value="{{ f.name }}">
     <input type="hidden" name="back" value="{{ zurueck }}">
     <input type="hidden" name="trotzdem" value="1">
-    <small>Fritte stutzt: {{ vorab.text }}</small>
-    <button name="stueck_id" value="{{ spur.id }}">Trotzdem zu „{{ spur.name }}“{% if spur.status == "gesammelt" %} (hat schon was){% endif %}</button>
+    {# Lena (Runde 83): Der Dateiname steht schon am Zettel. Kurz, damit viele Kästen keine Wand werden #}
+    <small>Fritte stutzt: {{ vorab.kurz or vorab.text }}{% if spur.status == "gesammelt" %} Die Karte hat schon etwas.{% endif %}</small>
+    <button name="stueck_id" value="{{ spur.id }}">Trotzdem zu „{{ spur.name }}“</button>
   </form>
   {% elif spur and fj %}
   {# Lena (Runde 67): „Ja, passt“ stand auch bei „aus 2024?“. So landete der Riester-Brief in 2025 #}
