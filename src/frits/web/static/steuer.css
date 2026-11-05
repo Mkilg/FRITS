@@ -745,7 +745,7 @@ main:has(.sq-tisch) .flash { font-family: var(--schrift, Georgia); box-shadow: 0
 .sq-intro-knoepfe { display: flex; gap: 1rem; align-items: center; justify-content: center; flex-wrap: wrap; margin: 0; }
 .sq-siegelknopf.gross { font-size: var(--fs-gross); padding: 0.85rem 1.8rem; animation: sq-pochen 2.2s ease-in-out infinite; }
 .sq-intro-zurueck { color: var(--tinte); background: var(--papierkarte); padding: 0.45rem 0.9rem; border-radius: 2px; text-decoration: none; box-shadow: var(--karten-schatten); }
-.sq-intro-steuer { position: relative; z-index: 1; display: none; gap: 1rem; align-items: center; margin: 1.6rem 0 0; }
+.sq-intro-steuer { position: relative; z-index: 1; display: none; gap: 1rem; align-items: center; margin: 1.6rem 0 0; max-width: 100%; flex-wrap: wrap; justify-content: center; }
 .sq-intro-weiter { font: 700 var(--fs-text) var(--schrift); padding: 0.55rem 1.2rem; border-radius: 999px; border: 0; cursor: pointer; background: var(--papierkarte); color: var(--eiche-tief); box-shadow: 0 4px 0 #b39c68, 0 8px 16px rgba(0,0,0,.35); }
 .sq-intro-weiter kbd { font: 600 var(--fs-mini) system-ui, sans-serif; padding: 0.1rem 0.35rem; border: 1px solid #c9b88e; border-radius: 3px; margin-left: 0.4rem; color: #8a7a5c; }
 .sq-intro-skip { color: #ffe3a6; font-size: var(--fs-klein); text-shadow: 0 1px 3px #000; white-space: nowrap; }

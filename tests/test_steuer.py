@@ -1085,8 +1085,13 @@ def test_silber_ist_ehrlich_und_feste_gibt_es_nur_einmal(client, ws):
 def test_falsche_adressen_sind_freundlich(client, ws):
     seite = client.get("/steuer/abc")
     assert seite.status_code == 404 and "Diese Seite gibt es nicht" in seite.text
-    seite = client.get("/steuer/1999/drache", follow_redirects=False)
-    assert seite.status_code == 303 and seite.headers["location"] == "/steuer/1999/intro"
+    seite = client.get("/steuer/2023/drache", follow_redirects=False)
+    assert seite.status_code == 303 and seite.headers["location"] == "/steuer/2023/intro"
+    # Lena (Runde 75): ein Jahr ohne Sinn ist keine Quest-Seite
+    for adresse in ("/steuer/-1/intro", "/steuer/1999/drache", "/steuer/9999", "/steuer/0/belege"):
+        seite = client.get(adresse, follow_redirects=False)
+        assert seite.status_code == 404 and "Diese Seite gibt es nicht" in seite.text, adresse
+    assert not (ws.root / "steuer" / "-1").exists()
 
 
 def test_eingefuegter_text_heisst_nach_seinen_ersten_woertern():
