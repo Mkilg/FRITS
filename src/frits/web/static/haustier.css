@@ -559,6 +559,11 @@ details[open] > summary::before { content: "▾ "; }
 /* phones: the sticky buttons sit on top of the tab bar, not under it (Lena R67) */
 @media (max-width: 600px) {
   body:has(nav.tabs) .kassensturz-show .ks-aktionen { bottom: calc(62px + env(safe-area-inset-bottom)); }
+  /* one line, not two: with the tab bar the two-line bar took a quarter of the phone (Lena R70) */
+  .kassensturz-show .ks-aktionen { gap: .35rem; padding-top: .6rem; }
+  .kassensturz-show .ks-aktionen > * { font-size: 15px; padding-left: 10px; padding-right: 10px; min-height: 44px; }
+  .kassensturz-show .ks-aktionen button.quiet { padding-left: 6px; padding-right: 6px; }
+  .kassensturz-show .ks-aktionen .ks-lang { display: none; }
 }
 /* short windows: smaller cards, and room for the buttons below what comes into view */
 @media (max-height: 820px) {
