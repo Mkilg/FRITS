@@ -4825,3 +4825,61 @@ def test_runde_76_stutzen_ehrlich_und_spuernase_wartet(client, ws):
     css = client.get("/static/steuer.css").text
     assert "gap: 0.25rem; max-width: 100%; align-self: stretch" in css
     assert "-webkit-line-clamp: 3" not in css
+
+
+def test_runde_78_ehrliche_meldungen_und_spuernase_fragt_bei_privaten_konten(client, ws):
+    """Lena (Runde 78): Gleicher Name und Inhalt bekam keine eigene Meldung; ein echtes %0A
+    verschwand aus dem Namen; „Text einfügen“ legte Kopien an und schnitt mitten im Wort ab;
+    der Stutz-Zettel zeigte zwei Signale; die Spürnase legte Sparkonto-Auszüge still ab."""
+    from frits.steuer import pruefung
+    from frits.web.steuer import textname, upload_name
+
+    assert upload_name("a%0Ab.txt") == "a%0Ab.txt"
+    assert upload_name("Brief %22alt%22.pdf") == 'Brief "alt".pdf'
+    satz = "Rechnung Fahrradwerkstatt Oktober Freiburg Schraubenzieher Lenkerband"
+    lang = textname(satz)
+    assert lang.endswith(".txt") and len(lang) <= 52
+    assert all(w in satz.split(" ") for w in lang[: -len(".txt")].split(" "))
+
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    lager = quest.lager(ws.root)
+    lager.mkdir(parents=True, exist_ok=True)
+    # Derselbe Name, derselbe Inhalt: eine eigene, klare Meldung
+    (lager / "urlaubsfoto.png").write_bytes(b"strand")
+    sid = next(s for s in quest.stuecke(conn, 2025) if s["key"] == "steuer-id")
+    seite = post(client, f"/steuer/2025/stueck/{sid['id']}/datei",
+                 files={"datei": ("urlaubsfoto.png", b"strand", "image/png")}).text  # fmt: skip
+    assert "Es liegt schon im Eingangskorb." in seite and "dort heißt es" not in seite
+    assert sorted(d.name for d in quest.lager_dateien(ws.root)) == ["urlaubsfoto.png"]
+    # Der Zettel zeigt nur ein Signal
+    insel = client.get("/steuer/2025").text
+    zettel = insel.split('data-name="urlaubsfoto.png"', 1)[1].split("</summary>", 1)[0]
+    assert "Fritte fragt nach" in zettel and "Vielleicht" not in zettel
+    post(client, "/steuer/2025/lager/beiseite", name="urlaubsfoto.png")
+
+    # Derselbe Text zweimal eingefügt: ein Zettel und eine Meldung
+    post(client, "/steuer/2025/lager/hochladen", text="Quittung Bäckerei Müller 3,20 Euro")
+    seite = post(client, "/steuer/2025/lager/hochladen",
+                 text="Quittung Bäckerei Müller 3,20 Euro").text  # fmt: skip
+    assert "Genau diesen Text gibt es schon" in seite
+    assert len([d for d in quest.lager_dateien(ws.root) if d.suffix == ".txt"]) == 1
+
+    # Die Spürnase lässt private Konten liegen
+    for d in quest.lager_dateien(ws.root):
+        d.unlink()
+    (lager / "Sparkonto_Kontoauszug_2025.pdf").write_bytes(b"%PDF spar")
+    (lager / "Kreditkarte_Kontoauszug_Mai.pdf").write_bytes(b"%PDF kredit")
+    quest.verdiene(conn, 2025, "test", 50, "Testgold")
+    post(client, "/steuer/2025/markt/kaufen", ware="spuernase")
+    seite = post(client, "/steuer/2025/lager/vorschlaege").text
+    assert "2 Zettel hat sie liegen lassen" in seite
+    assert (lager / "Sparkonto_Kontoauszug_2025.pdf").exists()
+    assert (lager / "Kreditkarte_Kontoauszug_Mai.pdf").exists()
+
+    konto = next(s for s in quest.stuecke(conn, 2025) if s["key"] == "kontoauszuege")
+    z = pruefung.pruefe(Path("x"), "Tagesgeld 2025.pdf", konto, [konto], bild_lesen=False,
+                        quellen="Kontoauszug vom Geschäftskonto")  # fmt: skip
+    assert z is not None and z.grund == "privates_konto" and "Tagesgeld" in z.text
+    assert pruefung.pruefe(Path("x"), "Sparkasse Kontoauszug 2025.pdf", konto, [konto],
+                           bild_lesen=False) is None  # fmt: skip
