@@ -552,6 +552,9 @@ details[open] > summary::before { content: "▾ "; }
 @media (max-height: 820px) {
   .kassensturz-show .ks-aktionen { position: sticky; bottom: 0; z-index: 5; padding: 1rem 0 .5rem;
     background: linear-gradient(180deg, transparent, var(--bg) 1rem); } /* opaque behind the buttons, text below did shine through */
+  /* on that light ground the quiet buttons take paper ink, not the pale board colour (Lena R68: 1.18 : 1) */
+  .kassensturz-show .ks-aktionen button.quiet { color: var(--muted-papier); text-decoration: underline; text-underline-offset: 3px; }
+  .kassensturz-show .ks-aktionen button.quiet:hover { color: var(--ink-papier); }
   .kassensturz-show .ks-ausbau, .kassensturz-show .ks-ergebnis, .kassensturz-show .ks-rechnung, .kassensturz-show .ks-tisch, .kassensturz-show .ks-karten .spielkarte { scroll-margin-bottom: 8rem; } /* not under the buttons and the tab bar */
   .kassensturz-show .ks-karten .spielkarte { width: 5.9rem; min-height: 7.6rem; }
   .kassensturz-show .ks-karten .karte-detail { display: none; }
