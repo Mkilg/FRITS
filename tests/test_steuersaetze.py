@@ -174,3 +174,22 @@ def test_copying_an_invoice_makes_a_fresh_draft(tmp_path):
     storno, _ = cancel(conn, number, _settings(), tmp_path / "r", DAY)
     with pytest.raises(BillingError, match="Stornorechnung"):
         copy_invoice(conn, storno)
+
+
+def test_over_100k_says_one_thing_only(tmp_path):
+    """Lena (Runde 74): over 100,000 € the draft also said "dieses Jahr bleibst du
+    Kleinunternehmer". Now only the problem stays, and entering an earlier invoice that
+    crosses the line says so once."""
+    from frits.billing import earlier_limit_note
+
+    conn = store.connect(tmp_path / "frits.db")
+    klein = _settings(tax_mode="kleinunternehmer")
+    _issued(conn, 2026, 99_000)
+    problems, warnings = limit_check(conn, klein, 2026, Decimal(2000))
+    assert "100.000" in problems[0] and warnings == []
+    assert earlier_limit_note(conn, klein, 2026, Decimal(99_000)) is None
+    _issued(conn, 2026, 2_000)
+    assert "über 100.000 €" in earlier_limit_note(conn, klein, 2026, Decimal(2_000))
+    _issued(conn, 2026, 500)
+    assert earlier_limit_note(conn, klein, 2026, Decimal(500)) is None  # crossed before
+    assert earlier_limit_note(conn, _settings(), 2026, Decimal(2_000)) is None

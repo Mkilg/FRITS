@@ -73,6 +73,7 @@ from frits.billing import (
     copy_invoice,
     discard_draft,
     draft_totals,
+    earlier_limit_note,
     limit_check,
     list_invoices,
     load_draft,
@@ -385,6 +386,10 @@ def kurzer_pfad(pfad: Path) -> str:
         return str(pfad)
 
 
+# A path segment that is a number too big for SQLite (more than 18 digits).
+_ZU_GROSS = re.compile(r"/\d{19,}(?=/|$)")
+
+
 def create_app(
     ws: Workspace | None = None,
     provider_factory: Callable[[Settings], object] | None = None,
@@ -529,6 +534,17 @@ def create_app(
         host = (request.headers.get("host") or "").rsplit(":", 1)[0]
         if host not in ("127.0.0.1", "localhost", "testserver"):
             return HTMLResponse("FRITS antwortet nur auf diesem Computer.", status_code=403)
+        # Lena (Runde 74): /reminders/99999999999999999999/pdf ended in an OverflowError (500)
+        # because SQLite stores at most 19 digits. Such a number is never a real entry.
+        if _ZU_GROSS.search(request.url.path):
+            response = page(
+                request,
+                "fehler.html",
+                titel="Diese Seite gibt es nicht",
+                text="Vielleicht ist sie umgezogen, oder der Link war nicht ganz vollständig.",
+            )
+            response.status_code = 404
+            return response
         return await call_next(request)
 
     @app.exception_handler(StarletteHTTPException)
@@ -1417,13 +1433,23 @@ def create_app(
             return back(retry)
         if folder:
             shutil.rmtree(folder, ignore_errors=True)  # filed with the invoices now, if a PDF
-        row = db().execute("SELECT gross FROM invoices WHERE number = ?", (number,)).fetchone()
+        row = (
+            db()
+            .execute("SELECT gross, net, issue_date FROM invoices WHERE number = ?", (number,))
+            .fetchone()
+        )
         flash(
             f"Rechnung {number} ist nachgetragen: {eur(Decimal(row['gross']))} brutto. "
             "Sie zählt jetzt in EÜR und Umsatzsteuer mit.",
             cue="done",
             stamp="Gebucht",
         )
+        grenze = earlier_limit_note(
+            db(), settings(), int(row["issue_date"][:4]), Decimal(row["net"])
+        )
+        if grenze:
+            # not "error": that would put the form values back after a successful entry
+            flash(grenze, link=("/settings#steuern", "Zu den Einstellungen"))
         return back(f"/invoices#r-{number}")
 
     @app.get("/invoices/{number}/pdf")
@@ -1556,6 +1582,8 @@ def create_app(
             app.state.mailto = result.mailto
             # Lena (Runde 72): Am Handy gibt es keinen Ordner, also das PDF zum Herunterladen
             app.state.mailto_pdf = pdf_url
+            # Lena (Runde 74): ein Angebot liegt in quotes/, nicht bei den Rechnungen
+            app.state.mailto_ordner = "quotes" if table == "quotes" else "invoices"
             return back("/mailto")
         return back(url)
 
@@ -2750,6 +2778,7 @@ def create_app(
             "mailto.html",
             link=getattr(app.state, "mailto", ""),
             pdf_url=getattr(app.state, "mailto_pdf", ""),
+            ordner=getattr(app.state, "mailto_ordner", "invoices"),
         )
 
     @app.get("/ueber")

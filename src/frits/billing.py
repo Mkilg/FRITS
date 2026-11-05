@@ -282,12 +282,29 @@ def limit_check(conn, settings: Settings, year: int, adding: Decimal = Decimal(0
             f"{year - 1} hast du laut FRITS mehr als 25.000 € umgesetzt. Dann bist du {year} kein "
             "Kleinunternehmer mehr. Bitte prüfe deine Einstellungen mit deiner Steuerberatung."
         )
-    elif this + adding > LIMIT_LAST_YEAR:
+    elif LIMIT_LAST_YEAR < this + adding <= LIMIT_THIS_YEAR:
+        # Over 100,000 € the problem above already says what applies; "dieses Jahr bleibst du
+        # Kleinunternehmer" next to it contradicted it (Lena Runde 74).
         warnings.append(
             f"Dein Umsatz {year} liegt jetzt über 25.000 €. Dieses Jahr bleibst du Kleinunternehmer, "
             f"aber ab {year + 1} wohl nicht mehr. FRITS erinnert dich im Januar."
         )
     return problems, warnings
+
+
+def earlier_limit_note(conn, settings: Settings, year: int, net: Decimal) -> str | None:
+    """After entering an invoice from before FRITS: did exactly this one cross 100,000 €?
+    Nothing is blocked, the invoice was written long ago (Lena Runde 74)."""
+    if settings.tax_mode != "kleinunternehmer":
+        return None
+    total = turnover(conn, year)
+    if total > LIMIT_THIS_YEAR >= total - net:
+        return (
+            f"Mit dieser Rechnung lag dein Umsatz {year} über 100.000 €. Ab hier galt die "
+            "Kleinunternehmerregelung (§ 19 UStG) nicht mehr. Sprich bitte mit deiner "
+            "Steuerberatung und stell in den Einstellungen auf Regelbesteuerung um."
+        )
+    return None
 
 
 _ISO_DAY = re.compile(r"\d{4}-\d{2}-\d{2}")

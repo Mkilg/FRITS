@@ -10,7 +10,7 @@
     {% if mit_pdf %}
     {# Lena (Runde 72): Am Handy gibt es keinen Ordner, nur den Download #}
     {% if pdf_url %}<a class="button" href="{{ pdf_url }}" download>PDF herunterladen</a>{% endif %}
-    {% if not im_browser() %}<form method="post" action="/open/invoices"{% if pdf_url %} class="nur-maus"{% endif %}><input type="hidden" name="token" value="{{ token }}"><button>Rechnungsordner öffnen</button></form>{% endif %}
+    {% if not im_browser() %}<form method="post" action="/open/{{ ordner or 'invoices' }}"{% if pdf_url %} class="nur-maus"{% endif %}><input type="hidden" name="token" value="{{ token }}"><button>{{ "Angebotsordner" if ordner == "quotes" else "Rechnungsordner" }} öffnen</button></form>{% endif %}
     {% endif %}
   </div>
 </section>

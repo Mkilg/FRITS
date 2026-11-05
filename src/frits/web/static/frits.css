@@ -151,6 +151,10 @@ button:disabled { opacity: 0.5; cursor: wait; }
 .row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
 .actions { margin-top: 1rem; }
 .head-row { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+/* Lena (Runde 74): Ein Kundenname mit 99 Zeichen machte „Kunde wählen“ breiter als das Handy. */
+.head-row form { min-width: 0; max-width: 100%; }
+.head-row select { min-width: 0; max-width: min(24rem, 100%); text-overflow: ellipsis; font: inherit; color: var(--ink);
+  padding: 0.5rem 0.6rem; border: 1px solid #cdb98f; border-radius: 6px; background: #fffefa; }
 form { margin: 0; }
 .discard { margin-top: 0.6rem; text-align: right; }
 
@@ -690,6 +694,7 @@ fieldset.schon-bezahlt input[type=date] { flex: 0 1 12rem; }
 ul.wartet-frueher { list-style: none; padding-left: 0; }
 ul.wartet-frueher li { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
 
+.table.rechnungen .nur-karte { display: none; }
 /* Rechnungen am Handy (Lena Runde 69): jede Rechnung eine Karte. Nummer und Betrag oben,
    Kunde und Datum darunter, dann der Status und die Knöpfe in eigener Zeile. Vorher war
    die Tabelle 747 px breit und „Bezahlt am“ lag unsichtbar rechts neben dem Bildschirm. */
@@ -714,6 +719,7 @@ ul.wartet-frueher li { display: flex; flex-wrap: wrap; align-items: center; gap:
      Nummer, die das PDF öffnet, ist groß genug für den Daumen. */
   .table.rechnungen td.actions button.quiet { border-color: var(--line); }
   .table.rechnungen .r-nr a { display: inline-flex; align-items: center; min-height: 44px; }
+  .table.rechnungen .nur-karte { display: inline; }
 }
 
 /* Ausgaben am Handy: jede Ausgabe eine Zeile wie ein Kassenzettel (Bei + Betrag oben,

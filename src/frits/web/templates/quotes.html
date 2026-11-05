@@ -11,16 +11,16 @@
   </form>
 </div>
 {% if quotes %}
-<div class="table-wrap"><table class="table">
+<div class="table-wrap"><table class="table rechnungen">
   <thead><tr><th>Nummer</th><th>Kunde</th><th>Gültig bis</th><th class="amount">Betrag</th><th>Status</th><th></th></tr></thead>
   <tbody>
   {% for q in quotes %}
   <tr id="a-{{ q.number }}">
-    <td><a href="/quotes/{{ q.number }}/pdf" target="_blank">{{ q.number }}</a></td>
-    <td>{{ q.draft.customer_name }}</td>
-    <td>{{ q.valid_until | de_date }}</td>
+    <td class="r-nr"><a href="/quotes/{{ q.number }}/pdf" target="_blank">{{ q.number }}</a></td>
+    <td class="r-kunde">{{ q.draft.customer_name }}</td>
+    <td class="r-datum"><span class="nur-karte">gültig bis </span>{{ q.valid_until | de_date }}</td>
     <td class="amount">{{ q.gross | eur }}</td>
-    <td>
+    <td class="r-status">
       {% if q.status == "accepted" %}<span class="badge ok">angenommen</span>
       {% elif q.status == "declined" %}<span class="badge muted">abgelehnt</span>
       {% else %}<span class="badge todo">offen</span>{% endif %}
