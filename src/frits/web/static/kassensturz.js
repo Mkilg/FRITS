@@ -170,7 +170,11 @@
     if (banner && !gezeigt) {
       gezeigt = true;
       var zeigen = function () {
-        fahren(weg(banner));
+        // the first time's tip below it comes along, as long as the banner's top stays in sight
+        // (Lena R74/R75: on the Mac it lay under the button bar)
+        var dy = weg(banner), tipp = root.querySelector(".ks-tipp");
+        if (tipp) dy = Math.max(dy, Math.min(weg(tipp), banner.getBoundingClientRect().top - 12));
+        fahren(dy);
       };
       if (gestempelt === true) later(zeigen, 1600); else zeigen();
     }

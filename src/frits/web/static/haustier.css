@@ -463,6 +463,10 @@ details[open] > summary::before { content: "▾ "; }
 .sticker-zierde { font-size: var(--fs-mini); color: var(--tinte); }
 .ks-sticker .sticker-rund { width: 2.8rem; height: 2.8rem; font-size: var(--fs-titel); background: radial-gradient(circle at 35% 30%, #fff6d8, var(--gold)); border-color: var(--ocker-dunkel); }
 .laeuft .ks-sticker:not(.da) { visibility: hidden; }
+/* several new coins and their names don't fit side by side on a small phone: the text goes
+   below the coins instead of out of the box (Lena R75: 16 px too wide at 360) */
+.ks-sticker { flex-wrap: wrap; }
+.ks-sticker > div { flex: 1 1 11rem; min-width: 0; overflow-wrap: anywhere; }
 
 /* the Frittenbude: Fritte now works from a market stall with an awning and a counter */
 .zimmer.stufe-5 { background:
