@@ -427,6 +427,14 @@ input[type=checkbox], input[type=radio] { width: 1.15rem; height: 1.15rem; verti
 /* First setup: the logo left, "Später einrichten" on the right */
 .top > .brand + .top-actions { margin-left: auto; }
 
+/* Fritte-Thread/Lena (Runde 77): bei 320 px mit Musik-Knopf war jede Seite 25 px zu breit.
+   Unter 380 px zeigt der Musik-Knopf nur die Note; der Text bleibt für Screenreader da
+   (frits-sound.js tauscht ihn beim Spielen gegen „♪ Musik läuft“). */
+@media (max-width: 379px) {
+  .top-actions [data-frits-music-main] { font-size: 0; min-width: 44px; }
+  .top-actions [data-frits-music-main]::before { content: "♪"; font-size: var(--fs-text); }
+}
+
 /* Phone-sized windows: a compact header and a smaller Fritte */
 @media (max-width: 600px) {
   .top { padding: 0.35rem 0.75rem; gap: 0.2rem 0.6rem; }
