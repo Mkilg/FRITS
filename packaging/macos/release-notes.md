@@ -15,6 +15,16 @@ Sagt der Mac stattdessen, die App sei „beschädigt“: Terminal öffnen, `xatt
 
 Läuft ohne Internet, auf Macs mit Apple-Chip und Intel, ab macOS 13. Deine Daten liegen in `Dokumente/FRITS`, nicht im App-Ordner.
 
+### Neu in 1.7.9
+
+- **Kleinunternehmer-Grenzen genau:** Lag dein Umsatz im Vorjahr über 25.000 € oder in diesem Jahr über 100.000 €, schreibt FRITS keine Rechnung ohne Umsatzsteuer mehr. Die Meldung nennt die Rechnung, mit der die Grenze überschritten wurde, und welche Rechnungen berichtigt werden müssen. Ein Knopf führt zu den Einstellungen und danach zurück zum Entwurf.
+- **Nachtragen, Gutschriften, Storno:** Ältere Rechnungen, Gutschriften von Kunden und Stornos melden, wenn sie etwas an den Grenzen ändern.
+- **Entwurf am Handy:** Jede Position ist eine Karte mit „Entfernen“-Knopf, alle Felder sind lesbar.
+- **Kleine Handys:** Angebote als Karten, ruhigere Tab-Leiste, Musik-Knopf als ♪, der deutlich zeigt, ob Musik läuft.
+- **Bahn und Nahverkehr:** ICE, IC, FlixTrain, Deutschlandticket und Taxi schlagen 7 % vor.
+- **Steuer-Quest:** Ehrlichere Meldungen, Texte zum Kopieren und private Konten.
+- **Kassensturz:** Stempel-Funken und Truhenkasten passen auch auf kleine Bildschirme.
+
 ### Neu in 1.7.8
 
 - **Rechnungen am Handy:** Jede Rechnung ist eine Karte, alle Knöpfe passen ins Bild. Öffnet sich Mail nicht, lädst du das PDF direkt herunter.
