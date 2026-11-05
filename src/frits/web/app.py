@@ -75,6 +75,7 @@ from frits.billing import (
     draft_totals,
     earlier_limit_notes,
     limit_check,
+    limit_notes_after,
     list_invoices,
     load_draft,
     mark_paid,
@@ -1446,7 +1447,7 @@ def create_app(
             cue="done",
             stamp="Gebucht",
         )
-        grenzen = earlier_limit_notes(db(), settings(), number)
+        grenzen = earlier_limit_notes(db(), settings(), number, today())
         if grenzen:
             # "warnung", not "error": an error would put the form values back after a
             # successful entry. And no jump to the invoice, or the note sits out of sight
@@ -1757,7 +1758,7 @@ def create_app(
             rate = str(form.get("vat_rate", "19"))
             if rates and rate not in rates:
                 raise BillingError("Bitte den Steuersatz von der Gutschrift wählen.")
-            gutschriften.add(
+            credit_id = gutschriften.add(
                 db(),
                 customer_id=customer.id,
                 customer=customer.display_name,
@@ -1781,6 +1782,24 @@ def create_app(
             cue="done",
             stamp="Gebucht",
         )
+        # Lena (Runde 78b): a Gutschrift counts towards the § 19 limits like an invoice
+        credit = (
+            db()
+            .execute("SELECT their_number, issue_date, net FROM credits WHERE id = ?", (credit_id,))
+            .fetchone()
+        )
+        grenzen = limit_notes_after(
+            db(),
+            settings(),
+            f"c:{credit_id}",
+            f"Gutschrift {credit[0]}",
+            date.fromisoformat(credit[1][:10]),
+            Decimal(credit[2]),
+            today(),
+        )
+        if grenzen:
+            flash(" ".join(grenzen), "warnung", link=("/settings#steuern", "Zu den Einstellungen"))
+            return back(f"/customers/{customer.id}")
         return back(url)
 
     @app.post("/gutschriften/{credit_id}/bezahlt", dependencies=guarded)
@@ -2059,7 +2078,7 @@ def create_app(
 
     @app.get("/expenses", response_class=HTMLResponse)
     def expenses_page(request: Request, year: int | None = None, receipt: int | None = None):
-        year = year or today().year
+        year = _jahr(year) if year is not None else today().year
         conn = db()
         receipts = open_receipts(conn)
         chosen = next((r for r in receipts if r["id"] == receipt), None)

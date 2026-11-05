@@ -152,13 +152,16 @@ _ABROAD = re.compile(
 
 
 # Things that carry 7 % (§ 12 Abs. 2 UStG with Anlage 2): books, e-books, newspapers and
-# magazines (Nr. 1, 14), and bus and train tickets (Nr. 10). Used only when the receipt
-# prints no rate itself, so "MwSt 19 %" on it always wins.
+# magazines (Nr. 1, 14), and bus and train tickets (Nr. 10): rail always, local transport
+# and taxis within the town or up to 50 km (a guess FRITS makes for BVG and taxis). Used
+# only when the receipt prints no rate itself, so "MwSt 19 %" on it always wins.
 _RATE = re.compile(r"(?<![\d,.])(19|7)(?:[,.]0{1,2})?\s*%")
 _REDUCED = re.compile(
     r"\b(fach|hör)?(buch|bücher|buecher)\b|\bfachliteratur|\be-?books?\b|\bzeitschrift|"
-    r"\bzeitung|\bbuchhandlung|\bfahrkarte|\bfahrschein|\bdeutsche bahn\b|\bdb\b(?!\s*schenker)"
-    r"|\bbahncard|\bice\b(?!\s*cream)|\bic\b|\bintercity|flixtrain|\bdeutschlandticket",
+    r"\bzeitung|\bbuchhandlung|\bfahrkarte|\bfahrschein|\bdeutsche bahn\b"
+    r"|\bdb\b(?![\s-]*(?:schenker|cargo))"
+    r"|\bbahncard|\bice\b(?![\s-]*cream)|\bic\b(?![\s-]*markets)|\bintercity|flixtrain"
+    r"|\bdeutschlandticket|\bbvg\b|\bmvg\b|\bhvv\b|\bkvb\b|\bvrr\b|\btaxi",
     re.IGNORECASE,
 )
 
@@ -239,8 +242,8 @@ _CATEGORY_WORDS = (
     (
         "reisekosten",
         (
-            r"deutsche bahn|\bdb\b(?!\s*schenker)|fahrkarte|bahncard|ticket|flixbus|fernbus"
-            r"|flixtrain|intercity|\bice\b(?!\s*cream)|\bic\b|hotel"
+            r"deutsche bahn|\bdb\b(?![\s-]*(?:schenker|cargo))|fahrkarte|bahncard|ticket|flixbus|fernbus"
+            r"|flixtrain|intercity|\bice\b(?![\s-]*cream)|\bic\b(?![\s-]*markets)|hotel"
             r"|übernachtung|parkhaus|parkschein|taxi|flug|lufthansa|\bbvg\b|\bmvg\b|\bhvv\b"
         ),
     ),

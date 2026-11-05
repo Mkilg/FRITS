@@ -35,9 +35,9 @@
   {% set d = (ready_drafts or drafts)[0] %}
   <h2>{% if d.ready %}Rechnung an {{ d.draft.customer_name or "deinen Kunden" }} ist fertig{% else %}Ein Entwurf braucht dich{% endif %}</h2>
   <p>{% if d.sums.gross %}{{ d.sums.gross | eur }}{% if d.draft.customer_name and not d.ready %} für {{ d.draft.customer_name }}{% endif %}. {% endif %}
-    {% if d.ready %}Einmal drüberschauen, dann ist sie raus.{% elif d.grenze %}Sie liegt über der 100.000-€-Grenze und braucht Umsatzsteuer.{% else %}Eine Angabe fehlt noch.{% endif %}
+    {% if d.ready %}Einmal drüberschauen, dann ist sie raus.{% elif d.grenze %}Sie braucht Umsatzsteuer, weil du kein Kleinunternehmer mehr bist.{% else %}Eine Angabe fehlt noch.{% endif %}
     {% if drafts | length > 1 %}<span class="muted">Danach {{ "wartet noch einer" if drafts | length == 2 else "warten noch " ~ (drafts | length - 1) }}.</span>{% endif %}</p>
-  <a class="button primary" href="/drafts/{{ d.id }}">{{ "Ansehen und fertig machen" if d.ready else "Ergänzen" }}</a>
+  <a class="button primary" href="/drafts/{{ d.id }}">{{ "Ansehen und fertig machen" if d.ready else ("Ansehen" if d.grenze else "Ergänzen") }}</a>
   {% elif naechstes == "erinnern" %}
   {% set i = overdue[0] %}
   <h2>{{ i.customer }} hat noch nicht bezahlt</h2>

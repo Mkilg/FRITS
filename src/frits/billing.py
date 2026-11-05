@@ -265,14 +265,69 @@ def turnover(conn, year: int) -> Decimal:
 
 
 _SWITCH = (
-    "Stell in den Einstellungen auf Regelbesteuerung um und sprich am besten kurz mit deiner "
-    "Steuerberatung."
+    "Stell in den Einstellungen unter „Steuern“ auf „Mit Umsatzsteuer“ um und sprich am besten "
+    "kurz mit deiner Steuerberatung."
 )
+
+
+def _natural(text: str) -> tuple:
+    """ "2025-9" before "2025-10": numbers inside a text count as numbers (Lena Runde 78b)."""
+    return tuple(
+        (0, int(part), "") if part.isdigit() else (1, 0, part)
+        for part in re.split(r"(\d+)", text)
+        if part
+    )
+
+
+def _year_items(conn, year: int) -> list[tuple]:
+    """Everything that counts towards a year's turnover, in the order it was written:
+    (sort key, key, label, day, net). A Storno counts right after the invoice it cancels,
+    so the two cancel out instead of the Storno landing months later (Lena Runde 78b)."""
+    items = []
+    for number, issued, net, cancels in conn.execute(
+        "SELECT number, issue_date, net, cancels FROM invoices WHERE substr(issue_date, 1, 4) = ?",
+        (str(year),),
+    ).fetchall():
+        day = date.fromisoformat(issued[:10])
+        sort_day, base, storno = day, number, 0
+        if cancels:
+            original = conn.execute(
+                "SELECT issue_date FROM invoices WHERE number = ?", (cancels,)
+            ).fetchone()
+            if original and original[0][:4] == str(year):
+                sort_day, base, storno = date.fromisoformat(original[0][:10]), cancels, 1
+        items.append(
+            (
+                (sort_day, _natural(base), storno),
+                f"r:{number}",
+                f"Rechnung {number}",
+                day,
+                Decimal(net),
+            )
+        )
+    for c in gutschriften.listing(conn, start=date(year, 1, 1), end=date(year, 12, 31)):
+        label = f"Gutschrift {c.their_number}"
+        items.append(((c.issue_date, _natural(label), 0), f"c:{c.id}", label, c.issue_date, c.net))
+    return sorted(items, key=lambda item: item[0])
+
+
+def limit_crossing(conn, year: int, without: str | None = None) -> tuple[str, date] | None:
+    """The invoice (or Gutschrift) with which the year's turnover first went over 100,000 €,
+    in the order they were written. `without` ("r:<number>" or "c:<id>") leaves one out."""
+    total = Decimal(0)
+    for _, key, label, day, net in _year_items(conn, year):
+        if key == without:
+            continue
+        total += net
+        if total > LIMIT_THIS_YEAR:
+            return label, day
+    return None
 
 
 def limit_check(conn, settings: Settings, year: int, adding: Decimal = Decimal(0)):
     """§ 19 UStG limits for Kleinunternehmer. Returns (blocking problems, gentle warnings).
-    `adding` is the draft about to become an invoice; 0 means nothing is being added."""
+    `adding` is the draft about to become an invoice; 0 means nothing is being added.
+    A problem means: as Kleinunternehmer this invoice would be wrong, so it is not written."""
     if settings.tax_mode != "kleinunternehmer":
         return [], []
     last, this = turnover(conn, year - 1), turnover(conn, year)
@@ -280,30 +335,27 @@ def limit_check(conn, settings: Settings, year: int, adding: Decimal = Decimal(0
     problems, warnings = [], []
     # One message only: two that contradict each other ("dieses Jahr bleibst du" next to
     # "ab dieser Rechnung nicht mehr") confused more than they helped (Lena Runde 74/75).
-    if after > LIMIT_THIS_YEAR:
-        if last > LIMIT_LAST_YEAR:
-            text = (
-                f"{year - 1} lag dein Umsatz über 25.000 €, damit bist du {year} kein "
-                f"Kleinunternehmer. Mit dieser Rechnung kommst du {year} außerdem über "
-                "100.000 €. Sie braucht Umsatzsteuer. "
-            )
-        elif this > LIMIT_THIS_YEAR:
-            text = (
-                f"Dein Umsatz {year} liegt schon über 100.000 €. Seit der Rechnung, mit der du "
-                "darüber kamst, giltst du nicht mehr als Kleinunternehmer (§ 19 UStG) und "
-                "musst Umsatzsteuer ausweisen. "
-            )
-        else:
-            text = (
-                f"Mit dieser Rechnung kommst du {year} über 100.000 € Umsatz. Ab dieser Rechnung "
-                "giltst du nicht mehr als Kleinunternehmer (§ 19 UStG) und musst Umsatzsteuer "
-                "ausweisen. "
-            )
-        problems.append(text + _SWITCH)
-    elif last > LIMIT_LAST_YEAR:
-        warnings.append(
-            f"{year - 1} hast du laut FRITS mehr als 25.000 € umgesetzt. Dann bist du {year} kein "
-            "Kleinunternehmer mehr. Bitte prüfe deine Einstellungen mit deiner Steuerberatung."
+    if last > LIMIT_LAST_YEAR:
+        # Lena (Runde 78b): FRITS said "2026 kein Kleinunternehmer" and still wrote an invoice
+        # "gemäß § 19 UStG". That invoice would be wrong, so it stops here like at 100,000 €.
+        problems.append(
+            f"{year - 1} lag dein Umsatz laut FRITS über 25.000 €. Damit bist du {year} kein "
+            "Kleinunternehmer (§ 19 UStG), und diese Rechnung braucht Umsatzsteuer. " + _SWITCH
+        )
+    elif this > LIMIT_THIS_YEAR:
+        crossing = limit_crossing(conn, year)
+        seit = f" seit der {crossing[0]} vom {crossing[1]:%d.%m.%Y}" if crossing else ""
+        problems.append(
+            f"Dein Umsatz {year} liegt{seit} über 100.000 €. Seitdem giltst du nicht mehr als "
+            "Kleinunternehmer (§ 19 UStG): Diese Rechnung braucht Umsatzsteuer, und die "
+            f"Rechnungen ab dort müssen berichtigt werden. {year + 1} bist du auch kein "
+            "Kleinunternehmer. " + _SWITCH
+        )
+    elif after > LIMIT_THIS_YEAR:
+        problems.append(
+            f"Mit dieser Rechnung kommst du {year} über 100.000 € Umsatz. Ab dieser Rechnung "
+            "giltst du nicht mehr als Kleinunternehmer (§ 19 UStG) und musst Umsatzsteuer "
+            f"ausweisen, {year + 1} auch. " + _SWITCH
         )
     elif after > LIMIT_LAST_YEAR:
         anfang = (
@@ -314,7 +366,7 @@ def limit_check(conn, settings: Settings, year: int, adding: Decimal = Decimal(0
         if last:
             rest = (
                 f" Dieses Jahr bleibst du Kleinunternehmer, ab {year + 1} wohl nicht mehr. "
-                "Stell dann im Januar in den Einstellungen auf Regelbesteuerung um."
+                "Stell dann im Januar in den Einstellungen auf „Mit Umsatzsteuer“ um."
             )
         else:
             # FRITS knows no turnover from last year, so this may be the founding year, in
@@ -328,66 +380,81 @@ def limit_check(conn, settings: Settings, year: int, adding: Decimal = Decimal(0
     return problems, warnings
 
 
-def limit_crossing(conn, year: int, without: str | None = None) -> tuple[str, date] | None:
-    """The invoice (or Gutschrift) with which the year's turnover first went over 100,000 €,
-    in the order they were written. `without` leaves one invoice out, to compare."""
-    items = [
-        (date.fromisoformat(row[1][:10]), f"Rechnung {row[0]}", row[0], Decimal(row[2]))
-        for row in conn.execute(
-            "SELECT number, issue_date, net FROM invoices WHERE substr(issue_date, 1, 4) = ?",
-            (str(year),),
-        ).fetchall()
-    ]
-    items += [
-        (c.issue_date, f"Gutschrift {c.their_number}", None, c.net)
-        for c in gutschriften.listing(conn, start=date(year, 1, 1), end=date(year, 12, 31))
-    ]
-    total = Decimal(0)
-    for day, label, number, net in sorted(items, key=lambda item: (item[0], item[1])):
-        if number is not None and number == without:
-            continue
-        total += net
-        if total > LIMIT_THIS_YEAR:
-            return label, day
+def _prior_limit(year: int) -> Decimal | None:
+    """The turnover of `year` above which the next year was no Kleinunternehmer year:
+    25,000 € from 2024 on (counts for 2025), 22,000 € for 2020 to 2023."""
+    if year >= 2024:
+        return LIMIT_LAST_YEAR
+    if year >= 2020:
+        return Decimal(22_000)
     return None
 
 
-def earlier_limit_notes(conn, settings: Settings, number: str) -> list[str]:
-    """After entering an invoice from before FRITS: which limit did it change? Nothing is
-    blocked, the invoice was written long ago (Lena Runde 74/75). The 100,000 € line counts
-    in the order the invoices were written, so an early invoice can make a later one the one
-    that crossed it. Before 2025 other limits applied without a switch during the year."""
+def limit_notes_after(
+    conn, settings: Settings, key: str, label: str, day: date, net: Decimal, today: date
+) -> list[str]:
+    """After entering something from the past (an invoice from before FRITS, a Gutschrift
+    from a customer): which limit did it change? Nothing is blocked, it was written long ago
+    (Lena Runde 74/75/78b). The 100,000 € line counts in the order things were written, so an
+    early invoice can make a later one the one that crossed it. Before 2025 there was no
+    switch during the year."""
     if settings.tax_mode != "kleinunternehmer":
         return []
+    year = day.year
+    jetzt = year == today.year
+    notes = []
+    if year >= 2025:
+        before, after = limit_crossing(conn, year, without=key), limit_crossing(conn, year)
+        if after and after != before:
+            wer, tag = after
+            wer = (
+                f"Mit dieser {label.split()[0]}"
+                if wer == label
+                else f"Mit der {wer} vom {tag:%d.%m.%Y}"
+            )
+            notes.append(
+                f"Damit ändert sich etwas: {wer} {'liegt' if jetzt else 'lag'} dein Umsatz {year} "
+                "über 100.000 €. Ab dort gilt die Kleinunternehmerregelung (§ 19 UStG) nicht "
+                f"mehr: Die Rechnungen ab dort brauchen Umsatzsteuer und müssen berichtigt "
+                f"werden, und {year + 1} bist du auch kein Kleinunternehmer. Sprich bitte mit "
+                "deiner Steuerberatung."
+            )
+    grenze = _prior_limit(year)
+    if grenze is not None and not notes:
+        total = turnover(conn, year)
+        if total > grenze >= total - net:
+            betrag = f"{grenze:,.0f}".replace(",", ".")
+            text = (
+                f"Damit {'liegt' if jetzt else 'lag'} dein Umsatz {year} über {betrag} €. "
+                f"{year + 1} {'bist' if year + 1 >= today.year else 'warst'} du dann kein "
+                "Kleinunternehmer."
+            )
+            if jetzt and year >= 2025 and not turnover(conn, year - 1):
+                # Maybe the founding year: then 25,000 € already count for this very year.
+                text += (
+                    f" Hast du erst {year} angefangen, gilt die Grenze schon jetzt, ab der "
+                    "Rechnung, mit der du darüber kamst."
+                )
+            notes.append(text + " Prüf bitte die Einstellungen mit deiner Steuerberatung.")
+    return notes
+
+
+def earlier_limit_notes(conn, settings: Settings, number: str, today: date) -> list[str]:
+    """limit_notes_after for an invoice entered from before FRITS."""
     row = conn.execute(
         "SELECT issue_date, net FROM invoices WHERE number = ?", (number,)
     ).fetchone()
     if row is None:
         return []
-    year, net = int(row[0][:4]), Decimal(row[1])
-    notes = []
-    if year >= 2025:
-        before, after = limit_crossing(conn, year, without=number), limit_crossing(conn, year)
-        if after and after != before:
-            label, day = after
-            wer = (
-                "Mit dieser Rechnung"
-                if label == f"Rechnung {number}"
-                else f"Mit der {label} vom {day:%d.%m.%Y}"
-            )
-            notes.append(
-                f"Durch diese Rechnung ändert sich etwas: {wer} lag dein Umsatz {year} über "
-                "100.000 €. Ab dort galt die Kleinunternehmerregelung (§ 19 UStG) nicht mehr. "
-                "Sprich bitte mit deiner Steuerberatung."
-            )
-    if year >= 2024:  # from 2025 on, last year's 25,000 € decide (2024 counts for 2025)
-        total = turnover(conn, year)
-        if total > LIMIT_LAST_YEAR >= total - net:
-            notes.append(
-                f"Damit lag dein Umsatz {year} über 25.000 €. {year + 1} bist du dann kein "
-                "Kleinunternehmer mehr. Prüf bitte die Einstellungen mit deiner Steuerberatung."
-            )
-    return notes
+    return limit_notes_after(
+        conn,
+        settings,
+        f"r:{number}",
+        f"Rechnung {number}",
+        date.fromisoformat(row[0][:10]),
+        Decimal(row[1]),
+        today,
+    )
 
 
 _ISO_DAY = re.compile(r"\d{4}-\d{2}-\d{2}")
@@ -1004,15 +1071,19 @@ def invoice_status(row, today: date | None = None) -> str:
 def list_invoices(conn, today: date | None = None) -> list[dict]:
     rows = conn.execute(
         "SELECT i.*, c.number AS cancelled_by,"
+        # A Storno of an entered invoice shares its draft but was written in FRITS
+        " CASE WHEN i.cancels IS NULL THEN"
         " (SELECT json_extract(d.data, '$.earlier') FROM drafts d WHERE d.id = i.draft_id)"
-        " AS earlier,"
+        " END AS earlier,"
         " (SELECT o.paid_date FROM invoices o WHERE o.number = i.cancels) AS original_paid,"
         " (SELECT COUNT(*) FROM reminders r WHERE r.invoice_number = i.number) AS reminders,"
         " (SELECT MAX(r.new_due_date) FROM reminders r WHERE r.invoice_number = i.number)"
         " AS reminded_until"
         " FROM invoices i LEFT JOIN invoices c ON c.cancels = i.number"
-        " ORDER BY i.number DESC"
     ).fetchall()
+    # Newest first by date, and "2026-10" after "2026-9" within a day (Lena Runde 78b: the
+    # text order put 2026-10 before 2026-9 and entered invoices anywhere).
+    rows = sorted(rows, key=lambda r: (r["issue_date"], _natural(r["number"])), reverse=True)
     return [{**dict(row), "status": invoice_status(row, today)} for row in rows]
 
 

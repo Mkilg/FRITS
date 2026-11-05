@@ -62,11 +62,11 @@
         <tbody>
         {% for line in draft.lines %}
           <tr class="{{ 'needs' if line.unit_price is none }}">
-            <td><input name="description" value="{{ line.description }}" {{ "readonly" if not editable }}></td>
-            <td><input name="date" value="{{ line.date or '' }}" size="10" {{ "readonly" if not editable }}></td>
-            <td><input name="quantity" value="{{ line.quantity | qty }}" size="5" inputmode="decimal" {{ "readonly" if not editable }}></td>
-            <td><select name="unit" {{ "disabled" if not editable }}>{% for u in units %}<option {{ "selected" if u == line.unit }}>{{ u }}</option>{% endfor %}</select></td>
-            <td>
+            <td class="l-leistung" data-k="Leistung"><input name="description" value="{{ line.description }}" {{ "readonly" if not editable }}></td>
+            <td class="l-datum" data-k="Datum"><input name="date" value="{{ line.date or '' }}" size="10" {{ "readonly" if not editable }}></td>
+            <td class="l-menge" data-k="Menge"><input name="quantity" value="{{ line.quantity | qty }}" size="5" inputmode="decimal" {{ "readonly" if not editable }}></td>
+            <td class="l-einheit" data-k="Einheit"><select name="unit" {{ "disabled" if not editable }}>{% for u in units %}<option {{ "selected" if u == line.unit }}>{{ u }}</option>{% endfor %}</select></td>
+            <td class="l-preis" data-k="Einzelpreis">
               <input name="price" value="{{ line.unit_price | price_in }}" size="7" inputmode="decimal" placeholder="Preis?" {{ "readonly" if not editable }}>
               {% if line.stated_price is not none and "stated_price_needs_ok" in line.flags and not draft.warnings %}
               <button type="button" class="tiny" data-fill="{{ line.stated_price | qty }}" title="Diesen Preis übernehmen">Im Text: {{ line.stated_price | eur }} übernehmen</button>
@@ -75,19 +75,19 @@
               {% if "price_not_in_text" in line.flags %}<small class="note">Preis der KI stand nicht im Text, ignoriert.</small>{% endif %}
               {% if "quantity_unusual" in line.flags %}<small class="note">Ungewöhnliche Menge, bitte prüfen.</small>{% endif %}
             </td>
-            {% if rate_column %}<td>{{ rate_select(line.vat_rate) }}</td>{% endif %}
-            <td class="amount">{{ line.net | eur if line.net is not none else "" }}</td>
+            {% if rate_column %}<td class="l-ust" data-k="USt">{{ rate_select(line.vat_rate) }}</td>{% endif %}
+            <td class="amount" data-k="Betrag">{{ line.net | eur if line.net is not none else "" }}</td>
           </tr>
         {% endfor %}
         {% if editable %}
           <tr class="blank">
-            <td><input name="description" placeholder="Neue Position"></td>
-            <td><input name="date" size="10"></td>
-            <td><input name="quantity" size="5" inputmode="decimal"></td>
-            <td><select name="unit">{% for u in units %}<option>{{ u }}</option>{% endfor %}</select></td>
-            <td><input name="price" size="7" inputmode="decimal"></td>
-            {% if rate_column %}<td>{{ rate_select(none) }}</td>{% endif %}
-            <td></td>
+            <td class="l-leistung" data-k="Leistung"><input name="description" placeholder="Neue Position"></td>
+            <td class="l-datum" data-k="Datum"><input name="date" size="10"></td>
+            <td class="l-menge" data-k="Menge"><input name="quantity" size="5" inputmode="decimal"></td>
+            <td class="l-einheit" data-k="Einheit"><select name="unit">{% for u in units %}<option>{{ u }}</option>{% endfor %}</select></td>
+            <td class="l-preis" data-k="Einzelpreis"><input name="price" size="7" inputmode="decimal"></td>
+            {% if rate_column %}<td class="l-ust" data-k="USt">{{ rate_select(none) }}</td>{% endif %}
+            <td class="amount" data-k="Betrag"></td>
           </tr>
         {% endif %}
         </tbody>
@@ -131,9 +131,9 @@
       {% if problems %}
       <div class="problems">
         <h3>Bevor daraus {{ "ein Angebot" if is_quote else "eine Rechnung" }} wird</h3>
-        <ul>{% for p in problems %}<li{% if p.startswith("Die Rechnung hat keine Positionen") %} data-gone-when="lines"{% elif p.startswith("Kunde mit Adresse fehlt") %} data-gone-when="customer"{% elif p.startswith(("Deine eigenen Angaben", "Für Reverse Charge in der EU", "Deine Steuernummer")) %} data-elsewhere{% elif p.startswith("Für Reverse Charge fehlt") %} data-elsewhere="customer"{% endif %}>{{ p }}</li>{% endfor %}</ul>
-        {# Lena (Runde 72): Der Hinweis zur 100.000-€-Grenze führt direkt zur Umstellung #}
-        {% for p in problems if "über 100.000 €" in p %}<p><a class="button" href="/settings#steuern">Zu den Einstellungen</a></p>{% endfor %}
+        <ul>{% for p in problems %}<li{% if p.startswith("Die Rechnung hat keine Positionen") %} data-gone-when="lines"{% elif p.startswith("Kunde mit Adresse fehlt") %} data-gone-when="customer"{% elif p.startswith(("Deine eigenen Angaben", "Für Reverse Charge in der EU", "Deine Steuernummer")) %} data-elsewhere{% elif p.startswith("Für Reverse Charge fehlt") %} data-elsewhere="customer"{% elif "(§ 19 UStG)" in p %} data-elsewhere{% endif %}>{{ p }}</li>{% endfor %}</ul>
+        {# Lena (Runde 72/78b): Ein Hinweis zu den Kleinunternehmer-Grenzen führt direkt zur Umstellung #}
+        {% for p in problems if "(§ 19 UStG)" in p %}<p><a class="button" href="/settings#steuern">Zu den Einstellungen</a></p>{% endfor %}
       </div>
       {% endif %}
 

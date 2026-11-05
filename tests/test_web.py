@@ -1404,3 +1404,24 @@ def test_odd_spellings_of_numbers_are_missing_pages(client, ws):
     ):
         assert client.get(url).status_code == 404, url
     assert not (ws.root / "euer").exists() or not list((ws.root / "euer").iterdir())
+
+
+def test_draft_cards_and_limit_hints_on_the_draft(client, ws):
+    """Lena (Runde 78b): on the phone every draft line is a card with labelled fields, a
+    § 19 hint is marked as "solved elsewhere" (so no "jetzt erstellen?") and has the button
+    to the settings, and /expenses?year=-1 is a missing page."""
+    from dataclasses import replace
+
+    replace(Settings.load(ws.settings_file), tax_mode="kleinunternehmer").save(ws.settings_file)
+    conn = store.connect(ws.db)
+    conn.execute(
+        "INSERT INTO invoices (number, customer, issue_date, net, vat, gross)"
+        " VALUES ('2025-0001', 'x', '2025-06-01', '30000', '0', '30000')"
+    )
+    post(client, "/drafts/new", customer="erika-meier")
+    page = client.get(f"/drafts/{latest_draft(ws)}").text
+    for label in ("Leistung", "Datum", "Menge", "Einheit", "Einzelpreis", "Betrag"):
+        assert f'data-k="{label}"' in page, label
+    assert re.search(r"<li data-elsewhere>2025 lag dein Umsatz laut FRITS über 25\.000 €", page)
+    assert 'href="/settings#steuern"' in page
+    assert client.get("/expenses?year=-1").status_code == 404
