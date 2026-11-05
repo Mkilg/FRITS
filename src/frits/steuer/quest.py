@@ -1049,7 +1049,18 @@ def _umzug(conn: sqlite3.Connection, jahr: int) -> None:
     grund = f"quest:{jahr}:umzug"
     if stand.beutel_gebucht(conn, grund) is not None:
         return
-    conn.execute("UPDATE steuer_gold SET betrag = betrag / 3 WHERE jahr = ?", (jahr,))
+    # Lena (Runde 68): je Zeile abgerundet wurden aus 3 + 4 + 5 Gold nur 3 Salz statt 4. Die
+    # Summe zählt: die fehlenden Körner gehen an die Zeilen mit dem größten Rest
+    zeilen = conn.execute("SELECT rowid, betrag FROM steuer_gold WHERE jahr = ?", (jahr,))
+    zeilen = [(r[0], int(r[1])) for r in zeilen.fetchall()]
+    neu = {rid: int(b / 3) for rid, b in zeilen}
+    fehlt = int(sum(b for _, b in zeilen) / 3) - sum(neu.values())
+    reste = sorted(zeilen, key=lambda z: z[1] - 3 * neu[z[0]], reverse=fehlt > 0)
+    for rid, _ in reste[: abs(fehlt)]:
+        neu[rid] += 1 if fehlt > 0 else -1
+    conn.executemany(
+        "UPDATE steuer_gold SET betrag = ? WHERE rowid = ?", [(b, rid) for rid, b in neu.items()]
+    )
     rest = conn.execute(
         "SELECT COALESCE(SUM(betrag), 0) FROM steuer_gold WHERE jahr = ?", (jahr,)
     ).fetchone()[0]
@@ -1678,10 +1689,25 @@ def neu_beginnen(conn: sqlite3.Connection, root: Path, jahr: int) -> Path:
     korb = lager(root)
     korb.mkdir(parents=True, exist_ok=True)
     herkunft = []
+    im_korb: set[str] = set()
+    for d in korb.iterdir():
+        if d.is_file():
+            try:
+                im_korb.add(_sha(d))
+            except OSError:
+                pass
     for row in conn.execute("SELECT * FROM steuer_dateien WHERE jahr = ?", (jahr,)).fetchall():
         pfad = Path(heile_pfad(conn, row["pfad"]))
         if ist_angabe(row["original"]) or not pfad.is_file():
             continue
+        if row["sha256"] and row["sha256"] in im_korb:
+            # Lena (Runde 68): Derselbe Zettel lag schon im Korb. Zweimal ablegen muss niemand;
+            # die Kopie aus dem Jahr bleibt in der Sicherung
+            if not _nennt_anderes_jahr(row["original"], jahr):
+                herkunft.append((row["sha256"], jahr))
+            continue
+        if row["sha256"]:
+            im_korb.add(row["sha256"])
         neu = korb / row["original"]
         if neu.exists():
             neu = neu.with_name(f"{neu.stem}_{row['id']}{neu.suffix}")

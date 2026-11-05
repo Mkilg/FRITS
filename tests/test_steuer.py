@@ -4655,3 +4655,42 @@ def test_runde_67_ja_passt_nicht_bei_fremdem_jahr_und_doppelte_zettel(client, ws
     assert "Zettel aus dem Korb liegen wieder an ihren Karten" in seite
     css = client.get("/static/steuer.css").text
     assert "min-height: 36px" not in css
+
+
+def test_runde_68_umzug_rundet_die_summe(conn):
+    """Lena (Runde 68): 3 + 4 + 5 Gold wurden je Zeile abgerundet nur 3 Salz statt 4."""
+    from frits.spiel import stand
+
+    quest.ensure_schema(conn)
+    stand.vorbereiten(conn)
+    for betrag, grund in ((3, "fund:a"), (4, "fund:b"), (5, "fund:c")):
+        conn.execute(
+            "INSERT INTO steuer_gold (jahr, zeit, betrag, grund, text) VALUES (2025, 'x', ?, ?, 'B')",
+            (betrag, grund),
+        )
+    conn.commit()
+    quest.umziehen(conn)
+    assert stand.guthaben(conn) == 4
+    assert quest.goldsummen(conn, 2025)[0] == 4  # Journal und Beutel gleich
+
+
+def test_runde_68_kein_doppelter_zettel_und_kein_finder_am_handy(client, ws):
+    """Lena (Runde 68): Lag derselbe Zettel schon im Korb, kam er nach „Neu beginnen“ ein
+    zweites Mal dazu; „Im Finder zeigen“ stand am Handy noch bei der Fundkiste."""
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    lager = quest.lager(ws.root)
+    lager.mkdir(parents=True, exist_ok=True)
+    (lager / "belege-sammlung.png").write_bytes(b"\x89PNG sammlung")
+    karte = spiel.pflicht(quest.stuecke(conn, 2025))[0]
+    post(client, f"/steuer/2025/stueck/{karte['id']}/datei",
+         files=[("datei", ("belege-sammlung.png", b"\x89PNG sammlung"))])  # fmt: skip
+    post(client, "/steuer/neu-beginnen", jahr="2025")
+    im_korb = sorted(d.name for d in lager.iterdir() if d.is_file())
+    assert im_korb == ["belege-sammlung.png"]
+    assert quest.korb_jahr(conn, lager / "belege-sammlung.png") == 2025
+    sieg = (Path(quest.__file__).parents[1] / "web/templates/steuer_sieg.html").read_text()
+    assert 'truhe/zeigen" class="reihe nur-maus-geraet"' in sieg
+    css = client.get("/static/steuer.css").text
+    assert ".sq-ahnung.sq-anderes-jahr a { display: inline-flex" in css
+    assert "a.vorn::before { inset: -12px" not in css
