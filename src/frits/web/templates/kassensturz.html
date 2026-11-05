@@ -57,21 +57,21 @@
       {% if tr.willkommen %}<span>Dein erster Kassensturz ist ein Geschenk. {{ info_i("Ab jetzt füllt jede neue Karte echter Papierkram die Truhe.") }}</span> {% endif %}
       {% if tr.dazu %}<span>+{{ tr.dazu }} {{ "Karte" if tr.dazu == 1 else "Karten" }} in die Truhe.</span> {% endif %}
       <span class="truhe-fuellung" aria-label="Nächste Truhe: {{ tr.jetzt }} von 5 Karten">{% for i in range(5) %}<i class="{{ 'voll' if i < tr.jetzt }}"></i>{% endfor %}</span> <span class="hint">Nächste Truhe: {{ tr.jetzt }} von 5</span>
-      {% if offene_truhen %}
-      <div class="row truhe-auf-form">
-        <form method="post" action="/fritte/truhe/oeffnen">
-          <input type="hidden" name="token" value="{{ token }}">
-          <button class="primary">{{ zeichen("truhe", "🎁") }} Truhe öffnen{% if offene_truhen > 1 %} ({{ offene_truhen }} warten){% endif %}</button>
-        </form>
-        {% if offene_truhen > 1 %}
-        <form method="post" action="/fritte/truhe/alle">
-          <input type="hidden" name="token" value="{{ token }}">
-          <button>Alle auf einmal öffnen</button>
-        </form>
-        {% endif %}
-      </div>
+    </div>
+    {% if offene_truhen %}
+    <div class="row truhe-auf-form">
+      <form method="post" action="/fritte/truhe/oeffnen">
+        <input type="hidden" name="token" value="{{ token }}">
+        <button class="primary">{{ zeichen("truhe", "🎁") }} Truhe öffnen{% if offene_truhen > 1 %} ({{ offene_truhen }} warten){% endif %}</button>
+      </form>
+      {% if offene_truhen > 1 %}
+      <form method="post" action="/fritte/truhe/alle">
+        <input type="hidden" name="token" value="{{ token }}">
+        <button>Alle auf einmal öffnen</button>
+      </form>
       {% endif %}
     </div>
+    {% endif %}
   </div>
   {% endif %}
   {% if k.nummer == 1 %}<p class="hint ks-tipp">Ab dem nächsten Mal kocht Fritte ein Gericht dazu, du wählst.</p>{% endif %}

@@ -50,17 +50,21 @@
   }
   // A slow drive of the page by dy pixels (Lena: after a long hand the jump to the new chest
   // tore the page away, 1000 px in half a second).
+  var fahrt = 0;
   function fahren(dy) {
-    if (!dy) return;
-    if (reduced) { window.scrollBy(0, dy); return; }
+    var meine = ++fahrt; // a new drive ends the one before
+    if (!dy) return 0;
+    if (reduced) { window.scrollBy(0, dy); return 0; }
     var von = window.scrollY, ms = Math.min(1600, Math.max(500, Math.abs(dy) * 1.3)), t0 = null;
     function schritt(now) {
+      if (meine !== fahrt) return;
       t0 = t0 || now;
       var x = Math.min(1, (now - t0) / ms), e = x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
       window.scrollTo(0, von + dy * e);
       if (x < 1) requestAnimationFrame(schritt);
     }
     requestAnimationFrame(schritt);
+    return ms;
   }
   // How far down until the node's lower edge sits above the buttons (its top stays in sight).
   function weg(node) {
@@ -144,7 +148,8 @@
     koernerEl.textContent = "0";
     wuerzeEl.textContent = zahl(data.grundwuerze || 1);
     summeEl.textContent = "?";
-    stempel.classList.remove("drauf");
+    stempel.classList.remove("drauf", "still");
+    lauf++;
     ["ausbau", "saison", "erfolge", "truhen"].forEach(function (n) { if (el(n)) el(n).classList.remove("da"); });
     karten.forEach(function (k, i) { k.classList.add("verdeckt"); k.classList.remove("aktiv"); chip(i).textContent = "+0"; });
   }
@@ -156,10 +161,15 @@
     wuerzeEl.textContent = zahl(data.wuerze);
     summeEl.textContent = data.summe;
     karten.forEach(function (k, i) { k.classList.remove("verdeckt", "aktiv"); chip(i).textContent = "+" + data.pro_karte[i]; });
+    // skipped: the stamp is simply there, no swing (Lena R76: in "Ruhig" it still stuck out for a moment)
+    if (gestempelt !== true && !stempel.classList.contains("drauf")) stempel.classList.add("still");
     stempel.classList.add("drauf");
     ["ausbau", "saison", "erfolge", "truhen"].forEach(function (n) { if (el(n)) el(n).classList.add("da"); });
     el("weiter").hidden = true;
     el("nochmal").hidden = reduced;
+    // "Noch einmal" appears where "Überspringen" was: a skip tapped just as the stamp lands
+    // must not start the show again (Lena R76: 16 of 79 late taps did)
+    nochmalAb = Date.now() + 600;
     // A finished stage, season goal, sticker or new chest below the fold: bring it into view once. After the
     // played round only once the stamp has landed and was seen (Lena: on the phone the page
     // jumped away right when the stamp came).
@@ -179,9 +189,10 @@
       if (gestempelt === true) later(zeigen, 1600); else zeigen();
     }
   }
-  var gezeigt = false;
+  var gezeigt = false, lauf = 0, nochmalAb = 0;
   function ending(delay) {
     later(function () {
+      var dieser = lauf;
       karten.forEach(function (k) { k.classList.remove("aktiv"); });
       if (zettelEl) zettelEl.classList.remove("zeigen"); // not over the boxes on the way back (Lena)
       bump(summeEl.parentNode, "gross-werden");
@@ -190,7 +201,9 @@
       // (Lena R43: it landed under the button bar, the page never moved).
       insBild(summeEl.closest(".ks-rechnung") || summeEl.parentNode);
       countUp(summeEl, data.summe, playful ? 900 : 600, function () {
+        if (dieser !== lauf || root.classList.contains("fertig")) return; // skipped or started anew meanwhile
         stempel.classList.add("drauf");
+        if (playful) bump(tisch, "wumms"); // the table takes the blow (Lena R76: the stamp lost its punch)
         if (window.Frits && window.Frits.stampSound && soundOn()) window.Frits.stampSound();
         if (playful && fritte) bump(fritte, "jubeln");
         if (playful && data.summe >= 50) bump(tisch, "funkeln");
@@ -258,7 +271,16 @@
   }
 
   el("weiter").addEventListener("click", finish);
-  el("nochmal").addEventListener("click", function () { gezeigt = false; el("nochmal").hidden = true; /* the chest comes into view again after the replay (Lena R73) */ el("weiter").hidden = false; (playful ? play : calm)(); });
+  el("nochmal").addEventListener("click", function () {
+    if (Date.now() < nochmalAb) return;
+    stopAll();
+    gezeigt = false; // the chest comes into view again after the replay (Lena R73)
+    el("nochmal").hidden = true;
+    el("weiter").hidden = false;
+    // back up to where the show starts, slowly like the way down (Lena R76: up to 109 px a frame)
+    var ms = fahren(-window.scrollY);
+    later(function () { (playful ? play : calm)(); }, ms);
+  });
   function start() {
     playful = !!(window.Frits && window.Frits.playful && window.Frits.playful());
     if (reduced) { finish(); return; }
