@@ -1324,6 +1324,13 @@ def register_steuer(
                 if z.in_den_korb == 1
                 else f" {z.in_den_korb} neuere Belege liegen im Eingangskorb."
             )
+        if z.doppelt:
+            # Lena (Runde 67): „Wo sind meine drei Zettel?“ Sie liegen wieder an ihren Karten
+            text += (
+                " 1 Zettel aus dem Korb liegt wieder an seiner Karte."
+                if z.doppelt == 1
+                else f" {z.doppelt} Zettel aus dem Korb liegen wieder an ihren Karten."
+            )
         if z.salz:
             # Lena (Runde 63): Schleifen aus Neu beginnen und Zurückholen brachten Salz
             text += f" Salz wie damals: {'+' if z.salz > 0 else '−'}{spiel.koerner(abs(z.salz))}."

@@ -115,7 +115,7 @@
         <p><strong>Die Mail ließ sich nicht von selbst öffnen. So geht es trotzdem:</strong></p>
         <ol>
           <li><a class="{{ 'sq-stempelknopf' if kiste_aenderung else 'sq-siegelknopf' }}" href="{{ mail_ausweg }}" data-mailto{% if not kiste_aenderung %} data-geoeffnet="/steuer/{{ jahr }}/mail/geoeffnet"{% endif %}>E-Mail öffnen</a> Betreff und Text sind schon drin.</li>
-          <li>{% if not im_browser() %}<button class="sq-stempelknopf" formaction="/steuer/{{ jahr }}/truhe/zeigen" formmethod="post" data-leise>Fundkiste im Finder zeigen</button> <small class="sq-pfad" data-pfad hidden><span>Liegt hier:</span> <code></code></small> {% endif %}Die Fundkiste <b>{{ zip_pfad.name }}</b> hängst du selbst an.</li>
+          <li>{% if not im_browser() %}<button class="sq-stempelknopf nur-maus-geraet" formaction="/steuer/{{ jahr }}/truhe/zeigen" formmethod="post" data-leise>Fundkiste im Finder zeigen</button> <small class="sq-pfad" data-pfad hidden><span>Liegt hier:</span> <code></code></small> {% endif %}Die Fundkiste <b>{{ zip_pfad.name }}</b> hängst du selbst an.</li>
           <li><button type="button" class="sq-stempelknopf" data-kopieren-aus="#sq-mailtext">Text kopieren</button> Falls dein Mail-Programm den Text nicht übernimmt, zum Beispiel bei Googlemail im Browser.</li>
         </ol>
         {% if mit_passwort %}<p class="muted">Das Passwort schickst du getrennt, nicht in dieselbe Mail.</p>{% endif %}
