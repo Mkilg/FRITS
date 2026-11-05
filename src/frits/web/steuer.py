@@ -177,10 +177,12 @@ def textname(text: str) -> str:
     # Lena (Runde 78): „…Oktober Fr.txt“ brach mitten im Wort ab. Ganze Wörter bis 48 Zeichen
     name = ""
     for w in woerter:
-        if name and len(name) + 1 + len(w) > 48:
-            break
+        if len(name) + 1 + len(w) > 48:
+            if name:
+                break
+            continue  # Lena (Runde 81): Schon das erste Wort war zu lang, also das nächste
         name = f"{name} {w}".strip()
-    name = name[:48].strip(" .-")
+    name = name.strip(" .-")
     return f"{name or 'Eingefügter Text'}.txt"
 
 
@@ -512,7 +514,9 @@ def register_steuer(
 
     def offene_stutzen() -> dict:
         """Rückfragen am Korb nur, solange die Karte noch offen ist (Lena, Runde 35): Sonst
-        legte „Trotzdem zu …“ eine zweite Datei auf eine erledigte Karte."""
+        legte „Trotzdem zu …“ eine zweite Datei auf eine erledigte Karte. Was Fritte schon am
+        Namen sieht (Sparkonto auf dem Geschäftskonto), fragt zweifel_am_namen weiter nach,
+        auch wenn die Karte inzwischen etwas hat (Lena, Runde 81)."""
         if not app.state.steuer_stutzen:
             return {}
         c = conn()
@@ -524,6 +528,20 @@ def register_steuer(
             if row and row[0] == "offen":
                 offen[name] = st
         return offen
+
+    def zweifel_am_namen(datei: Path, jahr: int, s: dict) -> pruefung.Zweifel | None:
+        """Was Fritte schon am Namen sieht (ohne Texterkennung, für den Korb). Lena (Runde 81):
+        Ein Sparkonto-Zettel zeigte „✓ Ja, passt“, und die Spürnase versprach ihn mitzunehmen."""
+        if quest.schon_abgelegt(conn(), jahr, datei):
+            return None
+        return pruefung.pruefe(
+            datei,
+            datei.name,
+            s,
+            [s],
+            bild_lesen=False,
+            quellen=katalog_quellen(s["gebiet"], s["key"]),
+        )
 
     def seite(request: Request, name: str, **context):
         """Wie page(), plus was alle Quest-Seiten brauchen (Bilder, Klang)."""
@@ -540,6 +558,7 @@ def register_steuer(
             angabe=angabe,
             aus_jahr=lambda datei: quest.korb_jahr(conn(), datei),
             schon_da=lambda datei, jahr: quest.schon_abgelegt(conn(), jahr, datei),
+            zweifel_am_namen=zweifel_am_namen,
             steuernummer=settings().steuernummer,
             MACHT_BERATERIN=MACHT_BERATERIN,
             datum=schoenes_datum,
@@ -1194,6 +1213,17 @@ def register_steuer(
             ausdruecklich=ausdruecklich,
         )
 
+    def merke_stutzen(jahr: int, s: dict, name: str, z: pruefung.Zweifel, text: str) -> None:
+        """Die Rückfrage bleibt am Zettel im Eingangskorb stehen, auch nach dem Neuladen."""
+        app.state.steuer_stutzen[name] = {
+            "jahr": jahr,
+            "stueck_id": s["id"],
+            "karte": s["name"],
+            "text": text,
+            "besser_id": z.besser["id"] if z.besser else None,
+            "besser": z.besser["name"] if z.besser else "",
+        }
+
     def nachfragen(
         jahr: int,
         s: dict,
@@ -1212,14 +1242,7 @@ def register_steuer(
         anders = hochgeladen and hochgeladen != name
         # Lena (Runde 76): Der Grund gehört zum hochgeladenen Namen. Im Korb heißt sie anders
         text = z.text + (f" Im Eingangskorb heißt die Datei „{name}“." if anders else "")
-        app.state.steuer_stutzen[name] = {
-            "jahr": jahr,
-            "stueck_id": s["id"],
-            "karte": s["name"],
-            "text": text,
-            "besser_id": z.besser["id"] if z.besser else None,
-            "besser": z.besser["name"] if z.besser else "",
-        }
+        merke_stutzen(jahr, s, name, z, text)
         wo = (
             "Es bleibt erst mal im Eingangskorb."
             if aus_korb
@@ -1922,7 +1945,10 @@ def register_steuer(
         stutzt = offene_stutzen()
         for quelle in quest.lager_dateien(ws.root):
             if quelle.name in stutzt:
-                continue  # Lena (Runde 76): Wo Fritte stutzt, entscheidet der Mensch
+                # Lena (Runde 76): Wo Fritte stutzt, entscheidet der Mensch. Lena (Runde 81):
+                # Beim zweiten Mal zählt die Meldung sie trotzdem mit
+                gefragt += stutzt[quelle.name]["jahr"] == jahr
+                continue
             karte = spiel.ahnung(quelle.name, alle).stueck
             aus = quest.korb_jahr(c, quelle)
             if karte is None or (aus and aus != jahr):
@@ -1931,7 +1957,10 @@ def register_steuer(
                 continue  # Lena (Runde 63): „aus 2024?“ lässt die Spürnase auch liegen
             # Lena (Runde 78): Wo Fritte stutzen würde (etwa ein Sparkonto auf dem
             # Geschäftskonto), entscheidet der Mensch
-            if zweifel_an(jahr, karte, quelle, quelle.name) is not None:
+            z = zweifel_an(jahr, karte, quelle, quelle.name)
+            if z is not None:
+                # Lena (Runde 81): Die Rückfrage steht dann gleich am Zettel im Korb
+                merke_stutzen(jahr, karte, quelle.name, z, z.text)
                 gefragt += 1
                 continue
             fund = quest.sammeln(c, ws.root, karte["id"], quelle, verschieben=True)

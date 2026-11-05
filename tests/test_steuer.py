@@ -4883,3 +4883,47 @@ def test_runde_78_ehrliche_meldungen_und_spuernase_fragt_bei_privaten_konten(cli
     assert z is not None and z.grund == "privates_konto" and "Tagesgeld" in z.text
     assert pruefung.pruefe(Path("x"), "Sparkasse Kontoauszug 2025.pdf", konto, [konto],
                            bild_lesen=False) is None  # fmt: skip
+
+
+def test_runde_81_korb_und_spuernase_kennen_private_konten(client, ws):
+    """Lena (Runde 81): Knopf und Korb versprachen „Ja, passt“ für Sparkonto-Zettel, die
+    Spürnase zählte falsch, und die Rückfrage verschwand, sobald die Karte etwas hatte."""
+    from frits.steuer import pruefung
+    from frits.web.steuer import textname
+
+    assert textname("Kapitäns" * 7 + " Rechnung Hafen") == "Rechnung Hafen.txt"
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    konto = next(s for s in quest.stuecke(conn, 2025) if s["key"] == "kontoauszuege")
+    for name in ("Sparbuchung Mai.pdf", "Kreditkartenabrechnung Geschäftskarte.pdf"):
+        z = pruefung.pruefe(Path("x"), name, konto, [konto], bild_lesen=False)
+        assert z is None or z.grund != "privates_konto"
+    z = pruefung.pruefe(Path("x"), "Sparbuch 2025.pdf", konto, [konto], bild_lesen=False)
+    assert z is not None and z.grund == "privates_konto"
+    lager = quest.lager(ws.root)
+    lager.mkdir(parents=True, exist_ok=True)
+    (lager / "Kontoauszug_Januar.pdf").write_bytes(b"%PDF jan")
+    (lager / "Kontoauszug_Februar.pdf").write_bytes(b"%PDF feb")
+    (lager / "Sparkonto_Kontoauszug.pdf").write_bytes(b"%PDF spar")
+    (lager / "Tagesgeld_Kontoauszug.pdf").write_bytes(b"%PDF tag")
+    quest.verdiene(conn, 2025, "test", 50, "Testgold")
+    post(client, "/steuer/2025/markt/kaufen", ware="spuernase")
+    insel = client.get("/steuer/2025").text
+    assert "Spürnase: alle 2 Vorschläge stempeln" in insel
+    reihe = insel.split('data-name="Sparkonto_Kontoauszug.pdf"', 1)[1].split("sq-zettel-reihe")[0]
+    assert "Fritte fragt nach" in reihe and "Vielleicht" not in reihe
+    assert "klingt nach Sparkonto" in reihe and "Ja, passt" not in reihe
+
+    seite = post(client, "/steuer/2025/lager/vorschlaege").text
+    assert "2 Zettel hat sie liegen lassen" in seite
+    assert sorted(d.name for d in quest.lager_dateien(ws.root)) == [
+        "Sparkonto_Kontoauszug.pdf",
+        "Tagesgeld_Kontoauszug.pdf",
+    ]
+    # Die Karte hat jetzt Belege, die Rückfrage bleibt trotzdem
+    insel = client.get("/steuer/2025").text
+    assert "Spürnase: alle" not in insel
+    reihe = insel.split('data-name="Tagesgeld_Kontoauszug.pdf"', 1)[1].split("sq-zettel-reihe")[0]
+    assert "klingt nach Tagesgeld" in reihe and "(hat schon was)" in reihe
+    seite = post(client, "/steuer/2025/lager/vorschlaege").text
+    assert "keinen Zettel gefunden" in seite and "2 Zettel hat sie liegen lassen" in seite
