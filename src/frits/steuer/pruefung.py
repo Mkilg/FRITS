@@ -45,6 +45,8 @@ _ECHT = ("urlaubsgeld", "urlaubsanspruch", "urlaubsbescheinigung", "ferienjob", 
 # Konten, die nicht das Geschäftskonto sind (Lena, Runde 78: die Spürnase legte Sparkonto-,
 # Tagesgeld- und Kreditkarten-Auszüge still zu „Kontoauszüge Geschäftskonto“).
 # „Sparkasse“ ist eine Bank und steht darum nicht hier.
+# Lena (Runde 81): „Sparbuchung“ ist kein Sparbuch, und eine Geschäftskarte ist geschäftlich
+_KEIN_PRIVATES_KONTO = ("sparbuchung", "geschaeft", "firma", "firmen", "business")
 PRIVATE_KONTEN = {
     "sparkonto": "Sparkonto",
     "sparbuch": "Sparbuch",
@@ -123,12 +125,13 @@ def pruefe(
     Fritte nicht mehr nach dem Namen, ob eine andere Karte besser passt."""
     karte = stueck["name"]
     # Vor der Quellen-Prüfung: „Sparkonto Kontoauszug.pdf“ nennt die Karte und ist doch privat
-    if stueck.get("key") == "kontoauszuege":
+    tokens = _tokens(Path(original).stem)
+    if stueck.get("key") == "kontoauszuege" and not any(
+        t.startswith(_KEIN_PRIVATES_KONTO) for t in tokens
+    ):
         konto = next(
-            (n for t in _tokens(Path(original).stem) for w, n in PRIVATE_KONTEN.items()
-             if t.startswith(w)),
-            None,
-        )  # fmt: skip
+            (n for t in tokens for w, n in PRIVATE_KONTEN.items() if t.startswith(w)), None
+        )
         if konto:
             return Zweifel(
                 "privates_konto",

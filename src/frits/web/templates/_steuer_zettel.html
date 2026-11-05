@@ -3,7 +3,9 @@
 {% set alle_karten = provinzen | map(attribute="stuecke") | sum(start=[]) %}
 {% set titel_von = {} %}{% for p in provinzen %}{% set _ = titel_von.update({p.gebiet.id: p.gebiet.titel}) %}{% endfor %}
 {% set ahnungen = {} %}{% for f in lager %}{% set _ = ahnungen.update({f.name: ahnung(f.name, alle_karten)}) %}{% endfor %}
-{% set sichere = [] %}{% for f in lager %}{% if ahnungen[f.name].stueck and not (stutzen is defined and f.name in stutzen) and not (schon_da is defined and schon_da(f, jahr)) and (aus_jahr is not defined or aus_jahr(f) in (none, jahr)) and not (fremdes_jahr is defined and fremdes_jahr(f.name, jahr, ahnungen[f.name].stueck.key)) %}{% set _ = sichere.append(f) %}{% endif %}{% endfor %}
+{# Lena (Runde 81): Was Fritte schon am Namen bezweifelt (etwa ein Sparkonto auf dem Geschäftskonto), bekommt kein „Ja, passt“ und zählt nicht für die Spürnase #}
+{% set am_namen = {} %}{% for f in lager %}{% if ahnungen[f.name].stueck and zweifel_am_namen is defined and not (stutzen is defined and f.name in stutzen) %}{% set z = zweifel_am_namen(f, jahr, ahnungen[f.name].stueck) %}{% if z %}{% set _ = am_namen.update({f.name: z}) %}{% endif %}{% endif %}{% endfor %}
+{% set sichere = [] %}{% for f in lager %}{% if ahnungen[f.name].stueck and f.name not in am_namen and not (stutzen is defined and f.name in stutzen) and not (schon_da is defined and schon_da(f, jahr)) and (aus_jahr is not defined or aus_jahr(f) in (none, jahr)) and not (fremdes_jahr is defined and fremdes_jahr(f.name, jahr, ahnungen[f.name].stueck.key)) %}{% set _ = sichere.append(f) %}{% endif %}{% endfor %}
 {% if "spuernase" in helfer and sichere | length > 1 %}
 <form method="post" action="/steuer/{{ jahr }}/lager/vorschlaege" class="sq-spuernase" data-stempel="GESICHERT">
   <input type="hidden" name="token" value="{{ token }}">
@@ -20,7 +22,7 @@
   {% set schon = schon_da(f, jahr) if schon_da is defined else none %}
   <div class="sq-zettel-reihe">
   <details class="sq-zettel" style="--r: {{ [-2.5, 1.5, -1, 2.2, -1.8, 0.8][loop.index0 % 6] }}deg" data-name="{{ f.name }}">
-    <summary draggable="true" title="{{ f.name }}: auf eine Provinz ziehen"><span class="art{% if endung in ['jpg', 'jpeg', 'png', 'heic'] %} bild{% endif %}">{{ (endung or "?")[:4] | upper }}</span><strong lang="de">{{ umbruch(f.name) if umbruch is defined else f.name }}</strong>{% set fj = fremdes_jahr(f.name, jahr, spur.key if spur else None) if fremdes_jahr is defined else None %}{# Lena (Runde 38): Das Schild steht in der zweiten Zeile, sonst bricht es das Raster des Zettels #}{% set schild %}{% if fj %}<span class="sq-anderes-jahr" title="Der Eingangskorb ist für alle Steuerjahre gemeinsam">aus {{ fj }}?</span> {% endif %}{% endset %}{% set stutzt_hier = stutzen is defined and stutzen.get(f.name) and stutzen.get(f.name).jahr == jahr %}{% if schon %}<small class="sq-spur">Liegt schon auf einer Karte</small>{% elif stutzt_hier %}{# Lena (Runde 78): Kein „Vielleicht: …“ neben der Rückfrage, nur ein Signal #}<small>{{ schild }}Fritte fragt nach</small>{% elif spur %}<small class="sq-spur" title="Geraten nach dem Dateinamen">{{ schild }}Vielleicht: {{ spur.name }}{% if titel_von | length > 1 %} · {{ titel_von.get(spur.gebiet, "") }}{% endif %}?</small>{% elif a.gebiet %}<small class="sq-spur" title="Geraten nach dem Dateinamen">{{ schild }}Vielleicht: {{ titel_von.get(a.gebiet, "") }}?</small>{% elif a.dazu %}<small class="sq-spur" title="Geraten nach dem Dateinamen">{{ schild }}Vielleicht: {{ a.dazu[1] }} · {{ a.dazu[2] }}?</small>{% else %}<small>{{ schild }}<span class="nur-maus">ziehen oder klicken</span><span class="nur-touch">antippen</span></small>{% endif %}</summary>
+    <summary draggable="true" title="{{ f.name }}: auf eine Provinz ziehen"><span class="art{% if endung in ['jpg', 'jpeg', 'png', 'heic'] %} bild{% endif %}">{{ (endung or "?")[:4] | upper }}</span><strong lang="de">{{ umbruch(f.name) if umbruch is defined else f.name }}</strong>{% set fj = fremdes_jahr(f.name, jahr, spur.key if spur else None) if fremdes_jahr is defined else None %}{# Lena (Runde 38): Das Schild steht in der zweiten Zeile, sonst bricht es das Raster des Zettels #}{% set schild %}{% if fj %}<span class="sq-anderes-jahr" title="Der Eingangskorb ist für alle Steuerjahre gemeinsam">aus {{ fj }}?</span> {% endif %}{% endset %}{% set vorab = am_namen.get(f.name) %}{% set stutzt_hier = vorab or (stutzen is defined and stutzen.get(f.name) and stutzen.get(f.name).jahr == jahr) %}{% if schon %}<small class="sq-spur">Liegt schon auf einer Karte</small>{% elif stutzt_hier %}{# Lena (Runde 78): Kein „Vielleicht: …“ neben der Rückfrage, nur ein Signal #}<small>{{ schild }}Fritte fragt nach</small>{% elif spur %}<small class="sq-spur" title="Geraten nach dem Dateinamen">{{ schild }}Vielleicht: {{ spur.name }}{% if titel_von | length > 1 %} · {{ titel_von.get(spur.gebiet, "") }}{% endif %}?</small>{% elif a.gebiet %}<small class="sq-spur" title="Geraten nach dem Dateinamen">{{ schild }}Vielleicht: {{ titel_von.get(a.gebiet, "") }}?</small>{% elif a.dazu %}<small class="sq-spur" title="Geraten nach dem Dateinamen">{{ schild }}Vielleicht: {{ a.dazu[1] }} · {{ a.dazu[2] }}?</small>{% else %}<small>{{ schild }}<span class="nur-maus">ziehen oder klicken</span><span class="nur-touch">antippen</span></small>{% endif %}</summary>
     <form method="post" action="/steuer/{{ jahr }}/lager/zuordnen" data-stempel="GESICHERT">
       <input type="hidden" name="token" value="{{ token }}">
       <input type="hidden" name="name" value="{{ f.name }}">
@@ -65,6 +67,16 @@
     <small>Fritte stutzt: {{ stutz.text }}</small>
     {% if stutz.besser_id %}<button name="stueck_id" value="{{ stutz.besser_id }}" class="sq-besser">Zu „{{ stutz.besser }}“</button>{% endif %}
     <button name="stueck_id" value="{{ stutz.stueck_id }}">Trotzdem zu „{{ stutz.karte }}“</button>
+  </form>
+  {% elif vorab and spur %}
+  {# Lena (Runde 81): Fritte fragt schon im Korb, nicht erst nach „Ja, passt“ #}
+  <form method="post" action="/steuer/{{ jahr }}/lager/zuordnen" class="sq-ahnung sq-stutzt" data-stempel="GESICHERT">
+    <input type="hidden" name="token" value="{{ token }}">
+    <input type="hidden" name="name" value="{{ f.name }}">
+    <input type="hidden" name="back" value="{{ zurueck }}">
+    <input type="hidden" name="trotzdem" value="1">
+    <small>Fritte stutzt: {{ vorab.text }}</small>
+    <button name="stueck_id" value="{{ spur.id }}">Trotzdem zu „{{ spur.name }}“{% if spur.status == "gesammelt" %} (hat schon was){% endif %}</button>
   </form>
   {% elif spur and fj %}
   {# Lena (Runde 67): „Ja, passt“ stand auch bei „aus 2024?“. So landete der Riester-Brief in 2025 #}
