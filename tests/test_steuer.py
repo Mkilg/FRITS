@@ -4780,3 +4780,36 @@ def test_runde_73_spuernase_sagt_wohin_und_stutzen_nennt_den_korb_namen(client, 
     seite = post(client, "/steuer/2025/lager/vorschlaege").text
     assert "1 war eine Kopie" in seite and "Sie liegt jetzt im Ordner" in seite
     assert (quest.beiseite(ws.root) / "Kontoauszug_Kopie.pdf").exists()
+
+
+def test_runde_76_stutzen_ehrlich_und_spuernase_wartet(client, ws):
+    """Lena (Runde 76): Gleicher Name, anderer Inhalt hieß „liegt schon im Korb“; der Grund
+    nannte den Korb-Namen; %22 im Namen; die Spürnase stempelte Zettel, bei denen Fritte
+    stutzt."""
+    from frits.web.steuer import upload_name
+
+    assert upload_name("C:\\Users\\kim\\Brief %22alt%22.pdf") == 'Brief "alt".pdf'
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    lager = quest.lager(ws.root)
+    lager.mkdir(parents=True, exist_ok=True)
+    (lager / "urlaubsfoto.png").write_bytes(b"anderes bild")
+    sid = next(s for s in quest.stuecke(conn, 2025) if s["key"] == "steuer-id")
+    seite = post(client, f"/steuer/2025/stueck/{sid['id']}/datei",
+                 files={"datei": ("urlaubsfoto.png", b"strand", "image/png")}).text  # fmt: skip
+    assert "Es liegt schon im Eingangskorb" not in seite
+    assert "in den Eingangskorb gelegt, als „urlaubsfoto (1).png“" in seite
+    insel = client.get("/steuer/2025").text
+    assert "„urlaubsfoto.png“ klingt" in insel or "urlaubsfoto.png" in insel
+    assert "Im Eingangskorb heißt die Datei „urlaubsfoto (1).png“" in insel
+    # Die Spürnase lässt den Zettel liegen, bei dem Fritte stutzt
+    stutzt = client.app.state.steuer_stutzen
+    stutzt["Kontoauszug_Juni.pdf"] = {**stutzt["urlaubsfoto (1).png"]}
+    (lager / "Kontoauszug_Juni.pdf").write_bytes(b"%PDF konto")
+    quest.verdiene(conn, 2025, "test", 50, "Testgold")
+    post(client, "/steuer/2025/markt/kaufen", ware="spuernase")
+    post(client, "/steuer/2025/lager/vorschlaege")
+    assert (lager / "Kontoauszug_Juni.pdf").exists()
+    css = client.get("/static/steuer.css").text
+    assert "gap: 0.25rem; max-width: 100%; align-self: stretch" in css
+    assert "-webkit-line-clamp: 3" not in css

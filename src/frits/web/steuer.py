@@ -312,6 +312,13 @@ ERSTES_STEUERJAHR = 2000
 _STEUER_JAHR = re.compile(r"^/steuer/(-?\d{1,18})(?=/|$)")
 
 
+def upload_name(filename: object) -> str:
+    """Der Dateiname eines Uploads. Browser schicken „"“ als %22 und Zeilenumbrüche als %0A
+    (HTML-Standard); Lena (Runde 76) fand so „%22“ im Korb und auf der Platte."""
+    name = str(filename or "").replace("%22", '"').replace("%0D", "").replace("%0A", "")
+    return Path(name.replace("\\", "/")).name.strip()
+
+
 def register_steuer(
     app: FastAPI,
     *,
@@ -1173,6 +1180,7 @@ def register_steuer(
         zurueck: str,
         aus_korb: bool = False,
         hochgeladen: str = "",
+        schon_im_korb: bool = False,
     ) -> None:
         """Die Rückfrage als Zettel mit zwei Wegen. Bis dahin gibt es kein Gold.
         Sie bleibt auch am Zettel im Eingangskorb stehen, damit ein Neuladen sie nicht verliert.
@@ -1180,7 +1188,8 @@ def register_steuer(
         # Lena (Runde 73): Lag derselbe Inhalt schon unter anderem Namen im Korb, nannten
         # Meldung und Kasten den neuen Namen, und den Zettel fand man nicht
         anders = hochgeladen and hochgeladen != name
-        text = z.text.replace(hochgeladen, name) if anders else z.text
+        # Lena (Runde 76): Der Grund gehört zum hochgeladenen Namen. Im Korb heißt sie anders
+        text = z.text + (f" Im Eingangskorb heißt die Datei „{name}“." if anders else "")
         app.state.steuer_stutzen[name] = {
             "jahr": jahr,
             "stueck_id": s["id"],
@@ -1193,6 +1202,9 @@ def register_steuer(
             "Es bleibt erst mal im Eingangskorb."
             if aus_korb
             else f"Es liegt schon im Eingangskorb, dort heißt es „{name}“."
+            if anders and schon_im_korb
+            # Lena (Runde 76): Gleicher Name, anderer Inhalt: neu, nur unter neuem Namen
+            else f"Ich habe es erst mal in den Eingangskorb gelegt, als „{name}“."
             if anders
             else "Ich habe es erst mal in den Eingangskorb gelegt."
         )
@@ -1226,21 +1238,22 @@ def register_steuer(
             aktion = {**trotzdem, "zweit": beiseite}
         flash(f"Fritte stutzt: {z.text} {wo}", "warn", aktion=aktion)
 
-    def in_den_korb(tmp: Path, name: str) -> Path:
+    def in_den_korb(tmp: Path, name: str) -> tuple[Path, bool]:
         """Legt die Datei in den Eingangskorb. Liegt genau diese Datei dort schon, bleibt es
-        bei der einen (Lena, Runde 32: fünf gleiche Kopien nach mehreren Versuchen)."""
+        bei der einen (Lena, Runde 32: fünf gleiche Kopien nach mehreren Versuchen).
+        Gibt (Pfad im Korb, lag schon da) zurück."""
         ablage = quest.lager(ws.root)
         sha = quest.datei_hash(tmp)
         for da in quest.lager_dateien(ws.root):
             if da.stat().st_size == tmp.stat().st_size and quest.datei_hash(da) == sha:
                 tmp.unlink(missing_ok=True)
-                return da
+                return da, True
         ziel, n = ablage / name, 1
         while ziel.exists():
             ziel = ablage / f"{Path(name).stem} ({n}){Path(name).suffix}"
             n += 1
         tmp.replace(ziel)
-        return ziel
+        return ziel, False
 
     async def hochladen(
         jahr: int, stueck_id: int, uploads: list[UploadFile], zurueck: str = ""
@@ -1254,7 +1267,7 @@ def register_steuer(
         ablage = quest.lager(ws.root)
         ablage.mkdir(parents=True, exist_ok=True)
         for upload in uploads:
-            name = Path(upload.filename or "").name
+            name = upload_name(upload.filename)
             if not name:
                 continue
             tmp = ablage / f".upload-{name}"
@@ -1262,7 +1275,7 @@ def register_steuer(
                 shutil.copyfileobj(upload.file, fh)
             z = zweifel_an(jahr, s, tmp, name)
             if z is not None:
-                ziel = in_den_korb(tmp, name)
+                ziel, schon = in_den_korb(tmp, name)
                 nachfragen(
                     jahr,
                     s,
@@ -1270,6 +1283,7 @@ def register_steuer(
                     z,
                     zurueck or f"/steuer/{jahr}/gebiet/{s['gebiet']}",
                     hochgeladen=name,
+                    schon_im_korb=schon,
                 )
                 geparkt += 1
                 continue
@@ -1878,7 +1892,10 @@ def register_steuer(
         vorher = lage(jahr)
         alle = quest.stuecke(c, jahr)
         gestempelt, doppelt, weg = 0, 0, None
+        stutzt = offene_stutzen()
         for quelle in quest.lager_dateien(ws.root):
+            if quelle.name in stutzt:
+                continue  # Lena (Runde 76): Wo Fritte stutzt, entscheidet der Mensch
             karte = spiel.ahnung(quelle.name, alle).stueck
             aus = quest.korb_jahr(c, quelle)
             if karte is None or (aus and aus != jahr):
@@ -1899,7 +1916,7 @@ def register_steuer(
                 # Lena (Runde 73): „Und wo sind die jetzt? Weg?“
                 + (
                     f" {'Sie liegt' if doppelt == 1 else 'Sie liegen'} jetzt im Ordner"
-                    f" „{weg.parent.name}“."
+                    f" „{weg.parent.name}“ neben dem Eingangskorb."
                     if weg
                     else ""
                 )
@@ -1911,6 +1928,16 @@ def register_steuer(
                 "Falsch gelandet? Im Belegbuch siehst du alles.",
                 "beute",
                 "done",
+                # Lena (Runde 76): ein Weg zum Ordner, statt nur seinen Namen
+                aktion={
+                    "url": f"/steuer/{jahr}/beiseite/oeffnen",
+                    "knopf": "Ordner zeigen",
+                    "felder": {"back": zurueck},
+                    "link": f"/steuer/{jahr}/belege",
+                    "link_text": "Zum Belegbuch",
+                }
+                if weg
+                else None,
             )
         else:
             flash("Die Spürnase hat keinen Zettel gefunden, bei dem sie sicher ist.")
@@ -2232,7 +2259,7 @@ def register_steuer(
         c = conn()
         im_korb = {quest.datei_hash(p) for p in quest.lager_dateien(ws.root)}
         for upload in [*form.getlist("files"), *form.getlist("datei")]:
-            name = Path(str(getattr(upload, "filename", "") or "").replace("\\", "/")).name.strip()
+            name = upload_name(getattr(upload, "filename", ""))
             if not name or name.startswith("."):
                 continue
             daten = await upload.read(MAX_LAGER + 1)
@@ -2321,6 +2348,15 @@ def register_steuer(
         if not system.open_path(ordner):
             flash(f"Dein Lager findest du hier: {ordner}")
         return back(f"/steuer/{jahr}")
+
+    @app.post("/steuer/{jahr}/beiseite/oeffnen", dependencies=guarded)
+    async def beiseite_oeffnen(request: Request, jahr: int):
+        form = await request.form()
+        ordner = quest.beiseite(ws.root)
+        ordner.mkdir(parents=True, exist_ok=True)
+        if not system.open_path(ordner):
+            flash(f"Den Ordner „{ordner.name}“ findest du hier: {ordner}")
+        return back(str(form.get("back") or f"/steuer/{jahr}"))
 
     # ----- FRITS-Ernte: Rechnungen, Belege und EÜR aus dem normalen FRITS -----
 

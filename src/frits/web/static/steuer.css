@@ -92,7 +92,7 @@ main:has(.sq-tisch) > .flash { max-width: 760px; margin: 0.8rem auto; position: 
 .sq-zettel.zieht > summary { opacity: .4; }
 .sq-zettel .art { grid-row: span 2; font: 700 var(--fs-mini)/1 var(--schrift); color: var(--papier); background: var(--terrakotta); padding: 0.3rem 0.25rem; border-radius: 2px; }
 .sq-zettel .art.bild { background: var(--moos-dunkel); }
-.sq-zettel strong { min-width: 0; font-size: var(--fs-klein); overflow: hidden; overflow-wrap: anywhere; hyphens: auto; -webkit-hyphens: auto; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+.sq-zettel strong { min-width: 0; font-size: var(--fs-klein); overflow: hidden; overflow-wrap: anywhere; hyphens: auto; -webkit-hyphens: auto; display: block; }
 .sq-zettel-reihe { display: flex; flex-direction: column; align-items: stretch; }
 .sq-ahnung { align-self: flex-end; margin: -4px 6px 0 0; position: relative; z-index: 1; }
 .sq-ahnung button { font: 600 var(--fs-mini)/1 system-ui, sans-serif; padding: 0.35rem 0.6rem; min-height: 32px; border-radius: 3px; border: 1.5px solid var(--moos-dunkel); background: #eef3e2; color: var(--moos-dunkel); cursor: pointer; box-shadow: 0 2px 4px rgba(25, 12, 3, .25); }
@@ -1548,7 +1548,9 @@ a.sq-beleg-vorschau:hover, a.sq-beleg-vorschau:focus-visible { transform: rotate
 }
 
 /* Runde 26: Fritte stutzt, und die Frage bleibt am Zettel im Eingangskorb */
-.sq-ahnung.sq-stutzt { display: flex; flex-direction: column; align-items: flex-end; gap: 0.25rem; max-width: 260px; }
+.sq-ahnung.sq-stutzt { display: flex; flex-direction: column; align-items: flex-end; gap: 0.25rem; max-width: 100%; align-self: stretch; margin-right: 0; }
+/* Lena (Runde 76): Ein langer Dateiname lief links aus dem Bild */
+.sq-ahnung.sq-stutzt small, .sq-ahnung.sq-stutzt button, .sq-ahnung.sq-dazu small { max-width: 100%; overflow-wrap: anywhere; white-space: normal; }
 .sq-ahnung.sq-stutzt small { font: 500 var(--fs-mini)/1.3 system-ui, sans-serif; color: #7a4a12; background: #fff4d6; border-left: 3px solid #d8a640; padding: 0.3rem 0.5rem; border-radius: 2px; text-align: left; }
 .sq-ahnung.sq-stutzt button { border-color: #9a6a1a; background: #fff4d6; color: #6b4a10; }
 .sq-ahnung.sq-stutzt button:hover { background: #9a6a1a; color: var(--papier); }
