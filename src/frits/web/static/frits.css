@@ -690,6 +690,28 @@ fieldset.schon-bezahlt input[type=date] { flex: 0 1 12rem; }
 ul.wartet-frueher { list-style: none; padding-left: 0; }
 ul.wartet-frueher li { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
 
+/* Rechnungen am Handy (Lena Runde 69): jede Rechnung eine Karte. Nummer und Betrag oben,
+   Kunde und Datum darunter, dann der Status und die Knöpfe in eigener Zeile. Vorher war
+   die Tabelle 747 px breit und „Bezahlt am“ lag unsichtbar rechts neben dem Bildschirm. */
+@media (max-width: 600px) {
+  .table.rechnungen, .table.rechnungen tbody { display: block; width: 100%; }
+  .table.rechnungen thead { display: none; }
+  .table.rechnungen tr { display: grid; grid-template-columns: 1fr auto;
+    grid-template-areas: "nr betrag" "kunde datum" "status status" "aktion aktion";
+    column-gap: 0.6rem; row-gap: 0.25rem; align-items: baseline; padding: 0.7rem 0.15rem; border-bottom: 1px solid var(--line); }
+  .table.rechnungen td { border: 0; padding: 0; text-align: left; min-width: 0; }
+  .table.rechnungen .r-nr { grid-area: nr; font-weight: 600; overflow-wrap: anywhere; }
+  .table.rechnungen td.amount { grid-area: betrag; text-align: right; white-space: nowrap; font-weight: 600; }
+  .table.rechnungen .r-kunde { grid-area: kunde; overflow-wrap: anywhere; }
+  .table.rechnungen .r-datum { grid-area: datum; color: var(--muted); font-size: var(--fs-klein); text-align: right; white-space: nowrap; }
+  .table.rechnungen .r-status { grid-area: status; display: flex; flex-wrap: wrap; gap: 0.2rem 0.5rem; align-items: center; }
+  .table.rechnungen td.actions { grid-area: aktion; display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; justify-content: flex-start; white-space: normal; }
+  .table.rechnungen td.actions:empty { display: none; }
+  .table.rechnungen td.actions form { margin: 0; }
+  .table.rechnungen td.actions .paid-form { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
+  .table.rechnungen td.actions details { flex-basis: 100%; }
+}
+
 /* Ausgaben am Handy: jede Ausgabe eine Zeile wie ein Kassenzettel (Bei + Betrag oben,
    Wofür darunter, Datum und Kategorie klein), die Summe als eigene Zeile. Keine Tabelle
    zum seitlich Wischen, Betrag und Summe sind immer zu sehen. */

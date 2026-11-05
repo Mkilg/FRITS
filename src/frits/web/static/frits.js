@@ -689,5 +689,33 @@
     infoZu(null);
   }, true);
 
+  // Expense form: while you type "Deutsche Bahn", the category follows, from the same word
+  // list as the receipt reader (Lena Runde 69). Once you pick a category yourself, it stays.
+  document.querySelectorAll("select[data-raten]").forEach(function (wahl) {
+    var muster;
+    try {
+      muster = JSON.parse(wahl.getAttribute("data-raten")).map(function (m) {
+        return [m[0], new RegExp(m[1], "iu")];
+      });
+    } catch (e) { return; }
+    var form = wahl.form, anfang = wahl.value, selbst = false;
+    if (!form) return;
+    wahl.addEventListener("change", function () { selbst = true; });
+    function raten() {
+      if (selbst) return;
+      var text = ["vendor", "description"].map(function (n) {
+        var f = form.elements[n];
+        return f ? f.value : "";
+      }).join(" ").toLowerCase();
+      var treffer = null;
+      for (var i = 0; i < muster.length && !treffer; i++) if (muster[i][1].test(text)) treffer = muster[i][0];
+      wahl.value = treffer || anfang;
+    }
+    ["vendor", "description"].forEach(function (n) {
+      var f = form.elements[n];
+      if (f) f.addEventListener("input", raten);
+    });
+  });
+
   window.Frits = { feedback: feedback, stampSound: stampSound, playful: playful };
 })();

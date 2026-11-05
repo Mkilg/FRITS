@@ -74,7 +74,7 @@
       {% if g.vat_hint %}<p class="hint">{{ g.vat_hint }}</p>{% endif %}
       {% if g.vat_rate == "" %}<p class="hint">Wohl ein Beleg aus dem Ausland. {{ info_i("Zum Beispiel ein Hotel in Wien. Ausländische Umsatzsteuer ist keine deutsche Vorsteuer, deshalb zählt der ganze Betrag als Ausgabe.") }}</p>{% endif %}
       <label class="field">Kategorie
-        <select name="category">{% for key, c in categories.items() %}<option value="{{ key }}" {{ "selected" if key == (g.category or "sonstiges") }}>{{ c.label }}</option>{% endfor %}</select>
+        <select name="category" data-raten="{{ kategorie_muster | tojson | forceescape }}">{% for key, c in categories.items() %}<option value="{{ key }}" {{ "selected" if key == (g.category or "sonstiges") }}>{{ c.label }}</option>{% endfor %}</select>
       </label>
       <div class="row actions"><button class="primary">Speichern</button>{% if chosen %} <button class="quiet danger" formaction="/receipts/{{ chosen.id }}/ignore" formnovalidate title="Zählt nirgends mit. Die Datei bleibt im Ordner „done“.">Verwerfen</button>{% endif %}</div>
     </form>

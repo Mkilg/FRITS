@@ -56,6 +56,7 @@ from frits import (
     umgebung,
     ustva,
 )
+from frits.beleg import category_patterns
 from frits.billing import (
     CUSTOMER_TAX,
     DEFAULT_PATTERN,
@@ -2024,6 +2025,7 @@ def create_app(
             receipts=receipts,
             chosen=chosen,
             categories=expenses.CATEGORIES,
+            kategorie_muster=category_patterns(),
             today=today().isoformat(),
             guessed=guessed,
             own_invoice=own_invoice,

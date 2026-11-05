@@ -245,6 +245,12 @@ _CATEGORY_WORDS = (
 )
 
 
+def category_patterns() -> list[list[str]]:
+    """The same word list for the browser: while Fritz types "Deutsche Bahn" into the
+    expense form, the category follows (Lena Runde 69: a train ticket stayed "Sonstiges")."""
+    return [[key, pattern] for key, pattern in _CATEGORY_WORDS]
+
+
 def guess_category(text: str) -> str | None:
     lowered = text.casefold()
     for key, pattern in _CATEGORY_WORDS:

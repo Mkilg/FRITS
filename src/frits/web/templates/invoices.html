@@ -6,16 +6,16 @@
   {% if not im_browser() %}<form method="post" action="/open/invoices" class="nur-maus"><input type="hidden" name="token" value="{{ token }}"><button class="quiet">Ordner öffnen</button></form>{% endif %}
 </div>
 {% if invoices %}
-<div class="table-wrap"><table class="table">
+<div class="table-wrap"><table class="table rechnungen">
   <thead><tr><th>Nummer</th><th>Kunde</th><th>Datum</th><th class="amount">Betrag</th><th>Status</th><th></th></tr></thead>
   <tbody>
   {% for i in invoices %}
   <tr id="r-{{ i.number }}">
-    <td>{% if i.pdf_path %}<a href="/invoices/{{ i.number }}/pdf" target="_blank">{{ i.number }}</a>{% else %}{{ i.number }}{% endif %}{% if i.earlier %} <small class="muted" title="Vor FRITS geschrieben und hier nachgetragen">nachgetragen</small>{% endif %}</td>
-    <td>{{ i.customer }}</td>
-    <td>{{ i.issue_date | de_date }}</td>
+    <td class="r-nr">{% if i.pdf_path %}<a href="/invoices/{{ i.number }}/pdf" target="_blank">{{ i.number }}</a>{% else %}{{ i.number }}{% endif %}{% if i.earlier %} <small class="muted" title="Vor FRITS geschrieben und hier nachgetragen">nachgetragen</small>{% endif %}</td>
+    <td class="r-kunde">{{ i.customer }}</td>
+    <td class="r-datum">{{ i.issue_date | de_date }}</td>
     <td class="amount">{{ i.gross | eur }}</td>
-    <td>
+    <td class="r-status">
       {% if i.status == "bezahlt" %}<span class="badge ok">bezahlt am {{ i.paid_date | de_date }}</span>
       {% elif i.status == "überfällig" %}<span class="badge late">fällig seit {{ i.due_date | de_date }}</span>
       {% elif i.status == "storniert" %}<span class="badge muted">storniert ({{ i.cancelled_by }})</span>
@@ -56,16 +56,16 @@
 {% endif %}
 {% if credits %}
 <h2 class="spaced">Gutschriften von Kunden</h2>
-<div class="table-wrap"><table class="table">
+<div class="table-wrap"><table class="table rechnungen">
   <thead><tr><th>Nummer</th><th>Kunde</th><th>Datum</th><th class="amount">Betrag</th><th>Status</th><th></th></tr></thead>
   <tbody>
   {% for c in credits %}
   <tr>
-    <td>{{ c.their_number }}</td>
-    <td><a href="/customers/{{ c.customer_id }}#gutschriften">{{ c.customer }}</a></td>
-    <td>{{ c.issue_date | de_date }}</td>
+    <td class="r-nr">{{ c.their_number }}</td>
+    <td class="r-kunde"><a href="/customers/{{ c.customer_id }}#gutschriften">{{ c.customer }}</a></td>
+    <td class="r-datum">{{ c.issue_date | de_date }}</td>
     <td class="amount">{{ c.gross | eur }}</td>
-    <td>{% if c.paid_date %}<span class="badge ok">bezahlt am {{ c.paid_date | de_date }}</span>{% else %}<span class="badge todo">noch nicht bezahlt</span>{% endif %}</td>
+    <td class="r-status">{% if c.paid_date %}<span class="badge ok">bezahlt am {{ c.paid_date | de_date }}</span>{% else %}<span class="badge todo">noch nicht bezahlt</span>{% endif %}</td>
     <td class="actions">{% if not c.paid_date %}<form method="post" action="/gutschriften/{{ c.id }}/bezahlt" class="paid-form"><input type="hidden" name="token" value="{{ token }}"><button class="tiny">Bezahlt am</button> <input type="date" name="paid" value="{{ today_iso }}" max="{{ today_iso }}" aria-label="Zahlungseingang am"></form>{% endif %}</td>
   </tr>
   {% endfor %}
