@@ -554,7 +554,8 @@ def register_steuer(
         # Eine Währung: Gold von früher zieht einmal in Frittes Beutel um
         quest.umziehen(c)
         drache = spiel.drache(alle)
-        zettel = len(quest.lager_dateien(ws.root))
+        # Lena (Runde 71): Zettel, die schon auf einer Karte liegen, warten nicht mehr
+        zettel = len(korb_offen(c, jahr))
         zweifel = spiel.zweifel(alle)
         wach = spiel.drache_wach(alle) or jahr in app.state.steuer_notausgang
         besitz = quest.besitz(c, jahr)
@@ -728,15 +729,26 @@ def register_steuer(
         g = gebiet(p, gebiet_id)
         return g.titel if g else gebiet_id
 
+    def korb_offen(c: sqlite3.Connection, jahr: int) -> list[Path]:
+        """Die Zettel im Korb, die noch auf keiner Karte des Jahres liegen."""
+        return [f for f in quest.lager_dateien(ws.root) if not quest.schon_abgelegt(c, jahr, f)]
+
     def doppelt_melden(
         jahr: int, fund: quest.Fund | None, karte: dict, zurueck: str | None = None
     ) -> None:
         """Ehrlich sagen, warum eine Datei nicht (noch einmal) zählt, und einen Weg weiter
         zeigen: zum Beleg, und wenn es passt, "Steht da mit drin, hier auch zählen"."""
+        # Lena (Runde 71): sagen, wo die doppelte Kopie aus dem Korb jetzt liegt
+        weg = (
+            f" Die Kopie aus dem Korb liegt jetzt im Ordner „{fund.beiseite.parent.name}“."
+            if fund and fund.beiseite
+            else ""
+        )
         if fund is None or fund.stueck["id"] == karte["id"]:
             # Lena (Runde 46): Hier fehlte der Weg zum Beleg, den es bei anderen Karten gibt
             flash(
-                "Diese Datei hattest du schon gesammelt. Doppelt zählt nicht, aber gut gemerkt!",
+                "Diese Datei hattest du schon gesammelt. Doppelt zählt nicht, aber gut gemerkt!"
+                + weg,
                 link=(f"/steuer/{jahr}/belege#karte-{karte['id']}", "Zum Beleg") if fund else None,
             )
             return
@@ -746,7 +758,8 @@ def register_steuer(
         link = f"/steuer/{jahr}/belege#karte-{bei['id']}"
         if d and quest.darf_mitzaehlen(karte, bei):
             flash(
-                f"Diese Datei liegt schon bei {wo}. Steht das für „{karte['name']}“ mit drin?",
+                f"Diese Datei liegt schon bei {wo}. Steht das für „{karte['name']}“ mit drin?"
+                + weg,
                 "warn",
                 aktion={
                     "url": f"/steuer/{jahr}/stueck/{karte['id']}/mitzaehlen",
@@ -758,7 +771,7 @@ def register_steuer(
             return
         flash(
             f"Diese Datei liegt schon bei {wo}. Eine Datei zählt nur für eine Karte,"
-            " außer in derselben Provinz oder bei derselben Unterlage für mehrere Wohnungen.",
+            " außer in derselben Provinz oder bei derselben Unterlage für mehrere Wohnungen." + weg,
             "warn",
             aktion={"link": link},
         )
@@ -1389,7 +1402,7 @@ def register_steuer(
         if geerntet is not None:
             daten = lage(jahr)
         lager = quest.lager_dateien(ws.root)
-        stimmung, tipp = fritte_tipp(daten, lager)
+        stimmung, tipp = fritte_tipp(daten, korb_offen(conn(), jahr))
         return seite(
             request,
             "steuer_karte.html",
@@ -1995,7 +2008,7 @@ def register_steuer(
                     if s["frage"] != MACHT_BERATERIN and (s["status"] == "fragen" or s["frage"])
                 ),
             },
-            korb=quest.lager_dateien(ws.root),
+            korb=korb_offen(conn(), jahr),
             zahlen=zahlen,
             **daten,
         )

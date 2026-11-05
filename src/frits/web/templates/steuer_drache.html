@@ -171,11 +171,13 @@ Steuer-ID: {% endif %}</textarea></label>
     {% if welle | length > 4 %}<p class="muted">… und {{ welle | length - 4 }} weitere aus dieser Provinz.</p>{% endif %}
   </section>
   {% endif %}
-  {% if lager %}
+  {# Lena (Runde 71): Zettel, die schon auf einer Karte liegen, gehören nicht auf die Hand #}
+  {% set hand_alle = [] %}{% for f in lager or [] %}{% if not (schon_da is defined and schon_da(f, jahr)) %}{% set _ = hand_alle.append(f) %}{% endif %}{% endfor %}
+  {% if hand_alle %}
   {# Balatro-Kern: Der Eingangskorb ist deine Hand. Ein Zettel, der passt, ist ein Volltreffer. #}
-  {% set hand = lager[:8] %}
+  {% set hand = hand_alle[:8] %}
   <div class="sq-hand" aria-label="Deine Hand: Zettel aus dem Eingangskorb">
-    <p class="sq-hand-titel"><strong>Deine Hand:</strong> {{ lager | length }} Zettel aus dem Eingangskorb. Passt einer zu „{{ k.name }}“? Wirf ihn auf den Drachen!</p>
+    <p class="sq-hand-titel"><strong>Deine Hand:</strong> {{ hand_alle | length }} Zettel aus dem Eingangskorb. Passt einer zu „{{ k.name }}“? Wirf ihn auf den Drachen!</p>
     <form method="post" action="/steuer/{{ jahr }}/drache/schlag" class="sq-hand-faecher" style="--n: {{ hand | length }}" data-stempel="TREFFER!" data-beiseite="/steuer/{{ jahr }}/lager/beiseite">
       <input type="hidden" name="token" value="{{ token }}">
       <input type="hidden" name="stueck_id" value="{{ k.id }}">
@@ -184,7 +186,7 @@ Steuer-ID: {% endif %}</textarea></label>
       <button class="sq-handkarte{% if passt %} passt{% endif %}" name="zettel" value="{{ f.name }}" data-name="{{ f.name }}" draggable="true" data-rueckfrage="„{{ f.name }}“ als „{{ k.name }}“ abgeben? Er kommt so in die Fundkiste für deine Beraterin." data-rueckfrage-ja="Ja, passt" style="--i: {{ loop.index0 - (hand | length - 1) / 2 }}" title="„{{ f.name }}“ auf „{{ k.name }}“ werfen"><span class="art{% if endung in ['jpg', 'jpeg', 'png', 'heic'] %} bild{% endif %}">{{ (endung or "?")[:4] | upper }}</span><strong lang="de">{{ umbruch(f.name) }}</strong>{% if passt %}<em class="sq-spur">passt vielleicht</em>{% endif %}</button>
       {% endfor %}
     </form>
-    {% if lager | length > 8 %}<p class="sq-hand-titel">… und {{ lager | length - 8 }} weitere im Korb.</p>{% endif %}
+    {% if hand_alle | length > 8 %}<p class="sq-hand-titel">… und {{ hand_alle | length - 8 }} weitere im Korb.</p>{% endif %}
   </div>
   {% endif %}
   {% elif drache.will_beleg %}

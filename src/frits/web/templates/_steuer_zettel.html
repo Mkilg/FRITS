@@ -17,9 +17,10 @@
   {% set a = ahnungen[f.name] %}{% set spur = a.stueck %}
   {# Lena (Runde 61): Belege eines neu begonnenen Jahres landeten mit „Ja, passt“ im falschen Jahr #}
   {% set aus = aus_jahr(f) if aus_jahr is defined else none %}{% set anderes = aus and aus != jahr %}
+  {% set schon = schon_da(f, jahr) if schon_da is defined else none %}
   <div class="sq-zettel-reihe">
   <details class="sq-zettel" style="--r: {{ [-2.5, 1.5, -1, 2.2, -1.8, 0.8][loop.index0 % 6] }}deg" data-name="{{ f.name }}">
-    <summary draggable="true" title="{{ f.name }}: auf eine Provinz ziehen"><span class="art{% if endung in ['jpg', 'jpeg', 'png', 'heic'] %} bild{% endif %}">{{ (endung or "?")[:4] | upper }}</span><strong lang="de">{{ umbruch(f.name) if umbruch is defined else f.name }}</strong>{% set fj = fremdes_jahr(f.name, jahr, spur.key if spur else None) if fremdes_jahr is defined else None %}{# Lena (Runde 38): Das Schild steht in der zweiten Zeile, sonst bricht es das Raster des Zettels #}{% set schild %}{% if fj %}<span class="sq-anderes-jahr" title="Der Eingangskorb ist für alle Steuerjahre gemeinsam">aus {{ fj }}?</span> {% endif %}{% endset %}{% if spur %}<small class="sq-spur" title="Geraten nach dem Dateinamen">{{ schild }}Vielleicht: {{ spur.name }}{% if titel_von | length > 1 %} · {{ titel_von.get(spur.gebiet, "") }}{% endif %}?</small>{% elif a.gebiet %}<small class="sq-spur" title="Geraten nach dem Dateinamen">{{ schild }}Vielleicht: {{ titel_von.get(a.gebiet, "") }}?</small>{% elif a.dazu %}<small class="sq-spur" title="Geraten nach dem Dateinamen">{{ schild }}Vielleicht: {{ a.dazu[1] }} · {{ a.dazu[2] }}?</small>{% else %}<small>{{ schild }}<span class="nur-maus">ziehen oder klicken</span><span class="nur-touch">antippen</span></small>{% endif %}</summary>
+    <summary draggable="true" title="{{ f.name }}: auf eine Provinz ziehen"><span class="art{% if endung in ['jpg', 'jpeg', 'png', 'heic'] %} bild{% endif %}">{{ (endung or "?")[:4] | upper }}</span><strong lang="de">{{ umbruch(f.name) if umbruch is defined else f.name }}</strong>{% set fj = fremdes_jahr(f.name, jahr, spur.key if spur else None) if fremdes_jahr is defined else None %}{# Lena (Runde 38): Das Schild steht in der zweiten Zeile, sonst bricht es das Raster des Zettels #}{% set schild %}{% if fj %}<span class="sq-anderes-jahr" title="Der Eingangskorb ist für alle Steuerjahre gemeinsam">aus {{ fj }}?</span> {% endif %}{% endset %}{% if schon %}<small class="sq-spur">Liegt schon auf einer Karte</small>{% elif spur %}<small class="sq-spur" title="Geraten nach dem Dateinamen">{{ schild }}Vielleicht: {{ spur.name }}{% if titel_von | length > 1 %} · {{ titel_von.get(spur.gebiet, "") }}{% endif %}?</small>{% elif a.gebiet %}<small class="sq-spur" title="Geraten nach dem Dateinamen">{{ schild }}Vielleicht: {{ titel_von.get(a.gebiet, "") }}?</small>{% elif a.dazu %}<small class="sq-spur" title="Geraten nach dem Dateinamen">{{ schild }}Vielleicht: {{ a.dazu[1] }} · {{ a.dazu[2] }}?</small>{% else %}<small>{{ schild }}<span class="nur-maus">ziehen oder klicken</span><span class="nur-touch">antippen</span></small>{% endif %}</summary>
     <form method="post" action="/steuer/{{ jahr }}/lager/zuordnen" data-stempel="GESICHERT">
       <input type="hidden" name="token" value="{{ token }}">
       <input type="hidden" name="name" value="{{ f.name }}">
@@ -42,7 +43,6 @@
     </form>
   </details>
   {% set stutz = stutzen.get(f.name) if stutzen is defined else None %}
-  {% set schon = schon_da(f, jahr) if schon_da is defined else none %}
   {% if schon %}
   {# Lena (Runde 69): Doppel im Korb sahen aus wie Arbeit. Beiseite legen löscht nichts #}
   <form method="post" action="/steuer/{{ jahr }}/lager/beiseite" class="sq-ahnung sq-anderes-jahr sq-schon">

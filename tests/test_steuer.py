@@ -4721,3 +4721,32 @@ def test_runde_69_doppel_im_korb_und_ausweg_bei_fremdem_jahr(client, ws):
     # Neu beginnen: zählt die Belege und sagt, was schon im Korb lag
     seite = post(client, "/steuer/neu-beginnen", jahr="2025").text
     assert "Dein Beleg liegt im Eingangskorb. Dort lag schon ein anderer Zettel." in seite
+
+
+def test_runde_71_doppel_nicht_auf_der_hand_und_nie_still_geloescht(client, ws):
+    """Lena (Runde 71): Doppel lagen im Drachenkampf als Handkarten, und ein Wurf löschte die
+    Korb-Kopie still. „Als Nächstes“ und das Belegbuch zählten sie als wartend."""
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    _bis_wach(conn)
+    lager = quest.lager(ws.root)
+    lager.mkdir(parents=True, exist_ok=True)
+    (lager / "scan-02.pdf").write_bytes(b"%PDF-1 konto")
+    karte = spiel.drache(quest.stuecke(conn, 2025)).karte
+    post(client, "/steuer/2025/drache/schlag", stueck_id=str(karte["id"]), aktion="zettel",
+         zettel="scan-02.pdf")  # fmt: skip
+    (lager / "scan-02-kopie.pdf").write_bytes(b"%PDF-1 konto")
+    seite = client.get("/steuer/2025/drache").text
+    assert 'value="scan-02-kopie.pdf"' not in seite
+    assert "Im Korb warten" not in client.get("/steuer/2025/belege").text
+    insel = client.get("/steuer/2025").text
+    assert (
+        "Liegt schon auf einer Karte" in insel and "Im Eingangskorb liegt ein Zettel" not in insel
+    )
+    # Wirft man es trotzdem (alte Seite), kommt es beiseite statt in den Papierkorb
+    nochmal = spiel.drache(quest.stuecke(conn, 2025)).karte
+    seite = post(client, "/steuer/2025/drache/schlag", stueck_id=str(nochmal["id"]),
+                 aktion="zettel", zettel="scan-02-kopie.pdf").text  # fmt: skip
+    assert "Die Kopie aus dem Korb liegt jetzt im Ordner" in seite
+    assert not (lager / "scan-02-kopie.pdf").exists()
+    assert (quest.beiseite(ws.root) / "scan-02-kopie.pdf").read_bytes() == b"%PDF-1 konto"
