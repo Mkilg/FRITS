@@ -4878,7 +4878,8 @@ def test_runde_78_ehrliche_meldungen_und_spuernase_fragt_bei_privaten_konten(cli
     quest.verdiene(conn, 2025, "test", 50, "Testgold")
     post(client, "/steuer/2025/markt/kaufen", ware="spuernase")
     seite = post(client, "/steuer/2025/lager/vorschlaege").text
-    assert "2 Zettel hat sie liegen lassen" in seite
+    # Runde 86: Die Rückfragen standen schon am Zettel, also nicht „liegen lassen“
+    assert "Bei 2 Zetteln wartet Fritte noch auf dich" in seite
     assert (lager / "Sparkonto_Kontoauszug_2025.pdf").exists()
     assert (lager / "Kreditkarte_Kontoauszug_Mai.pdf").exists()
 
@@ -4920,7 +4921,7 @@ def test_runde_81_korb_und_spuernase_kennen_private_konten(client, ws):
     assert "Klingt nach Sparkonto" in reihe and "Ja, passt" not in reihe
 
     seite = post(client, "/steuer/2025/lager/vorschlaege").text
-    assert "2 Zettel hat sie liegen lassen" in seite
+    assert "liegen lassen" not in seite and "2 Zettel abgestempelt" in seite
     assert sorted(d.name for d in quest.lager_dateien(ws.root)) == [
         "Sparkonto_Kontoauszug.pdf",
         "Tagesgeld_Kontoauszug.pdf",
@@ -5023,3 +5024,26 @@ def test_runde_84_gibts_nicht_bleibt_und_leeres_textfeld(client, ws):
     assert "Trotzdem ablegen" in reihe and 'action="/steuer/2025/lager/beiseite"' in reihe
     css = client.get("/static/steuer.css").text
     assert ".sq-spuernase .sq-stempelknopf:hover" in css
+
+
+def test_runde_86_ruhende_karte_vor_namenszweifel_und_kassenbuch(client, ws):
+    """Lena (Runde 86): Bei „Beraterin fragen“ plus Namenszweifel kam „Trotzdem ablegen“ und
+    hob den Status still auf; das Kassenbuch lief bei 320 px über."""
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    name = "EUeR_Urlaubsvertretung_2025.pdf"
+    karte = spiel.ahnung(name, quest.stuecke(conn, 2025)).stueck
+    assert karte is not None
+    quest.setze_status(conn, karte["id"], "fragen", "Wie geht das?")
+    lager = quest.lager(ws.root)
+    lager.mkdir(parents=True, exist_ok=True)
+    (lager / name).write_bytes(b"%PDF euer")
+    insel = client.get("/steuer/2025").text
+    reihe = insel.split(f'data-name="{name}"', 1)[1].split("sq-zettel-reihe")[0]
+    assert "steht auf „Beraterin fragen“" in reihe and "Trotzdem ablegen" not in reihe
+    assert "Vielleicht" not in reihe and "Fritte fragt nach" in reihe
+    seite = post(client, "/steuer/2025/lager/zuordnen", name=name, stueck_id=str(karte["id"]),
+                 trotzdem="1").text  # fmt: skip
+    assert "Die Karte stand auf „Beraterin fragen“, jetzt zählt sie als gesammelt" in seite
+    css = client.get("/static/steuer.css").text
+    assert ".sq-goldbuch ol { grid-template-columns: minmax(0, 1fr); }" in css
