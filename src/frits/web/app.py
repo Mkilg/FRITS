@@ -83,6 +83,7 @@ from frits.billing import (
     new_draft,
     next_number,
     parse_amount,
+    quote_limit_problems,
     reviewed_line,
     save_draft,
     service_period,
@@ -473,7 +474,15 @@ def create_app(
         "link", "link_text"}; the note then stays until it is closed."""
         if undo:
             app.state.undo = undo
+        mehr = ""
+        if kind == "warnung" and len(text) > 160:
+            # Lena (Runde 82/85): at 320×568 a long warning pushed its button under the tab
+            # bar. The first sentence and the button stay in sight, the rest folds away.
+            cut = text.find(". ", 40)
+            if cut > 0:
+                text, mehr = text[: cut + 1], text[cut + 2 :]
         note = {"text": text, "kind": kind, "cue": cue, "stamp": stamp, "undo": bool(undo)}
+        note["mehr"] = mehr
         if link:
             note["link"], note["link_text"] = link
         note["aktion"] = aktion
@@ -1061,8 +1070,10 @@ def create_app(
                 extra, limit_warnings = limit_check(
                     conn, current, today().year, draft_totals(draft, current).net
                 )
-                problems += extra
-                limit_blocked = bool(extra)
+            else:
+                extra = quote_limit_problems(conn, current, today().year)
+            problems += extra
+            limit_blocked = bool(extra)
         return page(
             request,
             "draft.html",
@@ -1514,7 +1525,7 @@ def create_app(
             flash(str(exc), "error")
             return back("/invoices")
         for note in storno_limit_note(conn, current, jahr, vorher):
-            flash(note, "warnung", link=("/settings#steuern", "Zu den Einstellungen"))
+            flash(note, "warnung", link=_einstellungen_link([note]))
         return back("/invoices")
 
     @app.post("/invoices/{number}/email", dependencies=guarded)

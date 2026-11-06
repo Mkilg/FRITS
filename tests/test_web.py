@@ -1441,11 +1441,17 @@ def test_draft_cards_and_limit_hints_on_the_draft(client, ws):
     assert "Auf der Rechnung: „Gemäß § 19" not in page
     assert "darf diese Rechnung nicht tragen" in page
     assert (
-        "data-zeile-weg hidden>Entfernen</button>"
+        'data-zeile-weg hidden aria-label="Position entfernen"'
         in (
             Path(__file__).parent.parent / "src" / "frits" / "web" / "templates" / "draft.html"
         ).read_text()
     )
+    # Lena (Runde 85): a quote is blocked too, it would promise a price without VAT.
+    post(client, "/drafts/new", customer="erika-meier", kind="quote")
+    quote_page = client.get(f"/drafts/{latest_draft(ws)}").text
+    assert "Angebot: Entwurf" in quote_page
+    assert "Ein Angebot ohne Umsatzsteuer" in quote_page
+    assert "darf dieses Angebot nicht tragen" in quote_page
     settings_page = client.get(f"/settings?zurueck=/drafts/{draft_id}").text
     assert f'name="zurueck" value="/drafts/{draft_id}"' in settings_page
     for fremd in ("https://example.com", "//example.com", "/drafts/1/../../x", "/settings"):

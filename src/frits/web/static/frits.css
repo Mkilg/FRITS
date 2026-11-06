@@ -197,7 +197,9 @@ ul.list a:hover { background: var(--creme); }
   ul.list a:has(> .badge) { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.15rem 0.6rem; }
   ul.list a:has(> .badge)::after { content: ""; flex-basis: 100%; order: 1; }
   ul.list a:has(> .badge) > :nth-child(1) { flex: 1 1 0; min-width: 0; overflow-wrap: break-word; }
-  ul.list a:has(> .badge) > :nth-child(2) { order: 2; flex: 1 1 6rem; min-width: 0; overflow-wrap: anywhere; }
+  /* Runde 85: Breite nach dem Namen; ist er lang, rutscht der Stempel in eine eigene Zeile,
+     statt dass „Agentur Muster GmbH“ in drei Zeilen bricht */
+  ul.list a:has(> .badge) > :nth-child(2) { order: 2; flex: 1 1 auto; min-width: 0; overflow-wrap: break-word; }
   ul.list a:has(> .badge) > .amount { margin-left: auto; text-align: right; white-space: nowrap; }
   ul.list a:has(> .badge) > .badge { order: 2; margin-left: auto; }
 }
@@ -250,6 +252,9 @@ table { width: 100%; border-collapse: collapse; }
   .lines td.l-leistung .zeile-weg { margin-top: 0; }
 }
 .lines .zeile-weg { display: none; }
+.lines .zeile-weg:not([hidden]) { min-width: 44px; font-size: var(--fs-text); }
+.flash-mehr { margin-top: 0.4rem; }
+.flash-mehr summary { cursor: pointer; font-weight: 600; color: inherit; }
 /* „Entfernen“ blendet die Karte aus; display: grid am Handy überstimmte sonst hidden (Runde 82) */
 .lines tbody tr[hidden] { display: none; }
 @media (max-width: 600px) {

@@ -436,7 +436,12 @@ def limit_notes_after(
     notes = []
     if year >= 2025:
         before, after = limit_crossing(conn, year, without=key), limit_crossing(conn, year)
-        if after and after == before and _counts_after(conn, year, key, after):
+        if (
+            after
+            and after == before
+            and _without_vat(conn, key)
+            and _counts_after(conn, year, key, after)
+        ):
             # Lena (Runde 82): the year was over 100,000 € already, so this one needs VAT too.
             art = label.split()[0]
             notes.append(
@@ -448,6 +453,7 @@ def limit_notes_after(
                     if art == "Gutschrift"
                     else "Umsatzsteuer und muss berichtigt werden."
                 )
+                + (_SWITCH_NOW if jetzt else "")
                 + " Sprich bitte mit deiner Steuerberatung."
             )
         elif after and after != before:
@@ -468,7 +474,8 @@ def limit_notes_after(
             if year + 1 <= today.year:
                 text += _next_year_correction(conn, year + 1, today)
             else:
-                text += " Sprich bitte mit deiner Steuerberatung."
+                # Lena (Runde 85): the running year needs the switch in the settings too.
+                text += _SWITCH_NOW + " Sprich bitte mit deiner Steuerberatung."
             notes.append(text)
     grenze = _prior_limit(year)
     if grenze is not None and not notes:
@@ -491,6 +498,33 @@ def limit_notes_after(
     return notes
 
 
+_SWITCH_NOW = " Stell in den Einstellungen unter „Steuern“ auf „Mit Umsatzsteuer“ um."
+
+
+def _without_vat(conn, key: str) -> bool:
+    """Was this one written without German VAT although it would have needed it? An invoice
+    with VAT, or a Gutschrift from abroad (reverse charge, Drittland), needs no correction
+    (Lena Runde 85: "braucht auch diese Rechnung Umsatzsteuer" on an invoice with 19 %)."""
+    kind, _, ident = key.partition(":")
+    if kind == "c":
+        row = conn.execute("SELECT vat, kind FROM credits WHERE id = ?", (ident,)).fetchone()
+        return bool(row) and Decimal(row[0]) == 0 and row[1] == "inland"
+    row = conn.execute("SELECT vat FROM invoices WHERE number = ?", (ident,)).fetchone()
+    return bool(row) and Decimal(row[0]) == 0
+
+
+def quote_limit_problems(conn, settings: Settings, year: int) -> list[str]:
+    """A quote from a Kleinunternehmer carries "Gemäß § 19 UStG …" and a price without VAT.
+    Once the limits are crossed that price is wrong, so the quote is not written either
+    (Lena Runde 85: AN-2026-0001 went out with the § 19 sentence)."""
+    if not limit_check(conn, settings, year)[0]:
+        return []
+    return [
+        f"Laut FRITS bist du {year} kein Kleinunternehmer mehr (§ 19 UStG). Ein Angebot ohne "
+        "Umsatzsteuer würde deinem Kunden einen zu niedrigen Preis versprechen. " + _SWITCH
+    ]
+
+
 def _counts_after(conn, year: int, key: str, crossing: tuple[str, date]) -> bool:
     """Does `key` count after the item that crossed 100,000 € (so it needed VAT too)?"""
     seen = False
@@ -501,9 +535,10 @@ def _counts_after(conn, year: int, key: str, crossing: tuple[str, date]) -> bool
     return False
 
 
-def _names(items: list[str], most: int = 10) -> str:
-    shown = ", ".join(items[:most])
-    return shown + (f" und {len(items) - most} weitere" if len(items) > most else "")
+def _names(items: list[str]) -> str:
+    """All of them: "und 2 weitere" left Fritz guessing which (Lena Runde 85). The long part
+    of a note sits behind "Was heißt das?", so a long list costs no room."""
+    return ", ".join(items)
 
 
 def _next_year_correction(conn, folgejahr: int, today: date) -> str:

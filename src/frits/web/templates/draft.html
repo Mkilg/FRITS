@@ -62,7 +62,7 @@
         <tbody>
         {% for line in draft.lines %}
           <tr class="{{ 'needs' if line.unit_price is none }}">
-            <td class="l-leistung" data-k="Leistung"><input name="description" value="{{ line.description }}" {{ "readonly" if not editable }}>{% if editable %}<button type="button" class="tiny quiet zeile-weg" data-zeile-weg hidden>Entfernen</button>{% endif %}</td>
+            <td class="l-leistung" data-k="Leistung"><input name="description" value="{{ line.description }}" {{ "readonly" if not editable }}>{% if editable %}<button type="button" class="tiny quiet zeile-weg" data-zeile-weg hidden aria-label="Position entfernen" title="Position entfernen">✕</button>{% endif %}</td>
             <td class="l-datum" data-k="Datum"><input name="date" value="{{ line.date or '' }}" size="10" {{ "readonly" if not editable }}></td>
             <td class="l-menge" data-k="Menge"><input name="quantity" value="{{ line.quantity | qty }}" size="5" inputmode="decimal" {{ "readonly" if not editable }}></td>
             <td class="l-einheit" data-k="Einheit"><select name="unit" {{ "disabled" if not editable }}>{% for u in units %}<option {{ "selected" if u == line.unit }}>{{ u }}</option>{% endfor %}</select></td>
@@ -81,7 +81,7 @@
         {% endfor %}
         {% if editable %}
           <tr class="blank">
-            <td class="l-leistung" data-k="Leistung"><input name="description" placeholder="Neue Position"><button type="button" class="tiny quiet zeile-weg" data-zeile-weg hidden>Entfernen</button></td>
+            <td class="l-leistung" data-k="Leistung"><input name="description" placeholder="Neue Position"><button type="button" class="tiny quiet zeile-weg" data-zeile-weg hidden aria-label="Position entfernen" title="Position entfernen">✕</button></td>
             <td class="l-datum" data-k="Datum"><input name="date" size="10"></td>
             <td class="l-menge" data-k="Menge"><input name="quantity" size="5" inputmode="decimal"></td>
             <td class="l-einheit" data-k="Einheit"><select name="unit">{% for u in units %}<option>{{ u }}</option>{% endfor %}</select></td>
@@ -105,7 +105,7 @@
         </tfoot>
       </table>
       </div>
-      <p class="hint">{% if sums.note and limit_blocked %}Den Satz „{{ sums.note }}“ darf diese Rechnung nicht tragen, siehe unten. {% elif sums.note %}Auf {{ "dem Angebot" if is_quote else "der Rechnung" }}: „{{ sums.note }}“ {% endif %}{{ info_i("Preise kommen aus der Kundennotiz oder deinen Einstellungen, nie von der KI. Du kannst jeden Wert ändern.", "Woher die Preise kommen") }}</p>
+      <p class="hint">{% if sums.note and limit_blocked %}Den Satz „{{ sums.note }}“ darf {{ "dieses Angebot" if is_quote else "diese Rechnung" }} nicht tragen, siehe unten. {% elif sums.note %}Auf {{ "dem Angebot" if is_quote else "der Rechnung" }}: „{{ sums.note }}“ {% endif %}{{ info_i("Preise kommen aus der Kundennotiz oder deinen Einstellungen, nie von der KI. Du kannst jeden Wert ändern.", "Woher die Preise kommen") }}</p>
       {% if rate_column and editable %}<details class="hint"{% if sums.groups|length > 1 %} open{% endif %}><summary>Wann 7 %?</summary>USt „normal“ ist dein Satz aus den Einstellungen. 7 % gilt zum Beispiel, wenn du Nutzungsrechte an Texten, Beiträgen oder Fotos einräumst (§ 12 Abs. 2 Nr. 7c UStG). Fahrt- und Recherchekosten zu so einem Artikel bekommen meist denselben Satz wie der Artikel selbst, weil sie dazugehören. Bahntickets rechnest du netto weiter, also ohne die Umsatzsteuer, die auf dem Ticket steht. Im Zweifel frag deine Steuerberatung.</details>{% endif %}
       {% for w in draft_hints or [] %}<p class="hint warn-text">{{ w }}</p>{% endfor %}
       {% for w in limit_warnings or [] %}<p class="hint warn-text">{{ w }}</p>{% endfor %}
