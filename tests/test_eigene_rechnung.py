@@ -416,3 +416,6 @@ def test_entering_an_invoice_that_moves_the_limit_says_so_where_it_is_seen(clien
     assert 'class="flash warnung"' in entered.text
     assert "Rechnung 2026-0001 vom 01.06.2026" in entered.text
     assert str(entered.url).endswith("/invoices")
+    # Lena (Runde 85): the core sentence and the button first, the rest folded away
+    warnung = entered.text.split('class="flash warnung"')[1].split("</div>")[0]
+    assert warnung.index("Zu den Einstellungen") < warnung.index("Was heißt das?")

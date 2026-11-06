@@ -429,3 +429,68 @@ def test_last_year_straight_over_100k_and_entries_after_the_line(tmp_path):
         conn, klein, "r:A-0", "Rechnung A-0", date(2026, 1, 5), Decimal(10), DAY
     )
     assert not any("schon seit" in n for n in notes)
+
+
+def test_no_correction_for_what_already_had_vat_and_quotes_stop_too(tmp_path):
+    """Lena (Runde 85): an invoice entered with 19 % after the line was told it "braucht auch
+    Umsatzsteuer"; a Gutschrift from abroad neither. And a quote over the limits would carry
+    "Gemäß § 19 UStG", so it is not written."""
+    from frits import gutschriften
+    from frits.billing import limit_notes_after, quote_limit_problems
+    from frits.quotes import create_quote
+
+    conn = store.connect(tmp_path / "frits.db")
+    klein = _settings(tax_mode="kleinunternehmer")
+    _row(conn, "A-1", "2026-03-01", "100500")
+    conn.execute(
+        "INSERT INTO invoices (number, customer, issue_date, net, vat, gross)"
+        " VALUES ('RE-2026-4', 'x', '2026-05-01', '1000', '190', '1190')"
+    )
+    assert (
+        limit_notes_after(
+            conn, klein, "r:RE-2026-4", "Rechnung RE-2026-4", date(2026, 5, 1), Decimal(1000), DAY
+        )
+        == []
+    )
+    eu = gutschriften.add(
+        conn,
+        customer_id="eu",
+        customer="EU-Sender",
+        their_number="GS-EU",
+        issue_date=date(2026, 6, 1),
+        gross=Decimal(300),
+        vat_rate=Decimal(0),
+        kind="eu",
+    )
+    assert (
+        limit_notes_after(
+            conn, klein, f"c:{eu}", "Gutschrift GS-EU", date(2026, 6, 1), Decimal(300), DAY
+        )
+        == []
+    )
+    _row(conn, "A-2", "2026-07-01", "50")
+    [note] = limit_notes_after(
+        conn, klein, "r:A-2", "Rechnung A-2", date(2026, 7, 1), Decimal(50), DAY
+    )
+    assert "braucht auch diese Rechnung Umsatzsteuer" in note
+    assert "auf „Mit Umsatzsteuer“ um" in note  # the running year: switch in the settings
+    [problem] = quote_limit_problems(conn, klein, 2026)
+    assert "(§ 19 UStG)" in problem and "Ein Angebot ohne Umsatzsteuer" in problem
+    assert quote_limit_problems(conn, _settings(), 2026) == []
+    draft = _draft(_line("Beitrag", "500"))
+    draft.kind = "quote"
+    with pytest.raises(BillingError, match="Ein Angebot ohne Umsatzsteuer"):
+        create_quote(conn, draft, klein, tmp_path, date(2026, 11, 5))
+
+
+def test_current_year_crossing_names_the_settings(tmp_path):
+    """Lena (Runde 85): since #258 the crossing in the running year lost the settings."""
+    from frits.billing import earlier_limit_notes
+
+    conn = store.connect(tmp_path / "frits.db")
+    klein = _settings(tax_mode="kleinunternehmer")
+    _row(conn, "A-1", "2026-03-01", "99950")
+    _row(conn, "A-2", "2026-04-01", "100")
+    [note] = earlier_limit_notes(conn, klein, "A-2", date(2026, 11, 5))
+    assert note.startswith("Mit dieser Rechnung liegt dein Umsatz 2026 über 100.000 €.")
+    assert "auf „Mit Umsatzsteuer“ um" in note

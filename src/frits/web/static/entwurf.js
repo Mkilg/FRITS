@@ -147,9 +147,8 @@
     var tr = b.closest("tr");
     tr.querySelectorAll("input").forEach(function (i) { i.value = ""; });
     tr.hidden = true;
-    var next = tr.parentNode.querySelector("tr:not([hidden]) input");
+    // Kein Fokus in ein Textfeld: am Handy ginge sonst die Tastatur auf (Lena Runde 85)
     update();
-    if (next) next.focus({ preventScroll: true });
   });
   table.addEventListener("input", function () { growIfNeeded(); update(); });
   table.addEventListener("change", update);

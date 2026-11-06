@@ -31,6 +31,10 @@ def create_quote(conn, draft: Draft, settings: Settings, folder: Path, today: da
         raise BillingError("Kunde mit Adresse fehlt.")
     if not draft.lines or any(line.unit_price is None for line in draft.lines):
         raise BillingError("Jede Position im Angebot braucht einen Preis.")
+    from frits.billing import quote_limit_problems
+
+    if problems := quote_limit_problems(conn, settings, today.year):
+        raise BillingError(" ".join(problems))
     valid = today + timedelta(days=VALID_DAYS)
     with store.transaction(conn):
         number = next_quote_number(conn, today.year)
