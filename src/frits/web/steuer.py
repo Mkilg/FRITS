@@ -1876,6 +1876,10 @@ def register_steuer(
             wie = ""
             if fund.verweis:
                 wie = f" (dieselbe Datei wie bei {titel_von(jahr, fund.verweis['gebiet'])})"
+            # Lena (Runde 86): „Doch dazulegen“ hob still „gibt es nicht“ auf
+            ruhte = {"gibts_nicht": "gibt es nicht", "fragen": "Beraterin fragen"}.get(s["status"])
+            if ruhte:
+                wie += f". Die Karte stand auf „{ruhte}“, jetzt zählt sie als gesammelt"
             flash(f"+1 Beleg! {name} → {s['name']}{wie}", "beute", "done")
         else:
             doppelt_melden(jahr, fund, s, str(form.get("back") or ""))
@@ -1969,9 +1973,14 @@ def register_steuer(
             # Geschäftskonto), entscheidet der Mensch
             z = zweifel_an(jahr, karte, quelle, quelle.name)
             if z is not None:
-                # Lena (Runde 81): Die Rückfrage steht dann gleich am Zettel im Korb
+                # Lena (Runde 81): Die Rückfrage steht dann gleich am Zettel im Korb.
+                # Lena (Runde 86): Stand sie dort schon (am Namen erkannt), ist sie nicht neu
+                schon_gezeigt = zweifel_am_namen(quelle, jahr, karte) is not None
                 merke_stutzen(jahr, karte, quelle.name, z, z.kurz or z.text)
-                gefragt += 1
+                if schon_gezeigt:
+                    wartet += 1
+                else:
+                    gefragt += 1
                 continue
             fund = quest.sammeln(c, ws.root, karte["id"], quelle, verschieben=True)
             if fund.neu:

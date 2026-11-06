@@ -2048,3 +2048,8 @@ details.sq-mehr-marken .kurz { display: none; }
 .sq-zettel strong { overflow-wrap: break-word; }
 .sq-zettel summary small { min-width: 0; overflow-wrap: break-word; hyphens: auto; -webkit-hyphens: auto; }
 .sq .endung { display: inline-block; }
+/* Lena (Runde 86): Ein langer Eintrag („Verbände, Presseausweis, Berufshaftpflicht“) zog das
+   Kassenbuch auf 437 px. Flex- und Grid-Kinder dürfen schmaler werden als ihr Text */
+.sq-markt-mehr > * { min-width: 0; }
+.sq-goldbuch ol { grid-template-columns: minmax(0, 1fr); }
+.sq-goldbuch li { min-width: 0; }
