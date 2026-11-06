@@ -54,6 +54,7 @@ _KEIN_PRIVATES_KONTO = (
     "firmenkart",
     "firmenkredit",
     "businesscard",
+    "businesskredit",
     "corporatecard",
 )
 PRIVATE_KONTEN = {
@@ -150,7 +151,7 @@ def pruefe(
             return Zweifel(
                 "privates_konto",
                 f"„{original}“ klingt nach {konto}. Gehört das wirklich zu „{karte}“?",
-                kurz=f"Klingt nach {konto}. Wirklich Geschäftskonto?",
+                kurz=f"Klingt nach {konto}. Wirklich „{karte}“?",
             )
     if quellen and nennt_die_karte(original, quellen):
         return None
@@ -159,7 +160,7 @@ def pruefe(
         return Zweifel(
             "privat",
             f"„{original}“ klingt nach einem privaten Foto, nicht nach „{karte}“.",
-            kurz="Klingt nach einem privaten Foto.",
+            kurz=f"Klingt privat. Wirklich „{karte}“?",
         )
     # Passt der Name klar zu einer anderen Karte, aber gar nicht zu dieser?
     if not ausdruecklich and spiel.ahnung(original, [stueck]).stueck is None:
@@ -169,7 +170,7 @@ def pruefe(
                 "andere_karte",
                 f"„{original}“ klingt eher nach „{andere['name']}“ als nach „{karte}“.",
                 besser=andere,
-                kurz=f"Klingt eher nach „{andere['name']}“.",
+                kurz=f"Klingt eher nach „{andere['name']}“ als nach „{karte}“.",
             )
     if bild_lesen and Path(original).suffix.lower() in BILDER:
         n = lesbare_woerter(pfad)
@@ -178,6 +179,6 @@ def pruefe(
                 "kein_text",
                 f"Auf „{original}“ finde ich keinen Text. Das sieht aus wie ein Foto,"
                 f" nicht wie „{karte}“.",
-                kurz="Kein Text darauf, eher ein Foto.",
+                kurz=f"Kein Text darauf. Wirklich „{karte}“?",
             )
     return None

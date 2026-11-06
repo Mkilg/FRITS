@@ -2777,7 +2777,7 @@ def test_runde_26_rueckfrage_bleibt_am_zettel(client, ws):
     assert "Fritte stutzt" in seite
     # Neu laden: Die Frage steht weiter am Zettel, mit dem Weg "Trotzdem"
     karte = client.get("/steuer/2025").text
-    assert 'class="sq-ahnung sq-stutzt"' in karte and "Trotzdem zu „Steuer-ID“" in karte
+    assert 'class="sq-ahnung sq-stutzt"' in karte and "trotzdem zu „Steuer-ID“ legen" in karte
     seite = post(
         client,
         "/steuer/2025/lager/zuordnen",
@@ -3149,13 +3149,13 @@ def test_runde_36_rueckfrage_bleibt_mit_hinweis_wenn_die_karte_etwas_hat(client,
     }  # fmt: skip
     quest.lager(ws.root).mkdir(parents=True, exist_ok=True)
     (quest.lager(ws.root) / "brief.png").write_bytes(b"\x89PNG")
-    assert "Trotzdem zu" in client.get("/steuer/2025").text
+    assert "Trotzdem ablegen" in client.get("/steuer/2025").text
     (ws.root / "beleg.pdf").write_bytes(b"%PDF beleg")
     quest.sammeln(conn, ws.root, karte["id"], ws.root / "beleg.pdf")
     seite = client.get("/steuer/2025").text
-    assert "Trotzdem zu" in seite and "Hm. Die Karte hat schon etwas." in seite
+    assert "Trotzdem ablegen" in seite and "Die Karte hat schon etwas, es kommt dazu" in seite
     quest.setze_status(conn, karte["id"], "gibts_nicht")
-    assert "Trotzdem zu" not in client.get("/steuer/2025").text
+    assert "Trotzdem ablegen" not in client.get("/steuer/2025").text
 
 
 def test_runde_37_erster_schatz_ist_die_erste_zeile(client, ws):
@@ -4929,9 +4929,10 @@ def test_runde_81_korb_und_spuernase_kennen_private_konten(client, ws):
     insel = client.get("/steuer/2025").text
     assert "Spürnase: alle" not in insel
     reihe = insel.split('data-name="Tagesgeld_Kontoauszug.pdf"', 1)[1].split("sq-zettel-reihe")[0]
-    assert "Klingt nach Tagesgeld" in reihe and "Die Karte hat schon etwas." in reihe
+    assert "Klingt nach Tagesgeld" in reihe and "Die Karte hat schon etwas, es kommt" in reihe
     seite = post(client, "/steuer/2025/lager/vorschlaege").text
-    assert "keinen Zettel gefunden" in seite and "2 Zettel hat sie liegen lassen" in seite
+    assert "keinen Zettel gefunden" in seite and "Bei 2 Zetteln wartet Fritte" in seite
+    assert "liegen lassen" not in seite
 
 
 def test_runde_83_fotos_ehrlich_gezaehlt_und_rueckfragen_bleiben(client, ws):
@@ -4972,7 +4973,7 @@ def test_runde_83_fotos_ehrlich_gezaehlt_und_rueckfragen_bleiben(client, ws):
          files={"datei": ("Sparbuch 2025.pdf", b"%PDF spar", "application/pdf")})  # fmt: skip
     insel = client.get("/steuer/2025").text
     reihe = insel.split('data-name="Sparbuch 2025.pdf"', 1)[1].split("sq-zettel-reihe")[0]
-    assert "Fritte stutzt" in reihe and "Die Karte hat schon etwas." in reihe
+    assert "Fritte stutzt" in reihe and "Die Karte hat schon etwas, es kommt" in reihe
 
     # Leeres Textfeld: freundlich statt rot; gleicher Inhalt nennt den Korb-Namen
     seite = post(client, "/steuer/2025/lager/hochladen", text="   ").text
@@ -4980,3 +4981,45 @@ def test_runde_83_fotos_ehrlich_gezaehlt_und_rueckfragen_bleiben(client, ws):
     seite = post(client, "/steuer/2025/lager/hochladen",
                  files=[("files", ("Kopie.pdf", b"%PDF spar"))]).text  # fmt: skip
     assert "dort heißt sie „Sparbuch 2025.pdf“" in seite
+
+
+def test_runde_84_gibts_nicht_bleibt_und_leeres_textfeld(client, ws):
+    """Lena (Runde 84): Die Spürnase stempelte auf „gibt es nicht“, der Zettel bot dort
+    „Ja, passt“ an; ein leeres Textfeld kam rot zurück; im Kasten fehlte „Beiseite“."""
+    from frits.steuer import pruefung
+
+    fragebogen(client, teil1={"name": "Kim"}, teil2={"m_freiberuflich_0": "1"})
+    conn = quest.ensure_schema(store.connect(ws.db))
+    konto = next(s for s in quest.stuecke(conn, 2025) if s["key"] == "kontoauszuege")
+    z = pruefung.pruefe(Path("x"), "Business Kreditkarte Kontoauszug.pdf", konto, [konto],
+                        bild_lesen=False)  # fmt: skip
+    assert z is None or z.grund != "privates_konto"
+
+    # Leeres Textfeld: Der Browser schickt einen leeren Datei-Teil mit
+    seite = post(client, "/steuer/2025/lager/hochladen", text="",
+                 files=[("files", ("", b"", "application/octet-stream"))]).text  # fmt: skip
+    assert "Das Textfeld war leer" in seite and "keine Datei mitgeschickt" not in seite
+
+    lager = quest.lager(ws.root)
+    lager.mkdir(parents=True, exist_ok=True)
+    (lager / "Kontoauszug_Januar.pdf").write_bytes(b"%PDF jan")
+    (lager / "Kontoauszug_Februar.pdf").write_bytes(b"%PDF feb")
+    quest.setze_status(conn, konto["id"], "gibts_nicht")
+    quest.verdiene(conn, 2025, "test", 50, "Testgold")
+    post(client, "/steuer/2025/markt/kaufen", ware="spuernase")
+    insel = client.get("/steuer/2025").text
+    reihe = insel.split('data-name="Kontoauszug_Januar.pdf"', 1)[1].split("sq-zettel-reihe")[0]
+    assert "steht auf „gibt es nicht“" in reihe and "Ja, passt" not in reihe
+    assert "Spürnase: alle" not in insel
+    post(client, "/steuer/2025/lager/vorschlaege")
+    assert (lager / "Kontoauszug_Januar.pdf").exists()
+    assert quest.stueck(conn, konto["id"])["status"] == "gibts_nicht"
+
+    # Am Stutz-Kasten gibt es „Beiseite“
+    quest.setze_status(conn, konto["id"], "offen")
+    (lager / "Sparkonto_Kontoauszug.pdf").write_bytes(b"%PDF spar")
+    insel = client.get("/steuer/2025").text
+    reihe = insel.split('data-name="Sparkonto_Kontoauszug.pdf"', 1)[1].split("sq-zettel-reihe")[0]
+    assert "Trotzdem ablegen" in reihe and 'action="/steuer/2025/lager/beiseite"' in reihe
+    css = client.get("/static/steuer.css").text
+    assert ".sq-spuernase .sq-stempelknopf:hover" in css

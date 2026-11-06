@@ -189,6 +189,13 @@ def umbruch(name: str) -> Markup:
     („Steuerbescheid_202 / 4_Finanzamt.pdf“, Lena Runde 39). Die Endung bleibt am Wort
     (Runde 40: „Verlustvortrag_2022. / png“), lange Wörter trennt das CSS mit Bindestrich."""
     teile = re.split(r"(?<=[_\-])", name)
+    stamm, punkt, endung = teile[-1].rpartition(".")
+    if punkt and len(stamm) >= 14 and endung.isalnum():
+        # Lena (Runde 84): „Ausgangsrechnungen.pdf“ ist für den Browser ein Wort ohne
+        # Silbentrennung, am Mac brach es zu „Ausgangsrechnun / gen.pdf“. Mit der Endung als
+        # eigenem Kästchen trennt er „Aus-gangsrechnungen“
+        letzt = Markup('{}<span class="endung">.{}</span>').format(stamm, endung)
+        return Markup("<wbr>").join([*(escape(t) for t in teile[:-1]), letzt])
     return Markup("<wbr>").join(escape(t) for t in teile)
 
 
@@ -1940,13 +1947,14 @@ def register_steuer(
             return back(zurueck)
         vorher = lage(jahr)
         alle = quest.stuecke(c, jahr)
-        gestempelt, doppelt, weg, gefragt = 0, 0, None, 0
+        gestempelt, doppelt, weg, gefragt, wartet = 0, 0, None, 0, 0
         stutzt = offene_stutzen()
         for quelle in quest.lager_dateien(ws.root):
             if quelle.name in stutzt:
                 # Lena (Runde 76): Wo Fritte stutzt, entscheidet der Mensch. Lena (Runde 81):
                 # Beim zweiten Mal zählt die Meldung sie trotzdem mit
-                gefragt += stutzt[quelle.name]["jahr"] == jahr
+                # Lena (Runde 84): aber nicht als „liegen lassen“ bei jedem Tippen
+                wartet += stutzt[quelle.name]["jahr"] == jahr
                 continue
             karte = spiel.ahnung(quelle.name, alle).stueck
             aus = quest.korb_jahr(c, quelle)
@@ -1954,6 +1962,9 @@ def register_steuer(
                 continue  # Lena (Runde 61): ein Beleg aus einem neu begonnenen anderen Jahr
             if fremdes_jahr(quelle.name, jahr, karte["key"]):
                 continue  # Lena (Runde 63): „aus 2024?“ lässt die Spürnase auch liegen
+            if karte["status"] not in ("offen", "gesammelt"):
+                # Lena (Runde 84): Auf „gibt es nicht“ stempelte sie, und die Karte war wieder da
+                continue
             # Lena (Runde 78): Wo Fritte stutzen würde (etwa ein Sparkonto auf dem
             # Geschäftskonto), entscheidet der Mensch
             z = zweifel_an(jahr, karte, quelle, quelle.name)
@@ -2007,7 +2018,16 @@ def register_steuer(
                 else None,
             )
         else:
-            flash("Die Spürnase hat keinen Zettel gefunden, bei dem sie sicher ist." + liegen)
+            flash(
+                "Die Spürnase hat keinen Zettel gefunden, bei dem sie sicher ist."
+                + liegen
+                + (
+                    f" Bei {'einem Zettel' if wartet == 1 else f'{wartet} Zetteln'}"
+                    " wartet Fritte noch auf dich."
+                    if wartet and not gefragt
+                    else ""
+                )
+            )
         if belohnen(jahr, vorher):
             return back(f"/steuer/{jahr}/drache")
         return back(zurueck)
@@ -2404,7 +2424,13 @@ def register_steuer(
             )
         if not gelegt and not zu_gross and not bekannt:
             # Lena (Runde 37): Nach „Kenne ich schon“ wirkte diese Meldung wie ein Fehler
-            if "text" in form and not form.getlist("files") and not form.getlist("datei"):
+            # Lena (Runde 84): Der Browser schickt immer einen leeren Datei-Teil mit
+            echte = [
+                u
+                for u in [*form.getlist("files"), *form.getlist("datei")]
+                if upload_name(getattr(u, "filename", ""))
+            ]
+            if "text" in form and not echte:
                 # Lena (Runde 83): Ein leeres Textfeld ist kein Fehler, nur nichts zu tun
                 flash("Das Textfeld war leer. Füg erst etwas ein, dann lege ich es in den Korb.")
             else:
